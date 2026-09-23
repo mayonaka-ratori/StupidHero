@@ -97,6 +97,23 @@ const prop = (key: string, w: number, h: number, anchor: SheetDef['anchor']): Sh
   key, frameW: w, frameH: h, cols: 2, anchor, rows: [a('state', 2, 1, false, '0:ふつう、1:壊れた')]
 });
 
+/** ふつうと壊れた以外のコマもある物(ワゴン、高級車) */
+const propN = (key: string, w: number, h: number, frames: number, note: string): SheetDef => ({
+  key, frameW: w, frameH: h, cols: frames, anchor: 'bottom', rows: [a('state', frames, 8, false, note)]
+});
+
+const BOSS2: SheetDef = {
+  key: 'boss2', frameW: 96, frameH: 96, cols: 4, anchor: 'feet',
+  rows: [
+    a('reveal', 4, 10, false, '正体を現す。変装を脱ぎすて、毛皮のコートとサングラス'),
+    a('idle', 2, 4, true, '待機。腕を組んで見下ろす'),
+    a('rampage', 4, 10, true, '暴れる。手下の車をけしかける、物を投げる'),
+    a('hit', 2, 15, true, 'ラッシュを受ける'),
+    a('defeat', 4, 8, false, 'やられる。目を回して倒れる'),
+    a('jump', 4, 10, false, '車に飛び乗る')
+  ]
+};
+
 const fx = (key: string, w: number, h: number, frames: number, fps: number, loop: boolean, note: string): SheetDef => ({
   key, frameW: w, frameH: h, cols: frames, anchor: 'center', rows: [a('play', frames, fps, loop, note)]
 });
@@ -117,6 +134,20 @@ export const SHEETS: SheetDef[] = [
   prop('prop_sign', 32, 24, 'center'),
   prop('prop_vending', 32, 64, 'bottom'),
   prop('prop_car', 128, 56, 'bottom'),
+  // ─── ステージ2(docs/STAGE2.md)───
+  // 小物(腕章、タオル、バンダナ、ヘアバンド、スカーフ)は KEY_ACCESSORY の色で描き、ゲームの中で人ごとの色に塗り替える
+  person('guard_civ', false), person('guard_bad', true),
+  person('mechanic_civ', false), person('mechanic_bad', true),
+  person('clubber_civ', false), person('clubber_bad', true),
+  person('officelady_civ', false), person('officelady_bad', true),
+  disguise('boss2_disguise_guard'), disguise('boss2_disguise_mechanic'), disguise('boss2_disguise_officelady'),
+  BOSS2,
+  propN('prop_van', 128, 64, 4, '0:止まっている、1〜2:走る、3:壊れた'),
+  propN('prop_bosscar', 128, 56, 4, '0:止まっている、1〜2:エンジンをふかして揺れる、3:壊れた'),
+  prop('prop_pillar', 32, 96, 'bottom'),
+  prop('prop_barrier', 64, 32, 'bottom'),
+  prop('prop_cone', 16, 16, 'bottom'),
+  prop('prop_extinguisher', 16, 24, 'center'),
   fx('fx_hit', 32, 32, 4, 16, false, '殴ったときの火花'),
   fx('fx_hit_big', 48, 48, 4, 16, false, 'ボス戦の大きな火花'),
   fx('fx_dust', 32, 32, 4, 12, false, '砂ぼこり'),
@@ -143,7 +174,10 @@ export const IMAGES: ImageDef[] = [
   { key: 'bg_alley_far', w: 216, h: 214, note: '遠くのビルと夜空。左右がつながる' },
   { key: 'bg_alley_wall', w: 648, h: 130, note: '手前の建物の壁。上の空が見えるところは透明。左右がつながる' },
   { key: 'bg_alley_ground', w: 648, h: 90, note: '地面。y=124〜214に置く。左右がつながる' },
-  { key: 'logo', w: 200, h: 64, note: 'タイトルのロゴ' }
+  { key: 'logo', w: 200, h: 64, note: 'タイトルのロゴ' },
+  { key: 'bg_garage_far', w: 216, h: 214, note: '地下駐車場の奥。暗い壁と遠くの柱。左右がつながる' },
+  { key: 'bg_garage_wall', w: 648, h: 130, note: '手前の壁、蛍光灯、案内の矢印、番号の書いた柱(文字はなし)。左右がつながる' },
+  { key: 'bg_garage_ground', w: 648, h: 90, note: '駐車場の床。白い線。y=124〜214に置く。左右がつながる' }
 ];
 
 export const sheetByKey = (key: string): SheetDef => {
@@ -163,6 +197,9 @@ export const frameIndex = (d: SheetDef, animName: string, i = 0): number => {
   if (row < 0) throw new Error(`unknown anim: ${d.key}.${animName}`);
   return row * d.cols + i;
 };
+
+/** ステージ2の小物を描くときの色(ゲームの中で人ごとの色に塗り替える)。md(7,0,7) と同じ */
+export const KEY_ACCESSORY = 'rgb(255,0,255)';
 
 /** 立っているキャラの足の裏は、コマの下から何ドット上か */
 export const FEET_OFFSET = 4;
