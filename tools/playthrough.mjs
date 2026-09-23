@@ -17,7 +17,8 @@ const active = () => page.evaluate(() => {
   const g = window.__game;
   return g ? g.scene.getScenes(true).map((s) => s.scene.key).filter((k) => !k.startsWith('Ui')) : [];
 });
-const H = await page.evaluate(() => window.__game.config.height);
+// 論理ドットでの画面の高さ(キャンバスは細かく描いているので、横216との比で割る)
+const H = await page.evaluate(() => Math.round(window.__game.config.height / (window.__game.config.width / 216)));
 const tap = async (x, y) => {
   const r = await page.evaluate(() => { const b = window.__game.canvas.getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height }; });
   const cx = r.l + (x * r.w) / 216, cy = r.t + (y * r.h) / H;
