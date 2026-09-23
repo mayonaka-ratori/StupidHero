@@ -8,6 +8,8 @@ import { SortScene } from './scenes/Sort';
 import { StreetScene } from './scenes/Street';
 import { BossScene } from './scenes/Boss';
 import { ResultScene } from './scenes/Result';
+import { WipeScene } from './ui/transition';
+import { PauseOverlay } from './ui/pause';
 
 const L = computeLayout();
 
@@ -25,7 +27,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   audio: { noAudio: true },
   banner: false,
-  scene: [BootScene, TitleScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene]
+  scene: [BootScene, TitleScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene, PauseOverlay, WipeScene]
 });
 
 const refit = (): void => {

@@ -29,16 +29,24 @@ export function goto(from: Phaser.Scene, to: string, data?: object, opt: GotoOpt
   if (busy) return;
   busy = true;
   const mgr = from.game.scene;
-  if (!mgr.getScene(WIPE_SCENE)) mgr.add(WIPE_SCENE, WipeScene, false);
-  mgr.start(WIPE_SCENE, { from: from.scene.key, to, data, opt });
-  mgr.bringToTop(WIPE_SCENE);
+  try {
+    if (!mgr.getScene(WIPE_SCENE)) mgr.add(WIPE_SCENE, WipeScene, false);
+    mgr.start(WIPE_SCENE, { from: from.scene.key, to, data, opt });
+    mgr.bringToTop(WIPE_SCENE);
+  } catch (e) {
+    // ワイプが使えないときは、そのまま次のシーンへ行く(ゲームを止めない)
+    busy = false;
+    console.error(e);
+    from.scene.start(to, data);
+  }
 }
 
 interface WipeData { from: string; to: string; data?: object; opt: GotoOptions }
 
 const CELL = 8;
 
-class WipeScene extends Phaser.Scene {
+/** main.ts でゲームの起動時に登録しておく(あとから add すると、更新中に呼んだとき start が失敗するため) */
+export class WipeScene extends Phaser.Scene {
   constructor() { super(WIPE_SCENE); }
 
   create(d: WipeData): void {

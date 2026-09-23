@@ -92,6 +92,10 @@ export class SortScene extends Phaser.Scene {
     this.introWake = null;
     this.glowKey = '';
     this.edgeLabels = [];
+    // シーンは波ごとに作り直すので、前の波の絵を持ち越さない
+    this.cards = [];
+    this.guideHand = undefined;
+    this.hintTimer = undefined;
     unlockOnTap(this);
     audio.playBgm('sort');
 
@@ -187,7 +191,10 @@ export class SortScene extends Phaser.Scene {
     const n = Math.min(this.idx + 1, this.people.length);
     this.countText.setText(`${n}/${this.people.length}人目`);
     const sec = Math.max(0, Math.ceil(this.leftMs / 1000));
-    this.secText.setText(`${sec}秒`).setColor(this.hurried ? UI.danger : UI.text);
+    const color = this.hurried ? UI.danger : UI.text;
+    // 文字は描き直しが重いので、変わったときだけ
+    if (this.secText.style.color !== color) this.secText.setColor(color);
+    this.secText.setText(`${sec}秒`);
     this.timeBar.setValue(this.leftMs / this.totalMs).setDanger(this.hurried);
   }
 
@@ -364,7 +371,7 @@ export class SortScene extends Phaser.Scene {
       onComplete: () => s.setVisible(false)
     });
     this.tweens.add({
-      targets: stamp, x: `+=${dist}`, duration: OUT_MS, delay: 70, ease: 'Quad.easeIn',
+      targets: stamp, x: `+=${dist}`, duration: OUT_MS, delay: 40, ease: 'Quad.easeIn',
       onComplete: () => stamp.destroy()
     });
   }
@@ -488,7 +495,8 @@ export class SortScene extends Phaser.Scene {
     if (!(lq >= 0.9 && !flick)) edgeGlow(g, 'left', RED, lq);
     if (!(rq >= 0.9 && !flick)) edgeGlow(g, 'right', rq >= 0.5 ? BLUE_LIGHT : BLUE, rq);
     // 引っぱっている側の文字を白く光らせる
-    this.edgeLabels[0].setColor(lq >= 0.6 ? 0xffffff : 0xff8a80);
-    this.edgeLabels[1].setColor(rq >= 0.6 ? 0xffffff : 0x9ac4ff);
+    const lc = lq >= 0.6 ? 0xffffff : 0xff8a80, rc = rq >= 0.6 ? 0xffffff : 0x9ac4ff;
+    if (this.edgeLabels[0].style.color !== lc) this.edgeLabels[0].setColor(lc);
+    if (this.edgeLabels[1].style.color !== rc) this.edgeLabels[1].setColor(rc);
   }
 }

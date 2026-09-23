@@ -100,7 +100,8 @@ export function ditherTexture(scene: Phaser.Scene, key = '__ui_dither', color = 
 
 interface OverlayData { control: PauseControl; title?: string; hint?: string }
 
-class PauseOverlay extends Phaser.Scene {
+/** main.ts でゲームの起動時に登録しておく */
+export class PauseOverlay extends Phaser.Scene {
   private shownAt = 0;
   constructor() { super(PAUSE_SCENE); }
 
