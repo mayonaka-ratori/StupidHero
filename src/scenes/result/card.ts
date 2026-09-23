@@ -51,7 +51,7 @@ const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene,
   garage: { bigPropBroken: '駐車場ボロボロ!' }
 };
 
-/** ワーストシーンの説明の文 */
+/** いちばんひどい場面の説明の文 */
 export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {
   if (!s.worstScene) return 'ひどいことはなかった!';
   const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
@@ -80,8 +80,11 @@ export interface CardInput {
 /** 共有カードに使うステージの中身 */
 export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name'>;
 
-/** カードに出すステージの名前(「地下駐車場ステージ」) */
-const stageLabel = (st: CardStage): string => `${st.name}ステージ`;
+/**
+ * カードに出すステージの名前(「地下駐車場」)。
+ * 「ステージ」はつけない(左の「いちばんひどい場面」と並べると、「地下駐車場ステージ」では幅が足りない)
+ */
+const stageLabel = (st: CardStage): string => st.name;
 
 export interface Card {
   /** 216×270 */
@@ -101,8 +104,8 @@ const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCom
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, commentOf(i).text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
-    'ひどいことはなかった!', '悪党撃破', '市民負傷', '逃がした', '被害額', '人', '称号', '#StupidHero',
+    i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
+    'ひどいことはなかった!', '悪党を倒した', '市民のけが', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億'
   ];
 }
@@ -180,10 +183,10 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
     ctx.drawImage(shot, 0, 196 - MID_H, W, MID_H, 0, MID, W, MID_H);
     // 見出し
-    const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'ワーストシーン', { size: 12 });
+    const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'いちばんひどい場面', { size: 12 });
     fill(ctx, 0x000000, [0, MID, lab.w + 8, lab.h + 5]);
     fill(ctx, UI.bad, [0, MID, lab.w + 7, lab.h + 4]);
-    drawText(ctx, scene, 4, MID + 2, 'ワーストシーン', { size: 12, color: 0xffffff });
+    drawText(ctx, scene, 4, MID + 2, 'いちばんひどい場面', { size: 12, color: 0xffffff });
     // ステージの名前(右上)
     const sl = stageLabel(stage);
     const sz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, sl, { size: 12 });
@@ -199,19 +202,21 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const y0 = MID + MID_H + 2;
     const rowH = 16;
     const st = { size: 16, outline: true } as const;
+    // 見出しは12ドット、数字は16ドット(見出しが長くなったので、16だと1行に2つ入らない)。字の下をそろえる
+    const lst = { size: 12, outline: true } as const;
     /** 見出しと数字を少しあけて並べる。right=true なら右端を x にそろえる */
     const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
       const m = makeCanvas(1, 1).ctx;
-      const a = drawText(m, scene, 0, 0, label, st);
+      const a = drawText(m, scene, 0, 0, label, lst);
       const b = drawText(m, scene, 0, 0, value, { ...st, color });
       const left = right ? x - (a.w + 2 + b.w) : x;
-      drawText(ctx, scene, left, y, label, st);
+      drawText(ctx, scene, left, y + 4, label, lst);
       drawText(ctx, scene, left + a.w + 2, y, value, { ...st, color });
     };
     // 並び:1行目に撃破と負傷、2行目に逃がした、3行目に被害額、4行目にたとえ(右寄せ)。
     // 金額やたとえの桁が増えても(¥1億2,000万、一軒家40軒分)、ほかの字とぶつからない
-    pair(6, y0, '悪党撃破', `${s.defeated}人`, UI.gold);
-    pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
+    pair(6, y0, '悪党を倒した', `${s.defeated}人`, UI.gold);
+    pair(W - 6, y0, '市民のけが', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
     pair(6, y0 + rowH, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
     pair(6, y0 + rowH * 2, '被害額', formatYen(s.damage), UI.gold);
     drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage, stageIdOf(i)).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);
