@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # ステージ1(路地裏)の最初の版
-        default: 876e00824a1f29f26eb7e69e82a056d19fd99fe5
+        # いま公開している版(ステージ1とステージ2)
+        default: 1d80bc3b6db5c3c8368c70fe34874cf2b6b3b5c1
 
 permissions:
   contents: read
