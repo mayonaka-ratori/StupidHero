@@ -15,7 +15,7 @@ import {
   Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, flash, goto, preloadFont, shake
 } from '../ui';
 import { getRun, startRun, type GameRun } from '../run';
-import { WORST_CAPTION, buildCard, cardTexts, makeFallbackShot, type Card } from './result/card';
+import { buildCard, cardTexts, makeFallbackShot, worstCaption, type Card } from './result/card';
 import { makeCanvas } from './result/draw';
 import { fillSampleStats, makeSampleShot, memoryStorage, sampleName } from './result/sample';
 import { ShareFlow } from './result/share';
@@ -126,7 +126,13 @@ export class ResultScene extends Phaser.Scene {
     const collected = new PixelText(this, W - 11, rowY(rows.length),
       `称号{gold}${saved.titlesCollected}{/}/${saved.titlesTotal}`, { size: FS.big, color: UI.textDim, outline: true })
       .setOrigin(1, 0).setVisible(false);
-    const collectedNew = this.newTag(W - 11 - collected.width - 30, rowY(rows.length) + 3).setVisible(false);
+    // 称号の数の NEW は、たとえの字と称号の数の間に置く。すきまが足りなければ出さない(称号の帯にも NEW が出る)
+    const collectedNew = this.newTag(0, rowY(rows.length) + 3).setVisible(false);
+    const tagW = collectedNew.getData('w') as number;
+    const gapL = 11 + Math.ceil(analogy.width) + 3;
+    const gapR = W - 11 - Math.ceil(collected.width) - 3;
+    const newFits = gapR - gapL >= tagW;
+    collectedNew.x = Math.round(gapL + (gapR - gapL - tagW) / 2);
 
     // ─── ボタン ───
     const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
@@ -170,9 +176,9 @@ export class ResultScene extends Phaser.Scene {
       g.fillStyle(UI.black, 1).fillRect(5, ty - 2, 112, th + 4);
       g.fillStyle(0xffffff, 1).fillRect(6, ty - 1, 110, th + 2);
       const img = this.add.image(7, ty, THUMB_KEY).setOrigin(0).setDepth(DEPTH.ui);
-      const lab = new PixelText(this, 124, ty, 'ワーストシーン', { size: FS.body, color: UI.danger, outline: true });
-      const capText = s.worstScene ? WORST_CAPTION[s.worstScene] : 'ひどいことはなかった!';
-      const cap = new PixelText(this, 124, ty + 16, capText, { size: FS.body, color: UI.text, wrap: W - 124 - 4 });
+      const lab = new PixelText(this, 121, ty, 'ワーストシーン', { size: FS.body, color: UI.danger, outline: true });
+      const capText = worstCaption(s);
+      const cap = new PixelText(this, 121, ty + 16, capText, { size: FS.body, color: UI.text, wrap: W - 121 - 3 });
       thumbParts.push(g, img, lab, cap);
       for (const o of thumbParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
       img.setInteractive().on('pointerdown', () => {
@@ -231,7 +237,7 @@ export class ResultScene extends Phaser.Scene {
         end: () => {
           collected.setVisible(true);
           sfx('blip');
-          if (saved.titleIsNew) collectedNew.setVisible(true);
+          if (saved.titleIsNew && newFits) collectedNew.setVisible(true);
         }
       })
       .wait(300)
@@ -323,6 +329,7 @@ export class ResultScene extends Phaser.Scene {
     g.fillStyle(UI.black, 1).fillRect(-1, -1, txt.width + 8, 13);
     g.fillStyle(UI.bad, 1).fillRect(0, 0, txt.width + 6, 11);
     c.add([g, txt]);
+    c.setData('w', Math.ceil(txt.width) + 7);
     return c;
   }
 

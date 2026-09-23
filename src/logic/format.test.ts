@@ -22,7 +22,10 @@ describe('format', () => {
     expect(damageAnalogy(24_000_000).count).toBe(30);
     expect(damageAnalogy(800_000).text).toBe('自販機1台分');
     expect(damageAnalogy(1_200_000).text).toBe('自販機1.5台分');
-    expect(damageAnalogy(30_000).text).toBe('自販機0.1台分');
+    expect(damageAnalogy(30_000).text).toBe('ゴミ箱1個分');
+    expect(damageAnalogy(600_000).text).toBe('ゴミ箱20個分');
+    expect(damageAnalogy(600_000).unit).toBe('trash');
+    expect(damageAnalogy(790_000).text).not.toContain('自販機0.');
     expect(damageAnalogy(30_000_000).text).toBe('車10台分');
     expect(damageAnalogy(75_000_000).text).toBe('車25台分');
     expect(damageAnalogy(300_000_000).text).toBe('一軒家10軒分');

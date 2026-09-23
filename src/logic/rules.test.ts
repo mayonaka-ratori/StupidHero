@@ -7,7 +7,7 @@ import {
 
 describe('rules', () => {
   it('SPECの数字', () => {
-    expect(WAVES.map((w) => [w.people, w.seconds])).toEqual([[5, 20], [5, 15], [5, 16]]);
+    expect(WAVES.map((w) => [w.people, w.seconds])).toEqual([[5, 20], [5, 15], [5, 18]]);
     expect(PROP_COST).toEqual({ trash: 30000, window: 80000, sign: 150000, vending: 800000, car: 3000000 });
     expect(MARK.showDistance).toBe(48);
     expect(MARK.slowmo).toBe(0.6);

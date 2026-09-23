@@ -59,21 +59,27 @@ export class IntroScene extends Phaser.Scene {
     // 下:セリフ
     addPanel(this);
     const r = panelRect();
-    // 縦に余裕があれば大きな字(16)で3行まで
+    // 縦に余裕があれば大きな字(16)。顔を上に置いて、セリフは箱の幅いっぱい(1行12文字が入る)
     const tall = r.h >= 150;
-    const ch = tall ? 78 : 56;
-    this.cut = new CutIn(this, r.x, r.y, r.w, ch, { speed: 32, size: tall ? FS.big : FS.body });
+    const wide = panelRect(4);
+    const ch = tall ? 80 : 56;
+    // 下に「次へ」の大きなボタン(親指が届くところ)。画面のどこをタップしても進む
+    const btnH = Phaser.Math.Clamp(r.h - ch - 24, 30, 60);
+    const btnY = r.bottom - btnH;
+    // カットインはボタンとの間に少し寄せて、空きが上下に分かれるようにする
+    const cutY = r.y + Math.max(0, Math.floor((btnY - 24 - ch - r.y) / 3));
+    const cx = tall ? wide.x : r.x, cw = tall ? wide.w : r.w;
+    this.cut = new CutIn(this, cx, cutY, cw, ch, { speed: 32, size: tall ? FS.big : FS.body, faceTop: tall });
     // カットインをタップしたときも、シーンのタップとして扱う(二重に進まないように)
     for (const o of this.cut.list) if (o instanceof Phaser.GameObjects.Zone) o.disableInteractive();
-    const markY = r.y + ch - 14;
-    this.nextMark = new PixelText(this, r.right - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
+    const markY = cutY + ch - 14;
+    this.nextMark = new PixelText(this, cx + cw - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
     this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = markY + (this.nextMark.y === markY ? 1 : 0); } });
-    this.counter = new PixelText(this, r.x + 2, r.y + ch + 6, '', { size: FS.small, color: UI.textDim });
-    const tapHint = new PixelText(this, Math.round(W / 2), Math.max(r.y + ch + 24, r.bottom - 14), 'タップで次へ', { size: FS.body, color: UI.textDim }).setOrigin(0.5, 0);
-    this.time.addEvent({ delay: 600, loop: true, callback: () => tapHint.setVisible(!tapHint.visible) });
+    this.counter = new PixelText(this, cx + 2, cutY + ch + 5, '', { size: FS.small, color: UI.textDim });
+    const nextBtn = new Button(this, r.x, btnY, r.w, btnH, '次へ▶', { color: 0x3a3354, onPress: () => this.advance() });
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.some((o) => o.parentContainer === skip || o.parentContainer === mute)) return;
+      if (over.some((o) => o.parentContainer === skip || o.parentContainer === mute || o.parentContainer === nextBtn)) return;
       this.advance();
     });
     this.input.keyboard?.on('keydown-SPACE', () => this.advance());

@@ -14,7 +14,7 @@ describe('createStage', () => {
     for (const seed of SEEDS) {
       const s = createStage(seed);
       expect(s.waves.map((w) => w.no)).toEqual([1, 2, 3]);
-      expect(s.waves.map((w) => w.seconds)).toEqual([20, 15, 16]);
+      expect(s.waves.map((w) => w.seconds)).toEqual([20, 15, 18]);
       expect(s.waves.map((w) => w.people.length)).toEqual([5, 5, 6]);
       expect(s.peopleTotal).toBe(16);
       expect(s.name).toBe('路地裏');

@@ -38,6 +38,7 @@ export class Bubble extends Phaser.GameObjects.Container {
   private g: Phaser.GameObjects.Graphics;
   private label: PixelText;
   private opt: Required<BubbleOptions>;
+  private box = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(scene: Phaser.Scene, x: number, y: number, text: string, opt: BubbleOptions = {}) {
     super(scene, Math.round(x), Math.round(y));
@@ -142,6 +143,12 @@ export class Bubble extends Phaser.GameObjects.Container {
     g.fillStyle(this.opt.fill, 1).fillRect(bx, by, w, h);
     drawTail(this.opt.fill, 0);
     this.label.setPosition(bx + PX, by + PY);
+    this.box = { x: bx, y: by, w, h };
     return this;
+  }
+
+  /** 吹き出しの四角(しっぽを除く)。画面の座標(scrollFactor 0 で置いたとき) */
+  boxRect(): Phaser.Geom.Rectangle {
+    return new Phaser.Geom.Rectangle(this.x + this.box.x - 1, this.y + this.box.y - 1, this.box.w + 2, this.box.h + 2);
   }
 }

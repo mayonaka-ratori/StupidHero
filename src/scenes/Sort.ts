@@ -158,13 +158,17 @@ export class SortScene extends Phaser.Scene {
     this.countText = new PixelText(this, 4, 18, '', { size: FS.body, outline: true });
     this.timeBar = new TimeBar(this, 4, 35, 40, 6);
     this.secText = new PixelText(this, 4, 44, '', { size: FS.big, outline: true });
-    this.pause = new PauseControl(this, { onResume: () => audio.unlock() });
+    // 中断中は、人とプロフィールとヒントを隠す(止めて考えられないように)
+    this.pause = new PauseControl(this, {
+      onPause: () => this.hideForPause(true),
+      onResume: () => { this.hideForPause(false); audio.unlock(); }
+    });
     new IconButton(this, 13, 76, 'pause', () => this.pause.pause());
     addMute(this, 35, 76);
     this.alarm = new EdgeAlarm(this);
 
-    // 右上:オペレーターのカットイン
-    this.cut = new CutIn(this, 48, 3, 165, 60, { speed: 60 });
+    // 右上:オペレーターのカットイン(左の「1/6人目」とくっつかないように、すきまをあける)
+    this.cut = new CutIn(this, 52, 3, 161, 60, { speed: 60 });
     this.updateHud();
   }
 
@@ -172,8 +176,10 @@ export class SortScene extends Phaser.Scene {
     addPanel(this);
     const r = panelRect();
     const hintH = 16;
-    const bh = Phaser.Math.Clamp(r.h - hintH - 8 - 76, 40, 80);
-    const profH = Phaser.Math.Clamp(r.h - bh - 8 - hintH, 52, 76);
+    // 縦に余裕があるほど、プロフィールの箱とボタンを大きくする(ボタンは親指が届く下の端)
+    const extra = Math.max(0, r.h - 151);
+    const bh = Phaser.Math.Clamp(r.h - hintH - 8 - 76 - Math.floor(extra * 0.25), 40, 116);
+    const profH = Phaser.Math.Clamp(r.h - bh - 8 - hintH, 52, 100);
     // 縦に余裕があれば、プロフィールを大きな字(16)にする
     const big = profH >= 72;
     new WindowFrame(this, r.x, r.y, r.w, profH, 'win');
@@ -185,6 +191,23 @@ export class SortScene extends Phaser.Scene {
     this.btnBad = new Button(this, r.x, by, bw, bh, '◀ワル', { color: 'bad', onPress: () => this.press('bad') });
     this.btnCiv = new Button(this, r.x + bw + 8, by, bw, bh, '市民▶', { color: 'civ', onPress: () => this.press('civ') });
     new PixelText(this, Math.round(layout.W / 2), by + bh + 4, '左右にスワイプでもOK', { size: FS.body, color: UI.textDim }).setOrigin(0.5, 0);
+  }
+
+  private hiddenForPause: { o: Phaser.GameObjects.Components.Visible; v: boolean }[] = [];
+
+  /** 中断中に見せないもの(人、影、ハンコの見本、手、プロフィール、ヒント)を隠す/戻す */
+  private hideForPause(hide: boolean): void {
+    if (hide) {
+      const objs: Phaser.GameObjects.Components.Visible[] = [
+        ...this.cards, this.shadow, this.preview.bad, this.preview.civ, this.nameText, this.lineText, this.cut
+      ];
+      if (this.guideHand) objs.push(this.guideHand);
+      this.hiddenForPause = objs.map((o) => ({ o, v: o.visible }));
+      for (const o of objs) o.setVisible(false);
+      return;
+    }
+    for (const { o, v } of this.hiddenForPause) if ((o as unknown as Phaser.GameObjects.GameObject).active) o.setVisible(v);
+    this.hiddenForPause = [];
   }
 
   private updateHud(): void {

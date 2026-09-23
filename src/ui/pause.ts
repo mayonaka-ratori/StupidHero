@@ -25,7 +25,13 @@ export const pauseEvents = new Phaser.Events.EventEmitter();
 pauseEvents.on('pause', () => audio.pauseBgm());
 pauseEvents.on('resume', () => audio.resumeBgm());
 
-export type PauseReason = 'button' | 'hidden';
+export type PauseReason = 'button' | 'hidden' | 'rotate';
+
+/** 横向きの「縦にしてね」を出す条件(index.html の CSS と同じ) */
+const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 540px)';
+
+/** いま動いているシーンの PauseControl */
+const liveControls = new Set<PauseControl>();
 
 export interface PauseOptions {
   onPause?: (reason: PauseReason) => void;
@@ -52,6 +58,9 @@ export class PauseControl {
     }
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onEnd);
     scene.events.once(Phaser.Scenes.Events.DESTROY, this.onEnd);
+    liveControls.add(this);
+    // 横向きのまま始まったシーン(横向きで読みこみ直したときなど)も止める
+    if (isLandscape()) scene.events.once(Phaser.Scenes.Events.CREATE, () => { if (isLandscape()) this.pause('rotate'); });
   }
 
   get paused(): boolean { return this.isPaused; }
@@ -80,7 +89,15 @@ export class PauseControl {
     pauseEvents.emit('resume');
   }
 
+  /** 横向きになったとき:止められたら(もう止まっていても)true */
+  holdForRotate(): boolean {
+    if (this.isPaused) return true;
+    this.pause('rotate');
+    return this.isPaused;
+  }
+
   destroy(): void {
+    liveControls.delete(this);
     document.removeEventListener('visibilitychange', this.onVis);
     window.removeEventListener('pagehide', this.onVis);
     this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.onEnd);
@@ -92,6 +109,35 @@ export class PauseControl {
       pauseEvents.emit('resume');
     }
   }
+}
+
+function isLandscape(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia(LANDSCAPE_QUERY).matches;
+}
+
+/**
+ * 横向きになったらゲームを止める(main.ts で一度だけ呼ぶ)。
+ * PauseControl のあるシーンではその pause を使い、縦に戻ると「タップで再開」が見えている。
+ * PauseControl のないシーン(タイトル、結果画面)では、縦に戻るまでゲームの時計ごと止める。
+ */
+export function watchOrientation(game: Phaser.Game): void {
+  if (typeof window.matchMedia !== 'function') return;
+  const mq = window.matchMedia(LANDSCAPE_QUERY);
+  let slept = false;
+  const apply = (): void => {
+    if (mq.matches) {
+      for (const c of liveControls) if (c.holdForRotate()) return;
+      game.loop.sleep();
+      if (!slept) { slept = true; audio.pauseBgm(); }
+    } else if (slept) {
+      slept = false;
+      game.loop.wake(true);
+      audio.resumeBgm();
+    }
+  };
+  mq.addEventListener('change', apply);
+  // 画面が隠れて戻ったとき、Phaser が時計を動かし直すので、横向きのままならもう一度止める
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(apply, 0); });
 }
 
 /** 市松もようのテクスチャ(半透明を使わずに暗くするため) */

@@ -14,7 +14,7 @@ import { BOSS, BossFight, findBoss, formatSeconds, formatYen, say, type Speech }
 import { getRun, type GameRun } from '../run';
 import {
   Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText,
-  addPanel, banner, blink, flash, gotoWhenFree, hitStop, impact, panelRect, popText, shake, tapSpark
+  addPanel, banner, blink, flash, gotoWhenFree, hitStop, impact, panelRect, popText, shake, tapSpark, whenNoFlash
 } from '../ui';
 import { DEPTH_OF } from './boss/depth';
 import { flyPunch, spawnFx, SpeedLines, throwDebris } from './boss/effects';
@@ -381,17 +381,16 @@ export class BossScene extends Phaser.Scene {
     this.boss.clearTint();
     for (const o of this.icons) (o as unknown as Phaser.GameObjects.Container).setVisible(false);
 
-    let started = false;
-    const finale = (): void => { if (!started) { started = true; void this.finale(); } };
+    void this.finale();
     if (run.stats.reportScene('bossDefeated')) {
-      // 最後の一撃の瞬間を撮ってから、爆発を始める(白い光が写らないように)
+      // ボスが倒れる動きが始まってから撮る(写真と「ボスを倒した!」を合わせる)。
+      // 「ボス撃破!」の字が出る前で、画面全体の光(flash)が出ていないコマにする
       const { W, actionH } = layout;
-      snapshotLogical(this.game, 0, 0, W, actionH, (img) => {
-        run.worstShot = img;
-        finale();
-      });
-      this.time.delayedCall(250, finale);
-    } else finale();
+      this.time.delayedCall(170, () => whenNoFlash(this, () => {
+        if (!this.sys.isActive()) return;
+        snapshotLogical(this.game, 0, 0, W, actionH, (img) => { run.worstShot = img; });
+      }));
+    }
   }
 
   private async finale(): Promise<void> {
@@ -411,7 +410,8 @@ export class BossScene extends Phaser.Scene {
         spawnFx(this, i % 2 === 0 ? 'fx_explosion' : 'fx_hit_big', x, y, { depth: DEPTH_OF.fxTop });
         spawnFx(this, 'fx_hit_big', x + Phaser.Math.Between(-20, 20), y + Phaser.Math.Between(-20, 20), { depth: DEPTH_OF.fxTop });
         for (let k = 0; k < 2; k++) throwDebris(this, x, y, Phaser.Math.Between(-60, 60), Phaser.Math.Between(0, 50));
-        if (i % 2 === 0) { audio.sfx('explosion', { pitch: 0.9 + Math.random() * 0.2 }); flash(this, i % 4 === 0 ? 0xffffff : 0xffe08a, 1); }
+        // 画面全体の光は最初の impact だけにする(光に弱い人のため、続けて光らせない)
+        if (i % 2 === 0) audio.sfx('explosion', { pitch: 0.9 + Math.random() * 0.2 });
         shake(this, 5, 180);
       });
     }

@@ -23,13 +23,14 @@ export function formatYen(yen: number): string {
   return rest === 0 ? `¥${withCommas(oku)}億` : `¥${withCommas(oku)}億${withCommas(rest)}万`;
 }
 
-export type AnalogyUnit = 'vending' | 'car' | 'house';
+export type AnalogyUnit = 'trash' | 'vending' | 'car' | 'house';
 
 /**
- * たとえに使う物の値段と数え方。自販機と車は壊れる物の表と同じ値段。
+ * たとえに使う物の値段と数え方。ゴミ箱と自販機と車は壊れる物の表と同じ値段。
  * 一軒家は¥3,000万とした(自販機や車と同じく、ざっくり分かりやすい額)。
  */
 export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: number; counter: string }>> = {
+  trash: { name: 'ゴミ箱', price: PROP_COST.trash, counter: '個' },
   vending: { name: '自販機', price: PROP_COST.vending, counter: '台' },
   car: { name: '車', price: PROP_COST.car, counter: '台' },
   house: { name: '一軒家', price: 30_000_000, counter: '軒' }
@@ -37,9 +38,11 @@ export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: 
 
 /**
  * どの物でたとえるか。数が10〜40くらいに収まるように切りかえる。
- * ¥3,000万未満は自販機(〜37台)、¥3億未満は車(10〜100台)、それより上は一軒家(10軒〜)。
+ * 自販機1台に満たないときはゴミ箱(〜26個)、¥3,000万未満は自販機(1〜37台)、
+ * ¥3億未満は車(10〜100台)、それより上は一軒家(10軒〜)。
  */
 export function analogyUnitFor(yen: number): AnalogyUnit {
+  if (yen < PROP_COST.vending) return 'trash';
   if (yen < 30_000_000) return 'vending';
   if (yen < 300_000_000) return 'car';
   return 'house';

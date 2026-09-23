@@ -171,6 +171,8 @@ export interface StageStats {
   allDefeated: boolean;
   /** いちばんひどかった場面。何もなければ null */
   worstScene: WorstScene | null;
+  /** その場面を起こした技(説明の文を変えるため)。技でなければ null */
+  worstAttack: AttackKind | null;
 }
 
 /** 称号1つ */

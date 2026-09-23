@@ -7,7 +7,7 @@ import type { StageStats, TitleDef, TitleId } from './types';
 export const TITLE_THRESHOLDS = {
   /** 完全無欠のヒーロー:被害額がこれ未満 */
   flawlessDamageBelow: 5_000_000,
-  /** 市民の天敵:市民負傷がこれ以上(かつ撃破数以上) */
+  /** 市民の天敵:ヒーローが傷つけた市民(殴った、巻きぞえ)がこれ以上(かつ撃破数以上) */
   civNemesisHurt: 4,
   /** 歩く解体工事:被害額がこれ以上 */
   demolitionDamage: 50_000_000,
@@ -25,6 +25,9 @@ export const TITLE_THRESHOLDS = {
 
 const T = TITLE_THRESHOLDS;
 
+/** ヒーローの攻撃でけがをした市民の数(殴った、巻きぞえ)。ワルに襲われた人は入れない */
+const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollateral;
+
 /** 称号の一覧(調べる順) */
 export const TITLES: readonly TitleDef[] = [
   {
@@ -35,9 +38,9 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'civNemesis', order: 2, name: '市民の天敵', pose: 'win_shy',
-    condition: '市民負傷が4人以上で、撃破数以上',
+    condition: 'ヒーローが傷つけた市民が4人以上で、撃破数以上',
     comment: TITLE_COMMENTS.civNemesis,
-    test: (s) => s.civHurt >= T.civNemesisHurt && s.civHurt >= s.defeated
+    test: (s) => heroHurt(s) >= T.civNemesisHurt && heroHurt(s) >= s.defeated
   },
   {
     id: 'demolition', order: 3, name: '歩く解体工事', pose: 'win_fist',

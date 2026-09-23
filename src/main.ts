@@ -10,7 +10,7 @@ import { StreetScene } from './scenes/Street';
 import { BossScene } from './scenes/Boss';
 import { ResultScene } from './scenes/Result';
 import { WipeScene } from './ui/transition';
-import { PauseOverlay } from './ui/pause';
+import { PauseOverlay, watchOrientation } from './ui/pause';
 
 const L = computeLayout();
 installHiRes(computeRes(L.W, L.H));
@@ -39,6 +39,8 @@ const refit = (): void => {
 game.events.once(Phaser.Core.Events.READY, refit);
 window.addEventListener('resize', refit);
 window.addEventListener('orientationchange', () => setTimeout(refit, 200));
+// 横向きになったら止める(縦に戻ったら「タップで再開」)
+watchOrientation(game);
 
 // 2本指での拡大などを止める
 document.addEventListener('gesturestart', (e) => e.preventDefault());

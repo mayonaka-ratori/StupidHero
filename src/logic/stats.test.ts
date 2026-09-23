@@ -56,7 +56,7 @@ describe('StatsTracker', () => {
     s.stopped('civ');
     s.stopped('bad');
     const r = s.snapshot();
-    expect(r.escaped).toBe(1);
+    expect(r.escaped).toBe(2); // 待てで止めた本物のワルも逃がしたに数える
     expect(r.civSavedByStop).toBe(2);
     expect(r.badSparedByStop).toBe(1);
   });
@@ -71,7 +71,18 @@ describe('StatsTracker', () => {
     expect(s.reportScene('grannyHit')).toBe(true);
     expect(s.reportScene('specialOnCiv')).toBe(false);
     expect(s.snapshot().worstScene).toBe('grannyHit');
+    expect(s.snapshot().worstAttack).toBeNull();
     expect(new StatsTracker(1).snapshot().worstScene).toBeNull();
+  });
+
+  it('いちばんひどかった場面の技も覚える(段階はそのまま)', () => {
+    const s = new StatsTracker(8);
+    expect(s.reportScene('civHit', 'punch')).toBe(true);
+    expect(s.reportScene('grannyHit', 'special')).toBe(true);
+    expect(s.reportScene('specialOnCiv', 'special')).toBe(false);
+    const r = s.snapshot();
+    expect(r.worstScene).toBe('grannyHit');
+    expect(r.worstAttack).toBe('special');
   });
 
   it('場面の種類の決め方', () => {

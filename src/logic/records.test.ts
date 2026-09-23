@@ -21,7 +21,7 @@ const stats = (over: Partial<StageStats> = {}): StageStats => ({
   propsBroken: { trash: 0, window: 0, sign: 0, vending: 0, car: 0 },
   escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
-  villainTotal: 9, allDefeated: false, worstScene: null,
+  villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
   ...over
 });
 

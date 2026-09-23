@@ -36,6 +36,7 @@ export class StatsTracker {
   private bossSortedCiv = false;
   private bossFightSec: number | null = null;
   private worst: WorstScene | null = null;
+  private worstAttack: AttackKind | null = null;
 
   /**
    * @param villainTotal 倒すべき相手の総数(ワル全員とボス)。stage.villainTotal を渡す
@@ -118,21 +119,28 @@ export class StatsTracker {
     this.escapedCount++;
   }
 
-  /** 待てで攻撃を止めた。相手が本当は市民なら「待てで守った市民」に数える */
+  /**
+   * 待てで攻撃を止めた。相手が本当は市民なら「待てで守った市民」に数える。
+   * 本物のワルなら、倒さずに見のがしたので「逃がした」にも数える
+   */
   stopped(truth: Truth): void {
     if (truth === 'civ') this.civSavedByStop++;
-    else if (truth === 'bad') this.badSparedByStop++;
+    else if (truth === 'bad') {
+      this.badSparedByStop++;
+      this.escapedCount++;
+    }
   }
 
   // ─── いちばんひどかった場面 ───
 
   /**
    * 今の瞬間がどの段階の場面かを伝える。今までよりひどければ true を返すので、そのとき画面を撮る。
-   * 同じ段階なら最初の1枚を残す(false)。
+   * 同じ段階なら最初の1枚を残す(false)。attack はその場面を起こした技(説明の文を変えるのに使う)。
    */
-  reportScene(scene: WorstScene): boolean {
+  reportScene(scene: WorstScene, attack: AttackKind | null = null): boolean {
     if (this.worst !== null && WORST_SCENE_RANK[scene] >= WORST_SCENE_RANK[this.worst]) return false;
     this.worst = scene;
+    this.worstAttack = attack;
     return true;
   }
 
@@ -175,7 +183,8 @@ export class StatsTracker {
       bossFightSec: this.bossFightSec,
       villainTotal: this.villainTotal,
       allDefeated: this.villainTotal > 0 && defeated >= this.villainTotal,
-      worstScene: this.worst
+      worstScene: this.worst,
+      worstAttack: this.worstAttack
     };
   }
 }

@@ -319,6 +319,7 @@ export type ReactionKey =
   | 'timeUp'         // 時間切れ(ヒーロー)
   | 'timeUpOp'       // 時間切れへのツッコミ(オペレーター)
   | 'sortDone'       // 仕分けが終わって結果発表へ(ヒーロー)
+  | 'streetWatch'    // 結果発表の始まりの一言のあと、少ししてから(オペレーター)
   | 'hitBad'         // ワルを倒した(オペレーター)
   | 'hitBadHero'     // ワルを倒した(ヒーロー)
   | 'oops'           // 市民を殴ってしまった:やっちまったー(ヒーロー)
@@ -354,6 +355,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   timeUp: [hero('smug', '時間切れ！\nあとは勘で行く！'), hero('smug', '残りは\n気分で決める！')],
   timeUpOp: [op('panic', '勘はやめて！'), op('deadpan', 'せめて考えて')],
   sortDone: [hero('smug', '仕分け完了！\n行ってくる！'), hero('smug', 'よーし、\n出動！')],
+  streetWatch: [op('normal', '殴る前なら\n待てで止められる'), op('normal', '悪さをされたら\n行けで追いかけて')],
   hitBad: [op('hype', 'ナイス！'), op('hype', 'いいね！\nその調子！'), op('hype', 'よし、\n1人片付いた！')],
   hitBadHero: [hero('smug', '正義の勝利！'), hero('smug', '悪は許さない！')],
   oops: [
@@ -385,7 +387,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   grannyHit: [op('panic', 'おばあちゃん\nだったのに！'), op('panic', 'よりによって\nおばあちゃん！')],
   specialOnCiv: [op('panic', '必殺技を市民に\n当てないで！'), op('panic', '光線が市民に！\n何してんの！')],
   stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まります！'), hero('smile', 'おっと、了解！')],
-  stopOp: [op('normal', 'セーフ…'), op('normal', 'あぶなかった…'), op('hype', '止まった！\nえらい！')],
+  stopOp: [op('normal', '了解、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先へ！')],
   stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'こいつは\n止まれない！')],
   go: [hero('smug', '行ってくる！'), hero('smug', '逃がすかーっ！'), hero('smug', '待てーっ！\n悪党ーっ！')],
   goOp: [op('hype', '行け！'), op('hype', '追いかけて！')],

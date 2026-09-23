@@ -9,7 +9,9 @@
 
 import type Phaser from 'phaser';
 import { UI } from '../../config';
-import { damageAnalogy, formatYen, type SaveOutcome, type StageStats, type TitleDef, type WorstScene } from '../../logic';
+import {
+  damageAnalogy, formatYen, type AttackKind, type SaveOutcome, type StageStats, type TitleDef, type WorstScene
+} from '../../logic';
 import { NAMES } from '../../ui/theme';
 import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
@@ -17,14 +19,43 @@ export const CARD_W = 216;
 export const CARD_H = 270;
 export const CARD_SCALE = 5;
 
-/** いちばんひどかった場面の見出し(写真の下に出す) */
+/** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
 export const WORST_CAPTION: Record<WorstScene, string> = {
-  grannyHit: 'おばあちゃんに全力パンチ!',
+  grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
   bigPropBroken: '街がこわれた!',
   bossDefeated: 'ボスを倒した!'
 };
+
+/** 市民に当たった場面は、技の種類で文を変える */
+const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, string>>> = {
+  grannyHit: {
+    charge: 'おばあちゃんに突撃!',
+    punch: 'おばあちゃんに全力パンチ!',
+    stomp: 'おばあちゃんを踏みつぶし!',
+    special: 'おばあちゃんに必殺技!'
+  },
+  civHit: {
+    charge: '市民に突撃!',
+    punch: '市民をなぐった!',
+    stomp: '市民を踏んだ!',
+    special: '市民に必殺技!'
+  }
+};
+
+/** ワーストシーンの説明の文 */
+export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'>): string {
+  if (!s.worstScene) return 'ひどいことはなかった!';
+  const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
+  return byAttack ?? WORST_CAPTION[s.worstScene];
+}
+
+/** 説明の文の全部(字を先に読みこむため) */
+const ALL_CAPTIONS = [
+  ...Object.values(WORST_CAPTION),
+  ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {}))
+];
 
 export interface CardInput {
   title: TitleDef;
@@ -48,7 +79,7 @@ export interface Card {
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, i.title.comment.text, NAMES.operator, 'ワーストシーン', ...Object.values(WORST_CAPTION),
+    i.title.name, i.title.comment.text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS,
     'ひどいことはなかった!', '悪党撃破', '市民負傷', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage).text, '0123456789/,¥万億'
   ];
@@ -117,24 +148,25 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
 
   // ─── 真ん中:いちばんひどかった場面 ───
   const MID = TOP + 2;
-  const MID_H = 80;
+  // 下の数字を4行にするので、写真は少し低め(下の端は前と同じところで切る)
+  const MID_H = 70;
   {
     const shot = i.shot ?? makeFallbackShot(scene, s, i.scrollX);
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
-    ctx.drawImage(shot, 0, 116, W, MID_H, 0, MID, W, MID_H);
+    ctx.drawImage(shot, 0, 196 - MID_H, W, MID_H, 0, MID, W, MID_H);
     // 見出し
     const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'ワーストシーン', { size: 12 });
     fill(ctx, 0x000000, [0, MID, lab.w + 8, lab.h + 5]);
     fill(ctx, UI.bad, [0, MID, lab.w + 7, lab.h + 4]);
     drawText(ctx, scene, 4, MID + 2, 'ワーストシーン', { size: 12, color: 0xffffff });
-    const cap = s.worstScene ? WORST_CAPTION[s.worstScene] : 'ひどいことはなかった!';
+    const cap = worstCaption(s);
     drawText(ctx, scene, W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [1, 1]);
   }
 
   // ─── 下:数字 ───
   {
-    const y0 = MID + MID_H + 3;
-    const rowH = 17;
+    const y0 = MID + MID_H + 2;
+    const rowH = 16;
     const st = { size: 16, outline: true } as const;
     /** 見出しと数字を少しあけて並べる。right=true なら右端を x にそろえる */
     const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
@@ -145,11 +177,13 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
       drawText(ctx, scene, left, y, label, st);
       drawText(ctx, scene, left + a.w + 2, y, value, { ...st, color });
     };
+    // 並び:1行目に撃破と負傷、2行目に逃がした、3行目に被害額、4行目にたとえ(右寄せ)。
+    // 金額やたとえの桁が増えても(¥1億2,000万、一軒家40軒分)、ほかの字とぶつからない
     pair(6, y0, '悪党撃破', `${s.defeated}人`, UI.gold);
     pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
-    pair(6, y0 + rowH, '被害額', formatYen(s.damage), UI.gold);
-    drawText(ctx, scene, 6, y0 + rowH * 2, `(${damageAnalogy(s.damage).text})`, { size: 16, color: UI.gold, outline: true });
-    pair(W - 6, y0 + rowH * 2, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold, true);
+    pair(6, y0 + rowH, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
+    pair(6, y0 + rowH * 2, '被害額', formatYen(s.damage), UI.gold);
+    drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);
   }
 
   // ─── いちばん下:ロゴと称号の数 ───

@@ -18,18 +18,70 @@ import { PixelText } from './text';
 import { DEPTH, FS } from './theme';
 import { px } from '../hires';
 
-/** 画面全体を一瞬光らせる */
+/** いま光っている flash の数(シーンごと) */
+const flashing = new WeakMap<Phaser.Scene, number>();
+
+/** 市松もよう(2×2 に1点)のテクスチャ。光の名残を弱く見せるのに使う */
+function sparseDither(scene: Phaser.Scene, color: number): string {
+  const key = `__flash_dither_${color.toString(16)}`;
+  if (scene.textures.exists(key)) return key;
+  const c = document.createElement('canvas');
+  c.width = 2; c.height = 2;
+  const g = c.getContext('2d')!;
+  g.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  g.fillRect(0, 0, 1, 1);
+  scene.textures.addCanvas(key, c);
+  return key;
+}
+
+/**
+ * 画面全体を一瞬光らせる。光に弱い人のため、画面全体を塗るのは1コマだけ。
+ * frames が2以上なら、そのあと4つに1つの点だけの弱い光を少し残す(点滅はさせない)
+ */
 export function flash(scene: Phaser.Scene, color = 0xffffff, frames = 2): void {
   const { W, H } = layout;
   const r = scene.add.rectangle(0, 0, W, H, color).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.flash);
+  const rest = Math.max(0, frames - 1) * 2;
+  let weak: Phaser.GameObjects.TileSprite | null = null;
+  flashing.set(scene, (flashing.get(scene) ?? 0) + 1);
   let n = 0;
+  const end = (): void => {
+    scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, end);
+    if (r.active) r.destroy();
+    weak?.destroy();
+    flashing.set(scene, Math.max(0, (flashing.get(scene) ?? 1) - 1));
+  };
   const onUpdate = (): void => {
     n++;
-    // 1コマおきに点滅させながら消える
-    r.setVisible(n % 2 === 0 || n < 2);
-    if (n >= frames * 2) { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); r.destroy(); }
+    if (n === 1) {
+      r.setVisible(false);
+      if (rest > 0) weak = scene.add.tileSprite(0, 0, W, H, sparseDither(scene, color)).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.flash);
+    }
+    if (n > rest) end();
   };
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, end);
+}
+
+/** 画面全体の光(flash)が出ているか */
+export const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
+
+/**
+ * 画面全体の光が出ていないコマになったら fn を呼ぶ(ワーストシーンを撮るときなど)。
+ * maxFrames コマ待っても光が消えなければ、そのまま呼ぶ
+ */
+export function whenNoFlash(scene: Phaser.Scene, fn: () => void, maxFrames = 60): void {
+  let n = 0;
+  const check = (): void => {
+    if (isFlashing(scene) && n++ < maxFrames) return;
+    scene.events.off(Phaser.Scenes.Events.POST_UPDATE, check);
+    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, stop);
+    fn();
+  };
+  const stop = (): void => { scene.events.off(Phaser.Scenes.Events.POST_UPDATE, check); };
+  scene.events.on(Phaser.Scenes.Events.POST_UPDATE, check);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
 }
 
 /** カメラを揺らす(px はドット) */

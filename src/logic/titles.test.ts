@@ -9,7 +9,7 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
   propsBroken: { trash: 0, window: 0, sign: 0, vending: 0, car: 0 },
   escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
-  villainTotal: 9, allDefeated: false, worstScene: null,
+  villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
   ...over
 });
 
@@ -39,11 +39,18 @@ describe('称号', () => {
     expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
   });
 
-  it('市民の天敵は、負傷4人以上かつ撃破数以上。解体工事やボスの親友より先', () => {
-    const s = base({ civHurt: 5, defeated: 5, damage: 60_000_000, bossSortedCiv: true, grannyHit: true });
+  it('市民の天敵は、ヒーローが傷つけた市民が4人以上かつ撃破数以上。解体工事やボスの親友より先', () => {
+    const s = base({ civHurt: 5, civHurtByHero: 3, civHurtByCollateral: 2, defeated: 5, damage: 60_000_000, bossSortedCiv: true, grannyHit: true });
     expect(decideTitle(s).id).toBe('civNemesis');
     expect(decideTitle({ ...s, defeated: 6 }).id).toBe('demolition');
-    expect(decideTitle({ ...s, civHurt: 3, defeated: 2 }).id).toBe('demolition');
+    expect(decideTitle({ ...s, civHurt: 3, civHurtByHero: 2, civHurtByCollateral: 1, defeated: 2 }).id).toBe('demolition');
+  });
+
+  it('ワルに襲われた市民は、市民の天敵に数えない(ヒーローが誰も殴っていないとき)', () => {
+    const s = base({ civHurt: 5, civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 5, defeated: 1, bossDefeated: false, bossFightSec: null });
+    expect(decideTitle(s).id).not.toBe('civNemesis');
+    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 1, civHurtByVillain: 2 }).id).not.toBe('civNemesis');
+    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 2, civHurtByVillain: 1 }).id).toBe('civNemesis');
   });
 
   it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {

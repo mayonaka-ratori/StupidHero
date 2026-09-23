@@ -36,6 +36,11 @@ export interface CutInOptions {
   pageMs?: number;
   /** セリフの文字の大きさ */
   size?: number;
+  /**
+   * 顔を左上に置き、名前を顔の右に、セリフを顔の下に箱の幅いっぱいで出す。
+   * 大きな字(16)でも1行に12文字入るようにするとき(縦に余裕のある画面)に使う
+   */
+  faceTop?: boolean;
 }
 
 const FACE_KEY: Record<Speaker, string> = { operator: 'face_operator', hero: 'face_hero' };
@@ -72,16 +77,25 @@ export class CutIn extends Phaser.GameObjects.Container {
     this.pageMs = opt.pageMs ?? 900;
     this.frameG = new WindowFrame(scene, 0, 0, w, h, 'cut');
     const fx = FRAME_PAD + 2;
-    const fy = Math.max(FRAME_PAD + 2, Math.floor((h - FACE - 2) / 2));
+    const fy = opt.faceTop ? FRAME_PAD + 2 : Math.max(FRAME_PAD + 2, Math.floor((h - FACE - 2) / 2));
     this.faceBg = new Phaser.GameObjects.Graphics(scene);
     this.faceBg.fillStyle(UIX.faceEdge, 1).fillRect(fx, fy, FACE + 2, FACE + 2);
     this.faceBg.fillStyle(UIX.faceBg, 1).fillRect(fx + 1, fy + 1, FACE, FACE);
     this.face = new Phaser.GameObjects.Sprite(scene, fx + 1, fy + 1, '__DEFAULT').setOrigin(0, 0);
     const tx = fx + FACE + 2 + 4;
-    this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: FS.small, color: UIX.name });
-    this.line = new PixelText(scene, tx, FRAME_PAD + 1 + FS.small + 2, '', {
-      size: opt.size ?? FS.body, wrap: w - tx - FRAME_PAD - 2, lineSpacing: 2
-    });
+    if (opt.faceTop) {
+      // 名前は顔の右に大きめに。セリフは顔の下に、箱の幅いっぱいで
+      this.nameText = new PixelText(scene, tx, fy + Math.floor((FACE + 2 - FS.body) / 2), NAMES[this.who], { size: FS.body, color: UIX.name });
+      const lx = FRAME_PAD + 3;
+      this.line = new PixelText(scene, lx, fy + FACE + 2 + 3, '', {
+        size: opt.size ?? FS.body, wrap: w - lx * 2, lineSpacing: 2
+      });
+    } else {
+      this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: FS.small, color: UIX.name });
+      this.line = new PixelText(scene, tx, FRAME_PAD + 1 + FS.small + 2, '', {
+        size: opt.size ?? FS.body, wrap: w - tx - FRAME_PAD - 2, lineSpacing: 2
+      });
+    }
     this.hit = new Phaser.GameObjects.Zone(scene, 0, 0, w, h).setOrigin(0, 0);
     this.add([this.frameG, this.faceBg, this.face, this.nameText, this.line, this.hit]);
     this.setSize(w, h);

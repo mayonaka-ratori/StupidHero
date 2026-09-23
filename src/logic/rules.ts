@@ -24,7 +24,7 @@ export interface WavePlan {
 export const WAVES: readonly WavePlan[] = [
   { no: 1, people: 5, seconds: 20, mohawk: true, boss: false },
   { no: 2, people: 5, seconds: 15, mohawk: false, boss: false },
-  { no: 3, people: 5, seconds: 16, mohawk: false, boss: true }
+  { no: 3, people: 5, seconds: 18, mohawk: false, boss: true }
 ];
 
 /** 1つの波のワルの数(ボスは含まない) */
