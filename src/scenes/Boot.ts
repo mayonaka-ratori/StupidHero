@@ -1,8 +1,16 @@
 import Phaser from 'phaser';
-import { FONT_FAMILY, SCENES } from '../config';
+import { SCENES } from '../config';
 import { generateArt } from '../art';
 import { IMAGES, SHEETS } from '../art/sheets';
 import { layout } from '../layout';
+import { allTexts, NAMES } from '../logic/content';
+import { TITLES } from '../logic/titles';
+import { preloadFont } from '../ui/text';
+
+/** 画面の部品やボタンに出る字。ひらがな、カタカナ、数字、英字は全部入れておく */
+const range = (a: number, b: number): string => Array.from({ length: b - a + 1 }, (_, i) => String.fromCharCode(a + i)).join('');
+const BASIC_CHARS = range(0x3041, 0x3096) + range(0x30a1, 0x30fc) + range(0x21, 0x7e) + range(0xff01, 0xff5e)
+  + '、。「」…ー¥円万億人秒目撃破負傷被害額逃称号記録新全国市民悪党待行共有一回遊方中断再開音声仕分結果発表路地裏面画縦横最多少高速取集'
 
 interface ArtManifest { sheets: string[]; images: string[] }
 
@@ -31,12 +39,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(key, `art/${key}.png`);
       skip.add(key);
     }
-    const fontReady = document.fonts
-      ? Promise.race([
-        Promise.all([document.fonts.load(`12px "${FONT_FAMILY}"`), document.fonts.load(`16px "${FONT_FAMILY}"`)]),
-        new Promise((r) => setTimeout(r, 3000))
-      ])
-      : Promise.resolve();
+    const fontReady = preloadFont([...allTexts(), ...Object.values(NAMES).flat(), ...TITLES.map((t) => t.name), BASIC_CHARS], [10, 12, 16]);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       fontReady.then(() => {
         generateArt(this, skip);
