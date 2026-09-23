@@ -41,3 +41,6 @@ window.addEventListener('orientationchange', () => setTimeout(refit, 200));
 // 2本指での拡大などを止める
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault());
+
+// 開発と自動テスト用:ブラウザからゲームの状態を見られるようにする
+(window as unknown as { __game: Phaser.Game }).__game = game;
