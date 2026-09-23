@@ -2,12 +2,15 @@
 // fixtures/ の JSON は、公開版の src/logic をそのまま動かして作った「固定の答え」。作り直さないこと
 // (ステージ1の中身をわざと変えたときだけ、理由を書いて作り直す)。
 // 公開版からある項目だけを比べる。ステージ2で増えた項目(groups、accessory、link など)は比べない。
+// 仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えた(下の asPublished を見る)。
+// fixture は作り直さず、比べる項目からそれらを外した。
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import alleyV1 from './fixtures/alley-v1.json';
 import recordsV1 from './fixtures/records-v1.json';
 import {
-  ATTACK_SHOUTS, MISCHIEF_LINES, reactionList, titleCommentFor, waveIntroFor,
+  ATTACK_SHOUTS, BOSS_HINTS, BOSS_PROFILE_LINES, MISCHIEF_LINES, OPERATOR_HINTS, PROFILE_LINES,
+  reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
 import { LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
@@ -23,16 +26,21 @@ function pick<T extends object>(obj: T, keys: readonly (keyof T)[]): Partial<T> 
   return out;
 }
 
-/** 公開版の Person にある項目だけ */
-const PERSON_KEYS = ['id', 'index', 'wave', 'look', 'truth', 'sheetKey', 'profile', 'hint', 'disguise', 'mischief'] as const;
+/**
+ * 公開版の Person にある項目だけ。
+ * わざと変えたもの(波の時間 seconds、プロフィールの一文 profile.line、オペレーターの一言 hint)は比べない。
+ * 時間は長くし(rules.ts の WAVES)、文と一言はどちらとも取れるものを足して顔をそろえた(content.ts)。
+ * 文の一覧が長くなっても、選ぶときの乱数を引く回数は変わらない(pickFresh は1回だけ引く)ので、
+ * 誰がどの順で出るか、名前、年齢などはこれまでと同じになる。それをここで確かめる
+ */
+const PERSON_KEYS = ['id', 'index', 'wave', 'look', 'truth', 'sheetKey', 'disguise', 'mischief'] as const;
 const asPublished = (s: Stage) => ({
   ...pick(s, ['id', 'name', 'seed', 'villainTotal', 'peopleTotal']),
   waves: s.waves.map((w) => ({
-    ...pick(w, ['no', 'seconds', 'badCount', 'hasBoss']),
+    ...pick(w, ['no', 'badCount', 'hasBoss']),
     people: w.people.map((p: Person) => ({
       ...pick(p, PERSON_KEYS),
-      profile: pick(p.profile, ['name', 'age', 'line']),
-      hint: pick(p.hint, ['text', 'face'])
+      profile: pick(p.profile, ['name', 'age'])
     }))
   }))
 });
@@ -44,10 +52,36 @@ const asPublished = (s: Stage) => ({
  */
 const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops']);
 
+/** fixture の答えから、わざと変えた項目を取りのぞく */
+type FixtureStage = (typeof alleyV1.stages)[number]['stage'];
+const withoutChanged = (s: FixtureStage) => ({
+  ...s,
+  waves: s.waves.map(({ seconds: _s, people, ...w }) => ({
+    ...w,
+    people: people.map(({ hint: _h, profile: { line: _l, ...profile }, ...p }) => ({ ...p, profile }))
+  }))
+});
+
 describe('ステージ1は公開版(876e008)と同じ', () => {
-  it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種)`, () => {
+  it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種。時間、文、一言はわざと変えたので比べない)`, () => {
     for (const { seed, stage } of alleyV1.stages) {
-      expect(asPublished(createStage(seed)), `seed ${seed}`).toEqual(stage);
+      expect(asPublished(createStage(seed)), `seed ${seed}`).toEqual(withoutChanged(stage));
+    }
+  });
+
+  it('わざと変えたもの:時間は長くなり、文と一言はその人の見た目と正体の一覧から選ばれる', () => {
+    for (const { seed, stage } of alleyV1.stages) {
+      const now = createStage(seed);
+      now.waves.forEach((w, i) => {
+        expect(w.seconds).toBeGreaterThan(stage.waves[i].seconds);
+        for (const p of w.people) {
+          const d = p.disguise;
+          const lines = d ? BOSS_PROFILE_LINES[d] : PROFILE_LINES[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
+          const hints = d ? BOSS_HINTS[d] : OPERATOR_HINTS[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
+          expect(lines, `seed ${seed} ${p.id}`).toContain(p.profile.line);
+          expect(hints, `seed ${seed} ${p.id}`).toContainEqual(p.hint);
+        }
+      });
     }
   });
 

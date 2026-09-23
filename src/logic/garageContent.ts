@@ -272,16 +272,23 @@ export const BOSS2_HINTS: Readonly<Record<GarageDisguise, readonly OperatorHint[
 
 // ─── 前の人とのつながり ───────────────────────────
 
-/** つながりの文で前の人を指す言葉(「さっきの{n}と」)。5文字まで */
-export const LOOK_NOUN: Readonly<Record<GangLook, string>> = {
-  guard: '警備員',
-  mechanic: '整備士',
-  clubber: '派手な人',
-  officelady: '会社員の人'
+/**
+ * つながりの文で、その人の小物を指す言葉({item})。整備士は市民がタオル、ギャングがバンダナなので、
+ * 名前で正体が分からないように「首の布」とまとめて呼ぶ
+ */
+export const LINK_ITEM_NOUN: Readonly<Record<GangLook, string>> = {
+  guard: '腕章',
+  mechanic: '首の布',
+  clubber: 'ヘアバンド',
+  officelady: 'スカーフ'
 };
 
+/** 1つの波に出る人数の上限(つながる相手は、その波の何人目か。仕分けの画面の「見た小物」の番号と同じ) */
+const MAX_ORDINAL = 7;
+
 /**
- * つながりの文のひな形。{n} に前の人の見た目(LOOK_NOUN)が入る。
+ * つながりの文のひな形。{n} に前の人が波の何人目か(「2人目」)、{item} にその人の小物の呼び名が入る。
+ * 「さっきの警備員」のような呼び方だと、同じ見た目の人が前に2人いるとどちらか分からないので、番号で呼ぶ。
  * for:'bad' はギャング(同じ組の前の仲間とのつながり)、'civ' は市民(どちらとも取れるつながり)、'both' は両方。
  * sameColor:true の文は、前の人と小物の色が本当に同じときだけ使う(嘘にならないように)
  */
@@ -297,41 +304,49 @@ export interface LinkTemplate {
  * (ちがいは相手:ギャングは同じ組の前の仲間、市民は前の誰か)
  */
 export const LINK_HINTS: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n目で合図した？' },
-  { face: 'panic', for: 'both', text: 'さっきの{n}を\n目で追ってる' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}に\nうなずいた…？' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ指輪…？' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ時計してる…' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ車のカギ…？' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\nおそろいの色…？', sameColor: true },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n目が合った？' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}を\nちらっと見た' },
-  { face: 'deadpan', for: 'both', text: 'さっきの{n}と\n同じ駐車券…？' },
-  { face: 'panic', for: 'both', text: 'さっきの{n}から\n目をそらした！' }
+  { face: 'normal', for: 'both', text: '{n}と\n目で合図した？' },
+  { face: 'panic', for: 'both', text: '{n}を\n目で追ってる' },
+  { face: 'normal', for: 'both', text: '{n}に\nうなずいた…？' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ指輪…？' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ時計してる…' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ車のカギ…？' },
+  { face: 'normal', for: 'both', text: '{n}と同じ色の\n{item}…？', sameColor: true },
+  { face: 'normal', for: 'both', text: '{n}と\n目が合った？' },
+  { face: 'normal', for: 'both', text: '{n}を\nちらっと見た' },
+  { face: 'deadpan', for: 'both', text: '{n}と\n同じ駐車券…？' },
+  { face: 'panic', for: 'both', text: '{n}から\n目をそらした！' }
 ];
 
 /** プロフィールに出すつながり(どれも市民にもギャングにも出す) */
 export const LINK_PROFILES: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n古い付き合い' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ車で来た' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ店の常連' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n同じマンション' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ会社…らしい' },
-  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n前に会った気がする' }
+  { face: 'normal', for: 'both', text: '{n}とは\n古い付き合い' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ車で来た' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ店の常連' },
+  { face: 'normal', for: 'both', text: '{n}とは\n同じマンション' },
+  { face: 'normal', for: 'both', text: '{n}と\n同じ会社…らしい' },
+  { face: 'normal', for: 'both', text: '{n}とは\n前に会った気がする' }
 ];
 
-/** つながりの文を作る。例:linkText(LINK_HINTS[0].text, 'guard') → 'さっきの警備員と\n目で合図した？' */
-export function linkText(template: string, targetLook: GangLook): string {
-  return template.replace('{n}', LOOK_NOUN[targetLook]);
+/** 波の中の番号(0始まり)を「2人目」のような呼び方に */
+export const ordinalName = (index: number): string => `${index + 1}人目`;
+
+/**
+ * つながりの文を作る。targetIndex は相手の波の中の番号(0始まり)、look はこの文が出る人の見た目(小物の呼び名に使う)。
+ * 例:linkText(LINK_HINTS[6].text, 0, 'clubber') → '1人目と同じ色の\nヘアバンド…？'
+ */
+export function linkText(template: string, targetIndex: number, look: GangLook): string {
+  return template.replace('{n}', ordinalName(targetIndex)).replace('{item}', LINK_ITEM_NOUN[look]);
 }
 
-/** ひな形に見た目を全部入れた文(文字数の確かめとフォントの読みこみ用) */
+/** ひな形に番号と見た目を全部入れた文(文字数の確かめとフォントの読みこみ用) */
 export function allLinkTexts(): string[] {
-  const out: string[] = [];
+  const out = new Set<string>();
   for (const t of [...LINK_HINTS, ...LINK_PROFILES]) {
-    for (const look of Object.keys(LOOK_NOUN) as GangLook[]) out.push(linkText(t.text, look));
+    for (let i = 0; i < MAX_ORDINAL; i++) {
+      for (const look of Object.keys(LINK_ITEM_NOUN) as GangLook[]) out.add(linkText(t.text, i, look));
+    }
   }
-  return out;
+  return [...out];
 }
 
 // ─── ステージ前の掛け合い ─────────────────────────

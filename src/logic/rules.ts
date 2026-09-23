@@ -27,18 +27,25 @@ export interface WavePlan {
   gangPairOnly?: boolean;
 }
 
-/** 波の表(SPEC「仕分け」)。ステージ1 */
+/**
+ * 波の表(SPEC「仕分け」)。ステージ1。
+ * 時間は、プロフィールと一言を読み、「持ち物」の窓も見て決められるように、はじめの版(20、15、18秒)より長くした。
+ * 文字送りの間は時計が止まる(Sort.ts)。ゆっくりモードではさらに1.5倍(settings.timeScale)
+ */
 export const WAVES: readonly WavePlan[] = [
-  { no: 1, people: 5, seconds: 20, mohawk: true, boss: false },
-  { no: 2, people: 5, seconds: 15, mohawk: false, boss: false },
-  { no: 3, people: 5, seconds: 18, mohawk: false, boss: true }
+  { no: 1, people: 5, seconds: 30, mohawk: true, boss: false },
+  { no: 2, people: 5, seconds: 22, mohawk: false, boss: false },
+  { no: 3, people: 5, seconds: 24, mohawk: false, boss: true }
 ];
 
-/** 波の表(STAGE2「波と人数」)。ステージ2。ワルは全員ギャングの組 */
+/**
+ * 波の表(STAGE2「波と人数」)。ステージ2。ワルは全員ギャングの組。
+ * 時間はステージ1と同じ理由で、はじめの版(20、18、20秒)より長くした
+ */
 export const GARAGE_WAVES: readonly WavePlan[] = [
-  { no: 1, people: 5, seconds: 20, mohawk: false, boss: false, gangGroups: [1, 1], gangPairOnly: true },
-  { no: 2, people: 6, seconds: 18, mohawk: false, boss: false, gangGroups: [1, 2] },
-  { no: 3, people: 6, seconds: 20, mohawk: false, boss: true, gangGroups: [1, 2] }
+  { no: 1, people: 5, seconds: 30, mohawk: false, boss: false, gangGroups: [1, 1], gangPairOnly: true },
+  { no: 2, people: 6, seconds: 26, mohawk: false, boss: false, gangGroups: [1, 2] },
+  { no: 3, people: 6, seconds: 28, mohawk: false, boss: true, gangGroups: [1, 2] }
 ];
 
 /** 1つの波のワルの数(ボスは含まない。ステージ1) */
