@@ -101,3 +101,56 @@ describe('StatsTracker', () => {
     expect(a.propsBroken.car).toBe(0);
   });
 });
+
+describe('StatsTracker(ステージ2)', () => {
+  it('まとめて吹き飛ばした人数、車ごと止めた人数も撃破に入る。ワゴンは¥500万', () => {
+    const s = new StatsTracker(9, 'garage');
+    s.defeatBad('sort');
+    s.groupWiped(3);
+    s.groupWiped(2);
+    expect(s.vanStopped(2)).toBe(5_000_000);
+    const r = s.snapshot();
+    expect(r.stageId).toBe('garage');
+    expect(r.defeated).toBe(8);
+    expect(r.defeatedByWipe).toBe(5);
+    expect(r.defeatedByVan).toBe(2);
+    expect(r.groupsWiped).toBe(2);
+    expect(r.vansStopped).toBe(1);
+    expect(r.damage).toBe(5_000_000);
+    expect(r.propsBroken.van).toBe(1);
+    expect(r.civHurt).toBe(0);
+    expect(sceneForProp('van')).toBe('bigPropBroken');
+    expect(sceneForProp('cone')).toBeNull();
+  });
+
+  it('車で逃げた組の人数は逃がした数に入る', () => {
+    const s = new StatsTracker(9, 'garage');
+    s.groupEscaped(3);
+    s.escaped();
+    s.groupEscaped(2);
+    const r = s.snapshot();
+    expect(r.escaped).toBe(6);
+    expect(r.escapedByVan).toBe(5);
+    expect(r.groupsEscaped).toBe(2);
+    expect(r.civHurt).toBe(0);
+  });
+
+  it('ギャングの口笛は悪さではない(被害額も市民負傷も増えない)', () => {
+    const s = new StatsTracker(9, 'garage');
+    expect(s.mischief('guard')).toBe(0);
+    expect(s.snapshot().damage).toBe(0);
+    expect(s.snapshot().civHurt).toBe(0);
+  });
+
+  it('ボスを市民に仕分けたときの額はステージごと', () => {
+    expect(new StatsTracker(9).bossRampage()).toBe(10_000_000);
+    expect(new StatsTracker(9, 'alley').bossRampage()).toBe(10_000_000);
+    expect(new StatsTracker(9, 'garage').bossRampage()).toBe(15_000_000);
+  });
+
+  it('路地裏では増えた項目はずっと0', () => {
+    const r = new StatsTracker(8).snapshot();
+    expect(r.stageId).toBe('alley');
+    expect([r.defeatedByWipe, r.defeatedByVan, r.groupsWiped, r.groupsEscaped, r.escapedByVan, r.vansStopped]).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});

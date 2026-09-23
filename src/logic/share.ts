@@ -6,14 +6,21 @@
 // 称号「歩く解体工事」(3/12)
 // #StupidHero
 // https://(ゲームのURL)
+//
+// 使い方:buildShareText({ stageId: stage.id, defeated, civHurt, damage, titleName, titlesCollected, titlesTotal, url })
+// ステージ名は stageId から取る(STAGES[stageId].name。地下駐車場なら「【Stupid Hero】地下駐車場ステージ」)。
 
 import { formatDamage } from './format';
+import { STAGES } from './stages';
+import type { StageId } from './types';
 
 export const SHARE_HASHTAG = '#StupidHero';
 
 export interface ShareInput {
-  /** ステージの名前(例 '路地裏')。stage.name */
-  stageName: string;
+  /** どのステージか(stage.id)。名前はここから取る。stageName より優先 */
+  stageId?: StageId;
+  /** ステージの名前(例 '路地裏')。stageId を渡さないときだけ使う */
+  stageName?: string;
   /** 悪党撃破数 */
   defeated: number;
   /** 市民負傷数 */
@@ -24,16 +31,18 @@ export interface ShareInput {
   titleName: string;
   /** 集めた称号の数(今回の分を含む) */
   titlesCollected: number;
-  /** 称号の全体の数(12) */
+  /** 称号の全体の数(14) */
   titlesTotal: number;
   /** ゲームのURL */
   url: string;
 }
 
+const stageNameOf = (i: ShareInput): string => (i.stageId ? STAGES[i.stageId].name : i.stageName ?? STAGES.alley.name);
+
 /** 共有する文を作る(改行は \n) */
 export function buildShareText(i: ShareInput): string {
   return [
-    `【Stupid Hero】${i.stageName}ステージ`,
+    `【Stupid Hero】${stageNameOf(i)}ステージ`,
     `悪党${i.defeated}人撃破/市民${i.civHurt}人負傷`,
     `被害額${formatDamage(i.damage)}`,
     `称号「${i.titleName}」(${i.titlesCollected}/${i.titlesTotal})`,

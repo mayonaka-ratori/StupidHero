@@ -5,6 +5,7 @@
 //   ?scene=Result&sample=runaway     正義の暴走機関車(腕組み)
 //   ?scene=Result&sample=kind        やさしすぎるヒーロー(いちばんひどい場面なし)
 
+import { emptyStageRecord } from '../../logic/records';
 import type Phaser from 'phaser';
 import type { RecordStorage, StatsTracker } from '../../logic';
 import { RECORDS_KEY, loadRecords } from '../../logic';
@@ -110,7 +111,7 @@ export function memoryStorage(): RecordStorage {
   const m = new Map<string, string>();
   const rec = loadRecords();
   if (new URLSearchParams(location.search).get('new') !== '0') {
-    rec.stages.alley = { mostDefeated: 5, fewestHurt: 4, highestDamage: 12_000_000, fastestBossSec: 9, plays: 3 };
+    rec.stages.alley = { ...emptyStageRecord(), mostDefeated: 5, fewestHurt: 4, highestDamage: 12_000_000, fastestBossSec: 9, plays: 3 };
     for (const t of ['soSo', 'tooKind'] as const) if (!rec.titles.includes(t)) rec.titles.push(t);
   }
   m.set(RECORDS_KEY, JSON.stringify(rec));

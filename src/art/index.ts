@@ -6,11 +6,13 @@ import { createCanvas, makeArtContext } from './lib';
 import { IMAGES, SHEETS, animKey, sheetSize } from './sheets';
 import { generateHeroSet } from './heroSet';
 import { generateWorldSet } from './worldSet';
+import { generateWorld2Set } from './world2';
 
 export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
   const ctx = makeArtContext(scene, skip);
   generateHeroSet(ctx);
   generateWorldSet(ctx);
+  generateWorld2Set(ctx);
   fillPlaceholders(ctx);
   registerAnims(scene);
 }

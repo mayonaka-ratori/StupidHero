@@ -21,3 +21,12 @@ describe('共有文', () => {
     expect(xPostUrl('あ #B')).toBe('https://x.com/intent/tweet?text=%E3%81%82%20%23B');
   });
 });
+
+describe('共有文のステージ名', () => {
+  it('ステージから取る', () => {
+    const base = { defeated: 9, civHurt: 0, damage: 5_000_000, titleName: '一網打尽', titlesCollected: 5, titlesTotal: 14, url: 'u' };
+    expect(buildShareText({ ...base, stageId: 'garage' }).split('\n')[0]).toBe('【Stupid Hero】地下駐車場ステージ');
+    expect(buildShareText({ ...base, stageId: 'alley' }).split('\n')[0]).toBe('【Stupid Hero】路地裏ステージ');
+    expect(buildShareText({ ...base, stageId: 'garage' }).split('\n')[3]).toBe('称号「一網打尽」(5/14)');
+  });
+});

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, decideTitle, titleById } from './titles';
+import { TITLES, decideTitle, titleById, titlesFor } from './titles';
 import type { StageStats } from './types';
 
 const base = (over: Partial<StageStats> = {}): StageStats => ({
-  defeated: 5, defeatedBySort: 5, defeatedByGo: 0, bossDefeated: true,
+  stageId: 'alley', defeated: 5, defeatedBySort: 5, defeatedByGo: 0, bossDefeated: true,
   civHurt: 1, civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 0,
   damage: 8_000_000, damageByProps: 8_000_000, damageByMischief: 0, damageByBoss: 0,
-  propsBroken: { trash: 0, window: 0, sign: 0, vending: 0, car: 0 },
+  propsBroken: {
+    trash: 0, window: 0, sign: 0, vending: 0, car: 0, van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0
+  },
+  defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
   escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
@@ -14,18 +17,18 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
 });
 
 describe('称号', () => {
-  it('12個、順番と名前とポーズがSPECの通り', () => {
-    expect(TITLES).toHaveLength(12);
-    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  it('14個、順番と名前とポーズがSPECとSTAGE2の通り', () => {
+    expect(TITLES).toHaveLength(14);
+    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     expect(TITLES.map((t) => t.name)).toEqual([
-      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'おばあちゃんの敵', '正義の暴走機関車',
-      '街のほんものヒーロー', '連打の申し子', '待ての達人', '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
+      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの運転手', 'おばあちゃんの敵', '正義の暴走機関車',
+      '街のほんものヒーロー', '連打の申し子', '待ての達人', '一網打尽', '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
     ]);
     expect(TITLES.map((t) => t.pose)).toEqual([
-      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_arms',
-      'win_pose', 'win_fist', 'win_pose', 'win_arms', 'win_pose', 'win_arms'
+      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
+      'win_pose', 'win_fist', 'win_pose', 'win_arms', 'win_arms', 'win_pose', 'win_arms'
     ]);
-    expect(new Set(TITLES.map((t) => t.id)).size).toBe(12);
+    expect(new Set(TITLES.map((t) => t.id)).size).toBe(14);
     expect(titleById('demolition').name).toBe('歩く解体工事');
   });
 
@@ -79,5 +82,36 @@ describe('称号', () => {
     expect(decideTitle({ ...s, civSavedByStop: 2 }).id).toBe('chaseDemon');
     expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2 }).id).toBe('tooKind');
     expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2, civHurt: 1 }).id).toBe('soSo');
+  });
+});
+
+describe('称号(ステージ2)', () => {
+  it('ギャングの運転手は ボスの親友 のすぐあと、一網打尽は 追い打ちの鬼 のすぐ前', () => {
+    const ids = TITLES.map((t) => t.id);
+    expect(ids.indexOf('gangDriver')).toBe(ids.indexOf('bossBuddy') + 1);
+    expect(ids.indexOf('roundUp')).toBe(ids.indexOf('chaseDemon') - 1);
+    expect(titleById('roundUp').name).toBe('一網打尽');
+    expect(titleById('gangDriver').pose).toBe('win_shy');
+    expect(titleById('roundUp').stages).toEqual(['garage']);
+    expect(titlesFor('alley')).toHaveLength(12);
+    expect(titlesFor('garage')).toHaveLength(14);
+  });
+
+  it('一網打尽:まとめて吹き飛ばした組が2組以上', () => {
+    const s = base({ stageId: 'garage', groupsWiped: 2 });
+    expect(decideTitle(s).id).toBe('roundUp');
+    expect(decideTitle({ ...s, groupsWiped: 1 }).id).toBe('soSo');
+    // 待ての達人より後、追い打ちの鬼より先
+    expect(decideTitle({ ...s, civSavedByStop: 3 }).id).toBe('stopMaster');
+    expect(decideTitle({ ...s, defeatedByGo: 3 }).id).toBe('roundUp');
+  });
+
+  it('ギャングの運転手:車で逃げられた組が2組以上。ボスの親友より後、おばあちゃんの敵より先', () => {
+    const s = base({ stageId: 'garage', groupsEscaped: 2, escaped: 5 });
+    expect(decideTitle(s).id).toBe('gangDriver');
+    expect(decideTitle({ ...s, groupsEscaped: 1 }).id).not.toBe('gangDriver');
+    expect(decideTitle({ ...s, bossSortedCiv: true }).id).toBe('bossBuddy');
+    expect(decideTitle({ ...s, grannyHit: true }).id).toBe('gangDriver');
+    expect(decideTitle({ ...s, groupsWiped: 2 }).id).toBe('gangDriver');
   });
 });

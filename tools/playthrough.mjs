@@ -11,7 +11,8 @@ const errors = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 await page.goto(url + (seed ? `?seed=${seed}` : ''));
-await page.waitForTimeout(2500);
+await page.waitForFunction(() => window.__game && window.__game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
+await page.waitForTimeout(1500);
 
 const active = () => page.evaluate(() => {
   const g = window.__game;

@@ -9,7 +9,7 @@ import type Phaser from 'phaser';
 import { SCENES } from './config';
 import { createRng, createStage, decideUnsorted, randomSeed, StatsTracker } from './logic';
 import type { Rng } from './logic/rng';
-import type { Person, SortChoice, Stage, Wave } from './logic/types';
+import type { Person, SortChoice, Stage, StageId, Wave } from './logic/types';
 
 export interface GameRun {
   stage: Stage;
@@ -33,13 +33,13 @@ export interface GameRun {
 
 const KEY = 'run';
 
-export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug = false): GameRun {
+export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug = false, stageId: StageId = 'alley'): GameRun {
   const prev = scene.registry.get(KEY) as GameRun | undefined;
-  const stage = createStage(seed);
+  const stage = createStage(seed, stageId);
   const run: GameRun = {
     stage,
     rng: createRng(stage.seed + 1),
-    stats: new StatsTracker(stage.villainTotal),
+    stats: new StatsTracker(stage.villainTotal, stage.id),
     waveIndex: 0,
     sorts: {},
     randomSorted: [],

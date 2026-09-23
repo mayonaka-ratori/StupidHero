@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BossFight } from './boss';
+import { STAGES } from './stages';
 
 /** 時計を細かく進める。途中で倒したら止める */
 function run(f: BossFight, sec: number, stepMs = 16): number {
@@ -16,7 +17,7 @@ describe('BossFight', () => {
       f.update(150);
     }
     expect(f.hp).toBe(1);
-    expect(f.tap()).toEqual({ counted: true, defeated: true });
+    expect(f.tap()).toEqual({ counted: true, defeated: true, boardedCar: false });
     expect(f.isOver).toBe(true);
     expect(f.tap().counted).toBe(false);
   });
@@ -102,5 +103,79 @@ describe('BossFight', () => {
     }
     expect(f.seconds!).toBeGreaterThan(4);
     expect(f.seconds!).toBeLessThan(6.5);
+  });
+});
+
+describe('BossFight(女ボス:車に乗る)', () => {
+  const opts = STAGES.garage.bossFight;
+
+  it('ステージ1の設定では車に乗らない', () => {
+    const f = new BossFight(STAGES.alley.bossFight);
+    for (let i = 0; i < 30; i++) expect(f.tap().boardedCar).toBe(false);
+    expect(f.inCar).toBe(false);
+    expect(f.update(20_000).boardedCar).toBe(false);
+  });
+
+  it('連打で体力が半分を切った瞬間に車に乗る(1回だけ)', () => {
+    const f = new BossFight({ ...opts, maxSec: Infinity });
+    for (let i = 0; i < 20; i++) {
+      expect(f.tap().boardedCar).toBe(false);
+      f.update(150);
+    }
+    expect(f.hp).toBe(20); // ちょうど半分はまだ
+    expect(f.inCar).toBe(false);
+    const r = f.tap();
+    expect(r.boardedCar).toBe(true);
+    expect(f.inCar).toBe(true);
+    f.update(150);
+    expect(f.tap().boardedCar).toBe(false);
+  });
+
+  it('何もしなくても時間で半分を切ると乗る(15秒×√0.5 ≒ 10.6秒)', () => {
+    const f = new BossFight(opts);
+    let boardedAt = -1;
+    for (let t = 0; t < 20_000 && !f.isOver; t += 16) {
+      if (f.update(16).boardedCar) boardedAt = f.elapsedSec;
+    }
+    expect(boardedAt).toBeGreaterThan(10.5);
+    expect(boardedAt).toBeLessThan(10.7);
+    expect(f.carBoardedAt!).toBeCloseTo(15 * Math.sqrt(0.5), 5);
+    expect(f.seconds!).toBeCloseTo(15, 5);
+  });
+
+  it('手が止まっている間の被害額は、車に乗る前は¥50万、乗ったあとは¥100万', () => {
+    // 何もしないと、0.6秒から1秒ごと。1.6〜10.6秒の10回は乗る前、11.6〜14.6秒の4回は乗ったあと
+    const f = new BossFight(opts);
+    const r = f.update(15_000);
+    expect(r.idleTicks).toBe(14);
+    expect(r.boardedCar).toBe(true);
+    expect(f.damageYen).toBe(10 * 500_000 + 4 * 1_000_000);
+    // 細かく進めても同じ
+    const g = new BossFight(opts);
+    let sum = 0;
+    for (let t = 0; t < 16_000 && !g.isOver; t += 16) sum += g.update(16).damageYen;
+    expect(sum).toBe(9_000_000);
+  });
+
+  it('車に乗ったあとで手が止まると、1秒ごとに¥100万', () => {
+    const f = new BossFight({ ...opts, maxSec: Infinity });
+    for (let i = 0; i < 21; i++) {
+      f.tap();
+      f.update(150);
+    }
+    expect(f.inCar).toBe(true);
+    const before = f.damageYen;
+    f.update(3000); // 0.6秒から → 2回
+    expect(f.damageYen - before).toBe(2_000_000);
+  });
+
+  it('連打し続ければ、車に乗っても被害はゼロ', () => {
+    const f = new BossFight(opts);
+    while (!f.isOver) {
+      f.tap();
+      f.update(100);
+    }
+    expect(f.inCar).toBe(true);
+    expect(f.damageYen).toBe(0);
   });
 });
