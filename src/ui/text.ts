@@ -81,6 +81,9 @@ const WORD = /[A-Za-z0-9¥$%,.+\-#'_:!?]/;
 interface Glyph { ch: string; x: number; line: number; color: number }
 interface Laid { glyphs: Glyph[]; lines: number[]; w: number; h: number }
 
+/** 行の上から字の下の線(alphabetic)までの長さ(字の大きさに対する割合)。Chrome の 'top' と同じ位置 */
+const BASELINE = 0.908;
+
 const fontOf = (size: number): string => `${size}px "${FONT_FAMILY}", monospace`;
 
 let scratch: CanvasRenderingContext2D | null = null;
@@ -341,9 +344,13 @@ export class PixelText extends Phaser.GameObjects.Image {
     const ctx = this.tex.context;
     ctx.clearRect(0, 0, (W + M * 2) * R, (H + M * 2) * R);
     ctx.font = fontOf(size * R);
-    ctx.textBaseline = 'top';
+    // 'top' で描くと、iPhone の Safari では字が Chrome より 1/4 字ほど下に描かれる
+    // (このフォントは上下の余白の値が大きく、'top' の位置の決め方がブラウザで違うため)。
+    // どのブラウザでも同じ所に描けるように、字の下の線(alphabetic)を Chrome と同じ位置に置く
+    ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
-    const at = (g: Glyph): [number, number] => [(M + p.l + g.x) * R, (M + p.t + g.line * lineStep) * R];
+    const base = size * BASELINE;
+    const at = (g: Glyph): [number, number] => [(M + p.l + g.x) * R, (M + p.t + g.line * lineStep + base) * R];
     const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
     // 影(右下に1ドット)
     const sh = this.st.shadow;
