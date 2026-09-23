@@ -1,0 +1,76 @@
+import { describe, expect, it } from 'vitest';
+import { TITLES, decideTitle, titleById } from './titles';
+import type { StageStats } from './types';
+
+const base = (over: Partial<StageStats> = {}): StageStats => ({
+  defeated: 5, defeatedBySort: 5, defeatedByGo: 0, bossDefeated: true,
+  civHurt: 1, civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 0,
+  damage: 8_000_000, damageByProps: 8_000_000, damageByMischief: 0, damageByBoss: 0,
+  propsBroken: { trash: 0, window: 0, sign: 0, vending: 0, car: 0 },
+  escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
+  grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
+  villainTotal: 9, allDefeated: false, worstScene: null,
+  ...over
+});
+
+describe('称号', () => {
+  it('12個、順番と名前とポーズがSPECの通り', () => {
+    expect(TITLES).toHaveLength(12);
+    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(TITLES.map((t) => t.name)).toEqual([
+      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'おばあちゃんの敵', '正義の暴走機関車',
+      '街のほんものヒーロー', '連打の申し子', '待ての達人', '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
+    ]);
+    expect(TITLES.map((t) => t.pose)).toEqual([
+      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_arms',
+      'win_pose', 'win_fist', 'win_pose', 'win_arms', 'win_pose', 'win_arms'
+    ]);
+    expect(new Set(TITLES.map((t) => t.id)).size).toBe(12);
+    expect(titleById('demolition').name).toBe('歩く解体工事');
+  });
+
+  it('どれにも当てはまらなければ まあまあヒーロー', () => {
+    expect(decideTitle(base()).id).toBe('soSo');
+  });
+
+  it('完全無欠は全員撃破、負傷0、¥500万未満。¥500万ちょうどなら ほんものヒーロー', () => {
+    const perfect = base({ allDefeated: true, civHurt: 0, damage: 4_990_000, bossFightSec: 3, civSavedByStop: 5 });
+    expect(decideTitle(perfect).id).toBe('flawless');
+    expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
+  });
+
+  it('市民の天敵は、負傷4人以上かつ撃破数以上。解体工事やボスの親友より先', () => {
+    const s = base({ civHurt: 5, defeated: 5, damage: 60_000_000, bossSortedCiv: true, grannyHit: true });
+    expect(decideTitle(s).id).toBe('civNemesis');
+    expect(decideTitle({ ...s, defeated: 6 }).id).toBe('demolition');
+    expect(decideTitle({ ...s, civHurt: 3, defeated: 2 }).id).toBe('demolition');
+  });
+
+  it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
+    const s = base({ damage: 50_000_000, bossSortedCiv: true, grannyHit: true, allDefeated: true, civHurt: 3, defeated: 9 });
+    expect(decideTitle(s).id).toBe('demolition');
+    expect(decideTitle({ ...s, damage: 49_990_000 }).id).toBe('bossBuddy');
+    expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
+    expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false, grannyHit: false }).id).toBe('runawayTrain');
+  });
+
+  it('全員撃破で負傷1〜2人はどちらにも入らない', () => {
+    const s = base({ allDefeated: true, civHurt: 2, bossFightSec: 9 });
+    expect(decideTitle(s).id).toBe('soSo');
+  });
+
+  it('連打の申し子は5秒以内(ちょうど5秒を含む)。ボス戦がなければ入らない', () => {
+    expect(decideTitle(base({ bossFightSec: 5 })).id).toBe('tapProdigy');
+    expect(decideTitle(base({ bossFightSec: 5.01 })).id).toBe('soSo');
+    expect(decideTitle(base({ bossFightSec: null })).id).toBe('soSo');
+    expect(decideTitle(base({ bossFightSec: 4, civSavedByStop: 3 })).id).toBe('tapProdigy');
+  });
+
+  it('待ての達人 → 追い打ちの鬼 → やさしすぎるヒーロー', () => {
+    const s = base({ civSavedByStop: 3, defeatedByGo: 3, civHurt: 0, escaped: 3 });
+    expect(decideTitle(s).id).toBe('stopMaster');
+    expect(decideTitle({ ...s, civSavedByStop: 2 }).id).toBe('chaseDemon');
+    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2 }).id).toBe('tooKind');
+    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2, civHurt: 1 }).id).toBe('soSo');
+  });
+});
