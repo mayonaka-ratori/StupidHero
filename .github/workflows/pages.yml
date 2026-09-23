@@ -9,7 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        default: v0.1
+        # ステージ1(路地裏)の最初の版
+        default: 876e00824a1f29f26eb7e69e82a056d19fd99fe5
 
 permissions:
   contents: read
