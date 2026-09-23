@@ -52,6 +52,10 @@ export class StreetScene extends Phaser.Scene {
   private props: PropObj[] = [];
   private bgs: { s: Phaser.GameObjects.TileSprite; f: number }[] = [];
   private camX = 0;
+  /** カメラをここに向ける(ボスが出たとき)。null ならヒーローについて行く */
+  private camFocus: number | null = null;
+  /** 開発用:?attack=special などで技を決める */
+  private forceAttack: AttackKind | null = null;
   private walker: Walker | null = null;
   private slow = 1;
   private stopHandler: (() => void) | null = null;
@@ -87,6 +91,9 @@ export class StreetScene extends Phaser.Scene {
     this.heroBubble = undefined; this.frameN = 0; this.civHits = []; this.leaving = false;
     this.shownDamage = this.stats.damage; this.shown = { defeated: -1, hurt: -1, damage: '' };
     this.auraOn = false;
+    this.camFocus = null;
+    const fa = new URLSearchParams(location.search).get('attack');
+    this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
     this.L = new Layers(this);
     this.buildWorld();
@@ -195,7 +202,7 @@ export class StreetScene extends Phaser.Scene {
       const dt = Math.min(delta, 50) / 1000;
       this.stepWalker(dt);
       // カメラはヒーローについて行く(少し遅れて)
-      const target = this.hero.x - HERO_SCREEN_X;
+      const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
       this.camX += (target - this.camX) * Math.min(1, dt * 6);
       this.L.world.scrollX = Math.round(this.camX);
       for (const b of this.bgs) b.s.tilePositionX = Math.round(this.L.world.scrollX * b.f);
@@ -276,6 +283,17 @@ export class StreetScene extends Phaser.Scene {
 
   // ─── 小さな道具 ───────────────────────────────
 
+  private pickAttack(): AttackKind {
+    const k = pickAttack(this.rng);
+    return this.forceAttack ?? k;
+  }
+
+  /** 飛び出す数字(画面の端で切れないように寄せる) */
+  private pop(x: number, y: number, text: string, big = false): void {
+    const px = Phaser.Math.Clamp(x, this.L.left + 34, this.L.right - 34);
+    popText(this, px, Math.max(44, y), text, { color: UI.danger, size: big ? FS.big : FS.body, ms: big ? 1500 : 900, rise: big ? 20 : 14 });
+  }
+
   private wait(ms: number): Promise<void> {
     return new Promise((r) => this.time.delayedCall(ms, () => r()));
   }
@@ -334,10 +352,13 @@ export class StreetScene extends Phaser.Scene {
   private report(scene: WorstScene | null): void {
     if (!scene || !this.stats.reportScene(scene)) return;
     const icons = this.icons as unknown as Phaser.GameObjects.Components.Visible[];
-    for (const i of icons) i.setVisible(false);
-    this.game.renderer.snapshotArea(0, 0, layout.W, layout.actionH, (img) => {
-      if (img instanceof HTMLImageElement) this.run.worstShot = img;
-      for (const i of icons) i.setVisible(true);
+    // 当たった相手が吹っ飛び始めたところを撮る(ヒットストップのあと少しして)
+    this.time.delayedCall(90, () => {
+      for (const i of icons) i.setVisible(false);
+      this.game.renderer.snapshotArea(0, 0, layout.W, layout.actionH, (img) => {
+        if (img instanceof HTMLImageElement) this.run.worstShot = img;
+        for (const i of icons) i.setVisible(true);
+      });
     });
   }
 
@@ -405,7 +426,7 @@ export class StreetScene extends Phaser.Scene {
     this.stopAlarm.start();
     this.slow = MARK.slowmo;
     this.hero.sprite.anims.timeScale = MARK.slowmo;
-    const k = pickAttack(this.rng);
+    const k = this.pickAttack();
     const res = await this.markWindow(a, enc, k);
     this.stopAlarm.stop();
     this.slow = 1;
@@ -588,10 +609,10 @@ export class StreetScene extends Phaser.Scene {
     impact(this, 'huge');
     flash(this, 0xffffff, 4);
     for (let x = x0; x < x1 - 24; x += 32) {
-      const s = this.add.sprite(x, y, 'fx_beam').setOrigin(0, 0.5).setDepth(850).play(animKey('fx_beam', 'play'));
+      const s = this.add.sprite(x, y, 'fx_beam').setOrigin(0, 0.5).setDepth(h.y - 0.2).play(animKey('fx_beam', 'play'));
       parts.push(s);
     }
-    const head = this.add.sprite(x1 - 24, y, 'fx_beam_head').setDepth(851).play(animKey('fx_beam_head', 'play'));
+    const head = this.add.sprite(x1 - 24, y, 'fx_beam_head').setDepth(h.y - 0.1).play(animKey('fx_beam_head', 'play'));
     parts.push(head);
     // 画面の端まで一気にのびる
     parts.forEach((p, i) => { p.setVisible(false); this.time.delayedCall(i * 18, () => p.active && p.setVisible(true)); });
@@ -695,7 +716,7 @@ export class StreetScene extends Phaser.Scene {
     if (!count) return;
     const cost = this.stats.breakProp(p.kind);
     const top = p.wall ? p.y - 14 : p.y - p.sprite.height;
-    popText(this, p.x, Math.max(24, top), formatYen(cost), { color: UI.danger, size: bigOne ? FS.big : FS.body });
+    this.pop(p.x, top, formatYen(cost), bigOne);
     this.report(sceneForProp(p.kind));
   }
 
@@ -787,7 +808,7 @@ export class StreetScene extends Phaser.Scene {
     a.play('mischief', true);
     await this.wait(330);
     const cost = this.stats.mischief(look);
-    popText(this, v.x, v.y - 20, formatYen(cost), { color: UI.danger });
+    this.pop(v.x, v.y - 20, formatYen(cost));
     this.fx('fx_hit', v.x - 4, v.y - 30, { depth: 950 });
     audio.sfx('hit', { pitch: 0.7 });
     shake(this, 2, 150);
@@ -813,7 +834,7 @@ export class StreetScene extends Phaser.Scene {
       this.opSay(say('goOp', this.rng));
       a.pose('surprised');
       await this.runTo(a.x - ATTACK_GAP, { speed: RUN * 3, y: a.y });
-      const k = pickAttack(this.rng);
+      const k = this.pickAttack();
       this.heroSay(shout(k, this.rng), 900);
       await this.attack(a, k, 'go');
       await this.afterAttack(k);
@@ -873,11 +894,12 @@ export class StreetScene extends Phaser.Scene {
     await this.runTo(a.x + 34, { speed: RUN * 0.8 });
     h.play('idle');
     await this.wait(200);
+    this.camFocus = (a.x + h.x) / 2;
     await this.revealBoss(a);
     a.play('rampage', true);
     audio.sfx('rampage');
     const cost = this.stats.bossRampage();
-    popText(this, a.x, a.y - 80, formatYen(cost), { color: UI.danger, size: FS.big, ms: 1600, rise: 20 });
+    this.pop(a.x, a.y - 80, formatYen(cost), true);
     void banner(this, 'ボス出現!', { hold: 900 });
     const near = this.visibleProps().filter((p) => Math.abs(p.x - a.x) < 130).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x));
     near.forEach((p, i) => this.time.delayedCall(150 + i * 170, () => { this.breakProp(p, false); shake(this, 4, 200); }));
