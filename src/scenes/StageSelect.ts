@@ -1,7 +1,8 @@
 // ステージを選ぶ画面。タイトルでタップしたあとに出る(docs/STAGE2.md「ステージを選ぶ画面」)。
 // ステージ1「路地裏」とステージ2「地下駐車場」を、背景の絵を小さく見せたカードで縦に並べる。
 // 開いていないステージは暗くして鍵のマークと def.lockedText。記録と称号の数は stageSelectInfo() から。
-// カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。「◀タイトルへ」でタイトルへ。
+// カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。掛け合いを見たか遊んだことが
+// あるステージは、すぐ仕分け(Sort)へ(entrySceneFor)。「◀タイトルへ」でタイトルへ。
 // 結果画面でステージが開いたとき(stageselect/state.ts の印)は、鍵がこわれて開く演出をする。
 
 import Phaser from 'phaser';
@@ -16,6 +17,7 @@ import { px } from '../hires';
 import { Button, CutIn, FS, PixelText, banner, flash, goto, shake } from '../ui';
 import { addMute, devHook, unlockOnTap } from './sort/common';
 import { drawHand } from './sort/introDemo';
+import { entrySceneFor } from './Intro';
 import { StageCard } from './stageselect/card';
 import { takeJustUnlocked } from './stageselect/state';
 
@@ -181,7 +183,7 @@ export class StageSelectScene extends Phaser.Scene {
     // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
     this.time.delayedCall(360, () => {
       window.setTimeout(() => {
-        const ok = goto(this, SCENES.intro, undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) });
+        const ok = goto(this, entrySceneFor(id), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) });
         if (!ok) this.leaving = false;
       }, 0);
     });

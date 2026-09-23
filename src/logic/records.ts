@@ -1,11 +1,13 @@
 // そのスマホの中の自分の記録(localStorage)。
 // ステージごとに、最多撃破、最少負傷、最高被害額、最速ボス戦、遊んだ回数、ボスを倒した回数、取った称号を残す。
+// ステージ前の掛け合いを見たステージ(introSeen)も残す。見たか、1回遊んだステージは、次から掛け合いをとばす。
 // 称号の数は全部のステージを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は14)。
 // localStorage が使えないとき(プライベートモード、容量いっぱい、設定で止めている)も落ちないよう、
 // 読み書きは必ず try/catch で囲み、使えなければその場かぎりのメモリに残す。
 //
 // 保存の形:
-//   v2(今):キー 'stupidhero.records.v2'。{ version: 2, stages: { alley: {...,titles,clears}, garage: {...} }, titles }
+//   v2(今):キー 'stupidhero.records.v2'。{ version: 2, stages: { alley: {...,titles,clears}, garage: {...} }, titles, introSeen }
+//   introSeen はあとから足した。ない記録は空として読む(version は2のまま)。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
@@ -16,6 +18,9 @@
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」)
 //   stageSelectInfo()                                       // ステージを選ぶ画面:開いているか、いちばん良い記録、称号の数
 //   isStageUnlocked('garage')                               // ステージ2が開いているか
+//   needsIntro('alley')                                     // 掛け合いを見せるか(見たことも遊んだこともなければ true)
+//   markIntroSeen('alley')                                  // 掛け合いを見せたときに呼ぶ
+//   hasAnyRecord()                                          // どれかのステージを1回でも遊んだか(初めての人はステージ選びをとばす)
 
 import { STAGE_IDS, STAGES, isStageId } from './stages';
 import { TITLES } from './titles';
@@ -51,6 +56,8 @@ export interface Records {
   stages: Partial<Record<StageId, StageRecord>>;
   /** 全部のステージで取った称号(取った順、重なりなし)。数は「称号5/14」の5 */
   titles: TitleId[];
+  /** ステージ前の掛け合いを見たステージ */
+  introSeen: StageId[];
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -81,7 +88,7 @@ export interface SaveOutcome {
   persisted: boolean;
 }
 
-const emptyRecords = (): Records => ({ version: 2, stages: {}, titles: [] });
+const emptyRecords = (): Records => ({ version: 2, stages: {}, titles: [], introSeen: [] });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
 });
@@ -118,7 +125,7 @@ const addUnique = (list: TitleId[], items: readonly TitleId[]): void => {
 function sanitize(raw: unknown): Records {
   const out = emptyRecords();
   if (!raw || typeof raw !== 'object') return out;
-  const r = raw as { version?: unknown; stages?: unknown; titles?: unknown };
+  const r = raw as { version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
     for (const [id, v] of Object.entries(r.stages as Record<string, unknown>)) {
@@ -146,6 +153,9 @@ function sanitize(raw: unknown): Records {
   }
   addUnique(out.titles, top);
   for (const id of STAGE_IDS) addUnique(out.titles, out.stages[id]?.titles ?? []);
+  if (Array.isArray(r.introSeen)) {
+    for (const id of r.introSeen) if (typeof id === 'string' && isStageId(id) && !out.introSeen.includes(id)) out.introSeen.push(id);
+  }
   return out;
 }
 
@@ -192,6 +202,25 @@ export function isStageUnlocked(stageId: StageId, records: Records = loadRecords
 /** 開いているステージの一覧(選ぶ画面の並び順) */
 export function unlockedStages(records: Records = loadRecords()): StageId[] {
   return STAGE_IDS.filter((id) => isStageUnlocked(id, records));
+}
+
+/** ステージ前の掛け合いを見せるか。見たことがあるか、そのステージを1回でも遊んでいれば false */
+export function needsIntro(stageId: StageId, records: Records = loadRecords()): boolean {
+  if (records.introSeen.includes(stageId)) return false;
+  return (records.stages[stageId]?.plays ?? 0) === 0;
+}
+
+/** 掛け合いを見たことを残す。書けなくても、その場では覚えている */
+export function markIntroSeen(stageId: StageId, storage: RecordStorage | null = defaultStorage()): void {
+  const records = loadRecords(storage);
+  if (records.introSeen.includes(stageId)) return;
+  records.introSeen.push(stageId);
+  writeRecords(records, storage);
+}
+
+/** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */
+export function hasAnyRecord(records: Records = loadRecords()): boolean {
+  return STAGE_IDS.some((id) => (records.stages[id]?.plays ?? 0) > 0);
 }
 
 /** ステージを選ぶ画面に出す1つぶん */

@@ -5,7 +5,7 @@ import {
   allTexts, introFor, mischiefLine, reactionList, say, shout, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
 } from './content';
 import {
-  GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
+  GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
   GARAGE_WAVE_INTRO, LINK_HINTS, LINK_PROFILES, allLinkTexts
 } from './garageContent';
 import { TITLES, titlesFor } from './titles';
@@ -75,11 +75,13 @@ describe('content の文の決まり', () => {
     }
   });
 
-  it('掛け合いで遊び方を伝える', () => {
+  it('掛け合いで仕分けのやり方だけを短く伝える(待てと行けは結果発表で教える)', () => {
     const joined = INTRO.map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['左にスワイプ', '右にスワイプ', '見た目', '動き', 'プロフィール', '一言', '待て', '行け']) {
+    for (const word of ['左', '右にスワイプ', '見た目', '動き', 'プロフィール', '一言']) {
       expect(joined).toContain(word);
     }
+    expect(joined).not.toMatch(/待て|行け/);
+    expect(INTRO.length).toBeLessThanOrEqual(3);
     expect(INTRO.some((s) => s.who === 'hero')).toBe(true);
     expect(INTRO.some((s) => s.who === 'operator')).toBe(true);
   });
@@ -103,7 +105,7 @@ describe('content の文の決まり', () => {
 
 describe('ステージ2の文', () => {
   const garageTexts = [
-    ...GARAGE_INTRO, ...GARAGE_INTRO_REPLAY, ...Object.values(GARAGE_WAVE_INTRO).flat(),
+    ...GARAGE_INTRO, ...Object.values(GARAGE_WAVE_INTRO).flat(),
     ...Object.values(GARAGE_REACTIONS).flat(), ...Object.values(GARAGE_OVERRIDES).flat()
   ].map((s) => s.text);
 
@@ -137,10 +139,9 @@ describe('ステージ2の文', () => {
 
   it('掛け合いで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
     const joined = introFor('garage').map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['おそろい', '合図', '前の人', '口笛', '仲間を呼ぶ', '集まったら行け', 'まとめて', '3秒', '車', '止まる']) {
+    for (const word of ['おそろい', '合図', '前の人', '口笛', '仲間を呼ぶ', '集まったら行け', '3秒', '車', '止まる']) {
       expect(joined).toContain(word);
     }
-    expect(introFor('garage', true)).toBe(GARAGE_INTRO_REPLAY);
     expect(introFor('alley')).toBe(INTRO);
     expect(waveIntroFor('garage', 3)[0].text).toContain('女ボス');
     expect(waveIntroFor('alley', 1)[0].text).toContain('5人');
@@ -217,14 +218,14 @@ describe('ステージ2の文', () => {
     expect(reactionList('escaped')).toBe(REACTIONS.escaped);
   });
 
-  it('初めての掛け合いは10枚くらい', () => {
-    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(11);
+  it('初めての掛け合いは5枚まで', () => {
+    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(5);
     expect(GARAGE_INTRO.some((s) => s.who === 'hero')).toBe(true);
   });
 
   it('禁則で最後の行が1字だけになりやすい言い回し(〜っちゃった)を使わない', () => {
     const texts = [
-      ...GARAGE_INTRO, ...GARAGE_INTRO_REPLAY, ...Object.values(GARAGE_WAVE_INTRO).flat(),
+      ...GARAGE_INTRO, ...Object.values(GARAGE_WAVE_INTRO).flat(),
       ...Object.values(GARAGE_REACTIONS).flat(), ...Object.values(GARAGE_OVERRIDES).flat()
     ].map((s) => s.text);
     // 行の終わりの字の前に、行の頭に来られない字(小さいかな、ー)が2つ続くと、折り返したときに1字だけ残る
