@@ -77,17 +77,17 @@ export class TitleListScene extends Phaser.Scene {
     // ─── カード(ずらせる部分) ───
     const top = 42;
     const viewH = bottom - btnH - 5 - top;
+    // 1列に並べる(2列だとヒントの文が細かく折り返されて読みにくい)
     const gap = 3;
-    const cw = Math.floor((W - 4 - gap) / 2);
+    const cw = W - 10;
     const wrap = cw - 10;
     const cards: Phaser.GameObjects.GameObject[] = [];
     let y = top + 1;
-    for (let i = 0; i < TITLES.length; i += 2) {
-      const pair = TITLES.slice(i, i + 2);
-      const built = pair.map((t, j) => this.card(t, 2 + j * (cw + gap), y, cw, wrap, earned.has(t.id), t.id === data.current));
-      const h = Math.max(...built.map((b) => b.h));
-      built.forEach((b) => { b.draw(h); cards.push(...b.objs); });
-      y += h + gap;
+    for (const t of TITLES) {
+      const b = this.card(t, 2, y, cw, wrap, earned.has(t.id), t.id === data.current);
+      b.draw(b.h);
+      cards.push(...b.objs);
+      y += b.h + gap;
     }
     const contentH = y - top;
     const scrollMax = Math.max(0, contentH - viewH);
