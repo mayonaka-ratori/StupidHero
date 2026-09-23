@@ -89,6 +89,50 @@ export function shake(scene: Phaser.Scene, px = 3, ms = 200, cam = scene.cameras
   cam.shake(ms, new Phaser.Math.Vector2(px / cam.width, (px * 0.7) / cam.height), true);
 }
 
+/**
+ * 画面ではなく、1つの絵だけを小さく揺らす(殴られた相手など)。
+ * 位置(x, y)は変えず、絵の原点をずらして揺らすので、同時に動かしている tween とぶつからない。
+ * 揺れている最中にもう一度呼ぶと、揺れが延びる。
+ */
+export function jolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, px = 2, ms = 90): void {
+  const scene = target.scene;
+  if (!scene || !target.active) return;
+  const cur = jolting.get(target);
+  const until = scene.time.now + ms;
+  if (cur) { cur.until = Math.max(cur.until, until); cur.px = Math.max(cur.px, px); return; }
+  const st = { until, px, dx: 0, dy: 0, n: 0 };
+  jolting.set(target, st);
+  const apply = (dx: number, dy: number): void => {
+    const w = target.width || 1, h = target.height || 1;
+    target.setOrigin(target.originX + (dx - st.dx) / w, target.originY + (dy - st.dy) / h);
+    st.dx = dx; st.dy = dy;
+  };
+  const onUpdate = (): void => {
+    if (!target.active) { stop(); return; }
+    if (scene.time.now >= st.until) { apply(0, 0); stop(); return; }
+    st.n++;
+    // 左右に交互にずらす(上下は少しだけ)
+    const dx = (st.n % 2 === 0 ? 1 : -1) * st.px;
+    const dy = st.n % 4 === 1 ? -1 : 0;
+    apply(dx, dy);
+  };
+  const stop = (): void => { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); jolting.delete(target); };
+  scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
+}
+
+/** jolt の揺れをすぐ止めて、原点を元に戻す(原点を自分で変える前に呼ぶ) */
+export function stopJolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image): void {
+  const st = jolting.get(target);
+  if (!st) return;
+  st.until = 0;
+  const w = target.width || 1, h = target.height || 1;
+  target.setOrigin(target.originX - st.dx / w, target.originY - st.dy / h);
+  st.dx = 0; st.dy = 0;
+}
+
+const jolting = new WeakMap<object, { until: number; px: number; dx: number; dy: number; n: number }>();
+
 const frozen = new WeakMap<Phaser.Scene, { until: number; anims: Phaser.GameObjects.Sprite[]; timer: number }>();
 
 const cleanupSet = new WeakSet<Phaser.Scene>();

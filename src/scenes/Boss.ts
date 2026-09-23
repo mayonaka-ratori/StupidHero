@@ -20,7 +20,7 @@ import {
 import { getRun, type GameRun } from '../run';
 import {
   Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText,
-  addPanel, banner, blink, flash, gotoWhenFree, hitStop, impact, panelRect, popText, shake, tapSpark, whenNoFlash
+  addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash
 } from '../ui';
 import { BossCar } from './boss/car';
 import { DEPTH_OF } from './boss/depth';
@@ -218,12 +218,17 @@ export class BossScene extends Phaser.Scene {
     return say(key, rng, this.stageId);
   }
 
+  /** 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする */
+  private quake(px: number, ms: number): void {
+    shake(this, Math.max(1, Math.round(px / 2)), ms);
+  }
+
   // ─── 始まり ───
 
   private async intro(): Promise<void> {
     await this.wait(250);
     audio.sfx('reveal');
-    shake(this, 3, 300);
+    this.quake(3, 300);
     spawnFx(this, 'fx_dust', BOSS_X - 20, FEET_Y - 8);
     spawnFx(this, 'fx_dust', BOSS_X + 22, FEET_Y - 6);
     await banner(this, 'ボス出現!');
@@ -256,7 +261,7 @@ export class BossScene extends Phaser.Scene {
     this.meter.update(0);
     this.fightStartAt = this.time.now;
     flash(this, 0xffffff, 1);
-    shake(this, 3, 200);
+    this.quake(3, 200);
     audio.sfx('go');
   }
 
@@ -321,7 +326,8 @@ export class BossScene extends Phaser.Scene {
     // 音と揺れ
     audio.sfx('rush', { pitch: 1 + power * 0.25 });
     if (this.combo % 3 === 0) audio.sfx('hit', { volume: 0.5 + power * 0.4, pitch: 0.9 + Math.random() * 0.2 });
-    shake(this, 1 + Math.round(power * 3), 90);
+    // 画面は揺らさず、殴られた相手だけを揺らす(連打のたびに画面が揺れると激しすぎるため)
+    jolt(this.car && this.carMode === 'car' ? this.car.sprite : this.boss, 1 + Math.round(power * 2), 90);
 
     // 体力のバー
     this.hp.setValue(this.fight.hpRatio);
@@ -462,7 +468,7 @@ export class BossScene extends Phaser.Scene {
     audio.sfx('reveal', { pitch: 1.2 });
     spawnFx(this, 'fx_dust', boss.x - 14, FEET_Y - 6);
     spawnFx(this, 'fx_dust', boss.x + 14, FEET_Y - 6);
-    shake(this, 2, 120);
+    this.quake(2, 120);
     const x0 = boss.x, y0 = boss.y;
     const x1 = car.riderX, y1 = car.riderY;
     let under = false;
@@ -485,7 +491,7 @@ export class BossScene extends Phaser.Scene {
     this.playAnim(boss, this.bossKey, 'idle');
     // 着地で車が沈む
     audio.sfx('hit', { pitch: 0.7 });
-    shake(this, 3, 150);
+    this.quake(3, 150);
     this.boardTweens.push(this.tweens.add({ targets: car.lunge, y: 3, duration: 60, yoyo: true, ease: 'Quad.easeOut' }));
 
     // エンジンをふかす
@@ -519,8 +525,8 @@ export class BossScene extends Phaser.Scene {
     car.baseX = CAR_X; car.baseY = CAR_Y;
     audio.sfx('horn');
     audio.sfx('crash', { volume: 0.5, pitch: 0.8 });
-    impact(this, 'small');
-    shake(this, 4, 220);
+    hitStop(this, 40);
+    this.quake(4, 220);
     for (const wx of [CAR_X - 40, CAR_X + 40]) {
       spawnFx(this, 'fx_brake', wx, FEET_Y - 2, { depth: DEPTH_OF.car + 0.5 });
       spawnFx(this, 'fx_dust', wx + 8, FEET_Y - 8, { depth: DEPTH_OF.car + 0.5 });
@@ -587,7 +593,9 @@ export class BossScene extends Phaser.Scene {
       this.time.delayedCall(180, () => {
         prop.setFrame(1);
         audio.sfx('break');
-        impact(this, 'small');
+        // 画面は揺らさず、壊れた物だけを揺らす
+        hitStop(this, 40);
+        jolt(prop, 2, 160);
         spawnFx(this, 'fx_hit', c.x, c.y, { depth: DEPTH_OF.fxTop });
         for (let i = 0; i < 4; i++) throwDebris(this, c.x, c.y, Phaser.Math.Between(-40, 40), Phaser.Math.Between(10, 50));
         popText(this, c.x, c.y - 10, label, { color: UI.danger, size: FS.big });
@@ -597,7 +605,7 @@ export class BossScene extends Phaser.Scene {
       const x = Phaser.Math.Between(24, 192);
       spawnFx(this, 'fx_dust', x, FEET_Y - 4);
       for (let i = 0; i < 4; i++) throwDebris(this, x, FEET_Y - 6, Phaser.Math.Between(-40, 40), Phaser.Math.Between(-10, 10));
-      shake(this, 3, 200);
+      jolt(this.boss, 2, 160);
       audio.sfx('break', { pitch: 0.8 });
       popText(this, x, FEET_Y - 30, label, { color: UI.danger, size: FS.big });
     }
@@ -628,8 +636,9 @@ export class BossScene extends Phaser.Scene {
       const hitY = FEET_Y - 26;
       audio.sfx('crash');
       if (n % 2 === 0) audio.sfx('horn', { pitch: 0.9 + Math.random() * 0.2 });
-      impact(this, 'small');
-      shake(this, 4, 200);
+      // 画面は揺らさず、ぶつかった車だけを揺らす
+      hitStop(this, 40);
+      jolt(car.sprite, 2, 200);
       spawnFx(this, 'fx_hit_big', hitX, hitY, { depth: DEPTH_OF.fxTop });
       for (let i = 0; i < 3; i++) throwDebris(this, hitX, hitY, Phaser.Math.Between(-30, 30), Phaser.Math.Between(-10, 30), 360);
       if (prop) {
@@ -687,7 +696,10 @@ export class BossScene extends Phaser.Scene {
     const sec = this.fight.seconds ?? this.fight.elapsedSec;
     audio.stopBgm(300);
     audio.sfx('bossDown');
-    impact(this, 'huge');
+    // impact('huge') と同じ光と止まり方で、揺れだけ小さくする
+    flash(this, 0xffffff, 3);
+    hitStop(this, 160);
+    this.quake(7, 500);
     this.playAnim(this.hero, 'hero', 'punch', false);
     if (this.car) {
       this.wreckCar();
@@ -705,7 +717,7 @@ export class BossScene extends Phaser.Scene {
           for (let k = 0; k < 2; k++) throwDebris(this, x, y, Phaser.Math.Between(-60, 60), Phaser.Math.Between(0, 50));
           // 画面全体の光は最初の impact だけにする(光に弱い人のため、続けて光らせない)
           if (i % 2 === 0) audio.sfx('explosion', { pitch: 0.9 + Math.random() * 0.2 });
-          shake(this, 5, 180);
+          this.quake(5, 180);
         });
       }
     }
@@ -737,7 +749,7 @@ export class BossScene extends Phaser.Scene {
     this.time.delayedCall(180, () => spawnFx(this, 'fx_explosion', this.hero.x - 4, FEET_Y - 50, { depth: DEPTH_OF.aura }));
     audio.sfx('explosion');
     flash(this, 0xffffff, 2);
-    shake(this, 4, 300);
+    this.quake(4, 300);
     for (let i = 0; i < 6; i++) this.time.delayedCall(i * 120, () => spawnFx(this, 'fx_sparkle', this.hero.x + Phaser.Math.Between(-24, 24), FEET_Y - Phaser.Math.Between(20, 70), { depth: DEPTH_OF.fxTop }));
 
     await this.speak(this.line('bossDefeated', this.run.rng));
@@ -764,6 +776,7 @@ export class BossScene extends Phaser.Scene {
 
     // 殴られた勢いで、壊れた車が宙に浮いてひっくり返る(回転は45度ずつ、ドット絵らしく)
     const s = car.sprite;
+    stopJolt(s);
     s.setFrame(3).setDepth(DEPTH_OF.car);
     const cx = s.x, cy = s.y - 28;
     // 押されて右へ寄っているので、画面の真ん中寄りに落ちるようにする
@@ -784,7 +797,7 @@ export class BossScene extends Phaser.Scene {
         // 屋根から落ちる
         s.angle = 180;
         audio.sfx('crash', { pitch: 0.7 });
-        shake(this, 6, 260);
+        this.quake(6, 260);
         for (const dx of [-50, 0, 50]) spawnFx(this, 'fx_dust', s.x + dx, FEET_Y - 6, { depth: DEPTH_OF.car + 0.5 });
       }
     });
@@ -798,7 +811,7 @@ export class BossScene extends Phaser.Scene {
         for (let k = 0; k < 3; k++) throwDebris(this, x, y, Phaser.Math.Between(-70, 70), Phaser.Math.Between(-10, 50), 480);
         if (i % 2 === 0) audio.sfx('explosion', { pitch: 0.8 + Math.random() * 0.3 });
         audio.sfx('crash', { volume: 0.3, pitch: 1.2 + Math.random() * 0.4 });
-        shake(this, 5, 160);
+        this.quake(5, 160);
       });
     }
     this.time.delayedCall(420 + 9 * 110 + 60, () => {
@@ -810,7 +823,7 @@ export class BossScene extends Phaser.Scene {
       }
       audio.sfx('explosion', { pitch: 0.7 });
       audio.sfx('bigHit', { pitch: 0.8 });
-      shake(this, 9, 500);
+      this.quake(9, 500);
       hitStop(this, 80);
       // そのあとも車は燃えている
       for (let i = 0; i < 8; i++) {
@@ -835,7 +848,7 @@ export class BossScene extends Phaser.Scene {
         },
         onComplete: () => {
           spawnFx(this, 'fx_dust', x1 - 10, FEET_Y - 4, { depth: DEPTH_OF.car + 2 });
-          shake(this, 3, 150);
+          this.quake(3, 150);
           this.bossShadow.setPosition(x1, y1 + 1).setVisible(true).setDepth(DEPTH_OF.car + 0.9);
           // 目を回した星
           const stars = this.add.sprite(x1 + 18, y1 - 22, 'fx_stars', 0).setDepth(DEPTH_OF.car + 2);
