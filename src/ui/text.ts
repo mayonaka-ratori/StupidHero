@@ -47,10 +47,31 @@ const DEFAULTS: FullTextStyle = {
   outline: false, shadow: false, threshold: 128, letterSpacing: 0, fixedWidth: 0
 };
 
+// 禁則処理:行の頭に来てはいけない字(閉じかっこ、句読点、!?、ー、…、小さいかな など)と、
+// 行の終わりに来てはいけない字(開きかっこ)。折り返すときは、前の字をいっしょに次の行へ送る(追い出し)。
+// 全角の記号を確実に書くため、\u の書き方で書く。
 /** 行の頭に来てはいけない字 */
-const NO_START = new Set(Array.from('、。,.,.!?!?ー-)」』】〉》…‥ッャュョァィゥェォッっゃゅょぁぃぅぇぉ〜~:;:;'));
+const NO_START = new Set(Array.from(
+  // 、 。 , . ・ : ; ! ? ‼ ⁇ ⁈ ⁉ 
+  '、。，．・：；！？‼⁇⁈⁉' +
+  // ) ] } 〕 〉 》 」 』 】 〙 〗 ” ’ 」(半角) 、。(半角)
+  '）］｝〕〉》」』】〙〗”’｣､｡' +
+  // ー … ‥ 〜 ~ ゝ ゞ ヽ ヾ 々 〻 ー(半角)
+  'ー…‥〜～ゝゞヽヾ々〻ｰ' +
+  // ぁぃぅぇぉっゃゅょゎゕゖ ァィゥェォッャュョヮヵヶ ㇰ… 半角の小さいカナ
+  'ぁぃぅぇぉっゃゅょゎゕゖ' +
+  'ァィゥェォッャュョヮヵヶ' +
+  'ㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ' +
+  'ｧｨｩｪｫｬｭｮｯ' +
+  // 半角
+  ',.!?):;]}~%'
+));
 /** 行の終わりに来てはいけない字 */
-const NO_END = new Set(Array.from('(「『【〈《(['));
+const NO_END = new Set(Array.from(
+  // ( [ { 〔 〈 《 「 『 【 〘 〖 “ ‘ 「(半角) ¥ $ # ( [ {
+  '（［｛〔〈《「『【〘〖“‘｢￥＄＃' +
+  '([{¥$#'
+));
 /** まとめて1語として扱う半角の字(途中で折り返さない) */
 const WORD = /[A-Za-z0-9¥$%,.+\-#'_:!?]/;
 
@@ -124,50 +145,85 @@ function parse(text: string, base: number): { ch: string; color: number }[] {
   return out;
 }
 
-function layoutText(text: string, st: FullTextStyle): Laid {
-  const chars = parse(text, st.color);
-  const glyphs: Glyph[] = [];
-  const lineW: number[] = [];
+type Ch = { ch: string; color: number };
+
+/** 1つの段落(\n で区切られたまとまり)を、折り返す幅で行に分ける。禁則処理もここでする */
+function wrapParagraph(chars: Ch[], st: FullTextStyle): Ch[][] {
+  if (st.wrap <= 0 || !chars.length) return [chars];
   const ls = st.letterSpacing;
-  let line = 0;
-  let x = 0;
-  // 語(半角の並び)ごとに区切る
-  const tokens: { ch: string; color: number }[][] = [];
+  // 語(半角の並び)ごとに区切る。幅に入りきらない長い語は1字ずつにする
+  const tokens: Ch[][] = [];
   for (const c of chars) {
     const prev = tokens[tokens.length - 1];
-    if (prev && WORD.test(c.ch) && WORD.test(prev[prev.length - 1].ch) && prev[0].ch !== '\n') prev.push(c);
+    if (prev && WORD.test(c.ch) && WORD.test(prev[prev.length - 1].ch)) prev.push(c);
     else tokens.push([c]);
   }
-  const newLine = (): void => { lineW[line] = Math.max(0, x - ls); line++; x = 0; };
-  let lineStart = 0; // この行の最初の字の glyphs での位置
-  for (const tok of tokens) {
-    if (tok[0].ch === '\n') { newLine(); lineStart = glyphs.length; continue; }
-    const tw = tok.reduce((s, c) => s + charW(c.ch, st.size) + ls, 0) - ls;
-    if (st.wrap > 0 && x > 0 && x + tw > st.wrap) {
-      const last = glyphs[glyphs.length - 1];
-      if (((tok.length === 1 && NO_START.has(tok[0].ch)) || (last && NO_END.has(last.ch))) && glyphs.length - lineStart > 1) {
-        // 行頭と行末の禁則:前の字をいっしょに次の行へ送る
-        const moved = glyphs.pop()!;
-        x = moved.x;
-        newLine();
-        lineStart = glyphs.length;
-        moved.x = 0; moved.line = line; glyphs.push(moved);
-        x = charW(moved.ch, st.size) + ls;
-      } else {
-        newLine();
-        lineStart = glyphs.length;
-      }
-      if (tok.length === 1 && (tok[0].ch === ' ')) continue; // 行頭の半角スペースは捨てる
+  const tokW = (t: Ch[]): number => t.reduce((s, c) => s + charW(c.ch, st.size) + ls, 0) - ls;
+  const toks: Ch[][] = [];
+  for (const t of tokens) {
+    if (t.length > 1 && tokW(t) > st.wrap) for (const c of t) toks.push([c]);
+    else toks.push(t);
+  }
+  const startsBad = (t: Ch[]): boolean => NO_START.has(t[0].ch);
+  const endsBad = (t: Ch[]): boolean => NO_END.has(t[t.length - 1].ch);
+  const isSpace = (t: Ch[]): boolean => t.length === 1 && t[0].ch === ' ';
+
+  const lines: Ch[][] = [];
+  let i = 0;
+  while (i < toks.length) {
+    // この行に入るだけ入れる
+    let x = 0;
+    let j = i;
+    for (; j < toks.length; j++) {
+      const w = tokW(toks[j]) + (j > i ? ls : 0);
+      if (j > i && x + w > st.wrap) break;
+      x += w;
     }
-    for (const c of tok) {
-      const w = charW(c.ch, st.size);
-      if (st.wrap > 0 && x > 0 && x + w > st.wrap) { newLine(); lineStart = glyphs.length; }
-      glyphs.push({ ch: c.ch, x, line, color: c.color });
-      x += w + ls;
+    if (j < toks.length) {
+      // 禁則:次の行の頭が行頭禁止の字、またはこの行の終わりが行末禁止の字なら、区切りを前へずらす
+      let b = j;
+      while (b > i + 1 && (startsBad(toks[b]) || endsBad(toks[b - 1]))) b--;
+      // 行の頭にスペースを残さないように、スペースのところでは区切りをそのままにしてよい
+      if (!(startsBad(toks[b]) || endsBad(toks[b - 1]))) j = b;
+      // 最後の行が1字だけになるときは、前の字もいっしょに送る(「市\n民」のようにならないように)
+      const rest = toks.slice(j).filter((t) => !isSpace(t));
+      if (rest.length === 1 && rest[0].length === 1) {
+        for (let k = j - 1; k >= j - 2 && k - i >= 2; k--) {
+          if (!startsBad(toks[k]) && !endsBad(toks[k - 1])) { j = k; break; }
+        }
+      }
+    }
+    lines.push(toks.slice(i, j).flat());
+    i = j;
+    // 折り返した行の頭の半角スペースは捨てる
+    while (i < toks.length && isSpace(toks[i])) i++;
+  }
+  return lines.length ? lines : [[]];
+}
+
+function layoutText(text: string, st: FullTextStyle): Laid {
+  const chars = parse(text, st.color);
+  const ls = st.letterSpacing;
+  // \n で段落に分けてから、段落ごとに折り返す
+  const paras: Ch[][] = [[]];
+  for (const c of chars) {
+    if (c.ch === '\n') paras.push([]);
+    else paras[paras.length - 1].push(c);
+  }
+  const glyphs: Glyph[] = [];
+  const lineW: number[] = [];
+  for (const para of paras) {
+    for (const lineChars of wrapParagraph(para, st)) {
+      const line = lineW.length;
+      let x = 0;
+      for (const c of lineChars) {
+        glyphs.push({ ch: c.ch, x, line, color: c.color });
+        x += charW(c.ch, st.size) + ls;
+      }
+      lineW.push(Math.max(0, x - ls));
     }
   }
-  lineW[line] = Math.max(0, x - ls);
-  const lines = line + 1;
+  const lines = lineW.length;
   const w = Math.max(st.fixedWidth, ...lineW);
   const h = lines * st.size + (lines - 1) * st.lineSpacing;
   // そろえる
