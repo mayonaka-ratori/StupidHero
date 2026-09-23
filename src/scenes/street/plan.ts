@@ -12,7 +12,7 @@ export interface StreetPlan { people: PersonSpot[]; props: PropSpot[]; passers: 
 export const HERO_START = { x: 40, y: 192 };
 /** 1人目の位置と、人と人の間 */
 export const FIRST_X = 200;
-export const GAP = 92;
+export const GAP = 104;
 /** 人が立つ列(足の y)。奥から手前まで */
 const LANES = [190, 176, 204, 184, 198, 180, 206];
 
@@ -47,7 +47,7 @@ export function planStreet(people: readonly Person[], passBadIds: ReadonlySet<st
     if (s.person.truth === 'boss') return;
     const look = rng.pick(PASSERS.filter((p) => p.look !== 'granny' || rng.chance(0.3)));
     const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
-    passers.push({ ...look, x: s.x + 46 + rng.int(-3, 3), y });
+    passers.push({ ...look, x: s.x + 64 + rng.int(-3, 3), y });
   });
 
   // 壊れる物

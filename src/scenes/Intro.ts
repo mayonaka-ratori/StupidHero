@@ -9,8 +9,8 @@ import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { INTRO, INTRO_REPLAY, type Speech } from '../logic';
 import { getRun } from '../run';
-import { Button, CutIn, FS, PauseControl, PixelText, addPanel, goto, panelRect } from '../ui';
-import { Z, addMute, devHook, drawAlley, drawLightPool, flicker, unlockOnTap } from './sort/common';
+import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect } from '../ui';
+import { Z, addMute, devHook, drawAlley, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
 const HERO_X = 60;
@@ -57,13 +57,17 @@ export class IntroScene extends Phaser.Scene {
     // 下:セリフ
     addPanel(this);
     const r = panelRect();
-    this.cut = new CutIn(this, r.x, r.y, r.w, 56, { speed: 32 });
+    // 縦に余裕があれば大きな字(16)で3行まで
+    const tall = r.h >= 150;
+    const ch = tall ? 78 : 56;
+    this.cut = new CutIn(this, r.x, r.y, r.w, ch, { speed: 32, size: tall ? FS.big : FS.body });
     // カットインをタップしたときも、シーンのタップとして扱う(二重に進まないように)
     for (const o of this.cut.list) if (o instanceof Phaser.GameObjects.Zone) o.disableInteractive();
-    this.nextMark = new PixelText(this, r.right - 8, r.y + 56 - 14, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
-    this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = r.y + 56 - 14 + (this.nextMark.y === r.y + 56 - 14 ? 1 : 0); } });
-    this.counter = new PixelText(this, r.x + 2, r.y + 62, '', { size: FS.small, color: UI.textDim });
-    const tapHint = new PixelText(this, Math.round(W / 2), r.y + 80, 'タップで次へ', { size: FS.body, color: UI.textDim }).setOrigin(0.5, 0);
+    const markY = r.y + ch - 14;
+    this.nextMark = new PixelText(this, r.right - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
+    this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = markY + (this.nextMark.y === markY ? 1 : 0); } });
+    this.counter = new PixelText(this, r.x + 2, r.y + ch + 6, '', { size: FS.small, color: UI.textDim });
+    const tapHint = new PixelText(this, Math.round(W / 2), Math.max(r.y + ch + 24, r.bottom - 14), 'タップで次へ', { size: FS.body, color: UI.textDim }).setOrigin(0.5, 0);
     this.time.addEvent({ delay: 600, loop: true, callback: () => tapHint.setVisible(!tapHint.visible) });
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
@@ -119,6 +123,6 @@ export class IntroScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     audio.sfx('button');
-    goto(this, SCENES.sort, undefined, { kind: 'wipe' });
+    gotoSafe(this, SCENES.sort);
   }
 }

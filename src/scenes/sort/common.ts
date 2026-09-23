@@ -9,7 +9,7 @@ import Phaser from 'phaser';
 import { UI } from '../../config';
 import { layout } from '../../layout';
 import { audio } from '../../audio';
-import { MuteButton } from '../../ui';
+import { MuteButton, goto, type GotoOptions } from '../../ui';
 
 /** 背景の重なり(ゲームの絵は 900 より下) */
 export const Z = {
@@ -74,8 +74,8 @@ export function spotlightDim(scene: Phaser.Scene, cx: number, feetY: number, key
       let dark: boolean;
       if (r < 0.92) dark = false;
       else if (r < 1.08) dark = (x % 2 === 0 && y % 2 === 0); // 4つに1つ
-      else if (r < 1.3) dark = (x + y) % 2 === 0; // 半分
-      else dark = (x + y) % 2 === 0 || (x % 2 === 0 && y % 2 === 1 && (x + y) % 4 === 1); // 半分より濃い
+      else if (r < 1.25) dark = (x + y) % 2 === 0; // 半分
+      else dark = !(x % 2 === 0 && y % 2 === 0); // 4つに3つ
       if (!dark) continue;
       const i = (y * W + x) * 4;
       d[i] = 0; d[i + 1] = 0; d[i + 2] = 8; d[i + 3] = 255;
@@ -145,6 +145,15 @@ export function addMute(scene: Phaser.Scene, x: number, y: number): MuteButton {
 /** どこをタップしても音を鳴らせるようにする(iPhoneはタップのあとでないと鳴らない) */
 export function unlockOnTap(scene: Phaser.Scene): void {
   scene.input.on('pointerdown', () => audio.unlock());
+}
+
+/**
+ * 次のシーンへ(ワイプ)。ui の goto は、シーンの更新中(タイマーや tween の中)に初めて呼ぶと
+ * ワイプのシーンの登録が保留になり、直後の start が「Scene key not found」で失敗して止まってしまう。
+ * ゲームの更新の外(setTimeout)から呼んで避ける。
+ */
+export function gotoSafe(scene: Phaser.Scene, to: string, data?: object, opt: GotoOptions = { kind: 'wipe' }): void {
+  window.setTimeout(() => goto(scene, to, data, opt), 0);
 }
 
 /** 開発中だけ、自動テストから中身をさわれるようにする */

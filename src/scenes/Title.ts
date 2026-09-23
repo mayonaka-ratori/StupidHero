@@ -8,8 +8,8 @@ import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { loadRecords, TITLE_COUNT } from '../logic';
 import { startRun } from '../run';
-import { FS, PixelText, flash, goto, shake } from '../ui';
-import { Z, addMute, devHook, drawAlley, drawLightPool, flicker } from './sort/common';
+import { FS, PixelText, flash, shake } from '../ui';
+import { Z, addMute, devHook, drawAlley, gotoSafe, drawLightPool, flicker } from './sort/common';
 
 const HERO_X = 108;
 /** 下の「タップしてスタート」の部分の高さ */
@@ -187,6 +187,6 @@ export class TitleScene extends Phaser.Scene {
     flash(this, 0xffffff, 2);
     this.hero.play(animKey('hero', 'okay'));
     this.kiran();
-    this.time.delayedCall(320, () => goto(this, SCENES.intro, undefined, { kind: 'wipe' }));
+    this.time.delayedCall(320, () => gotoSafe(this, SCENES.intro));
   }
 }

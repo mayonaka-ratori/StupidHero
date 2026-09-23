@@ -39,7 +39,7 @@ const HAND = [
   '...22222..'
 ];
 
-function drawHand(g: Phaser.GameObjects.Graphics): void {
+export function drawHand(g: Phaser.GameObjects.Graphics): void {
   HAND.forEach((row, y) => {
     Array.from(row).forEach((ch, x) => {
       if (ch === '.') return;
