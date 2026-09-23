@@ -10,7 +10,7 @@ on:
         description: 公開する版(タグかブランチかコミット)
         required: true
         # いま公開している版(ステージ1とステージ2)
-        default: 5f327b535dd3c4ab1b6de7f7505cda1584d6aee6
+        default: 2da88df3207f1db5df24d64b66bb41fb30126716
 
 permissions:
   contents: read
