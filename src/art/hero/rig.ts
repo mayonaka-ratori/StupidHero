@@ -300,7 +300,7 @@ export function renderPose(p: Pose, size = 64): PixelGrid {
     H = { x: H.x, y: H.y + (BODY.ground - low) };
   }
 
-  const shF = L(-0.8, 9.6), shB = L(1.6, 9.6);
+  const shF = L(-2.2, 9.4), shB = L(1.6, 9.6);
   const hipF = L(-1, -0.5), hipB = L(1.4, -0.5);
   const neck = L(0.4, 11.2);
   const capeN = L(-2.2, 10.2);

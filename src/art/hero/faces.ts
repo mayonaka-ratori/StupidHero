@@ -55,13 +55,23 @@ interface Expr {
   /** 頭のずらし(ノリノリで弾むなど) */
   dy?: number;
   blush?: boolean;
+  /** こぶしを上げる(ノリノリ) */
+  fist?: boolean;
 }
 
 const HERO_EXPR: Expr[] = [
-  { eyeL: 'half', eyeR: 'half', mouth: ['smirk', 'smirkOpen'], brow: 2 }, // ドヤ顔
-  { eyeL: 'squeezeL', eyeR: 'squeezeR', mouth: ['wavy', 'wail'], brow: -2, sweat: true }, // やっちまった
+  { eyeL: 'smug', eyeR: 'smug', mouth: ['smirk', 'smirkOpen'], brow: 1 }, // ドヤ顔
+  { eyeL: 'squeeze', eyeR: 'squeeze', mouth: ['wavy', 'wail'], brow: -2, sweat: true }, // やっちまった
   { eyeL: 'happy', eyeR: 'happy', mouth: ['smile', 'bigSmile'], brow: 0, blush: true } // 笑顔
 ];
+
+/** ヒーローのマスクの白いレンズ(5×4)。[左目, 右目] */
+const LENS: Record<string, [string[], string[]]> = {
+  normal: [['.www.', 'wwwww', 'wwww.', '.ww..'], ['.www.', 'wwwww', '.wwww', '..ww.']],
+  smug: [['.....', 'wwww.', 'wwwww', '..ww.'], ['.....', '.wwww', 'wwwww', '.ww..']],
+  squeeze: [['ww...', '.www.', '...ww', '.www.'], ['...ww', '.www.', 'ww...', '.www.']],
+  happy: [['.....', '.www.', 'ww.ww', 'w...w'], ['.....', '.www.', 'ww.ww', 'w...w']]
+};
 
 function shade(r: Ramp, x: number, y: number, cx: number, cy: number, rx: number, ry: number): string {
   // 左上が明るく、右下が暗い
@@ -99,7 +109,7 @@ function drawHeroFace(e: Expr, open: boolean): PixelGrid {
   // 後ろ髪
   ellipse(g, 16, 12 + dy, 10.5, 10.5, (x, y) => (y > 19 + dy ? null : shade(HAIR, x, y, 15, 10 + dy, 10, 10)));
   // 顔
-  const face: Pt[] = [[10, 9], [25, 9], [25.5, 15], [24.3, 19], [21.5, 22.3], [18.5, 23.5], [15, 22], [11.5, 18.5], [10, 14]]
+  const face: Pt[] = [[10, 9], [25, 9], [25.5, 15], [24.5, 19.5], [21.8, 23], [18.5, 24.3], [15, 22.8], [11.5, 19], [10, 14]]
     .map(([x, y]) => [x, y + dy] as Pt);
   poly(g, face, (x, y) => {
     if (x >= 24 || (y > 19 + dy && x > 19)) return SKIN[1];
@@ -116,21 +126,18 @@ function drawHeroFace(e: Expr, open: boolean): PixelGrid {
   ellipse(g, 7, 6.5 + dy, 1.4, 1.4, RED[1]);
 
   // マスク
-  const mY = 12 + dy;
+  const mY = 11 + dy;
   const b = e.brow;
-  poly(g, [[7.5, mY - 1.5 + b * 0.3], [12, mY - 1 - b * 0.4], [16.5, mY], [18.5, mY], [23, mY - 1 - b * 0.4], [28.2, mY - 2 + b * 0.3], [26, mY + 4.3], [19, mY + 4], [17.5, mY + 3], [16, mY + 4], [9.5, mY + 4.3]],
-    (x, y) => (y <= mY - 1 && (x < 10 || x > 25) ? BLUE[1] : BLUE[2]));
-  // 目(マスクの穴の中)
-  const eyeHole = (ex: number, name: string): void => {
-    const closed = name === 'happy' || name.startsWith('squeeze') || name === 'flat' || name === 'half';
-    if (closed) for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) if (j < 3 || (i > 0 && i < 3)) g.px(ex + i, mY + j, SKIN[0]);
-    stamp(g, EYES[name], K, ex, mY);
-  };
-  eyeHole(11, e.eyeL);
-  eyeHole(20, e.eyeR);
+  poly(g, [[7, mY - 0.5 + b * 0.3], [11, mY - b * 0.5], [16, mY + 1], [18.5, mY + 1], [23.5, mY - b * 0.5], [28.5, mY - 1 + b * 0.3], [26.5, mY + 5.5], [20, mY + 6], [17.3, mY + 4.6], [15, mY + 6], [9, mY + 5.5]],
+    BLUE[2]);
+  // マスクのつや(左上)
+  for (const [x, y] of [[9, 1], [10, 1], [11, 1], [8, 2]] as Pt[]) if (g.get(x, mY + y) === BLUE[2]) g.px(x, mY + y, BLUE[1]);
+  // 目:マスクの白いレンズ。形で表情を出す
+  stamp(g, LENS[e.eyeL][0], { w: WHITE, o: OUTLINE }, 10, mY + 1);
+  stamp(g, LENS[e.eyeR][1], { w: WHITE, o: OUTLINE }, 19, mY + 1);
 
   // 前髪(ぎざぎざのすそ)。マスクの上にかぶせる
-  const zig: Pt[] = [[7, 12], [9.8, 15], [13, 10.8], [17, 14.2], [21.2, 10.8], [25.8, 14], [28, 11]];
+  const zig: Pt[] = [[7, 12], [9.6, 15.5], [13, 11], [17.2, 15], [21.2, 11], [26, 14.5], [28, 11]];
   const bangBottom = (px: number): number => {
     for (let i = 0; i < zig.length - 1; i++) {
       const [x0, y0] = zig[i], [x1, y1] = zig[i + 1];
@@ -144,7 +151,7 @@ function drawHeroFace(e: Expr, open: boolean): PixelGrid {
     for (let y = 3; y + 0.5 < bt + dy; y++) {
       if (!g.get(x, y)) continue;
       const sy = y - dy;
-      let c = sy < 5 || (x < 14 && sy < 7) || (x === 15 && sy < 10) || (x === 22 && sy < 9) ? HAIR[0] : HAIR[1];
+      let c = sy < 5 || (x < 14 && sy < 7) || (x + sy < 19) || (x - 11 === sy && sy < 10) || (x - 17 === sy - 3 && sy < 9) ? HAIR[0] : HAIR[1];
       if (sy + 1.5 >= bt && rising) c = HAIR[2];
       g.px(x, y, c);
     }
@@ -153,14 +160,14 @@ function drawHeroFace(e: Expr, open: boolean): PixelGrid {
   for (const [x, y] of [[9, 4], [10, 3], [11, 3], [12, 2], [13, 2], [14, 2], [8, 5], [8, 6]] as Pt[]) g.px(x, y + dy, HAIR[0]);
 
   // 鼻
-  g.px(22, 17 + dy, SKIN[1]);
-  g.px(22, 18 + dy, SKIN[2]);
+  g.px(22, 18 + dy, SKIN[1]);
+  g.px(22, 19 + dy, SKIN[2]);
   // ほお
-  if (e.blush) { g.px(12, 17 + dy, RED[0]); g.px(13, 17 + dy, RED[0]); g.px(23, 17 + dy, RED[0]); }
+  if (e.blush) { g.px(12, 18 + dy, RED[0]); g.px(13, 18 + dy, RED[0]); g.px(23, 18 + dy, RED[0]); }
   // 口
   const m = MOUTHS[e.mouth[open ? 1 : 0]];
   const mw = m[0].length;
-  stamp(g, m, K, Math.round(19.5 - mw / 2), 19 + dy);
+  stamp(g, m, K, Math.round(19.5 - mw / 2), 20 + dy);
   // 汗
   if (e.sweat) {
     stamp(g, ['.s.', 'sws', 'sws', '.s.'], { s: BLUE[0], w: WHITE }, 26, 9 + dy);
@@ -181,7 +188,7 @@ const OP_EXPR: Expr[] = [
   { eyeL: 'open', eyeR: 'open', mouth: ['small', 'talk'], brow: 0 }, // ふつう
   { eyeL: 'wide', eyeR: 'wide', mouth: ['wavy', 'yell'], brow: -2, sweat: true }, // あせり
   { eyeL: 'flat', eyeR: 'flat', mouth: ['flat', 'flatOpen'], brow: -1 }, // あきれ
-  { eyeL: 'happy', eyeR: 'happy', mouth: ['smile', 'bigSmile'], brow: 1, dy: -1, blush: true } // ノリノリ
+  { eyeL: 'happy', eyeR: 'happy', mouth: ['smile', 'bigSmile'], brow: 1, dy: -1, blush: true, fist: true } // ノリノリ
 ];
 
 function drawOperatorFace(e: Expr, open: boolean): PixelGrid {
@@ -252,6 +259,17 @@ function drawOperatorFace(e: Expr, open: boolean): PixelGrid {
   // 汗
   if (e.sweat) {
     stamp(g, ['.s.', 'sws', 'sws', '.s.'], { s: TEAL[0], w: WHITE }, 26, 10 + dy);
+  }
+  if (e.fist) {
+    // 袖とこぶし(画面の右下から突き上げる)
+    const fg = new PixelGrid(S, S);
+    poly(fg, [[23.5, 32], [30.5, 32], [29.5, 24], [25.5, 23.5]], (x, y) => shade(TEAL, x, y, 27, 27, 3, 4));
+    poly(fg, [[25, 24.5], [29.8, 24.5], [29.6, 23], [25.3, 22.8]], WHITE);
+    stamp(fg, ['.bbbb.', 'aaaaab', 'accccb', 'aaaaab', 'accccb', '.aaab.'], { a: SKIN[0], b: SKIN[1], c: SKIN[2] }, 24, 17);
+    fg.outline(OUTLINE);
+    g.outline(OUTLINE);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (fg.cells[y][x]) g.cells[y][x] = fg.cells[y][x];
+    return g;
   }
   g.outline(OUTLINE);
   return g;
