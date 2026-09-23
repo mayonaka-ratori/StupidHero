@@ -127,7 +127,8 @@ export function drawText(
   const src = t.texture.getSourceImage() as HTMLCanvasElement;
   const w = Math.round(t.width);
   const h = Math.round(t.height);
-  ctx.drawImage(src, 0, 0, t.frame.cutWidth, t.frame.cutHeight, Math.round(x - w * origin[0]), Math.round(y - h * origin[1]), w, h);
+  const m = t.margin;
+  ctx.drawImage(src, 0, 0, t.frame.cutWidth, t.frame.cutHeight, Math.round(x - w * origin[0]) - m, Math.round(y - h * origin[1]) - m, w + m * 2, h + m * 2);
   t.destroy();
   return { w, h };
 }

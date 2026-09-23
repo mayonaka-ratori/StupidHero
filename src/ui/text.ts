@@ -247,6 +247,10 @@ export class PixelText extends Phaser.GameObjects.Image {
   private laid: Laid = { glyphs: [], lines: [0], w: 0, h: 0 };
   private visible_ = -1;
   private waiting = '';
+  private margin_ = 0;
+
+  /** 絵のまわりの余白(論理ドット)。字の絵は、並べる大きさより上下左右に この分だけ広い */
+  get margin(): number { return this.margin_; }
 
   constructor(scene: Phaser.Scene, x: number, y: number, text = '', style: TextStyle = {}) {
     const key = `__ptext${++seq}`;
@@ -329,14 +333,17 @@ export class PixelText extends Phaser.GameObjects.Image {
     const lineStep = size + this.st.lineSpacing;
     const glyphs = this.visible_ < 0 ? this.laid.glyphs : this.laid.glyphs.slice(0, this.visible_);
 
-    // 論理ドットの R 倍の細かさで描く(字はくっきり、位置と大きさは論理ドットのまま)
-    this.tex.setSize(W * R, H * R);
+    // 論理ドットの R 倍の細かさで描く(字はくっきり、位置と大きさは論理ドットのまま)。
+    // ブラウザによって字の上下の位置が少し違い(iPhone の Safari など)、はみ出した所が切れるので、
+    // まわりに余白 M をとって描く。並べる計算に使う大きさ(W×H)には余白を入れない
+    const M = this.margin_ = Math.ceil(size * 0.35);
+    this.tex.setSize((W + M * 2) * R, (H + M * 2) * R);
     const ctx = this.tex.context;
-    ctx.clearRect(0, 0, W * R, H * R);
+    ctx.clearRect(0, 0, (W + M * 2) * R, (H + M * 2) * R);
     ctx.font = fontOf(size * R);
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    const at = (g: Glyph): [number, number] => [(p.l + g.x) * R, (p.t + g.line * lineStep) * R];
+    const at = (g: Glyph): [number, number] => [(M + p.l + g.x) * R, (M + p.t + g.line * lineStep) * R];
     const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
     // 影(右下に1ドット)
     const sh = this.st.shadow;
@@ -372,10 +379,11 @@ export class PixelText extends Phaser.GameObjects.Image {
 
   private withRes(fn: () => void): void {
     const R = RES;
-    if (R === 1) { fn(); return; }
+    if (R === 1 && this.margin_ === 0) { fn(); return; }
     const t = this as unknown as { _scaleX: number; _scaleY: number; _displayOriginX: number; _displayOriginY: number };
     const sx = t._scaleX, sy = t._scaleY, ox = t._displayOriginX, oy = t._displayOriginY;
-    t._scaleX = sx / R; t._scaleY = sy / R; t._displayOriginX = ox * R; t._displayOriginY = oy * R;
+    const M = this.margin_;
+    t._scaleX = sx / R; t._scaleY = sy / R; t._displayOriginX = (ox + M) * R; t._displayOriginY = (oy + M) * R;
     try { fn(); } finally { t._scaleX = sx; t._scaleY = sy; t._displayOriginX = ox; t._displayOriginY = oy; }
   }
 
