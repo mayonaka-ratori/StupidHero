@@ -33,7 +33,8 @@ let last = '';
 let sortPresses = 0, stopTaps = 0, goTaps = 0, bossTaps = 0;
 while (Date.now() - t0 < 300000) {
   const keys = await active();
-  const k = keys[keys.length - 1] ?? '';
+  // 切り替えの途中は2つのシーンが同時に動いているので、結果画面があればそちらを優先する
+  const k = keys.includes('Result') ? 'Result' : keys[keys.length - 1] ?? '';
   if (k !== last) { await page.waitForTimeout(400); await shot(k); last = k; console.log(((Date.now() - t0) / 1000).toFixed(1) + 's', k); }
   if (k === 'Result') { await page.waitForTimeout(7000); await shot('result_end'); break; }
   if (k === 'Intro') { await tap(108, H - 80); await page.waitForTimeout(250); continue; }
@@ -51,7 +52,10 @@ while (Date.now() - t0 < 300000) {
     continue;
   }
   if (k === 'Boss') {
-    for (let i = 0; i < 6; i++) { await tap(108, H - 60); bossTaps++; await page.waitForTimeout(70); }
+    for (let i = 0; i < 6; i++) {
+      if ((await active()).includes('Result')) break;
+      await tap(108, H - 60); bossTaps++; await page.waitForTimeout(70);
+    }
     if (bossTaps % 60 === 0) await shot('boss');
     continue;
   }

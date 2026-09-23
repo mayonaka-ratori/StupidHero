@@ -1,22 +1,25 @@
 // Phaser の外(ふつうのキャンバス)にゲームの絵と文字を描くための小さな道具。
 // 共有カードと、共有用の画像(og.png)で使う。
-//   const c = makeCanvas(216, 270);
+//   const c = makeCanvas(216, 270, 5);                            // 論理ドットで描くと、5倍の細かさの画像になる
 //   drawAlley(c.ctx, scene, 0, 0, run.scrollX);                  // 夜の路地裏(216×214)
 //   drawSprite(c.ctx, scene, 'hero', frameIndex(def, 'win_fist', 0), 108, 200, { scale: 2, anchor: 'feet' });
 //   drawText(c.ctx, scene, 8, 8, '称号', { size: 16, color: UI.gold, outline: true });
-//   const big = upscale(c.canvas, 5);                             // ぼかさずに5倍
+//   c.canvas は 1080×1350。絵はぼかさずに5倍、字はその細かさでくっきり描かれる
 
 import type Phaser from 'phaser';
 import { FEET_OFFSET, sheetByKey } from '../../art/sheets';
 import { PixelText, type TextStyle } from '../../ui/text';
+import { withRes } from '../../hires';
 
 export interface Canvas2D { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }
 
-export function makeCanvas(w: number, h: number): Canvas2D {
+/** 論理ドットで w×h のキャンバス。scale を渡すと、中身は scale 倍の細かさになる(描くときの座標は論理ドットのまま) */
+export function makeCanvas(w: number, h: number, scale = 1): Canvas2D {
   const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = w * scale;
+  canvas.height = h * scale;
   const ctx = canvas.getContext('2d')!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.imageSmoothingEnabled = false;
   return { canvas, ctx };
 }
@@ -109,11 +112,13 @@ export function drawText(
   ctx: CanvasRenderingContext2D, scene: Phaser.Scene, x: number, y: number, text: string, style: TextStyle = {},
   origin: [number, number] = [0, 0]
 ): { w: number; h: number } {
-  const t = new PixelText(scene, -9999, -9999, text, style).setVisible(false);
+  // キャンバスの細かさに合わせて字を描く(makeCanvas の scale)
+  const k = Math.max(1, Math.round(ctx.getTransform().a));
+  const t = withRes(k, () => new PixelText(scene, -9999, -9999, text, style).setVisible(false));
   const src = t.texture.getSourceImage() as HTMLCanvasElement;
-  const w = t.frame.cutWidth;
-  const h = t.frame.cutHeight;
-  ctx.drawImage(src, 0, 0, w, h, Math.round(x - w * origin[0]), Math.round(y - h * origin[1]), w, h);
+  const w = Math.round(t.width);
+  const h = Math.round(t.height);
+  ctx.drawImage(src, 0, 0, t.frame.cutWidth, t.frame.cutHeight, Math.round(x - w * origin[0]), Math.round(y - h * origin[1]), w, h);
   t.destroy();
   return { w, h };
 }

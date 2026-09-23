@@ -38,6 +38,13 @@ export function installHiRes(res: number): void {
   };
 }
 
+/** しばらくだけ RES を変えて fn を呼ぶ(共有カードのように、画面とは別の細かさで字を描くとき) */
+export function withRes<T>(res: number, fn: () => T): T {
+  const prev = RES;
+  RES = Math.max(1, Math.round(res));
+  try { return fn(); } finally { RES = prev; }
+}
+
 /** 指の位置を、画面の論理座標で */
 export const px = (p: { x: number; y: number }): { x: number; y: number } => ({ x: p.x / RES, y: p.y / RES });
 

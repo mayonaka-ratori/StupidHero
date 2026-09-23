@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import { UI } from '../../config';
 import { generateArt } from '../../art';
 import { preloadFont } from '../../ui/text';
-import { drawAlley, drawBox, drawSprite, drawText, fill, frameOf, makeCanvas, upscale } from './draw';
+import { drawAlley, drawBox, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
 const W = 400;
 const H = 210;
@@ -31,7 +31,7 @@ class Og extends Phaser.Scene {
   async create(): Promise<void> {
     generateArt(this, new Set());
     await preloadFont([...COPY, SUB, 'ワル?', '市民?', 'スマホのブラウザで遊べる'], [10, 12, 16]);
-    const { canvas, ctx } = makeCanvas(W, H);
+    const { canvas, ctx } = makeCanvas(W, H, 3);
     drawAlley(ctx, this, 0, -4, 90, W);
 
     // 右:ヒーローが、がれきの上で拳を突き上げる。背中で爆発
@@ -58,7 +58,7 @@ class Og extends Phaser.Scene {
     tag(ctx, this, 112, 132, '市民?', UI.civ);
     tag(ctx, this, 164, 126, 'ワル?', UI.bad);
 
-    const out = upscale(canvas, 3);
+    const out = canvas;
     (window as unknown as { __og: string }).__og = out.toDataURL('image/png');
   }
 }

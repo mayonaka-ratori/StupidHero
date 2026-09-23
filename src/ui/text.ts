@@ -1,4 +1,4 @@
-// ドットがにじまない文字。DotGothic16で書いてから、半分より薄いドットを消し、濃いドットを不透明にする。
+// 画面の字。DotGothic16 を、画面の細かさ(src/hires.ts の RES 倍)でくっきり描く。位置と大きさは論理ドットで扱う。
 // 使い方:
 //   const t = new PixelText(this, 8, 8, 'ポケットがふくらんでる…', { size: FS.body, wrap: 120 });
 //   t.setText('撃破{gold}3{/}人');         // {gold}…{/} で一部の色を変える(theme.ts の TEXT_COLORS か #rrggbb)
@@ -11,6 +11,9 @@
 import Phaser from 'phaser';
 import { FONT_FAMILY, UI } from '../config';
 import { DEPTH, TEXT_COLORS } from './theme';
+import { RES } from '../hires';
+
+interface HiResRender { renderWebGL: (...a: unknown[]) => void; renderCanvas: (...a: unknown[]) => void }
 
 export type Align = 'left' | 'center' | 'right';
 
@@ -101,8 +104,8 @@ function charW(ch: string, size: number): number {
   let w = widthCache.get(k);
   if (w === undefined) {
     const ctx = scratchCtx(1, 1);
-    ctx.font = fontOf(size);
-    w = Math.round(ctx.measureText(ch).width);
+    ctx.font = fontOf(size * 4);
+    w = ctx.measureText(ch).width / 4;
     // 読み込み前の代わりの字の幅は覚えない
     if (fontReady(size, ch)) widthCache.set(k, w);
   }
@@ -318,107 +321,62 @@ export class PixelText extends Phaser.GameObjects.Image {
   }
 
   private draw(): void {
-    const { size, threshold } = this.st;
+    const R = RES;
+    const { size } = this.st;
     const p = this.pad();
-    const W = Math.max(1, this.laid.w + p.l + p.r);
-    const H = Math.max(1, this.laid.h + p.t + p.b);
+    const W = Math.max(1, Math.ceil(this.laid.w + p.l + p.r));
+    const H = Math.max(1, Math.ceil(this.laid.h + p.t + p.b));
     const lineStep = size + this.st.lineSpacing;
     const glyphs = this.visible_ < 0 ? this.laid.glyphs : this.laid.glyphs.slice(0, this.visible_);
 
-    const ctx = scratchCtx(W, H);
-    ctx.font = fontOf(size);
+    // 論理ドットの R 倍の細かさで描く(字はくっきり、位置と大きさは論理ドットのまま)
+    this.tex.setSize(W * R, H * R);
+    const ctx = this.tex.context;
+    ctx.clearRect(0, 0, W * R, H * R);
+    ctx.font = fontOf(size * R);
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    // 濃さは白で測る(暗い色で書くと、ブラウザが字を細く描くため)。色はあとで字の升ごとに塗る
-    ctx.fillStyle = '#ffffff';
-    for (const g of glyphs) ctx.fillText(g.ch, p.l + g.x, p.t + g.line * lineStep);
-    const src = ctx.getImageData(0, 0, W, H).data;
-
-    const palette = Array.from(new Set(glyphs.map((g) => g.color)));
-    // どのドットがどの字の色か(字の升で決める。升の外は同じ行のいちばん近い字)
-    const colorAt = new Int16Array(W * H);
-    if (palette.length > 1) {
-      const idx = glyphs.map((g) => palette.indexOf(g.color));
-      for (let y = 0; y < H; y++) {
-        const line = Math.max(0, Math.min(this.laid.lines.length - 1, Math.floor((y - p.t) / lineStep)));
-        const inLine = glyphs.map((g, k) => [g, k] as const).filter(([g]) => g.line === line);
-        for (let x = 0; x < W; x++) {
-          let best = 0, bd = 1e9;
-          for (const [g, k] of inLine) {
-            const cx = p.l + g.x + charW(g.ch, size) / 2;
-            const d = Math.abs(x - cx);
-            if (d < bd) { bd = d; best = idx[k]; }
-          }
-          colorAt[y * W + x] = best;
-        }
-      }
-    }
-    const mask = new Int16Array(W * H).fill(-1);
-    const alpha = (x: number, y: number): number => (x >= 0 && y >= 0 && x < W && y < H ? src[(y * W + x) * 4 + 3] : 0);
-    const nearest = (i: number): number => colorAt[i];
-    for (let i = 0; i < W * H; i++) if (src[i * 4 + 3] >= threshold) mask[i] = nearest(i);
-    // 細い線(「!」の棒など)は、ドットが2つにまたがって薄くなり、全部消えてしまうことがある。
-    // 近くに残ったドットがない薄いドットは拾い直し、2つ並んだら濃い方だけ残す。
-    const low = Math.round(threshold * 0.4);
-    const isOn = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H && mask[y * W + x] >= 0;
-    const rescued = new Uint8Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (mask[i] >= 0 || src[i * 4 + 3] < low) continue;
-      let near = false;
-      for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (isOn(x + dx, y + dy)) { near = true; break; }
-      if (!near) rescued[i] = 1;
-    }
-    const thin = (dx: number, dy: number): void => {
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        if (!rescued[i]) continue;
-        const a = alpha(x, y);
-        const nx = x + dx, ny = y + dy, px = x - dx, py = y - dy;
-        const inR = (xx: number, yy: number): boolean => xx >= 0 && yy >= 0 && xx < W && yy < H && rescued[yy * W + xx] === 1;
-        if ((inR(nx, ny) && alpha(nx, ny) > a) || (inR(px, py) && alpha(px, py) >= a)) rescued[i] = 2;
-      }
-      for (let i = 0; i < W * H; i++) if (rescued[i] === 2) rescued[i] = 0;
-    };
-    thin(1, 0);
-    thin(0, 1);
-    for (let i = 0; i < W * H; i++) if (rescued[i]) mask[i] = nearest(i);
-    // 点線のようにとぎれた縦と横の線をつなぐ(ドットの升目が1ドットより細いと、ところどころ行が抜けるため)
-    if (this.st.bridge ?? size % 16 !== 0) {
-      const add: number[] = [];
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        if (mask[i] >= 0 || src[i * 4 + 3] < low) continue;
-        // 上下(左右)が1ドットの細い線で、そのあいだだけが抜けているときだけつなぐ(漢字がつぶれないように)
-        const thinV = (yy: number): boolean => isOn(x, yy) && !isOn(x - 1, yy) && !isOn(x + 1, yy);
-        const thinH = (xx: number): boolean => isOn(xx, y) && !isOn(xx, y - 1) && !isOn(xx, y + 1);
-        const v = thinV(y - 1) && thinV(y + 1) && !isOn(x - 1, y) && !isOn(x + 1, y);
-        const h = thinH(x - 1) && thinH(x + 1) && !isOn(x, y - 1) && !isOn(x, y + 1);
-        if (v || h) add.push(i);
-      }
-      for (const i of add) mask[i] = nearest(i);
-    }
-
-    this.tex.setSize(W, H);
-    const out = this.tex.context.createImageData(W, H);
-    const d = out.data;
-    const put = (i: number, c: number): void => {
-      d[i * 4] = (c >> 16) & 255; d[i * 4 + 1] = (c >> 8) & 255; d[i * 4 + 2] = c & 255; d[i * 4 + 3] = 255;
-    };
-    const on = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H && mask[y * W + x] >= 0;
+    const at = (g: Glyph): [number, number] => [(p.l + g.x) * R, (p.t + g.line * lineStep) * R];
+    const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
+    // 影(右下に1ドット)
     const sh = this.st.shadow;
-    const ol = this.st.outline;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (mask[i] >= 0) { put(i, palette[mask[i]]); continue; }
-      if (ol !== false && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1) ||
-        on(x - 1, y - 1) || on(x + 1, y - 1) || on(x - 1, y + 1) || on(x + 1, y + 1))) { put(i, ol === true ? 0x000000 : ol); continue; }
-      if (sh !== false && on(x - 1, y - 1)) put(i, sh === true ? 0x000000 : sh);
+    if (sh !== false) {
+      ctx.fillStyle = hex(sh === true ? 0x000000 : sh);
+      for (const g of glyphs) { const [x, y] = at(g); ctx.fillText(g.ch, x + R, y + R); }
     }
-    this.tex.context.putImageData(out, 0, 0);
+    // ふち(まわりに1ドット)
+    const ol = this.st.outline;
+    if (ol !== false) {
+      ctx.fillStyle = hex(ol === true ? 0x000000 : ol);
+      const step = Math.max(1, Math.floor(R / 2));
+      for (let dy = -R; dy <= R; dy += step) for (let dx = -R; dx <= R; dx += step) {
+        if (dx === 0 && dy === 0) continue;
+        for (const g of glyphs) { const [x, y] = at(g); ctx.fillText(g.ch, x + dx, y + dy); }
+      }
+    }
+    for (const g of glyphs) {
+      ctx.fillStyle = hex(g.color);
+      const [x, y] = at(g);
+      ctx.fillText(g.ch, x, y);
+    }
     this.tex.refresh();
     this.setSizeToFrame(this.frame);
+    // 大きさは論理ドットで持つ(並べる計算や当たり判定はこれを使う)
+    this.setSize(W, H);
     this.updateDisplayOrigin();
+  }
+
+  // 絵は R 倍の細かさなので、描くときだけ 1/R に縮めて、原点を R 倍にする(ほかの計算は論理ドットのまま)
+  renderWebGL(...args: unknown[]): void { this.withRes(() => (Phaser.GameObjects.Image.prototype as unknown as HiResRender).renderWebGL.apply(this, args)); }
+  renderCanvas(...args: unknown[]): void { this.withRes(() => (Phaser.GameObjects.Image.prototype as unknown as HiResRender).renderCanvas.apply(this, args)); }
+
+  private withRes(fn: () => void): void {
+    const R = RES;
+    if (R === 1) { fn(); return; }
+    const t = this as unknown as { _scaleX: number; _scaleY: number; _displayOriginX: number; _displayOriginY: number };
+    const sx = t._scaleX, sy = t._scaleY, ox = t._displayOriginX, oy = t._displayOriginY;
+    t._scaleX = sx / R; t._scaleY = sy / R; t._displayOriginX = ox * R; t._displayOriginY = oy * R;
+    try { fn(); } finally { t._scaleX = sx; t._scaleY = sy; t._displayOriginX = ox; t._displayOriginY = oy; }
   }
 
 }

@@ -11,7 +11,7 @@ import type Phaser from 'phaser';
 import { UI } from '../../config';
 import { damageAnalogy, formatYen, type SaveOutcome, type StageStats, type TitleDef, type WorstScene } from '../../logic';
 import { NAMES } from '../../ui/theme';
-import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas, upscale } from './draw';
+import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
 export const CARD_W = 216;
 export const CARD_H = 270;
@@ -68,7 +68,8 @@ export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX
 }
 
 export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
-  const { canvas, ctx } = makeCanvas(CARD_W, CARD_H);
+  // 論理ドット216×270で描き、中身は5倍の細かさ(1080×1350)。絵はドットのまま、字はくっきり
+  const { canvas, ctx } = makeCanvas(CARD_W, CARD_H, CARD_SCALE);
   const W = CARD_W;
   const s = i.stats;
   fill(ctx, UI.panel, [0, 0, W, CARD_H]);
@@ -100,8 +101,8 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0xffffff, [fx - 1, fy - 1, 34, 34]);
     fill(ctx, 0x7fb0e6, [fx, fy, 32, 32]);
     drawSprite(ctx, scene, face, frameOf(face, i.title.comment.face, 1), fx, fy);
-    const tmp = makeCanvas(160, 40);
-    const tsz = drawText(tmp.ctx, scene, 0, 0, i.title.comment.text, { size: 12, color: 0x111111, lineSpacing: 2 });
+    const bubbleStyle = { size: 12, color: 0x111111, lineSpacing: 2 };
+    const tsz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, i.title.comment.text, bubbleStyle);
     const bw = tsz.w + 8, bh = tsz.h + 6;
     const bx = Math.min(W - 4 - bw, fx - 6 - Math.floor(bw / 2) + 8);
     const by = fy - bh - 3;
@@ -111,7 +112,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const tx = Math.min(fx + 6, bx + bw - 6);
     for (let k = 0; k < 4; k++) fill(ctx, 0x000000, [tx + k - 1, by + bh + k, 3, 1]);
     for (let k = 0; k < 3; k++) fill(ctx, 0xffffff, [tx + k, by + bh - 1 + k, 1, 1]);
-    ctx.drawImage(tmp.canvas, 0, 0, tsz.w, tsz.h, bx + 4, by + 3, tsz.w, tsz.h);
+    drawText(ctx, scene, bx + 4, by + 3, i.title.comment.text, bubbleStyle);
   }
 
   // ─── 真ん中:いちばんひどかった場面 ───
@@ -137,11 +138,12 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const st = { size: 16, outline: true } as const;
     /** 見出しと数字を少しあけて並べる。right=true なら右端を x にそろえる */
     const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
-      const tmp = makeCanvas(W, 24);
-      const a = drawText(tmp.ctx, scene, 0, 0, label, st);
-      const b = drawText(tmp.ctx, scene, a.w + 2, 0, value, { ...st, color });
-      const w = a.w + 2 + b.w;
-      ctx.drawImage(tmp.canvas, 0, 0, w, a.h, right ? x - w : x, y, w, a.h);
+      const m = makeCanvas(1, 1).ctx;
+      const a = drawText(m, scene, 0, 0, label, st);
+      const b = drawText(m, scene, 0, 0, value, { ...st, color });
+      const left = right ? x - (a.w + 2 + b.w) : x;
+      drawText(ctx, scene, left, y, label, st);
+      drawText(ctx, scene, left + a.w + 2, y, value, { ...st, color });
     };
     pair(6, y0, '悪党撃破', `${s.defeated}人`, UI.gold);
     pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
@@ -170,7 +172,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   // 外わく
   drawBoxEdge(ctx);
 
-  const big = upscale(canvas, CARD_SCALE);
+  const big = canvas;
   const dataUrl = big.toDataURL('image/png');
   const file = new Promise<File | null>((resolve) => {
     try {
