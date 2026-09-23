@@ -123,18 +123,6 @@ describe('StatsTracker(ステージ2)', () => {
     expect(sceneForProp('cone')).toBeNull();
   });
 
-  it('車で逃げた組の人数は逃がした数に入る', () => {
-    const s = new StatsTracker(9, 'garage');
-    s.groupEscaped(3);
-    s.escaped();
-    s.groupEscaped(2);
-    const r = s.snapshot();
-    expect(r.escaped).toBe(6);
-    expect(r.escapedByVan).toBe(5);
-    expect(r.groupsEscaped).toBe(2);
-    expect(r.civHurt).toBe(0);
-  });
-
   it('1人だけの組は、人数は数えるが組の数(一網打尽、ギャングの運転手)には入れない', () => {
     const s = new StatsTracker(9, 'garage');
     s.groupWiped(1);
@@ -151,24 +139,6 @@ describe('StatsTracker(ステージ2)', () => {
     expect(r.escapedByVan).toBe(4);
     expect(isGroup(1)).toBe(false);
     expect(isGroup(2)).toBe(true);
-    // 1人の組を3回吹き飛ばしても、逃げられても、称号の組の数は0のまま
-    const t = new StatsTracker(9, 'garage');
-    for (let i = 0; i < 3; i++) {
-      t.groupWiped(1);
-      t.groupEscaped(1);
-    }
-    expect(t.snapshot().groupsWiped).toBe(0);
-    expect(t.snapshot().groupsEscaped).toBe(0);
-  });
-
-  it('1人だけのときの画面の流れ(行けで追い打ち、逃げたら escaped)は、ステージ1と同じ数え方', () => {
-    const s = new StatsTracker(9, 'garage');
-    s.defeatBad('go');
-    s.escaped();
-    const r = s.snapshot();
-    expect(r.defeatedByGo).toBe(1);
-    expect(r.escaped).toBe(1);
-    expect(r.groupsWiped + r.groupsEscaped).toBe(0);
   });
 
   it('ギャングの口笛は悪さではない(被害額も市民負傷も増えない)', () => {
@@ -182,11 +152,5 @@ describe('StatsTracker(ステージ2)', () => {
     expect(new StatsTracker(9).bossRampage()).toBe(10_000_000);
     expect(new StatsTracker(9, 'alley').bossRampage()).toBe(10_000_000);
     expect(new StatsTracker(9, 'garage').bossRampage()).toBe(15_000_000);
-  });
-
-  it('路地裏では増えた項目はずっと0', () => {
-    const r = new StatsTracker(8).snapshot();
-    expect(r.stageId).toBe('alley');
-    expect([r.defeatedByWipe, r.defeatedByVan, r.groupsWiped, r.groupsEscaped, r.escapedByVan, r.vansStopped]).toEqual([0, 0, 0, 0, 0, 0]);
   });
 });

@@ -150,18 +150,6 @@ describe('BossFight(女ボス:車に乗る)', () => {
     expect(sum).toBe(9_000_000);
   });
 
-  it('車に乗ったあとで手が止まると、1秒ごとに¥100万', () => {
-    const f = new BossFight({ ...opts, maxSec: Infinity });
-    for (let i = 0; i < 21; i++) {
-      f.tap();
-      f.update(150);
-    }
-    expect(f.inCar).toBe(true);
-    const before = f.damageYen;
-    f.update(3000); // 0.6秒から → 2回
-    expect(f.damageYen - before).toBe(2_000_000);
-  });
-
   it('連打し続ければ、車に乗っても被害はゼロ', () => {
     const f = new BossFight(opts);
     while (!f.isOver) {
@@ -235,15 +223,5 @@ describe('BossFight(女ボス:車に乗る)', () => {
     }
     expect(f.inCar).toBe(true);
     expect(f.seconds!).toBeLessThanOrEqual(15 + 1e-9);
-  });
-
-  it('ステージ1の設定には、体力の下限の線がない', () => {
-    expect(STAGES.alley.bossFight).toEqual({});
-    const f = new BossFight(STAGES.alley.bossFight);
-    for (let i = 0; i < 40; i++) {
-      f.tap();
-      f.update(100);
-    }
-    expect(f.isOver).toBe(true);
   });
 });

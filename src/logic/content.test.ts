@@ -47,52 +47,30 @@ describe('content の文の決まり', () => {
     expect(dup, '重なっている名前').toEqual([]);
   });
 
-  it('組の見た目は市民とワルの両方の文と一言がある。年齢の幅は共通', () => {
-    for (const look of ['hoodie', 'suit', 'shopper'] as const) {
-      expect(PROFILE_LINES[look].civ!.length).toBeGreaterThanOrEqual(5);
-      expect(PROFILE_LINES[look].bad!.length).toBeGreaterThanOrEqual(5);
-      expect(OPERATOR_HINTS[look].civ!.length).toBeGreaterThanOrEqual(4);
-      expect(OPERATOR_HINTS[look].bad!.length).toBeGreaterThanOrEqual(4);
-      expect(AGES[look][0]).toBeLessThan(AGES[look][1]);
+  it('見た目ごとに、市民とワルの文と一言が何通りもある。ボスの化けた姿にも文と一言がある', () => {
+    for (const look of ['hoodie', 'suit', 'shopper', 'guard', 'mechanic', 'clubber', 'officelady'] as const) {
+      expect(PROFILE_LINES[look].civ!.length, look).toBeGreaterThanOrEqual(5);
+      expect(PROFILE_LINES[look].bad!.length, look).toBeGreaterThanOrEqual(5);
+      expect(OPERATOR_HINTS[look].civ!.length, look).toBeGreaterThanOrEqual(4);
+      expect(OPERATOR_HINTS[look].bad!.length, look).toBeGreaterThanOrEqual(4);
+      expect(AGES[look][0], look).toBeLessThan(AGES[look][1]);
     }
     expect(PROFILE_LINES.mohawk.civ).toBeUndefined();
     expect(PROFILE_LINES.granny.bad).toBeUndefined();
-  });
-
-  it('SPECの一言は市民にもワルにも入っている', () => {
-    const has = (look: 'hoodie' | 'suit' | 'shopper', text: string) =>
-      OPERATOR_HINTS[look].civ!.some((h) => h.text.replace('\n', '') === text) &&
-      OPERATOR_HINTS[look].bad!.some((h) => h.text.replace('\n', '') === text);
-    expect(has('hoodie', 'ポケットがふくらんでる…')).toBe(true);
-    expect(has('suit', 'さっきからずっと走ってる')).toBe(true);
-    expect(has('shopper', '袋がやけに重そう')).toBe(true);
-  });
-
-  it('ボスの化けた姿には、3種類とも文と一言がある', () => {
-    for (const d of ['suit', 'granny', 'shopper'] as const) {
-      expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
-      expect(BOSS_HINTS[d].length).toBeGreaterThanOrEqual(3);
+    for (const d of ['suit', 'granny', 'shopper', 'guard', 'mechanic', 'officelady'] as const) {
+      expect(BOSS_PROFILE_LINES[d].length, d).toBeGreaterThanOrEqual(3);
+      expect(BOSS_HINTS[d].length, d).toBeGreaterThanOrEqual(3);
     }
-  });
-
-  it('掛け合いで遊び方を伝える', () => {
-    const joined = INTRO.map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['左にスワイプ', '右にスワイプ', '見た目', '動き', 'プロフィール', '一言', '待て', '行け']) {
-      expect(joined).toContain(word);
-    }
-    expect(INTRO.some((s) => s.who === 'hero')).toBe(true);
-    expect(INTRO.some((s) => s.who === 'operator')).toBe(true);
-  });
-
-  it('称号ごとにひとことがある(ステージ2の称号はオペレーターが言う)', () => {
-    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBe(t.comment);
-    expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
-    expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
   });
 
   it('選ぶ関数', () => {
     const rng = createRng(1);
     expect(REACTIONS.oops).toContain(say('oops', rng));
+    expect(REACTIONS.oops).toContain(say('oops', rng, 'garage'));
+    expect(REACTIONS.bossReveal).toContain(say('bossReveal', rng));
+    expect(GARAGE_OVERRIDES.bossReveal).toContain(say('bossReveal', rng, 'garage'));
+    expect(GARAGE_REACTIONS.gathered).toContain(say('gathered', rng, 'garage'));
+    expect(GARAGE_REACTIONS.whistle).toContain(mischiefLine('clubber', rng));
     expect(shout('special', rng).who).toBe('hero');
     expect(tsukkomi(1, rng).text).toContain('まあいいか');
     expect(REACTIONS.tsukkomiShort).toContain(tsukkomi(2, rng));
@@ -115,24 +93,6 @@ describe('ステージ2の文', () => {
 
   it('つながりの文は、見た目を入れたあとに {n} が残らない(字数は allTexts の決まりで確かめる)', () => {
     for (const t of allLinkTexts()) expect(t).not.toContain('{n}');
-    // ギャング向けも市民向けも、プロフィールにも一言にもある
-    for (const list of [LINK_HINTS, LINK_PROFILES]) {
-      expect(list.some((t) => t.for !== 'civ')).toBe(true);
-      expect(list.some((t) => t.for !== 'bad')).toBe(true);
-    }
-  });
-
-  it('4つの見た目に、市民とギャングの文と一言が何通りもある', () => {
-    for (const look of ['guard', 'mechanic', 'clubber', 'officelady'] as const) {
-      expect(PROFILE_LINES[look].civ!.length).toBeGreaterThanOrEqual(5);
-      expect(PROFILE_LINES[look].bad!.length).toBeGreaterThanOrEqual(5);
-      expect(OPERATOR_HINTS[look].civ!.length).toBeGreaterThanOrEqual(5);
-      expect(OPERATOR_HINTS[look].bad!.length).toBeGreaterThanOrEqual(5);
-    }
-    for (const d of ['guard', 'mechanic', 'officelady'] as const) {
-      expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
-      expect(BOSS_HINTS[d].length).toBeGreaterThanOrEqual(3);
-    }
   });
 
   it('掛け合いで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
@@ -144,20 +104,6 @@ describe('ステージ2の文', () => {
     expect(introFor('alley')).toBe(INTRO);
     expect(waveIntroFor('garage', 3)[0].text).toContain('女ボス');
     expect(waveIntroFor('alley', 1)[0].text).toContain('5人');
-  });
-
-  it('地下駐車場のセリフに「路地裏」は出ない。地下駐車場だけの種類も say で出せる', () => {
-    const rng = createRng(4);
-    const keys = [...Object.keys(REACTIONS), ...Object.keys(GARAGE_REACTIONS)] as AnyReactionKey[];
-    for (const k of keys) {
-      for (const s of reactionList(k, 'garage')) expect(s.text).not.toContain('路地裏');
-    }
-    for (const k of Object.keys(GARAGE_OVERRIDES)) expect(Object.keys(REACTIONS)).toContain(k);
-    expect(GARAGE_REACTIONS.gathered).toContain(say('gathered', rng, 'garage'));
-    expect(GARAGE_OVERRIDES.bossReveal).toContain(say('bossReveal', rng, 'garage'));
-    expect(REACTIONS.bossReveal).toContain(say('bossReveal', rng));
-    expect(REACTIONS.oops).toContain(say('oops', rng, 'garage'));
-    expect(GARAGE_REACTIONS.whistle).toContain(mischiefLine('clubber', rng));
   });
 
   it('あわてた顔は市民の一言にもギャングの一言にも出る。同じ文はいつも同じ顔', () => {
@@ -195,14 +141,6 @@ describe('ステージ2の文', () => {
     for (const t of [...LINK_HINTS, ...LINK_PROFILES]) expect(t.for, t.text).toBe('both');
   });
 
-  it('仲間が誰も来ないときのセリフ(オペレーターとヒーロー)', () => {
-    const rng = createRng(9);
-    expect(say('alone', rng, 'garage').who).toBe('operator');
-    expect(say('aloneHero', rng, 'garage').who).toBe('hero');
-    expect(GARAGE_REACTIONS.alone.length).toBeGreaterThanOrEqual(2);
-    expect(GARAGE_REACTIONS.aloneHero.length).toBeGreaterThanOrEqual(2);
-  });
-
   it('地下駐車場のセリフと称号のひとことに「街」「路地裏」は出ない', () => {
     const keys = [...Object.keys(REACTIONS), ...Object.keys(GARAGE_REACTIONS)] as AnyReactionKey[];
     for (const k of keys) {
@@ -217,18 +155,9 @@ describe('ステージ2の文', () => {
     expect(reactionList('escaped')).toBe(REACTIONS.escaped);
   });
 
-  it('初めての掛け合いは10枚くらい', () => {
-    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(11);
-    expect(GARAGE_INTRO.some((s) => s.who === 'hero')).toBe(true);
-  });
-
   it('禁則で最後の行が1字だけになりやすい言い回し(〜っちゃった)を使わない', () => {
-    const texts = [
-      ...GARAGE_INTRO, ...GARAGE_INTRO_REPLAY, ...Object.values(GARAGE_WAVE_INTRO).flat(),
-      ...Object.values(GARAGE_REACTIONS).flat(), ...Object.values(GARAGE_OVERRIDES).flat()
-    ].map((s) => s.text);
     // 行の終わりの字の前に、行の頭に来られない字(小さいかな、ー)が2つ続くと、折り返したときに1字だけ残る
-    for (const t of texts) {
+    for (const t of garageTexts) {
       for (const line of t.split('\n')) expect(line, t).not.toMatch(/[ぁぃぅぇぉっゃゅょァィゥェォッャュョー]{2}[^！？…、。]$/);
     }
   });

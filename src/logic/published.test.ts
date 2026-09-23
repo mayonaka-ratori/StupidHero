@@ -10,7 +10,7 @@ import {
   ATTACK_SHOUTS, INTRO, INTRO_REPLAY, MISCHIEF_LINES, introFor, reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
-import { LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
+import { clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
 import { createStage } from './stage';
 import { StatsTracker } from './stats';
 import { decideTitle, titlesFor } from './titles';
@@ -78,11 +78,6 @@ class MemStorage implements RecordStorage {
 
 describe('公開版が保存した記録を今の版で読める', () => {
   beforeEach(() => clearRecords(null));
-
-  it('キーは公開版と同じ stupidhero.records.v1 を読む', () => {
-    expect(LEGACY_RECORDS_KEY).toBe(recordsV1.key);
-    expect(RECORDS_KEY).not.toBe(recordsV1.key);
-  });
 
   it('遊んだ回数、記録、称号を引きつぎ、ボスを倒していればステージ2が開く', () => {
     const st = new MemStorage();

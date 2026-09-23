@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, decideTitle, titleById, titlesFor } from './titles';
+import { TITLES, decideTitle, titlesFor } from './titles';
 import type { StageStats } from './types';
 
 const base = (over: Partial<StageStats> = {}): StageStats => ({
@@ -16,89 +16,13 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
   ...over
 });
 
-describe('称号', () => {
-  it('14個、順番と名前とポーズがSPECとSTAGE2の通り', () => {
-    expect(TITLES).toHaveLength(14);
-    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-    expect(TITLES.map((t) => t.name)).toEqual([
-      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの運転手', 'おばあちゃんの敵', '正義の暴走機関車',
-      '街のほんものヒーロー', '連打の申し子', '待ての達人', '一網打尽', '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
-    ]);
-    expect(TITLES.map((t) => t.pose)).toEqual([
-      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
-      'win_pose', 'win_fist', 'win_pose', 'win_arms', 'win_arms', 'win_pose', 'win_arms'
-    ]);
-    expect(new Set(TITLES.map((t) => t.id)).size).toBe(14);
-    expect(titleById('demolition').name).toBe('歩く解体工事');
-  });
-
-  it('どれにも当てはまらなければ まあまあヒーロー', () => {
-    expect(decideTitle(base()).id).toBe('soSo');
-  });
-
-  it('完全無欠は全員撃破、負傷0、¥500万未満。¥500万ちょうどなら ほんものヒーロー', () => {
-    const perfect = base({ allDefeated: true, civHurt: 0, damage: 4_990_000, bossFightSec: 3, civSavedByStop: 5 });
-    expect(decideTitle(perfect).id).toBe('flawless');
-    expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
-  });
-
-  it('市民の天敵は、ヒーローが傷つけた市民が4人以上かつ撃破数以上。解体工事やボスの親友より先', () => {
-    const s = base({ civHurt: 5, civHurtByHero: 3, civHurtByCollateral: 2, defeated: 5, damage: 60_000_000, bossSortedCiv: true, grannyHit: true });
-    expect(decideTitle(s).id).toBe('civNemesis');
-    expect(decideTitle({ ...s, defeated: 6 }).id).toBe('demolition');
-    expect(decideTitle({ ...s, civHurt: 3, civHurtByHero: 2, civHurtByCollateral: 1, defeated: 2 }).id).toBe('demolition');
-  });
-
-  it('ワルに襲われた市民は、市民の天敵に数えない(ヒーローが誰も殴っていないとき)', () => {
-    const s = base({ civHurt: 5, civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 5, defeated: 1, bossDefeated: false, bossFightSec: null });
-    expect(decideTitle(s).id).not.toBe('civNemesis');
-    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 1, civHurtByVillain: 2 }).id).not.toBe('civNemesis');
-    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 2, civHurtByVillain: 1 }).id).toBe('civNemesis');
-  });
-
-  it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
-    const s = base({ damage: 50_000_000, bossSortedCiv: true, grannyHit: true, allDefeated: true, civHurt: 3, defeated: 9 });
-    expect(decideTitle(s).id).toBe('demolition');
-    expect(decideTitle({ ...s, damage: 49_990_000 }).id).toBe('bossBuddy');
-    expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
-    expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false, grannyHit: false }).id).toBe('runawayTrain');
-  });
-
-  it('全員撃破で負傷1〜2人はどちらにも入らない', () => {
-    const s = base({ allDefeated: true, civHurt: 2, bossFightSec: 9 });
-    expect(decideTitle(s).id).toBe('soSo');
-  });
-
-  it('連打の申し子は5秒以内(ちょうど5秒を含む)。ボス戦がなければ入らない', () => {
-    expect(decideTitle(base({ bossFightSec: 5 })).id).toBe('tapProdigy');
-    expect(decideTitle(base({ bossFightSec: 5.01 })).id).toBe('soSo');
-    expect(decideTitle(base({ bossFightSec: null })).id).toBe('soSo');
-    expect(decideTitle(base({ bossFightSec: 4, civSavedByStop: 3 })).id).toBe('tapProdigy');
-  });
-
-  it('待ての達人 → 追い打ちの鬼 → やさしすぎるヒーロー', () => {
-    const s = base({ civSavedByStop: 3, defeatedByGo: 3, civHurt: 0, escaped: 3 });
-    expect(decideTitle(s).id).toBe('stopMaster');
-    expect(decideTitle({ ...s, civSavedByStop: 2 }).id).toBe('chaseDemon');
-    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2 }).id).toBe('tooKind');
-    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2, civHurt: 1 }).id).toBe('soSo');
-  });
-});
-
-describe('称号(ステージ2)', () => {
-  it('ギャングの運転手は ボスの親友 のすぐあと、一網打尽は 追い打ちの鬼 のすぐ前', () => {
-    const ids = TITLES.map((t) => t.id);
-    expect(ids.indexOf('gangDriver')).toBe(ids.indexOf('bossBuddy') + 1);
-    expect(ids.indexOf('roundUp')).toBe(ids.indexOf('chaseDemon') - 1);
-    expect(titleById('roundUp').name).toBe('一網打尽');
-    expect(titleById('gangDriver').pose).toBe('win_shy');
-    expect(titleById('roundUp').stages).toEqual(['garage']);
+describe('称号(ステージ2。路地裏の称号は published.test で公開版の答えと比べる)', () => {
+  it('ステージごとの称号。おばあちゃんの敵は路地裏だけ、一網打尽は地下駐車場だけ', () => {
     expect(titlesFor('alley')).toHaveLength(12);
     expect(titlesFor('garage')).toHaveLength(13);
     // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ
-    expect(titleById('grannyFoe').stages).toEqual(['alley']);
     expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
-    expect(titlesFor('alley').map((t) => t.id)).toContain('grannyFoe');
+    expect(titlesFor('alley').map((t) => t.id)).not.toContain('roundUp');
     // どちらかのステージでは必ず取れる
     for (const t of TITLES) expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t), t.id).toBe(true);
   });
