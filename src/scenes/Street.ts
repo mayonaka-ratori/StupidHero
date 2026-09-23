@@ -10,10 +10,12 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey } from '../art/sheets';
+import { accessorySheet } from '../art/recolor';
 import {
-  MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, formatYen, isAttacked, mischiefLine, pickAttack, resolveEncounter,
-  rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
-  type AttackKind, type Encounter, type Look, type PropKind, type ReactionKey, type Rng, type Speech, type StatsTracker, type WorstScene
+  GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, formatYen, gatherMembers, isAttacked, mischiefLine, pickAttack,
+  resolveEncounter, rollCivHit, rollGroupWipeProps, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
+  type AnyReactionKey, type AttackKind, type Encounter, type GangPhase, type Look, type PropKind, type ReactionKey, type Rng, type Speech,
+  type StageDef, type StatsTracker, type WorstScene
 } from '../logic';
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
@@ -22,7 +24,7 @@ import {
 } from '../ui';
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
-import { HERO_START, planStreet } from './street/plan';
+import { HERO_START, VAN_Y, planGarage, planStreet, type GatherSpot } from './street/plan';
 import { snapshotLogical } from '../hires';
 
 /** ヒーローの走る速さ(ドット/秒) */
@@ -41,10 +43,27 @@ const POP_TRIES = 6;
 interface PropObj { kind: PropKind; x: number; y: number; wall: boolean; sprite: Phaser.GameObjects.Sprite; broken: boolean }
 interface Walker { toX: number; fromX: number; fromY: number; toY: number; speed: number; resolve: () => void }
 interface CivHit { look: Look; collateral: boolean }
+/** ステージ2:集まったギャングの組(口笛から、吹き飛ばす・車で止める・逃げられるまで) */
+interface GangRun {
+  call: GangCall;
+  members: Actor[];
+  spot: GatherSpot;
+  /** 集まったときの並び(members と同じ順) */
+  slots: { x: number; y: number }[];
+  van: PropObj;
+  /** ワゴンが走り出した位置と、画面の右に消える位置 */
+  vanX0: number;
+  vanEndX: number;
+  mark?: Phaser.GameObjects.Sprite;
+  count?: PixelText;
+  /** 行けを押したあとの動きが終わったら呼ぶ */
+  done: () => void;
+}
 type HitMode = 'bad' | 'civ' | 'go' | 'reveal';
 
 export class StreetScene extends Phaser.Scene {
   private run!: GameRun;
+  private def!: StageDef;
   private stats!: StatsTracker;
   private rng!: Rng;
   private L!: Layers;
@@ -89,11 +108,20 @@ export class StreetScene extends Phaser.Scene {
   private shown = { defeated: -1, hurt: -1, damage: '' };
   private stopAlarm!: EdgeAlarm;
   private goAlarm!: EdgeAlarm;
+  // ステージ2:ギャングの組
+  /** 口笛を吹く人の id → 組が集まる場所 */
+  private gathers = new Map<string, GatherSpot>();
+  /** 組の id → 組が乗るワゴン */
+  private vans = new Map<string, PropObj>();
+  /** 待てで止めた人の id(組に呼ばれても来ない) */
+  private stoppedIds = new Set<string>();
+  private gang: GangRun | null = null;
 
   constructor() { super(SCENES.street); }
 
   create(): void {
     this.run = getRun(this);
+    this.def = this.run.stage.def;
     this.stats = this.run.stats;
     this.rng = this.run.rng;
     fillUnsorted(this.run);
@@ -104,6 +132,7 @@ export class StreetScene extends Phaser.Scene {
     this.shownDamage = this.stats.damage; this.shown = { defeated: -1, hurt: -1, damage: '' };
     this.auraOn = false;
     this.camFocus = null;
+    this.gathers = new Map(); this.vans = new Map(); this.stoppedIds = new Set(); this.gang = null;
     const fa = new URLSearchParams(location.search).get('attack');
     this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
@@ -112,7 +141,7 @@ export class StreetScene extends Phaser.Scene {
     this.buildWorld();
     this.buildPanel();
 
-    audio.playBgm('street');
+    audio.playBgm(this.def.bgm.street);
     this.input.on('pointerdown', () => audio.unlock());
     // 開発中だけ、自動テストから中身をさわれるようにする
     if (import.meta.env.DEV) (window as unknown as { streetDev?: unknown }).streetDev = this;
@@ -127,14 +156,16 @@ export class StreetScene extends Phaser.Scene {
       const s = this.add.tileSprite(0, y, W, h, key).setOrigin(0).setScrollFactor(0).setDepth(depth);
       this.bgs.push({ s, f });
     };
-    add('bg_alley_far', 0, actionH, 0.25, -30);
-    add('bg_alley_wall', 0, 130, 1, -20);
-    add('bg_alley_ground', 124, 90, 1, -10);
+    add(this.def.bg.far, 0, actionH, 0.25, -30);
+    add(this.def.bg.wall, 0, 130, 1, -20);
+    add(this.def.bg.ground, 124, 90, 1, -10);
 
     const wave = currentWave(this.run);
     const encOf = (id: string, truth: 'bad' | 'civ' | 'boss'): Encounter => resolveEncounter(truth, this.run.sorts[id] ?? 'civ');
     const passBad = new Set(wave.people.filter((p) => encOf(p.id, p.truth) === 'passBad').map((p) => p.id));
-    const plan = planStreet(wave.people, passBad, this.rng);
+    const plan = this.def.hasGangs
+      ? planGarage(wave.people, passBad, this.def.props, this.rng)
+      : planStreet(wave.people, passBad, this.rng);
 
     for (const p of plan.props) {
       const key = `prop_${p.kind}`;
@@ -143,14 +174,19 @@ export class StreetScene extends Phaser.Scene {
       sprite.setOrigin(origin[0], origin[1]).setDepth(p.wall ? -15 : p.y);
       this.props.push({ ...p, sprite, broken: false });
     }
+    for (const g of plan.gathers) {
+      this.gathers.set(g.whistlerId, g);
+      const van = this.props.find((p) => p.kind === 'van' && p.x === g.vanX && p.y === g.vanY);
+      if (van) this.vans.set(g.groupId, van);
+    }
     for (const s of plan.passers) {
-      const a = new Actor(this, s.key, s.x, s.y);
+      const a = new Actor(this, accessorySheet(this, s.key, s.color), s.x, s.y);
       a.look = s.look; a.civ = true;
       a.faceLeft(true).play('idle');
       this.passers.push(a);
     }
     for (const s of plan.people) {
-      const a = new Actor(this, s.person.sheetKey, s.x, s.y);
+      const a = new Actor(this, accessorySheet(this, s.person.sheetKey, s.person.accessory?.color), s.x, s.y);
       a.person = s.person; a.look = s.person.look; a.civ = s.person.truth === 'civ';
       a.faceLeft(true).play('idle');
       a.sprite.anims.setProgress(this.rng.float(0, 1));
@@ -217,6 +253,7 @@ export class StreetScene extends Phaser.Scene {
     if (!frozen) {
       const dt = Math.min(delta, 50) / 1000;
       this.stepWalker(dt);
+      if (this.gang) this.stepGang(Math.min(delta, 50));
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
       this.camX += (target - this.camX) * Math.min(1, dt * 6);
@@ -378,6 +415,11 @@ export class StreetScene extends Phaser.Scene {
     });
   }
 
+  /** このステージのセリフ(地下駐車場は言い方が変わるものがある) */
+  private line(key: AnyReactionKey, rng?: Rng): Speech {
+    return say(key, rng, this.def.id);
+  }
+
   private heroSay(sp: Speech | string, ms = 1200): void {
     const text = typeof sp === 'string' ? sp : sp.text;
     this.heroBubble?.destroy();
@@ -433,7 +475,8 @@ export class StreetScene extends Phaser.Scene {
   private visibleProps(): PropObj[] {
     const l = this.L.left - 8;
     const r = this.L.right + 8;
-    return this.props.filter((p) => !p.broken && p.x >= l && p.x <= r);
+    // ギャングのワゴンはふつうの攻撃では壊れない(組が乗って逃げる車)
+    return this.props.filter((p) => !p.broken && p.kind !== 'van' && p.x >= l && p.x <= r);
   }
 
   /** 巻きぞえになりうる市民(画面の中で立っている人) */
@@ -447,10 +490,10 @@ export class StreetScene extends Phaser.Scene {
 
   private async play(): Promise<void> {
     void banner(this, `WAVE${this.run.waveIndex + 1} 結果発表`, { hold: 600 });
-    this.opSay(say('sortDone', this.rng));
+    this.opSay(this.line('sortDone', this.rng));
     // 「仕分け完了!」がずっと残らないように、ほかのセリフが出ていなければ少ししてオペレーターの一言に替える
     const seq = this.opSeq;
-    this.time.delayedCall(2600, () => { if (this.opSeq === seq && !this.leaving) this.opSay(say('streetWatch')); });
+    this.time.delayedCall(2600, () => { if (this.opSeq === seq && !this.leaving) this.opSay(this.line('streetWatch')); });
     await this.wait(700);
     for (const a of this.queue) {
       if (!a.standing || !a.person) continue;
@@ -509,7 +552,7 @@ export class StreetScene extends Phaser.Scene {
       this.stopHandler = () => {
         if (canStop(enc)) { finish('stop'); return; }
         // ボスには待ては効かない
-        if (!failShown) { failShown = true; this.heroSay(say('stopFailBoss', this.rng), 900); }
+        if (!failShown) { failShown = true; this.heroSay(this.line('stopFailBoss', this.rng), 900); }
       };
       void this.runTo(a.x - ATTACK_GAP, { anim: null }).then(() => {
         if (done) return;
@@ -538,6 +581,7 @@ export class StreetScene extends Phaser.Scene {
     h.play('stop', true);
     audio.sfx('stop');
     this.stats.stopped(a.person!.truth);
+    this.stoppedIds.add(a.person!.id);
     const x0 = h.x;
     const slide = { x: h.x };
     this.tweens.add({
@@ -552,8 +596,8 @@ export class StreetScene extends Phaser.Scene {
       });
     }
     a.pose('surprised');
-    this.heroSay(say('stop', this.rng), 1000);
-    this.opSay(say('stopOp', this.rng));
+    this.heroSay(this.line('stop', this.rng), 1000);
+    this.opSay(this.line('stopOp', this.rng));
     await this.wait(900);
     if (a.standing) a.play('idle');
     // 市民だったら、ほっとしてぴょんと跳ぶ
@@ -744,26 +788,10 @@ export class StreetScene extends Phaser.Scene {
     p.sprite.setFrame(1);
     const cy = p.wall ? p.y : p.y - p.sprite.height / 2;
     const groundY = p.wall ? 150 : p.y;
-    this.fx('fx_dust', p.x, cy, { depth: 960, scale: p.kind === 'car' ? 2 : 1 });
-    for (let i = 0; i < 4; i++) {
-      const d = this.fx('fx_debris', p.x, cy, { depth: 960, loop: true });
-      const o = { x: p.x, lift: 0 };
-      const toX = p.x + this.rng.int(-28, 28);
-      const h = this.rng.int(10, 30);
-      const y0 = cy;
-      const tw = { t: 0 };
-      this.tweens.add({
-        targets: tw, t: 1, duration: 420 + i * 40,
-        onUpdate: () => {
-          o.x = p.x + (toX - p.x) * tw.t;
-          const y = y0 + (groundY - y0) * tw.t * tw.t - Math.sin(Math.PI * tw.t) * h;
-          d.setPosition(Math.round(o.x), Math.round(y));
-        },
-        onComplete: () => d.destroy()
-      });
-    }
+    this.fx('fx_dust', p.x, cy, { depth: 960, scale: p.kind === 'car' || p.kind === 'pillar' ? 2 : 1 });
+    this.debris(p.x, cy, groundY);
     audio.sfx('break');
-    const bigOne = p.kind === 'car' || p.kind === 'vending';
+    const bigOne = p.kind === 'car' || p.kind === 'vending' || p.kind === 'pillar';
     if (bigOne) { shake(this, 5, 300); hitStop(this, 60); this.fx('fx_hit', p.x, cy, { scale: 2, depth: 960 }); }
     else shake(this, 2, 120);
     if (!count) return;
@@ -771,6 +799,24 @@ export class StreetScene extends Phaser.Scene {
     const top = p.wall ? p.y - 14 : p.y - p.sprite.height;
     this.pop(p.x, top, formatYen(cost), bigOne);
     this.report(sceneForProp(p.kind));
+  }
+
+  /** 破片が4つ飛び散って、groundY に落ちる */
+  private debris(x: number, cy: number, groundY: number, n = 4, spread = 28): void {
+    for (let i = 0; i < n; i++) {
+      const d = this.fx('fx_debris', x, cy, { depth: 960, loop: true });
+      const toX = x + this.rng.int(-spread, spread);
+      const h = this.rng.int(10, 30);
+      const tw = { t: 0 };
+      this.tweens.add({
+        targets: tw, t: 1, duration: 420 + i * 40,
+        onUpdate: () => {
+          const y = cy + (groundY - cy) * tw.t * tw.t - Math.sin(Math.PI * tw.t) * h;
+          d.setPosition(Math.round(x + (toX - x) * tw.t), Math.round(y));
+        },
+        onComplete: () => d.destroy()
+      });
+    }
   }
 
   /** 市民に当たったときのオペレーターの一言の種類(おばあさん > 必殺技 > 巻きぞえ > 直接) */
@@ -786,7 +832,7 @@ export class StreetScene extends Phaser.Scene {
     const rank: ReactionKey[] = ['hitCiv', 'collateral', 'specialOnCiv', 'grannyHit'];
     if (this.civCried && rank.indexOf(key) <= rank.indexOf(this.civCried)) return;
     this.civCried = key;
-    this.opSay(say(key), true);
+    this.opSay(this.line(key), true);
   }
 
   /** 殴ったあと:市民に当たっていたら「やっちまったー!」→「まあいいか!」→ツッコミ。ワルだけならほめる */
@@ -796,16 +842,16 @@ export class StreetScene extends Phaser.Scene {
     const cried = this.civCried;
     this.civCried = null;
     if (hits.length === 0) {
-      this.opSay(say('hitBad', this.rng));
-      if (this.rng.chance(0.5)) this.heroSay(say('hitBadHero', this.rng), 900);
+      this.opSay(this.line('hitBad', this.rng));
+      if (this.rng.chance(0.5)) this.heroSay(this.line('hitBadHero', this.rng), 900);
       this.hero.play('idle');
       await this.wait(420);
       return;
     }
     let line: Speech | null = null;
-    if (hits.some((h) => h.look === 'granny')) line = say('grannyHit', this.rng);
-    else if (k === 'special') line = say('specialOnCiv', this.rng);
-    else if (hits.some((h) => h.collateral)) line = say('collateral', this.rng);
+    if (hits.some((h) => h.look === 'granny')) line = this.line('grannyHit', this.rng);
+    else if (k === 'special') line = this.line('specialOnCiv', this.rng);
+    else if (hits.some((h) => h.collateral)) line = this.line('collateral', this.rng);
     // 当たった瞬間にもう同じ種類の一言を出していたら、言い直さない
     if (cried === this.civLineKey(k, hits)) line = null;
     const first = this.stats.heroMistakes - hits.length === 0;
@@ -820,7 +866,7 @@ export class StreetScene extends Phaser.Scene {
     const gaan = this.fx('fx_gaan', h.x, h.y - 30, { loop: true, depth: h.y - 1 });
     const gaan2 = this.fx('fx_gaan', h.x - 20, h.y - 36, { loop: true, depth: h.y - 1, flip: true });
     this.flickers.add(gaan2);
-    this.heroSay(say('oops', this.rng), first ? 1000 : 700);
+    this.heroSay(this.line('oops', this.rng), first ? 1000 : 700);
     if (line) this.opSay(line, true);
     await this.wait(first ? 1000 : 650);
     gaan.destroy(); gaan2.destroy();
@@ -828,7 +874,7 @@ export class StreetScene extends Phaser.Scene {
     audio.sfx('okay');
     this.fx('fx_kiran', h.x + 10, h.y - HEAD + 2, { depth: 960, scale: 2 });
     this.fx('fx_kiran', h.x - 12, h.y - 30, { depth: 960 });
-    this.heroSay(say('okay', this.rng), first ? 1000 : 700);
+    this.heroSay(this.line('okay', this.rng), first ? 1000 : 700);
     await this.wait(first ? 700 : 450);
     this.opSay(tsukkomi(first ? 1 : 2, this.rng));
     await this.wait(first ? 650 : 250);
@@ -842,7 +888,7 @@ export class StreetScene extends Phaser.Scene {
     const h = this.hero;
     h.play('pass', true);
     audio.sfx('sparkle');
-    this.heroSay(say('pass', this.rng), 1000);
+    this.heroSay(this.line('pass', this.rng), 1000);
     for (let i = 0; i < 4; i++) {
       this.time.delayedCall(i * 110, () => this.fx('fx_sparkle', h.x + 12 + this.rng.int(-6, 10), h.y - 48 + this.rng.int(-8, 8), { depth: 960 }));
     }
@@ -853,7 +899,12 @@ export class StreetScene extends Phaser.Scene {
     }
     await this.runTo(a.x + 14, { speed: RUN * 0.55, anim: null });
     if (enc === 'passCiv') return false;
-    if (enc === 'passBad') { await this.mischief(a); return false; }
+    if (enc === 'passBad') {
+      // 地下駐車場のギャングは悪さの代わりに口笛で仲間を呼ぶ
+      if (this.def.hasGangs && a.person?.group) await this.gangCall(a);
+      else await this.mischief(a);
+      return false;
+    }
     await this.rampage(a);
     return true;
   }
@@ -894,7 +945,7 @@ export class StreetScene extends Phaser.Scene {
     this.goAlarm.start();
     this.opSay(mischiefLine(look, this.rng), true);
     h.pose('oops', 1);
-    this.heroSay(say('mischiefHero', this.rng), 1300);
+    this.heroSay(this.line('mischiefHero', this.rng), 1300);
     const res = await new Promise<'go' | 'timeout'>((resolve) => {
       const timer = this.time.delayedCall(MARK.escapeSec * 1000, () => { this.goHandler = null; resolve('timeout'); });
       this.goHandler = () => { timer.remove(); this.goHandler = null; resolve('go'); };
@@ -903,8 +954,8 @@ export class StreetScene extends Phaser.Scene {
     this.hideMark(a);
     if (res === 'go') {
       audio.sfx('go');
-      this.heroSay(say('go', this.rng), 800);
-      this.opSay(say('goOp', this.rng));
+      this.heroSay(this.line('go', this.rng), 800);
+      this.opSay(this.line('goOp', this.rng));
       a.pose('surprised');
       await this.runTo(a.x - ATTACK_GAP, { speed: RUN * 3, y: a.y });
       const k = this.pickAttack();
@@ -919,10 +970,386 @@ export class StreetScene extends Phaser.Scene {
     const escX = this.L.right + 50;
     this.tweens.add({ targets: a, x: escX, duration: Math.max(500, (escX - a.x) * 6), onComplete: () => a.destroy() });
     this.stats.escaped();
-    this.opSay(say('escaped', this.rng));
+    this.opSay(this.line('escaped', this.rng));
     h.play('idle');
     await this.wait(500);
     if (v.standing) v.play('idle');
+  }
+
+  // ─── ステージ2:ギャングの組 ─────────────────────
+  // 見逃したギャングが口笛 → 同じ組の仲間が走ってきて集まる → 頭の上に大きな行けの合図。
+  // 行けでまとめて吹き飛ばす。押さないと3秒でワゴンに乗りこみ、走り出す。走っている間の行けは車ごと止める。
+  // 時間は GangCall(logic/gang.ts)が数える。カメラは組とワゴンが画面の中に入るように向ける。
+
+  private actorOf(id: string): Actor | undefined {
+    return this.queue.find((q) => q.person?.id === id);
+  }
+
+  /** 組に呼ばれても来ない人(もう倒した、待てで止めた、もういない) */
+  private goneFromGang(id: string): boolean {
+    const a = this.actorOf(id);
+    return !a || !a.standing || this.stoppedIds.has(id);
+  }
+
+  /** 集まったときの並び。口笛を吹いた人がいちばん前(ヒーローの側) */
+  private gatherSlots(spot: GatherSpot, n: number): { x: number; y: number }[] {
+    const all = [{ x: -14, y: 2 }, { x: 10, y: -10 }, { x: 32, y: 8 }, { x: 44, y: -8 }];
+    return all.slice(0, n).map((o) => ({ x: spot.x + o.x, y: spot.y + o.y }));
+  }
+
+  /** 計画にワゴンがなかったとき(ふつうは起きない)、その場に置く */
+  private addVan(spot: GatherSpot): PropObj {
+    const sprite = this.add.sprite(spot.vanX, spot.vanY, 'prop_van', 0).setOrigin(0.5, 1).setDepth(spot.vanY);
+    const van: PropObj = { kind: 'van', x: spot.vanX, y: spot.vanY, wall: false, sprite, broken: false };
+    this.props.push(van);
+    this.vans.set(spot.groupId, van);
+    return van;
+  }
+
+  private moveTo(a: Actor, x: number, y: number, ms: number, ease = 'Sine.easeInOut'): Promise<void> {
+    return new Promise((resolve) => this.tweens.add({ targets: a, x, y, duration: ms, ease, onComplete: () => resolve() }));
+  }
+
+  /** 大きな行けの合図(組の頭の上、ワゴンの上) */
+  private bigMark(x: number, y: number, scale: number): Phaser.GameObjects.Sprite {
+    const m = this.add.sprite(Math.round(x), Math.round(y), 'fx_mark_go').play(animKey('fx_mark_go', 'play')).setDepth(1200);
+    m.setScale(scale + 1.5);
+    this.time.delayedCall(60, () => m.active && m.setScale(scale));
+    audio.sfx('mark');
+    return m;
+  }
+
+  /** 口笛の音符。口元から右上へ、点滅しながら上がっていく */
+  private whistleNotes(a: Actor): void {
+    for (let i = 0; i < 3; i++) {
+      this.time.delayedCall(i * 160, () => {
+        if (!a.sprite.active) return;
+        const g = this.add.graphics().setDepth(1150);
+        const dark = 0x1a1420;
+        const c = i % 2 === 0 ? 0xffffff : 0xfff2b0;
+        // ふち → 玉と棒と旗
+        g.fillStyle(dark, 1).fillRect(-1, 3, 5, 4).fillRect(1, -1, 3, 6).fillRect(2, -1, 4, 3);
+        g.fillStyle(c, 1).fillRect(0, 4, 3, 2).fillRect(2, 0, 1, 5).fillRect(3, 0, 2, 1);
+        const x0 = a.x + 8 + i * 3;
+        const y0 = a.y - 44;
+        g.setPosition(Math.round(x0), Math.round(y0));
+        this.flickers.add(g);
+        const o = { t: 0 };
+        this.tweens.add({
+          targets: o, t: 1, duration: 620,
+          onUpdate: () => g.setPosition(Math.round(x0 + o.t * 14 + Math.sin(o.t * 9) * 2), Math.round(y0 - o.t * 22)),
+          onComplete: () => g.destroy()
+        });
+      });
+    }
+  }
+
+  /** 見逃したギャング:前へ出て口笛で仲間を呼ぶ。組が集まったら行けでまとめて吹き飛ばす */
+  private async gangCall(a: Actor): Promise<void> {
+    const h = this.hero;
+    const person = a.person!;
+    const group = currentWave(this.run).groups.find((g) => g.id === person.group);
+    const spot = this.gathers.get(person.id)
+      ?? { groupId: person.group!, whistlerId: person.id, x: a.x + 76, y: 192, vanX: a.x + 116, vanY: VAN_Y };
+    const van = this.vans.get(spot.groupId) ?? this.addVan(spot);
+    const ids = gatherMembers(group?.memberIds ?? [person.id], (id) => this.goneFromGang(id));
+    const mates = ids.filter((id) => id !== person.id).map((id) => this.actorOf(id)).filter((m): m is Actor => !!m);
+    const members = [a, ...mates];
+    for (const m of members) m.called = true;
+    const slots = this.gatherSlots(spot, members.length);
+    h.play('idle');
+    // カメラ:ヒーローと、集まる場所と、ワゴンが1つの画面に入るように
+    const half = layout.W / 2;
+    const vanRight = van.x + 64;
+    this.camFocus = Phaser.Math.Clamp((h.x + vanRight) / 2 - 8, vanRight + 6 - half, h.x - 24 + half);
+
+    // 前へ出て、口笛
+    a.showTag(true);
+    a.faceLeft(false).play('walk', true, 2.4);
+    this.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
+    await this.moveTo(a, slots[0].x, slots[0].y, 480);
+    a.faceLeft(false).play('mischief', true);
+    audio.sfx('whistle');
+    this.whistleNotes(a);
+    this.opSay(mischiefLine(a.look!, this.rng), true);
+    h.pose('oops', 1);
+    this.heroSay(this.line('mischiefHero', this.rng), 1300);
+    await this.wait(GANG.whistleSec * 1000);
+
+    // 仲間が通りのどこからでも走ってくる(時間は GangCall が数える)
+    const call = new GangCall(members.map((m) => m.person!.id));
+    let done!: () => void;
+    const finished = new Promise<void>((r) => { done = r; });
+    this.gang = { call, members, spot, slots, van, vanX0: van.x, vanEndX: van.x, done };
+    a.faceLeft(true).play('idle');
+    const runs = mates.map((m, i) => {
+      const s = slots[i + 1];
+      m.showTag(true);
+      m.faceLeft(s.x < m.x).play('walk', true, 3.2);
+      const dist = Phaser.Math.Distance.Between(m.x, m.y, s.x, s.y);
+      const ms = Phaser.Math.Clamp(dist / 0.26, 320, GANG.gatherSec * 1000 - 200);
+      for (let k = 0; k * 130 < ms; k++) {
+        this.time.delayedCall(k * 130, () => { if (m.standing) this.fx('fx_dust', m.x + (m.sprite.flipX ? 8 : -8), m.y - 6, { depth: m.y - 1 }); });
+      }
+      return this.moveTo(m, s.x, s.y, ms, 'Linear').then(() => {
+        if (call.phase === 'gather' || call.phase === 'wait') m.faceLeft(true).play(call.phase === 'wait' ? 'sortIdle' : 'idle', true);
+      });
+    });
+    await Promise.all(runs);
+    if (call.gathered()) this.onGangPhase('wait');
+    await finished;
+  }
+
+  private stepGang(ms: number): void {
+    const g = this.gang;
+    if (!g) return;
+    for (const e of g.call.update(ms)) this.onGangPhase(e);
+    if (this.gang !== g) return;
+    const ph = g.call.phase;
+    if (ph === 'wait' && g.count) g.count.setText(String(Math.max(1, Math.ceil(g.call.secondsToBoard ?? 0))));
+    if (ph === 'drive') {
+      // だんだん速くなって、画面の右へ
+      const p = g.call.progress;
+      const x = g.vanX0 + (g.vanEndX - g.vanX0) * p * p;
+      g.van.x = x;
+      g.van.sprite.setX(Math.round(x)).setFrame(1 + (Math.floor(this.frameN / 3) % 2));
+      if (this.frameN % 5 === 0) this.fx('fx_dust', x - 66, g.van.y - 6, { depth: g.van.y - 1 });
+    }
+    if (g.mark && (ph === 'board' || ph === 'drive')) g.mark.setPosition(Math.round(g.van.x), g.van.y - 64 - 22);
+  }
+
+  private hideInVan(m: Actor): void {
+    m.sprite.setVisible(false);
+    m.showTag(false);
+  }
+
+  private onGangPhase(e: GangPhase): void {
+    const g = this.gang;
+    if (!g) return;
+    const van = g.van;
+    if (e === 'wait') {
+      // 集まった:ヒーローのほうを向いて、指で合図。頭の上に大きな行けの合図
+      // まだ走っている人は、着いたところで合図を始める(gangCall の中)
+      g.members.forEach((m, i) => {
+        const s = g.slots[i];
+        if (m.standing && Math.abs(m.x - s.x) < 1 && Math.abs(m.y - s.y) < 1) m.faceLeft(true).play('sortIdle', true);
+      });
+      const cx = g.slots.reduce((s, p) => s + p.x, 0) / g.slots.length;
+      const top = Math.min(...g.slots.map((p) => p.y)) - HEAD - 50;
+      g.mark = this.bigMark(cx, top, 4);
+      this.hero.play('idle');
+      g.count = new PixelText(this, Math.round(cx) + 42, Math.round(top) + 4, String(GANG.escapeSec), { size: FS.big, color: UI.gold, outline: true })
+        .setOrigin(0.5, 0.5).setDepth(1200);
+      this.goAlarm.start();
+      this.opSay(this.line('gathered', this.rng), true);
+      this.goHandler = () => this.gangGo();
+    } else if (e === 'board') {
+      // ワゴンに乗りこむ(乗った人は車の中に消える)
+      g.count?.destroy(); g.count = undefined;
+      g.mark?.destroy();
+      g.mark = this.bigMark(van.x, van.y - 64 - 22, 3);
+      this.opSay(this.line('board', this.rng), true);
+      const doorX = van.x - 22;
+      g.members.forEach((m, i) => {
+        this.tweens.killTweensOf(m);
+        m.faceLeft(false).play('walk', true, 3.2);
+        void this.moveTo(m, doorX + i * 8, van.y + 3, GANG.boardSec * 800, 'Linear').then(() => {
+          if (g.call.phase !== 'board' && g.call.phase !== 'drive') return;
+          this.hideInVan(m);
+          audio.sfx('hit', { pitch: 0.5, volume: 0.5 });
+          van.sprite.setFrame(1);
+          this.time.delayedCall(80, () => { if (g.call.phase === 'board') van.sprite.setFrame(0); });
+        });
+      });
+    } else if (e === 'drive') {
+      for (const m of g.members) { this.tweens.killTweensOf(m); this.hideInVan(m); }
+      g.vanX0 = van.x;
+      g.vanEndX = this.L.right + 80;
+      audio.sfx('engine');
+      audio.sfx('skid');
+      shake(this, 2, 200);
+      for (let i = 0; i < 3; i++) this.fx('fx_dust', van.x - 60 + i * 6, van.y - 4 - i * 4, { depth: van.y + 1, scale: 1.5 });
+      this.opSay(this.line('drive', this.rng), true);
+    } else if (e === 'escaped') {
+      // 逃げきられた
+      this.goHandler = null;
+      this.goAlarm.stop();
+      g.mark?.destroy(); g.mark = undefined;
+      van.sprite.setVisible(false);
+      van.broken = true;
+      for (const m of g.members) m.destroy();
+      this.stats.groupEscaped(g.call.size);
+      audio.sfx('horn');
+      this.opSay(this.line('vanEscaped', this.rng));
+      this.hero.pose('oops', 1);
+      this.time.delayedCall(900, () => { this.hero.play('idle'); this.endGang(); });
+    }
+  }
+
+  private gangGo(): void {
+    const g = this.gang;
+    if (!g) return;
+    const r = g.call.go();
+    if (!r) return;
+    this.goHandler = null;
+    this.goAlarm.stop();
+    g.count?.destroy(); g.count = undefined;
+    g.mark?.destroy(); g.mark = undefined;
+    audio.sfx('go');
+    void (r === 'wipe' ? this.groupWipe(g) : this.vanStop(g)).then(() => this.endGang());
+  }
+
+  private endGang(): void {
+    const g = this.gang;
+    if (!g) return;
+    this.gang = null;
+    void this.hopBack(g).then(() => g.done());
+  }
+
+  /** 車を追いかけて次の人より先まで来ていたら、跳んで戻る(次の人に左から近づけるように) */
+  private async hopBack(g: GangRun): Promise<void> {
+    const h = this.hero;
+    const i = this.queue.indexOf(g.members[0]);
+    const next = this.queue.slice(i + 1).find((q) => q.standing && !q.called);
+    this.camFocus = null;
+    if (!next || h.x <= next.x - MARK.showDistance - 4) return;
+    h.faceLeft(true).play('stomp', true);
+    await this.arc(h, next.x - MARK.showDistance - 12, 34, 380, 'Sine.easeInOut');
+    h.faceLeft(false).play('idle');
+    await this.wait(120);
+  }
+
+  /** 行け(集まったところ):高く跳んで組の真ん中に落ち、衝撃波で全員まとめて吹き飛ばす。巻きぞえは組の中だけ */
+  private async groupWipe(g: GangRun): Promise<void> {
+    const h = this.hero;
+    const ms = g.members.filter((m) => m.standing);
+    const cx = ms.reduce((s, m) => s + m.x, 0) / Math.max(1, ms.length);
+    const cy = ms.reduce((s, m) => s + m.y, 0) / Math.max(1, ms.length);
+    for (const m of ms) { this.tweens.killTweensOf(m); m.pose('surprised'); }
+    this.heroSay(this.line('wipe', this.rng), 1100);
+    this.auraOn = true;
+    await this.runTo(Math.min(...ms.map((m) => m.x)) - 44, { speed: RUN * 3.5, y: Math.round(cy) + 4 });
+    h.play('stomp', true);
+    audio.sfx('charge', { pitch: 1.3 });
+    audio.sfx('stomp', { pitch: 1.3 });
+    await this.arc(h, cx - 4, 100, 460, 'Sine.easeInOut');
+    // 着地
+    impact(this, 'huge');
+    shake(this, 8, 700);
+    hitStop(this, 180);
+    audio.sfx('bigHit');
+    audio.sfx('stomp');
+    this.fx('fx_shockwave', cx, cy - 12, { depth: cy + 2, scale: 3 });
+    this.fx('fx_shockwave', cx - 34, cy - 6, { depth: cy + 2, scale: 2, flip: true });
+    this.fx('fx_shockwave', cx + 34, cy - 6, { depth: cy + 2, scale: 2 });
+    this.fx('fx_dust', cx - 20, cy - 8, { depth: cy + 3, scale: 2 });
+    this.fx('fx_dust', cx + 20, cy - 8, { depth: cy + 3, scale: 2 });
+    ms.forEach((m, i) => {
+      this.fx('fx_hit', m.x, m.y - 30, { depth: 950, scale: 2 });
+      const dir = i === 0 ? -1 : 1;
+      this.knock(m, 30 + i * 22, 64 + i * 18, dir);
+    });
+    this.stats.groupWiped(ms.length);
+    this.pop(cx, cy - 76, `${ms.length}人撃破!`, true);
+    const props = rollGroupWipeProps(this.visibleProps(), cx, this.rng).sort((p, q) => Math.abs(p.x - cx) - Math.abs(q.x - cx));
+    props.forEach((p, i) => this.time.delayedCall(80 + i * 90, () => this.breakProp(p)));
+    await this.wait(750);
+    this.auraOn = false;
+    h.play('okay', true);
+    audio.sfx('okay');
+    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.opSay(this.line('wipeOp', this.rng));
+    await this.wait(1000);
+    h.play('idle');
+  }
+
+  /** 行け(乗りこむところ、走っている間):追いついて車ごと殴って止める。組の全員がのびて出てくる */
+  private async vanStop(g: GangRun): Promise<void> {
+    const h = this.hero;
+    const van = g.van;
+    for (const m of g.members) { this.tweens.killTweensOf(m); this.hideInVan(m); }
+    van.sprite.setFrame(1);
+    this.heroSay(this.line('vanStop', this.rng), 1100);
+    this.opSay(this.line('goOp', this.rng));
+    this.camFocus = van.x - 24;
+    // 光の突撃で、ワゴンの後ろに追いつく
+    h.play('charge', true);
+    this.auraOn = true;
+    audio.sfx('charge');
+    await this.wait(70);
+    const toX = Math.max(h.x, van.x - 64 - 8);
+    const o = { x: h.x, y: h.y };
+    await new Promise<void>((resolve) => this.tweens.add({
+      targets: o, x: toX, y: van.y + 12, duration: Math.max(180, (toX - h.x) / 0.8), ease: 'Quad.easeIn',
+      onUpdate: () => { h.x = o.x; h.y = o.y; },
+      onComplete: () => resolve()
+    }));
+    h.play('punch', true);
+    audio.sfx('punch');
+    await this.wait(110);
+    // 車ごと
+    van.sprite.setFrame(3);
+    van.broken = true;
+    audio.sfx('crash');
+    audio.sfx('bigHit');
+    impact(this, 'huge');
+    shake(this, 8, 800);
+    hitStop(this, 200);
+    const vy = van.y - 30;
+    this.fx('fx_hit', van.x - 54, vy, { scale: 3, depth: 960 });
+    this.fx('fx_hit', van.x - 20, vy - 14, { scale: 2, depth: 960 });
+    this.fx('fx_dust', van.x, vy, { scale: 3, depth: 960 });
+    this.fx('fx_dust', van.x + 40, vy + 10, { scale: 2, depth: 960 });
+    this.debris(van.x, vy, van.y + 8, 8, 60);
+    van.x += 16;
+    this.tweens.add({ targets: van.sprite, x: Math.round(van.x), duration: 260, ease: 'Quad.easeOut' });
+    const cost = this.stats.vanStopped(g.call.size);
+    this.pop(van.x, van.y - 66, formatYen(cost), true);
+    this.report(sceneForProp('van'));
+    // 組の全員がのびて出てくる
+    g.members.forEach((m, i) => {
+      if (m.state === 'gone') return;
+      m.x = van.x - 8 + i * 14;
+      m.y = van.y + 10 + i * 9;
+      m.sprite.setVisible(true);
+      m.state = 'stand';
+      this.knock(m, 34 + i * 20, 44 + i * 12, i === 1 ? -1 : 1);
+    });
+    await this.wait(750);
+    this.auraOn = false;
+    this.opSay(this.line('vanStopOp', this.rng));
+    h.play('okay', true);
+    audio.sfx('okay');
+    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    await this.wait(1000);
+    h.play('idle');
+  }
+
+  /** 女ボスを市民に仕分けていたとき:手下のワゴンが通りを走り抜けて、まわりを壊していく(額は bossRampage に含まれる) */
+  private thugVans(): void {
+    const near = this.visibleProps().sort((p, q) => p.x - q.x);
+    audio.sfx('horn');
+    // 1台目は手前をかすめて(ヒーローが跳んでよける)、2台目は奥を走り抜ける
+    [214, 150].forEach((y, i) => this.time.delayedCall(200 + i * 420, () => {
+      const mine = near.filter((_, k) => k % 2 === i);
+      const x0 = this.L.left - 70;
+      const x1 = this.L.right + 80;
+      const van = this.add.sprite(x0, y, 'prop_van', 1).setOrigin(0.5, 1).setDepth(y);
+      audio.sfx('engine');
+      audio.sfx(i === 0 ? 'skid' : 'horn');
+      const o = { x: x0 };
+      let dodged = i !== 0;
+      this.tweens.add({
+        targets: o, x: x1, duration: 950, ease: 'Quad.easeIn',
+        onUpdate: () => {
+          van.setX(Math.round(o.x)).setFrame(1 + (Math.floor(this.frameN / 3) % 2));
+          if (!dodged && o.x > this.hero.x - 110) { dodged = true; void this.arc(this.hero, this.hero.x, 30, 420); }
+          if (this.frameN % 4 === 0) this.fx('fx_dust', o.x - 66, y - 6, { depth: y - 1 });
+          for (const p of mine) if (!p.broken && p.x <= o.x + 60) { this.breakProp(p, false); shake(this, 4, 200); }
+        },
+        onComplete: () => van.destroy()
+      });
+    }));
   }
 
   // ─── ボス ─────────────────────────────────────
@@ -937,7 +1364,7 @@ export class StreetScene extends Phaser.Scene {
     shake(this, 4, 400);
     await this.wait(200);
     flash(this, 0xffffff, 2);
-    a.setKey('boss');
+    a.setKey(this.def.bossSheet);
     a.shadowW = 1.8;
     a.faceLeft(this.hero.x < a.x);
     a.play('reveal', true);
@@ -951,12 +1378,12 @@ export class StreetScene extends Phaser.Scene {
     void this.arc(h, h.x - 26, 20, 300);
     await this.revealBoss(a);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
-    this.opSay(say('bossReveal', this.rng), true);
+    this.opSay(this.line('bossReveal', this.rng), true);
     h.play('idle');
     await this.wait(900);
-    this.heroSay(say('bossRevealHero', this.rng), 1200);
+    this.heroSay(this.line('bossRevealHero', this.rng), 1200);
     await this.wait(1100);
-    this.opSay(say('bossRevealOp2', this.rng));
+    this.opSay(this.line('bossRevealOp2', this.rng));
     await this.wait(900);
     this.toBoss();
   }
@@ -974,12 +1401,17 @@ export class StreetScene extends Phaser.Scene {
     const cost = this.stats.bossRampage();
     this.pop(a.x, a.y - 80, formatYen(cost), true);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
-    const near = this.visibleProps().filter((p) => Math.abs(p.x - a.x) < 130).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x));
-    near.forEach((p, i) => this.time.delayedCall(150 + i * 170, () => { this.breakProp(p, false); shake(this, 4, 200); }));
+    if (this.def.hasGangs) {
+      // 地下駐車場:女ボスは手下の車をけしかける。ワゴンが通りを走り抜けて、物を壊していく
+      this.thugVans();
+    } else {
+      const near = this.visibleProps().filter((p) => Math.abs(p.x - a.x) < 130).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x));
+      near.forEach((p, i) => this.time.delayedCall(150 + i * 170, () => { this.breakProp(p, false); shake(this, 4, 200); }));
+    }
     h.faceLeft(true).play('oops', true);
     const gaan = this.fx('fx_gaan', h.x, h.y - 30, { loop: true, depth: h.y - 1 });
-    this.heroSay(say('bossRampageHero', this.rng), 1400);
-    this.opSay(say('bossRampage', this.rng), true);
+    this.heroSay(this.line('bossRampageHero', this.rng), 1400);
+    this.opSay(this.line('bossRampage', this.rng), true);
     await this.wait(1400);
     audio.sfx('rampage');
     shake(this, 6, 500);

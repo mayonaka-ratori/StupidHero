@@ -9,6 +9,9 @@ import { Tag } from '../../ui';
 
 export type ActorState = 'stand' | 'down' | 'gone';
 
+/** 小物の色を塗った絵のキー('guard_bad#db2424')から、元の絵のキーを取り出す */
+const baseKey = (key: string): string => key.split('#')[0];
+
 /** 頭のてっぺん(足からの高さ)。64ドットのコマで、足は下から4ドット上 */
 export const HEAD = 50;
 
@@ -32,13 +35,15 @@ export class Actor {
   depthBias = 0;
   /** 影の横の大きさ(ボスは大きく) */
   shadowW = 1;
+  /** ステージ2:ギャングの組に呼ばれて集まりに行った(このあと自分の番は来ない) */
+  called = false;
 
   constructor(private scene: Phaser.Scene, key: string, x: number, y: number) {
     this.key = key;
     this.x = x;
     this.y = y;
     this.shadow = scene.add.image(x, y, 'fx_shadow', 0).setOrigin(0.5, 0.5).setDepth(1);
-    this.sprite = scene.add.sprite(x, y, key, 0).setOrigin(...originFor(key));
+    this.sprite = scene.add.sprite(x, y, key, 0).setOrigin(...originFor(baseKey(key)));
     this.sync();
   }
 
@@ -80,7 +85,7 @@ export class Actor {
   /** 別の絵に替える(ボスが正体を現すとき) */
   setKey(key: string): this {
     this.key = key;
-    this.sprite.setTexture(key, 0).setOrigin(...originFor(key));
+    this.sprite.setTexture(key, 0).setOrigin(...originFor(baseKey(key)));
     return this;
   }
 
