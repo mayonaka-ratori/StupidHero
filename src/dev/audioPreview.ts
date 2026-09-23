@@ -3,7 +3,19 @@
 // tools/audioCheck.mjs からは window.__audioCheck() を呼ぶ。
 import { type BgmName, type SfxName, audio } from '../audio';
 import type { Engine } from '../audio/engine';
-import { BGM_NAMES, SFX_NAMES, type Level, analyze, backlogSteps, renderBgm, renderSfx, renderWorstCase, SFX_START } from '../audio/offline';
+import {
+  BGM_NAMES,
+  SFX_NAMES,
+  type Level,
+  analyze,
+  backlogSteps,
+  renderBgm,
+  renderSfx,
+  renderWorstCase,
+  renderWorstCaseBoss2,
+  renderWorstCaseStreet2,
+  SFX_START
+} from '../audio/offline';
 
 const engine = audio as unknown as Engine;
 
@@ -75,6 +87,8 @@ async function check(): Promise<{ rows: Row[]; backlog: number }> {
     rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n as SfxName), SFX_START), raw: analyze(await renderSfx(n as SfxName, false), SFX_START) });
   }
   rows.push({ kind: 'mix', name: 'boss+sfx', final: analyze(await renderWorstCase()), raw: analyze(await renderWorstCase(false)) });
+  rows.push({ kind: 'mix', name: 'boss2+sfx', final: analyze(await renderWorstCaseBoss2()), raw: analyze(await renderWorstCaseBoss2(false)) });
+  rows.push({ kind: 'mix', name: 'street2+sfx', final: analyze(await renderWorstCaseStreet2()), raw: analyze(await renderWorstCaseStreet2(false)) });
   return { rows, backlog: backlogSteps() };
 }
 

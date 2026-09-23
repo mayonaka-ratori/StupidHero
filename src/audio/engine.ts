@@ -11,7 +11,11 @@ const LOOKAHEAD = 0.15;
 /** 予約の見回りの間隔(ミリ秒) */
 const TICK_MS = 25;
 /** 同じ効果音を続けて鳴らせる最短の間隔(秒) */
-const SFX_GAP: Partial<Record<SfxName, number>> = { rush: 0.04, blip: 0.03, tick: 0.05 };
+const SFX_GAP: Partial<Record<SfxName, number>> = {
+  rush: 0.04, blip: 0.03, tick: 0.05,
+  // ステージ2:長めの音は重なるとうるさいので間をあける
+  whistle: 0.25, engine: 0.2, skid: 0.25, horn: 0.3, crash: 0.12
+};
 const SFX_GAP_DEFAULT = 0.03;
 /** 同時に鳴らす効果音の上限 */
 const SFX_MAX_VOICES = 12;

@@ -76,6 +76,53 @@ export async function renderWorstCase(limit = true): Promise<AudioBuffer> {
   return ctx.startRendering();
 }
 
+/** ステージ2のボス戦でいちばんうるさい場面:連打 + エンジン + きしみ + クラクション + 車がひっくり返って爆発 */
+export async function renderWorstCaseBoss2(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss2), 'boss2', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
+  for (let t = 0.1; t < 2; t += 0.25) SFX.engine(ctx, mix.sfx, t, 1);
+  SFX.skid(ctx, mix.sfx, 0.5, 1);
+  SFX.horn(ctx, mix.sfx, 0.7, 1);
+  SFX.crash(ctx, mix.sfx, 1.0, 1);
+  SFX.bigHit(ctx, mix.sfx, 1.0, 1);
+  SFX.crash(ctx, mix.sfx, 1.6, 1);
+  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
+  SFX.explosion(ctx, mix.sfx, 2.1, 1);
+  SFX.crash(ctx, mix.sfx, 2.1, 1);
+  SFX.stamp(ctx, mix.sfx, 2.2, 1);
+  return ctx.startRendering();
+}
+
+/** ステージ2の結果発表でいちばんうるさい場面:口笛で仲間が集まり、まとめて吹き飛ばす/車が逃げて止められる */
+export async function renderWorstCaseStreet2(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.street2), 'street2', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  SFX.whistle(ctx, mix.sfx, 0.2, 1);
+  SFX.whistle(ctx, mix.sfx, 0.5, 1.1);
+  SFX.mark(ctx, mix.sfx, 0.9, 1);
+  SFX.go(ctx, mix.sfx, 1.0, 1);
+  SFX.charge(ctx, mix.sfx, 1.1, 1);
+  SFX.bigHit(ctx, mix.sfx, 1.5, 1);
+  SFX.hit(ctx, mix.sfx, 1.55, 1);
+  SFX.hit(ctx, mix.sfx, 1.6, 1);
+  SFX.break(ctx, mix.sfx, 1.6, 1);
+  SFX.engine(ctx, mix.sfx, 2.0, 1);
+  SFX.skid(ctx, mix.sfx, 2.2, 1);
+  SFX.horn(ctx, mix.sfx, 2.3, 1);
+  SFX.punch(ctx, mix.sfx, 2.6, 1);
+  SFX.crash(ctx, mix.sfx, 2.65, 1);
+  SFX.bigHit(ctx, mix.sfx, 2.65, 1);
+  SFX.break(ctx, mix.sfx, 2.7, 1);
+  return ctx.startRendering();
+}
+
 /** ルックアヘッドが遅れたとき、たまった音をまとめて鳴らさないことを確かめる。遅れて1回呼んだときに予約したマスの数を返す */
 export function backlogSteps(): number {
   const ctx = new OfflineAudioContext(1, RATE, RATE);
@@ -86,5 +133,5 @@ export function backlogSteps(): number {
   return player.pump(10.15, 10, true);
 }
 
-export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result'];
+export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2'];
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];

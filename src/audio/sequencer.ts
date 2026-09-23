@@ -1,7 +1,7 @@
 // 曲のデータを音符の予定表にし、ルックアヘッド方式で少し先まで予約して鳴らす。
 import { type Ctx } from './synth';
 import { DRUMS, INSTRUMENTS } from './patches';
-import { type SectionDef, type SongDef, midiOf } from './songs';
+import { type EchoDef, type SectionDef, type SongDef, midiOf } from './songs';
 
 interface Ev {
   inst: string;
@@ -12,6 +12,8 @@ interface Ev {
   /** 何マスのばすか */
   len: number;
   vol: number;
+  /** エコーに送るか */
+  fx: boolean;
 }
 interface Section {
   steps: number;
@@ -21,6 +23,7 @@ export interface CompiledSong {
   bpm: number;
   intro: Section | null;
   loop: Section;
+  echo: EchoDef | null;
 }
 
 function compileSection(def: SectionDef): Section {
@@ -30,18 +33,19 @@ function compileSection(def: SectionDef): Section {
     const toks = tr.notes.trim().split(/\s+/);
     const tok = (i: number) => toks[i % toks.length];
     const vol = tr.vol ?? 1;
+    const fx = tr.echo === true;
     for (let i = 0; i < steps; i++) {
       const tk = tok(i);
       if (tk === '.' || tk === '-') continue;
       if (tr.inst === 'drums') {
-        at[i].push({ inst: 'drums', midi: -1, hit: tk, len: 1, vol });
+        at[i].push({ inst: 'drums', midi: -1, hit: tk, len: 1, vol, fx });
         continue;
       }
       const midi = midiOf(tk);
       if (midi === null) throw new Error(`bad note "${tk}"`);
       let len = 1;
       while (i + len < steps && tok(i + len) === '-') len++;
-      at[i].push({ inst: tr.inst, midi, len, vol });
+      at[i].push({ inst: tr.inst, midi, len, vol, fx });
     }
   }
   return { steps, at };
@@ -51,15 +55,49 @@ const cache = new Map<SongDef, CompiledSong>();
 export function compile(song: SongDef): CompiledSong {
   let c = cache.get(song);
   if (!c) {
-    c = { bpm: song.bpm, intro: song.intro ? compileSection(song.intro) : null, loop: compileSection(song.loop) };
+    c = { bpm: song.bpm, intro: song.intro ? compileSection(song.intro) : null, loop: compileSection(song.loop), echo: song.echo ?? null };
     cache.set(song, c);
   }
   return c;
 }
 
+/**
+ * エコー(地下駐車場の響き)。その曲の再生係の中だけに作るので、ほかの曲や効果音にはかからない。
+ *
+ *  send ─┬──────────────────────────────── out
+ *        └─ delay ─ highpass ─ lowpass ─┬─ wet ─ out
+ *             └────── feedback ─────────┘
+ * 返した nodes は止めるときに切りはなす(輪になっているので)。
+ */
+function createEcho(ctx: Ctx, out: AudioNode, def: EchoDef, stepDur: number): { send: GainNode; nodes: AudioNode[] } {
+  const send = ctx.createGain();
+  send.connect(out);
+  const delay = ctx.createDelay(2);
+  delay.delayTime.value = Math.min(1.9, def.steps * stepDur);
+  // 低すぎるところはエコーさせない(音がにごって大きくなるので)。高いところも丸めて、響きを暗くする
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 110;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = def.damp ?? 2200;
+  const fb = ctx.createGain();
+  fb.gain.value = Math.min(0.7, def.feedback);
+  const wet = ctx.createGain();
+  wet.gain.value = def.wet;
+  send.connect(delay);
+  delay.connect(hp).connect(lp);
+  lp.connect(fb).connect(delay);
+  lp.connect(wet).connect(out);
+  return { send, nodes: [send, delay, hp, lp, fb, wet] };
+}
+
 /** 1曲ぶんの再生係。pump() を何度も呼んで少し先まで予約していく */
 export class BgmPlayer {
   readonly out: GainNode;
+  /** エコーに送る音の入り口(エコーのない曲では out と同じ) */
+  private readonly fxIn: AudioNode;
+  private readonly fxNodes: AudioNode[] = [];
   private p = 0;
   private next: number;
   private readonly stepDur: number;
@@ -70,6 +108,13 @@ export class BgmPlayer {
     this.out.connect(dest);
     this.stepDur = 60 / song.bpm / 4;
     this.next = start;
+    if (song.echo) {
+      const e = createEcho(ctx, this.out, song.echo, this.stepDur);
+      this.fxIn = e.send;
+      this.fxNodes = e.nodes;
+    } else {
+      this.fxIn = this.out;
+    }
   }
 
   /**
@@ -100,10 +145,11 @@ export class BgmPlayer {
     if (intro && p < intro.steps) evs = intro.at[p];
     else evs = loop.at[(p - (intro?.steps ?? 0)) % loop.steps];
     for (const e of evs) {
+      const dest = e.fx ? this.fxIn : this.out;
       if (e.hit) {
-        for (const ch of e.hit) DRUMS[ch]?.(this.ctx, this.out, t, e.vol);
+        for (const ch of e.hit) DRUMS[ch]?.(this.ctx, dest, t, e.vol);
       } else {
-        INSTRUMENTS[e.inst]?.(this.ctx, this.out, t, e.midi, e.len * this.stepDur - 0.012, e.vol);
+        INSTRUMENTS[e.inst]?.(this.ctx, dest, t, e.midi, e.len * this.stepDur - 0.012, e.vol);
       }
     }
   }
@@ -118,6 +164,9 @@ export class BgmPlayer {
     g.setValueAtTime(g.value, now);
     if (fade > 0) g.linearRampToValueAtTime(0, now + fade);
     else g.setValueAtTime(0, now);
-    setTimeout(() => this.out.disconnect(), fade * 1000 + 600);
+    setTimeout(() => {
+      this.out.disconnect();
+      for (const n of this.fxNodes) n.disconnect();
+    }, fade * 1000 + 600);
   }
 }

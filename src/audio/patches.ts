@@ -101,6 +101,30 @@ export const STAB: FmPatch = {
   out: [0, 2, 3]
 };
 
+/** 低く太いベース(ステージ2用。のびが長く、半分の周波数の変調で少しうなる) */
+export const DEEP: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.5, env: E(0.003, 0.7, 0.45, 0.08) },
+    { ratio: 1, lvl: 1.8, env: E(0.002, 0.2, 0.3, 0.08) },
+    { ratio: 0.5, lvl: 0.7, env: E(0.002, 0.4, 0.2, 0.08) }
+  ],
+  mods: [[2, 1], [1, 0]],
+  out: [0]
+};
+
+/** 木琴/ビブラフォン風のマレット(地下駐車場の少し不気味なリード。エコーと合わせる) */
+export const MALLET: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.28, env: E(0.002, 0.45, 0.08, 0.12) },
+    { ratio: 4, lvl: 1.1, env: E(0.001, 0.12, 0.0, 0.08) },
+    { ratio: 1, det: 7, lvl: 0.12, env: E(0.002, 0.4, 0.05, 0.12) },
+    { ratio: 7, lvl: 0.35, env: E(0.001, 0.05, 0.0, 0.05) }
+  ],
+  mods: [[1, 0], [3, 2]],
+  out: [0, 2],
+  vib: [5, 9, 0.12]
+};
+
 // ---------------------------------------------------------------- 楽器
 
 export type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
@@ -118,6 +142,8 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   bell: fmInst(BELL),
   pad: fmInst(PAD),
   stab: fmInst(STAB),
+  deep: fmInst(DEEP),
+  mallet: fmInst(MALLET),
   /** PSGの短い矩形波(アルペジオ用) */
   sq: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate: Math.min(gate, 0.09), env: E(0.001, 0.08, 0.4, 0.03), vol: 0.1 * vol });

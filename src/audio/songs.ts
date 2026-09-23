@@ -4,11 +4,25 @@
 //   音の名前(C4, F#3, Bb2 など)=そこで鳴らす   - =前の音をのばす   . =休み
 //   ドラムは k=キック s=スネア h=ハイハット o=オープンハット c=クラッシュ T/t/l=タム r=リム を1マスに何個でも(例 "kc")
 // トラックの文字列が区間より短いときはくり返す(1小節のドラムを4小節に使い回せる)。
+// echo: true のトラックだけ、その曲のエコーに送る(エコーは曲ごと。効果音やほかの曲にはかからない)。
 
 export interface TrackDef {
   inst: string;
   notes: string;
   vol?: number;
+  /** その曲のエコーに送る */
+  echo?: boolean;
+}
+/** 曲にかけるエコー(やまびこ) */
+export interface EchoDef {
+  /** 遅れ(何マスぶん) */
+  steps: number;
+  /** くり返しの強さ(0〜0.7) */
+  feedback: number;
+  /** エコーの音の大きさ */
+  wet: number;
+  /** エコーを丸める周波数(Hz)。低いほど暗く響く */
+  damp?: number;
 }
 export interface SectionDef {
   bars: number;
@@ -20,6 +34,8 @@ export interface SongDef {
   intro?: SectionDef;
   /** くり返す部分 */
   loop: SectionDef;
+  /** エコー(ステージ2の曲だけ) */
+  echo?: EchoDef;
 }
 
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -233,4 +249,82 @@ const RESULT: SongDef = {
   }
 };
 
-export const SONGS = { title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT } as const;
+// ================================================================ street2
+// ホ短調。Em Em C B / Em Em F B7。夜の地下駐車場の結果発表。
+// のびる太いベースとマレットのリードをエコーで響かせ、PSGの裏打ちでドタバタ。Bb(減5度)とF(半音上の和音)で少し不気味に。
+// ときどき高い「ピチョン」(天井のしずく)が響く。
+const STREET2_ROOTS = ['E1', 'E1', 'C2', 'B1', 'E1', 'E1', 'F1', 'B1'];
+const STREET2_CHORDS = ['E4 G4 B4', 'E4 G4 B4', 'C4 E4 G4', 'B3 D#4 F#4', 'E4 G4 B4', 'E4 G4 Bb4', 'F4 A4 C5', 'B3 D#4 A4'];
+const STREET2: SongDef = {
+  bpm: 138,
+  echo: { steps: 3, feedback: 0.42, wet: 0.4, damp: 1800 },
+  loop: {
+    bars: 8,
+    tracks: [
+      {
+        inst: 'mallet',
+        vol: 0.9,
+        echo: true,
+        notes: [
+          'E4 . . G4 . . Bb4 . A4 . . . G4 . E4 .',
+          'F#4 - - - G4 . F#4 . E4 - - - . . B3 .',
+          'C5 . . B4 . . G4 . E4 . . . G4 . C5 .',
+          'B4 - - - D#5 - - - F#5 - - - . . . .',
+          'E5 . . D5 . . Bb4 . B4 . . . G4 . E4 .',
+          'G4 . A4 . Bb4 . B4 . D5 - - - B4 . . .',
+          'F5 . . E5 . . C5 . A4 . . . F4 . A4 .',
+          'D#5 - - - F#5 - - - A4 . B4 . . . . .'
+        ].join(' ')
+      },
+      { inst: 'deep', vol: 1, echo: true, notes: bars('r . . r . . R . r . . r R . f .', STREET2_ROOTS) },
+      { inst: 'sq', vol: 0.8, notes: arp(STREET2_CHORDS, '. . 0 . . . 1 . . . 0 . . 2 . .') },
+      // しずく:4小節に1回
+      { inst: 'sq', vol: 0.6, echo: true, notes: [rep('.', 30), 'B6', rep('.', 33)].join(' ') },
+      { inst: 'drums', notes: [rep('k . . k s . h . k . k . s . h h', 7), 'k . . k s . s . k . T . t . l l'].join(' ') },
+      // 響くリム
+      { inst: 'drums', vol: 0.6, echo: true, notes: '. . . . . . . . . . . . . . . r' }
+    ]
+  }
+};
+
+// ================================================================ boss2
+// ト短調。Gm Gm Eb F / Gm Gm Eb D。女ボスとのカーチェイス。
+// 16分で走るベースと、うっすらエコーのかかった硬いリード。
+const BOSS2_ROOTS = ['G1', 'G1', 'Eb2', 'F2', 'G1', 'G1', 'Eb2', 'D2'];
+const BOSS2: SongDef = {
+  bpm: 184,
+  echo: { steps: 3, feedback: 0.25, wet: 0.22, damp: 3000 },
+  loop: {
+    bars: 8,
+    tracks: [
+      {
+        inst: 'hard',
+        vol: 1,
+        echo: true,
+        notes: [
+          'G5 - - - D5 - G5 - Bb5 - A5 - G5 - D5 -',
+          'F5 - G5 - - - D5 . Bb4 . C5 . D5 - - -',
+          'Eb5 - - - Bb4 - Eb5 - G5 - F5 - Eb5 - Bb4 -',
+          'C5 - D5 - Eb5 - F5 - A5 - - - F5 - - -',
+          'G5 - - - D5 - G5 - Bb5 - A5 - G5 - D6 -',
+          'D6 - C6 - Bb5 - A5 - G5 - - - Bb5 - A5 -',
+          'G5 - - - Eb5 - G5 - Bb5 - - - C6 - Bb5 -',
+          'A5 - - - F#5 - - - D5 - F#5 - A5 - C6 -'
+        ].join(' ')
+      },
+      { inst: 'bass', vol: 0.9, notes: bars('r r R r r r R r r r R r r R f R', BOSS2_ROOTS) },
+      { inst: 'stab', vol: 0.75, notes: bars('R . . R . . R . . . R . . . . .', BOSS2_ROOTS) },
+      {
+        inst: 'sq',
+        vol: 0.5,
+        notes: arp(['G5 Bb5 D6', 'G5 Bb5 D6', 'G5 Bb5 Eb6', 'F5 A5 C6', 'G5 Bb5 D6', 'G5 Bb5 D6', 'G5 Bb5 Eb6', 'F#5 A5 D6'], '2 1 0 1 2 1 0 1 2 1 0 1 2 1 0 1')
+      },
+      {
+        inst: 'drums',
+        notes: ['kc h s h k h s k h k s h k h s o', rep('k h s h k h s k h k s h k h s h', 6), 'k . s s T T t t l l s s kc . kc .'].join(' ')
+      }
+    ]
+  }
+};
+
+export const SONGS = { title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT, street2: STREET2, boss2: BOSS2 } as const;

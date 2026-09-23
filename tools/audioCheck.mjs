@@ -23,12 +23,17 @@ console.log('== 描き出して測る(最大=リミッター後, 制限前=コ�
 const res = await page.evaluate(() => window.__audioCheck());
 const pad = (s, n) => String(s).padEnd(n);
 const num = (x, n = 3) => (Number.isFinite(x) ? x.toFixed(n) : String(x));
-console.log(pad('種類', 5) + pad('名前', 11) + pad('最大', 8) + pad('平均dB', 9) + pad('長さ秒', 8) + '制限前の最大');
+console.log(pad('種類', 5) + pad('名前', 13) + pad('最大', 8) + pad('平均dB', 9) + pad('長さ秒', 8) + '制限前の最大');
 for (const r of res.rows) {
-  console.log(pad(r.kind, 5) + pad(r.name, 11) + pad(num(r.final.peak), 8) + pad(num(r.final.rmsDb, 1), 9) + pad(num(r.final.lastSound, 2), 8) + num(r.raw.peak));
+  console.log(pad(r.kind, 5) + pad(r.name, 13) + pad(num(r.final.peak), 8) + pad(num(r.final.rmsDb, 1), 9) + pad(num(r.final.lastSound, 2), 8) + num(r.raw.peak));
   if (!(r.final.peak <= 1.0)) ng(`${r.name}: 最大 ${r.final.peak} が 1.0 を超えた`);
   if (!(r.final.peak > 0.01)) ng(`${r.name}: ほぼ無音 (最大 ${r.final.peak})`);
   if (r.kind === 'sfx' && r.final.lastSound > 1.0) ng(`${r.name}: 効果音が長すぎる (${r.final.lastSound.toFixed(2)}秒)`);
+}
+// ステージ2の音がそろっているか
+const names = new Set(res.rows.map((r) => r.name));
+for (const n of ['street2', 'boss2', 'whistle', 'engine', 'skid', 'horn', 'crash', 'boss2+sfx', 'street2+sfx']) {
+  if (!names.has(n)) ng(`${n} が測れていない`);
 }
 if (res.backlog > 4) ng(`遅れたときに ${res.backlog} マスをまとめて予約した`);
 else ok(`遅れたときに一度に予約したマス: ${res.backlog}(たまった音は鳴らさない)`);
@@ -78,6 +83,16 @@ await page.evaluate(() => { window.__audio.setMuted(false); });
 await page.mouse.click(200, 700);
 await page.evaluate(() => { window.__audio.playBgm('street'); window.__audio.stopBgm(200); });
 await expect('stopBgm で止まる', (d) => d.playing === null && d.want === null);
+// ステージ2の曲(エコーつき)の切り替えと停止
+await page.evaluate(() => { window.__audio.playBgm('street2'); });
+await page.waitForTimeout(300);
+await expect('street2 が流れる', (d) => d.playing === 'street2');
+await page.evaluate(() => { window.__audio.sfx('whistle'); window.__audio.sfx('engine'); window.__audio.sfx('skid'); window.__audio.sfx('horn'); window.__audio.sfx('crash'); window.__audio.playBgm('boss2'); });
+await page.waitForTimeout(300);
+await expect('boss2 に切り替え', (d) => d.playing === 'boss2');
+await page.evaluate(() => { window.__audio.stopBgm(200); });
+await page.waitForTimeout(1000);
+await expect('boss2 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
 
 for (const e of errors) ng(e);
 await browser.close();

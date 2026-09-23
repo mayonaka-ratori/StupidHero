@@ -2,12 +2,14 @@
 // Web Audio でメガドライブ風の音(FM音源とPSG)をその場で作って鳴らす。Phaser の音の仕組みは使わない。
 import { Engine } from './engine';
 
-export type BgmName = 'title' | 'sort' | 'street' | 'boss' | 'result';
+export type BgmName = 'title' | 'sort' | 'street' | 'boss' | 'result' | 'street2' | 'boss2';
 export type SfxName =
   | 'button' | 'swipeBad' | 'swipeCiv' | 'tick' | 'timeUp' | 'blip'
   | 'charge' | 'punch' | 'stomp' | 'beam' | 'hit' | 'bigHit' | 'break'
   | 'mark' | 'stop' | 'go' | 'oops' | 'okay' | 'sparkle'
-  | 'reveal' | 'rampage' | 'rush' | 'bossDown' | 'explosion' | 'fanfare' | 'stamp';
+  | 'reveal' | 'rampage' | 'rush' | 'bossDown' | 'explosion' | 'fanfare' | 'stamp'
+  // ステージ2
+  | 'whistle' | 'engine' | 'skid' | 'horn' | 'crash';
 export interface AudioEngine {
   /** 最初のタップの中で呼ぶ。AudioContextを作り、iPhoneでも鳴るようにする。何度呼んでもよい */
   unlock(): void;

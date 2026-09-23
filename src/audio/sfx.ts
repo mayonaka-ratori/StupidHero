@@ -67,6 +67,18 @@ const LASER: FmPatch = {
   out: [0, 2]
 };
 
+/** エンジンのうなり(半分の周波数の変調で、ブロロロとざらつかせる) */
+const MOTOR: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.3, env: E(0.02, 0.4, 0.7, 0.1) },
+    { ratio: 0.5, lvl: 3.2, env: E(0.01, 0.3, 0.8, 0.1) },
+    { ratio: 2.01, lvl: 0.12, env: E(0.02, 0.4, 0.6, 0.1) },
+    { ratio: 0.25, lvl: 1.4, env: E(0.01, 0.3, 0.7, 0.1) }
+  ],
+  mods: [[1, 0], [3, 2]],
+  out: [0, 2]
+};
+
 export const SFX: Record<SfxName, Sfx> = {
   // ボタン:ピコッ(2音)
   button: (c, o, t, p) => max(blipTone(c, o, t, 1047 * p, 0.035, 0.15), blipTone(c, o, t + 0.035, 1568 * p, 0.05, 0.13)),
@@ -252,5 +264,60 @@ export const SFX: Record<SfxName, Sfx> = {
       drop(c, o, t, 150 * p, 40 * p, 0.12, 1, 0.25),
       fm(c, o, t, hz(36) * p, 0.1, GAAN, 0.6),
       noise(c, o, t, { gate: 0.08, env: E(0.001, 0.07, 0, 0.03), vol: 0.35, type: 'bandpass', f: 1200, q: 0.7 })
-    )
+    ),
+
+  // ---------------------------------------------------------------- ステージ2
+
+  // 口笛で仲間を呼ぶ:ピュッ・ピューイ(上がる2つ。やわらかい三角波と息の音)
+  whistle: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 1250 * p, f2: 1900 * p, slide: 0.07, gate: 0.08, env: E(0.012, 0.1, 0.8, 0.03), vol: 0.13, wave: 'triangle' }),
+      tone(c, o, t + 0.14, { f: 1150 * p, f2: 2150 * p, slide: 0.16, gate: 0.26, env: E(0.015, 0.3, 0.8, 0.07), vol: 0.14, wave: 'triangle', vib: [9, 25] }),
+      noise(c, o, t, { gate: 0.4, env: E(0.02, 0.3, 0.4, 0.06), vol: 0.035, type: 'bandpass', f: 1600 * p, f2: 2400 * p, q: 3 })
+    ),
+
+  // 車のエンジンをふかす:ブォンッ(上がってから落ちる。ざらざらした低い音)
+  engine: (c, o, t, p) =>
+    max(
+      fm(c, o, t, 70 * p, 0.42, MOTOR, 0.75, { from: -200, to: 1000, time: 0.3 }),
+      tone(c, o, t, { f: 38 * p, f2: 95 * p, slide: 0.3, gate: 0.42, env: E(0.01, 0.4, 0.6, 0.1), vol: 0.05, wave: 'sawtooth' }),
+      noise(c, o, t, { gate: 0.42, env: E(0.02, 0.35, 0.5, 0.1), vol: 0.16, type: 'lowpass', f: 350, f2: 1100, rate: 0.3 })
+    ),
+
+  // タイヤのきしみ:キキーッ(少しずれた2つの高い音をふるわせる + こすれるノイズ)
+  skid: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 1900 * p, f2: 1500 * p, gate: 0.42, env: E(0.02, 0.35, 0.7, 0.08), vol: 0.06, wave: 'triangle', vib: [22, 45] }),
+      tone(c, o, t, { f: 1960 * p, f2: 1560 * p, gate: 0.42, env: E(0.02, 0.35, 0.6, 0.08), vol: 0.035, wave: 'square', vib: [17, 60] }),
+      noise(c, o, t, { gate: 0.42, env: E(0.01, 0.35, 0.5, 0.08), vol: 0.14, type: 'bandpass', f: 2600 * p, f2: 1800 * p, q: 2.5 })
+    ),
+
+  // クラクション:プッ・プー(長3度で2つ重ねた、鼻にかかった音)
+  horn: (c, o, t, p) => {
+    let end = 0;
+    for (const [at, gate] of [[0, 0.08], [0.13, 0.26]] as const) {
+      end = max(
+        end,
+        tone(c, o, t + at, { f: 392 * p, gate, env: E(0.004, 0.2, 0.85, 0.03), vol: 0.07, wave: 'square' }),
+        tone(c, o, t + at, { f: 494 * p, gate, env: E(0.004, 0.2, 0.85, 0.03), vol: 0.05, wave: 'sawtooth' }),
+        fm(c, o, t + at, 392 * p, gate, HORN, 0.35)
+      );
+    }
+    return end;
+  },
+
+  // 車がぶつかる、ひっくり返る:ドガシャーン(重い音 + 金属のガン + ガラスのかけら)
+  crash: (c, o, t, p) => {
+    let end = max(
+      drop(c, o, t, 120 * p, 30 * p, 0.25, 0.9, 0.4),
+      noise(c, o, t, { gate: 0.45, env: E(0.001, 0.4, 0, 0.1), vol: 0.45, type: 'lowpass', f: 3500 * p, f2: 250, rate: 0.6 }),
+      fm(c, o, t, hz(40) * p, 0.18, GAAN, 0.5, { from: 0, to: -500, time: 0.3 }),
+      noise(c, o, t + 0.04, { gate: 0.3, env: E(0.001, 0.28, 0, 0.08), vol: 0.18, type: 'highpass', f: 3000 * p })
+    );
+    const pings = [3136, 2489, 3729, 2794];
+    pings.forEach((f, i) => {
+      end = max(end, tone(c, o, t + 0.06 + i * 0.06, { f: f * p, gate: 0.04, env: E(0.001, 0.06, 0, 0.03), vol: 0.04, wave: 'triangle' }));
+    });
+    return end;
+  }
 };
