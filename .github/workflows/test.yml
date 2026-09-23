@@ -1,0 +1,27 @@
+# push したら、その版で型の確かめ(tsc)とテスト(vitest)を動かす。
+# ブラウザで動かすスクリプト(tools/)はここでは動かさない(手元で開発用のサーバーを立てて動かす)。
+# 公開(pages.yml)とは別。
+name: Test
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run

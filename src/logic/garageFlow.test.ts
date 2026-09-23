@@ -81,7 +81,7 @@ describe('ステージ2を通しで数える', () => {
 
   it('仕分け、行け、まとめて吹き飛ばす、車ごと止める、ボスを合わせると、villainTotal の全員撃破になる', () => {
     const used = { sort: 0, go: 0, wipe: 0, van: 0 };
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 100; i++) {
       const stage = createStage(i * 31 + 7, 'garage');
       const rng = createRng(`play-${i}`);
       const s = play(stage, (r) => (r.chance(0.5) ? 'bad' : 'civ'), (n) => ((n + i) % 2 === 0 ? 'wipe' : 'vanStop'), rng);

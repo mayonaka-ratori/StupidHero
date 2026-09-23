@@ -1,36 +1,33 @@
 // タイトルから結果画面まで、自動で通しで遊ぶ。エラーが出ないかと、各場面の見た目を確かめる。
 // 使い方: node tools/playthrough.mjs <URL> <出力フォルダ> [種] [ステージ(alley か garage)]
 // garage のときは、開発用の入口で掛け合いから始める(鍵が開いていなくても遊べる)
-import { chromium } from 'playwright-core';
+// エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
 import { mkdirSync } from 'node:fs';
+import { logicalHeight, openBrowser, openPage, touchPad, waitForGame } from './lib.mjs';
 
 const [url, outDir, seed = '', stage = 'alley'] = process.argv.slice(2);
+if (!url || !outDir) { console.error('usage: node tools/playthrough.mjs <url> <outDir> [seed] [alley|garage]'); process.exit(2); }
 mkdirSync(outDir, { recursive: true });
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+const browser = await openBrowser();
 const errors = [];
-page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-// 途中で Vite がページを読み直さないように、通知を切る
-await page.routeWebSocket(/.*/, () => {});
+// 途中で Vite がページを読み直さないように、通知は切ってある
+const page = await openPage(browser, { errors });
 const q = new URLSearchParams();
 if (seed) q.set('seed', seed);
 if (stage === 'garage') { q.set('scene', 'Intro'); q.set('stage', 'garage'); }
 await page.goto(url + (q.toString() ? `?${q}` : ''));
-await page.waitForFunction(() => window.__game && window.__game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
+await waitForGame(page, 60000);
+await page.waitForFunction(() => window.__game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
 await page.waitForTimeout(1500);
 
 const active = () => page.evaluate(() => {
   const g = window.__game;
   return g ? g.scene.getScenes(true).map((s) => s.scene.key).filter((k) => !k.startsWith('Ui')) : [];
 });
-// 論理ドットでの画面の高さ(キャンバスは細かく描いているので、横216との比で割る)
-const H = await page.evaluate(() => Math.round(window.__game.config.height / (window.__game.config.width / 216)));
-const tap = async (x, y) => {
-  const r = await page.evaluate(() => { const b = window.__game.canvas.getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height }; });
-  const cx = r.l + (x * r.w) / 216, cy = r.t + (y * r.h) / H;
-  await page.touchscreen.tap(cx, cy);
-};
+// 論理ドットでの画面の高さ。指の位置は lib.mjs で論理ドットから直す
+const H = await logicalHeight(page);
+const pad = await touchPad(page);
+const tap = (x, y) => pad.tap(x, y);
 let n = 0;
 const shot = async (name) => { await page.screenshot({ path: `${outDir}/${String(n++).padStart(2, '0')}_${name}.png` }); };
 
@@ -70,6 +67,14 @@ while (Date.now() - t0 < 300000) {
   }
   await page.waitForTimeout(300);
 }
+const reached = last === 'Result';
+const playedStage = await page.evaluate(() => window.__game.registry.get('run')?.stage.id);
 console.log('taps', { sortPresses, stopTaps, goTaps, bossTaps }, 'total', ((Date.now() - t0) / 1000).toFixed(1) + 's');
 console.log(errors.length ? errors.join('\n') : 'no errors');
 await browser.close();
+const ng = [];
+if (errors.length) ng.push(`エラー ${errors.length} 件`);
+if (!reached) ng.push(`結果画面まで行けなかった(最後は ${last || 'なし'})`);
+if (playedStage !== stage) ng.push(`遊んだステージが ${playedStage}`);
+console.log(ng.length ? `NG ${ng.join('、')}` : `OK ${stage} を結果画面まで遊んだ`);
+process.exit(ng.length ? 1 : 0);

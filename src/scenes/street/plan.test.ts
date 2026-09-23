@@ -31,40 +31,38 @@ function cases(stageId: StageId, n: number): Case[] {
   return out;
 }
 
-/** 両方のステージで同じ決まり */
-function commonRules({ people, plan }: Case): void {
+/** 両方のステージで同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
+function commonRules({ stage, people, plan }: Case): string[] {
+  const bad: string[] = [];
+  const at = `seed ${stage.seed} 波${people[0].wave}`;
   const xs = plan.people.map((s) => s.x);
   // 波の人は全員1回ずつ。ボスは最後で、ほかは出てくる順のまま
-  expect(plan.people.map((s) => s.person.id).sort()).toEqual(people.map((p) => p.id).sort());
   const nonBoss = people.filter((p) => p.truth !== 'boss').map((p) => p.id);
   const boss = people.filter((p) => p.truth === 'boss').map((p) => p.id);
-  expect(plan.people.map((s) => s.person.id)).toEqual([...nonBoss, ...boss]);
+  if (plan.people.map((s) => s.person.id).join() !== [...nonBoss, ...boss].join()) bad.push(`${at}: 並ぶ順`);
   // 左から右へ並び、間はだいたい GAP 以上。1人目は FIRST_X のあたり
-  expect(Math.abs(xs[0] - FIRST_X)).toBeLessThanOrEqual(6);
-  for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(GAP - 12);
+  if (Math.abs(xs[0] - FIRST_X) > 6) bad.push(`${at}: 1人目 x=${xs[0]}`);
+  for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] < GAP - 12) bad.push(`${at}: 間がせまい ${xs[i - 1]}→${xs[i]}`);
   // 人と通りがかりの市民は車道の中に立つ
   for (const s of [...plan.people, ...plan.passers]) {
-    expect(s.y).toBeGreaterThanOrEqual(GROUND.road);
-    expect(s.y).toBeLessThanOrEqual(GROUND.bottom);
+    if (s.y < GROUND.road || s.y > GROUND.bottom) bad.push(`${at}: 道の外 y=${s.y}`);
   }
   // 壁の物は地面より上、ほかの物は地面の中
   for (const p of plan.props) {
-    if (p.wall) expect(p.y).toBeLessThan(GROUND.top);
-    else {
-      expect(p.y).toBeGreaterThanOrEqual(GROUND.top - 10);
-      expect(p.y).toBeLessThanOrEqual(GROUND.bottom);
-    }
+    const ok = p.wall ? p.y < GROUND.top : p.y >= GROUND.top - 10 && p.y <= GROUND.bottom;
+    if (!ok) bad.push(`${at}: ${p.kind} y=${p.y}`);
+    if (p.x <= 0) bad.push(`${at}: ${p.kind} x=${p.x}`);
   }
   // 終わりは最後の人の先
-  expect(plan.endX).toBe(xs[xs.length - 1] + 120);
-  expect(plan.props.every((p) => p.x > 0)).toBe(true);
+  if (plan.endX !== xs[xs.length - 1] + 120) bad.push(`${at}: endX`);
+  return bad;
 }
 
 describe('planStreet(路地裏)', () => {
   const all = cases('alley', 60);
 
   it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    for (const c of all) commonRules(c);
+    expect(all.flatMap(commonRules)).toEqual([]);
   });
 
   it('見逃したワルのすぐ先には、悪さの相手の通りがかりの市民がいる', () => {
@@ -77,12 +75,11 @@ describe('planStreet(路地裏)', () => {
   });
 
   it('物は路地裏の物だけ。自販機と車は必ずある。組の集まる場所はない', () => {
-    for (const { plan } of all) {
-      for (const p of plan.props) expect(STAGES.alley.props).toContain(p.kind);
-      expect(plan.props.some((p) => p.kind === 'vending')).toBe(true);
-      expect(plan.props.filter((p) => p.kind === 'car')).toHaveLength(1);
-      expect(plan.gathers).toEqual([]);
-    }
+    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
+    expect([...kinds].filter((k) => !STAGES.alley.props.includes(k))).toEqual([]);
+    expect(all.every(({ plan }) => plan.props.some((p) => p.kind === 'vending'))).toBe(true);
+    expect(all.every(({ plan }) => plan.props.filter((p) => p.kind === 'car').length === 1)).toBe(true);
+    expect(all.every(({ plan }) => plan.gathers.length === 0)).toBe(true);
   });
 });
 
@@ -90,7 +87,7 @@ describe('planGarage(地下駐車場)', () => {
   const all = cases('garage', 60);
 
   it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    for (const c of all) commonRules(c);
+    expect(all.flatMap(commonRules)).toEqual([]);
   });
 
   it('見逃したギャングがいる組ごとに、集まる場所とワゴンが1つ。口笛を吹くのは組で最初に見逃した人', () => {
@@ -123,25 +120,25 @@ describe('planGarage(地下駐車場)', () => {
   });
 
   it('ワゴンのまわりには、ほかの物も通りがかりの市民も置かない。止めてある車はワゴンの逃げ道にかからない', () => {
-    for (const { plan } of all) {
+    const bad: string[] = [];
+    for (const { plan, stage } of all) {
       for (const g of plan.gathers) {
         const near = (x: number) => x > g.x - 60 && x < g.vanX + 64 + 12;
-        for (const p of plan.props) if (!p.wall && p.kind !== 'van') expect(near(p.x), `${p.kind} ${p.x}`).toBe(false);
-        for (const p of plan.passers) expect(near(p.x), `passer ${p.x}`).toBe(false);
-        for (const c of plan.props.filter((p) => p.kind === 'car')) expect(c.x > g.vanX && c.x < g.vanX + 300).toBe(false);
+        for (const p of plan.props) if (!p.wall && p.kind !== 'van' && near(p.x)) bad.push(`seed ${stage.seed}: ${p.kind} ${p.x}`);
+        for (const p of plan.passers) if (near(p.x)) bad.push(`seed ${stage.seed}: 通りがかり ${p.x}`);
+        for (const c of plan.props) if (c.kind === 'car' && c.x > g.vanX && c.x < g.vanX + 300) bad.push(`seed ${stage.seed}: 車 ${c.x}`);
       }
     }
+    expect(bad).toEqual([]);
   });
 
   it('物は地下駐車場の物だけ。通りがかりの市民は4つの見た目で、小物の色がある', () => {
-    for (const { plan } of all) {
-      for (const p of plan.props) expect(STAGES.garage.props).toContain(p.kind);
-      for (const p of plan.passers) {
-        expect(['guard', 'mechanic', 'clubber', 'officelady']).toContain(p.look);
-        expect(p.key).toBe(`${p.look}_civ`);
-        expect(p.color).toBeTypeOf('number');
-      }
-    }
+    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
+    expect([...kinds].filter((k) => !STAGES.garage.props.includes(k))).toEqual([]);
+    const passers = all.flatMap(({ plan }) => plan.passers);
+    expect(passers.length).toBeGreaterThan(0);
+    expect([...new Set(passers.map((p) => p.look))].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
+    expect(passers.filter((p) => p.key !== `${p.look}_civ` || typeof p.color !== 'number')).toEqual([]);
   });
 
   it('誰も見逃さなければ、集まる場所もワゴンもない', () => {
