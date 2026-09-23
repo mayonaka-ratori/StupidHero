@@ -3,7 +3,7 @@
 // ヒーローは元気で大げさで自信満々、オペレーターはため口でツッコむ幼なじみ。
 //
 // 画面の担当は、ふつうは content.ts の関数から使う(ステージの id を渡すとここの文が出る):
-//   introFor('garage', replay) / waveIntroFor('garage', no) / say('gathered', rng, 'garage') / mischiefLine('guard')
+//   introFor('garage') / waveIntroFor('garage', no) / say('gathered', rng, 'garage') / mischiefLine('guard')
 // 名前、年齢、プロフィール、一言は content.ts の NAMES などに入っている(createStage が選ぶ)。
 // 前の人とのつながりの文は、createStage が並び順を決めてから linkText() で作る。
 
@@ -336,26 +336,13 @@ export function allLinkTexts(): string[] {
 
 // ─── ステージ前の掛け合い ─────────────────────────
 
-/** 地下駐車場を最初に遊ぶときの掛け合い。新しい手がかり、仲間を呼ぶ、車で逃げる、を教える */
+/** 地下駐車場を最初に遊ぶときの掛け合い(5枚)。新しい手がかり、仲間を呼ぶ、車で逃げる、を教える */
 export const GARAGE_INTRO: readonly Speech[] = [
   hero('smug', '次は地下駐車場！\nギャング退治だ！'),
-  op('normal', 'ギャングは2〜3人。\nおそろいの色の小物'),
-  op('deadpan', 'でも同じ色の市民も\nたまにいるからね'),
-  op('normal', '指でこっそり合図。\n前の人と似てたら仲間'),
-  hero('smug', '全部覚えた！\nたぶん！'),
-  op('normal', 'ギャングを見逃すと\n口笛で仲間を呼ぶ'),
-  op('normal', '集まったら行け！\nまとめて吹き飛ばせる'),
-  op('panic', 'ほっとくと3秒で\n車に乗って逃げる'),
-  op('normal', '走り出しても\nすぐ行けなら止まる'),
-  hero('smug', '車ごと\nぶっ飛ばす！')
-];
-
-/** 地下駐車場の2回目からの短い掛け合い */
-export const GARAGE_INTRO_REPLAY: readonly Speech[] = [
-  hero('smug', 'もう一回！\nギャング退治！'),
-  op('normal', 'おそろいの色と\n指の合図を見てね'),
-  op('normal', '集まったら行け！\n車も止められる'),
-  hero('smile', '任せて！')
+  op('normal', '前の人とおそろいの色\nならギャングの仲間かも'),
+  op('deadpan', 'でも色だけの市民もいる。\n指の合図も見てね'),
+  op('normal', '見逃すと口笛で仲間を\n呼ぶ。集まったら行け！'),
+  op('panic', '3秒で車に乗って逃げる。\n行けならすぐ止まる')
 ];
 
 /** 地下駐車場の波の始まりの一言。上から順に出す */

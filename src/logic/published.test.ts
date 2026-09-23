@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import alleyV1 from './fixtures/alley-v1.json';
 import recordsV1 from './fixtures/records-v1.json';
 import {
-  ATTACK_SHOUTS, INTRO, INTRO_REPLAY, MISCHIEF_LINES, introFor, reactionList, titleCommentFor, waveIntroFor,
+  ATTACK_SHOUTS, MISCHIEF_LINES, reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
 import { LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
@@ -44,12 +44,9 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
     }
   });
 
-  it('掛け合い、セリフ、称号のひとことが同じ', () => {
+  // ステージ前の掛け合い(INTRO)は、初めての1分を短くするためにわざと変えたので比べない
+  it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
-    expect(INTRO).toEqual(sp.INTRO);
-    expect(INTRO_REPLAY).toEqual(sp.INTRO_REPLAY);
-    expect(introFor('alley')).toEqual(sp.INTRO);
-    expect(introFor('alley', true)).toEqual(sp.INTRO_REPLAY);
     for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no]);
     for (const [k, list] of Object.entries(sp.REACTIONS)) expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
     expect(ATTACK_SHOUTS).toEqual(sp.ATTACK_SHOUTS);

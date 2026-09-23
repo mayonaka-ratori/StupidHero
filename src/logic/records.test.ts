@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, canPersist, clearRecords, isStageUnlocked, loadRecords, saveResult, stageSelectInfo,
-  type RecordStorage
+  LEGACY_RECORDS_KEY, RECORDS_KEY, canPersist, clearRecords, hasAnyRecord, isStageUnlocked, loadRecords, markIntroSeen,
+  needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
 import type { StageStats } from './types';
 
@@ -64,7 +64,7 @@ describe('records', () => {
   it('壊れたデータや知らない称号は捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
-    expect(loadRecords(st)).toEqual({ version: 2, stages: {}, titles: [] });
+    expect(loadRecords(st)).toEqual({ version: 2, stages: {}, titles: [], introSeen: [] });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
     expect(r.titles).toEqual(['soSo']);
@@ -184,5 +184,54 @@ describe('records', () => {
     expect(Object.keys(r.stages)).toEqual(['garage']);
     expect(r.stages.garage!.titles).toEqual(['gangDriver']);
     expect(r.titles).toEqual(['gangDriver']);
+  });
+
+  it('掛け合いを見たステージを覚える。見たか遊んだステージは次からとばす', () => {
+    const st = new MemStorage();
+    const r0 = loadRecords(st);
+    expect(r0.introSeen).toEqual([]);
+    expect(hasAnyRecord(r0)).toBe(false);
+    expect(needsIntro('alley', r0)).toBe(true);
+    expect(needsIntro('garage', r0)).toBe(true);
+
+    markIntroSeen('alley', st);
+    markIntroSeen('alley', st);
+    const r1 = loadRecords(st);
+    expect(r1.introSeen).toEqual(['alley']);
+    expect(needsIntro('alley', r1)).toBe(false);
+    expect(needsIntro('garage', r1)).toBe(true);
+    // 見ただけでは「遊んだ」にならない
+    expect(hasAnyRecord(r1)).toBe(false);
+
+    // 結果を保存しても、見た印は消えない
+    saveResult('alley', stats(), 'soSo', st);
+    expect(loadRecords(st).introSeen).toEqual(['alley']);
+    expect(hasAnyRecord(loadRecords(st))).toBe(true);
+
+    // 掛け合いを見ずに遊んだステージ(前の版で遊んだ人など)も、とばす
+    saveResult('garage', stats({ stageId: 'garage' }), 'soSo', st);
+    expect(needsIntro('garage', loadRecords(st))).toBe(false);
+  });
+
+  it('introSeen のない前の記録や、おかしな値でも読める', () => {
+    const st = new MemStorage();
+    st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 0 } }, titles: [] }));
+    expect(loadRecords(st).introSeen).toEqual([]);
+    st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], introSeen: ['garage', 'moon', 3, 'garage'] }));
+    expect(loadRecords(st).introSeen).toEqual(['garage']);
+    st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], introSeen: 'alley' }));
+    expect(loadRecords(st).introSeen).toEqual([]);
+    // v1 の記録で遊んだことがあれば、掛け合いはとばす
+    const v1 = new MemStorage();
+    v1.setItem(LEGACY_RECORDS_KEY, JSON.stringify({ version: 1, stages: { alley: { plays: 2 } }, titles: [] }));
+    expect(needsIntro('alley', loadRecords(v1))).toBe(false);
+    expect(hasAnyRecord(loadRecords(v1))).toBe(true);
+  });
+
+  it('localStorage が使えなくても、見た印はその場で覚えている', () => {
+    expect(() => markIntroSeen('alley', broken)).not.toThrow();
+    expect(needsIntro('alley', loadRecords(broken))).toBe(false);
+    clearRecords(null);
+    expect(needsIntro('alley', loadRecords(broken))).toBe(true);
   });
 });

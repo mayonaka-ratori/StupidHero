@@ -5,13 +5,13 @@
 // ステージ2(地下駐車場)の文は garageContent.ts にあり、ここの一覧と関数にまとめて入れている。
 //
 // 使い方(ステージの id を渡すと、そのステージの文が出る):
-//   introFor(stage.id, run.playCount > 1)   // ステージ前の掛け合い
+//   introFor(stage.id)                       // ステージ前の掛け合い(そのステージで1回だけ。見たか遊んだら出さない)
 //   waveIntroFor(stage.id, wave.no)          // 波の始まりの一言
 //   say('bossReveal', rng, stage.id)         // 結果発表とボス戦。地下駐車場だけの種類('gathered' など)もこれで出す
 //   mischiefLine(person.look, rng)           // 悪さを始めた一言(ギャングは口笛で仲間を呼ぶ一言)
 
 import {
-  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_NAMES,
+  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_INTRO, GARAGE_NAMES,
   GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS, GARAGE_TITLE_COMMENTS,
   GARAGE_TITLE_COMMENT_OVERRIDES, GARAGE_WAVE_INTRO, allLinkTexts, type GarageReactionKey
 } from './garageContent';
@@ -276,31 +276,14 @@ export const BOSS_HINTS: Readonly<Record<DisguiseLook, readonly OperatorHint[]>>
 
 // ─── ステージ前の掛け合い ─────────────────────────
 
-/** 最初に遊ぶときの掛け合い。遊び方もここで伝える。上から順に出す */
+/**
+ * そのステージを初めて遊ぶときの掛け合い。仕分けのやり方だけを短く伝える。上から順に出す。
+ * 待てと行けは、結果発表で初めてマークが出たときに教える(ここでは言わない)
+ */
 export const INTRO: readonly Speech[] = [
-  hero('smug', '今日も街の平和は\nこのヒーローが守る！'),
-  op('deadpan', 'ワルと市民の区別も\nつかないくせに'),
-  hero('smile', 'そこは相棒の出番！\n頼りにしてるよ！'),
-  op('normal', 'はいはい。\nじゃあいつものやつ'),
-  op('normal', '左にスワイプでワル\n右にスワイプで市民'),
-  op('normal', '下のボタンでも\n仕分けできるよ'),
-  op('normal', '見た目と動きと\nプロフィールを見て'),
-  op('hype', 'あと私の一言も\nヒントにしてね'),
-  op('normal', '時間切れだと\nこの子が勝手に決める'),
-  hero('smug', '半々で当たる！\nたぶん！'),
-  op('deadpan', 'それ、ただの運'),
-  op('normal', '結果発表で、殴る前に\n待てで止められる'),
-  op('normal', '逃げるワルには\n行けで追い打ち！'),
-  hero('smug', '任せて！\n全員ぶっ飛ばす！'),
-  op('panic', '全員は\nぶっ飛ばさないで！')
-];
-
-/** 2回目からの短い掛け合い(もう一回のとき) */
-export const INTRO_REPLAY: readonly Speech[] = [
-  hero('smug', 'もう一回！\n今度こそ完ぺき！'),
-  op('deadpan', '左がワル、\n右が市民だからね'),
-  op('normal', '待てと行けも\n忘れないで'),
-  hero('smile', '任せて！')
+  op('normal', '1人ずつ来るよ。ワルは左\n市民は右にスワイプ！'),
+  op('normal', '手がかりは見た目、動き\nプロフィール、私の一言'),
+  hero('smug', '見分けるのは相棒！\n殴るのは任せて！')
 ];
 
 /** 波の始まりの一言。上から順に出す */
@@ -517,9 +500,8 @@ export function say(key: AnyReactionKey, rng?: Rng, stageId: StageId = 'alley'):
 }
 
 /** ステージ前の掛け合い。replay が true なら2回目からの短い版 */
-export function introFor(stageId: StageId, replay = false): readonly Speech[] {
-  if (stageId === 'garage') return replay ? GARAGE_INTRO_REPLAY : GARAGE_INTRO;
-  return replay ? INTRO_REPLAY : INTRO;
+export function introFor(stageId: StageId): readonly Speech[] {
+  return stageId === 'garage' ? GARAGE_INTRO : INTRO;
 }
 
 /** 波の始まりの一言 */
@@ -563,7 +545,6 @@ export function allTexts(): string[] {
     addList(BOSS_HINTS[d]);
   }
   addList(INTRO);
-  addList(INTRO_REPLAY);
   for (const w of [1, 2, 3] as WaveNo[]) addList(WAVE_INTRO[w]);
   for (const k of Object.keys(ATTACK_SHOUTS) as AttackKind[]) addList(ATTACK_SHOUTS[k]);
   for (const k of Object.keys(REACTIONS) as ReactionKey[]) addList(REACTIONS[k]);
@@ -571,7 +552,6 @@ export function allTexts(): string[] {
   addList(Object.values(TITLE_COMMENTS));
   // ステージ2
   addList(GARAGE_INTRO);
-  addList(GARAGE_INTRO_REPLAY);
   for (const w of [1, 2, 3] as WaveNo[]) addList(GARAGE_WAVE_INTRO[w]);
   for (const k of Object.keys(GARAGE_REACTIONS) as GarageReactionKey[]) addList(GARAGE_REACTIONS[k]);
   for (const l of Object.values(GARAGE_OVERRIDE_LISTS)) if (l) addList(l);
