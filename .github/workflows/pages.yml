@@ -1,10 +1,9 @@
-# ブランチに保存したら、テストしてから組み立てて GitHub Pages に公開する。
+# テストしてから組み立てて GitHub Pages に公開する。
+# 作りかけの状態が公開されないように、公開は手で動かしたときだけ(Actions の画面の「Run workflow」)。
 # 最初の1回だけ、リポジトリの Settings → Pages → Source を「GitHub Actions」にしておく必要がある。
 name: Pages
 
 on:
-  push:
-    branches: [claude/stupid-hero-pixel-game-5zqoyq]
   workflow_dispatch:
 
 permissions:
