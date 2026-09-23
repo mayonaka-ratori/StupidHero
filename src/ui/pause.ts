@@ -252,6 +252,8 @@ export class PauseOverlay extends Phaser.Scene {
     // 止めたときと同じタップで押さないように、少し待つ
     resumeBtn.on('press', () => { if (ready()) { audio.sfx('button'); data.control.resume(); } });
     titleBtn.on('press', () => { if (ready()) { audio.unlock(); audio.sfx('button'); data.control.quit(SCENES.title); } });
+    // 開発用:テストの道具が「つづける」の場所を知るため
+    if (import.meta.env.DEV) (window as unknown as { pauseDev?: unknown }).pauseDev = { resume: resumeBtn, title: titleBtn };
   }
 
   /** 1つの切りかえ。行のどこを押しても切りかわる(指が届きやすいように、行全体が当たり判定) */

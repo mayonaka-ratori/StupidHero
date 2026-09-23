@@ -42,9 +42,12 @@ async function pauseCheck(page, pad) {
   await page.waitForTimeout(1200);
   check('止まっている間ヒーローは動かない', (await S(page, () => window.streetDev.hero.x)) === x1);
   await page.screenshot({ path: `${outDir}/${stage}_tap_pause.png` });
-  await pad.tap(108, 200);
+  // 一時停止はメニュー。少し待ってから「つづける」を押す
+  await page.waitForTimeout(400);
+  const r = await S(page, () => { const b = window.pauseDev.resume; return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; });
+  await pad.tap(r.x, r.y);
   await page.waitForTimeout(300);
-  check('タップで再開', !(await S(page, () => window.streetDev.scene.isPaused())));
+  check('「つづける」で再開', !(await S(page, () => window.streetDev.scene.isPaused())));
 }
 
 if (stage === 'alley') {

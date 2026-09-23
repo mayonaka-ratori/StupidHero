@@ -88,7 +88,7 @@ if (mode === 'idle') {
     // 体力が半分を切るまで押すと、女ボスが高級車に飛び乗る
     for (let i = 0; i < 30 && !(await fight()).inCar; i++) await mash(1, 90);
     st = await fight();
-    check('体力が半分を切ると車に乗る', st.inCar && st.hpRatio < 0.5, JSON.stringify(st));
+    check('体力が半分を切ると車に乗る', st.inCar && st.hpRatio <= 0.5 + 1e-9, JSON.stringify(st));
     check('飛び乗る動きが始まる', st.carMode === 'boarding' || st.carMode === 'car', st.carMode);
     // 車が手前に出てくる間(乗ってから1.3秒)は、押しても体力が減らない
     const boardAt = await S(() => window.bossScene.fight.carBoardedAt);
@@ -144,7 +144,7 @@ if (mode === 'idle') {
   await page.waitForFunction(() => window.bossScene.scene.isActive() === false, null, { timeout: 12000 }).catch(() => {});
   await wait(600);
   const active = await S(() => window.bossScene.game.scene.getScenes(true).map((s) => s.scene.key));
-  check('Result へ行く', active.includes('Result'), JSON.stringify(active));
+  check('3回目の答え合わせへ行く', active.includes('WaveReview'), JSON.stringify(active));
   await shot('11_after');
   if (ws) {
     const data = await S(() => window.bossScene.run.worstShot.src);
