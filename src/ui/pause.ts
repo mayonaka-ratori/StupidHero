@@ -279,8 +279,8 @@ export class PauseOverlay extends Phaser.Scene {
       const kx = on ? sx + swW - 13 : sx + 1;
       sw.fillStyle(UI.black, 1).fillRect(kx, sy + 1, 12, swH - 2);
       sw.fillStyle(0xffffff, 1).fillRect(kx + 1, sy + 2, 10, swH - 4);
-      label.setText(on ? 'ON' : 'OFF').setColor(on ? UI.text : UI.textDim);
-      label.x = on ? sx + 4 : sx + swW - 3 - label.width;
+      label.setText(on ? 'オン' : 'オフ').setColor(on ? UI.text : UI.textDim);
+      label.x = on ? sx + 2 : sx + swW - 2 - label.width;
     };
     draw();
     const hit = this.add.zone(x, y, w, Math.max(24, h)).setOrigin(0).setInteractive();
