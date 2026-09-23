@@ -756,7 +756,7 @@ export class BossScene extends Phaser.Scene {
     await this.wait(400);
     await this.speak(this.line('bossDefeatedOp', this.run.rng));
     await this.wait(900);
-    gotoWhenFree(this, SCENES.result, undefined, { kind: 'wipe' });
+    gotoWhenFree(this, SCENES.waveReview, undefined, { kind: 'wipe' });
   }
 
   /**

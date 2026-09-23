@@ -8,7 +8,8 @@ import { GangCall, gatherMembers } from './gang';
 import { clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
 import { createRng, type Rng } from './rng';
 import { GANG, resolveEncounter } from './rules';
-import { buildShareText } from './share';
+import { buildShareText, shareCaption } from './share';
+import { formatDamage } from './format';
 import { createStage } from './stage';
 import { STAGES } from './stages';
 import { StatsTracker } from './stats';
@@ -138,16 +139,13 @@ describe('ステージ2を通しで数える', () => {
     expect(again.newRecords).toEqual(['highestDamage']);
     expect(again.titlesCollected).toBe(3);
 
-    const text = buildShareText({
-      stageId: stage.id, defeated: vanRun.defeated, civHurt: vanRun.civHurt, damage: vanRun.damage,
-      titleName: titleById('realHero').name, titlesCollected: again.titlesCollected, titlesTotal: again.titlesTotal, url: 'u'
-    });
-    const lines = text.split('\n');
-    expect(lines[0]).toBe('【Stupid Hero】地下駐車場ステージ');
-    expect(lines[1]).toBe(`悪党${stage.villainTotal}人撃破/市民0人負傷`);
     // ワゴンを止めた数だけ¥500万。たとえは地下駐車場の物(ワゴン)
     expect(vanRun.vansStopped).toBe(4);
-    expect(lines[2]).toBe('被害額¥2,000万(ワゴン4台分)');
-    expect(lines[3]).toBe('称号「街のほんものヒーロー」(3/14)');
+    expect(formatDamage(vanRun.damage, stage.id)).toBe('¥2,000万(ワゴン4台分)');
+    // 共有文は見出しとハッシュタグとURLだけ(ワゴンを止めた場面は「駐車場ボロボロ!」)
+    const text = buildShareText({
+      caption: shareCaption({ worstScene: 'bigPropBroken', caption: '駐車場ボロボロ!', titleName: titleById('realHero').name }), url: 'u'
+    });
+    expect(text.split('\n')).toEqual(['駐車場ボロボロ!', '#StupidHero', 'u']);
   });
 });

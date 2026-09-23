@@ -37,6 +37,26 @@ const asPublished = (s: Stage) => ({
   }))
 });
 
+/**
+ * 称号の条件をわざと変えたので、公開版と答えがちがう記録(fixtures の titles の番号)。
+ * - 連打の申し子:5秒以内 → 7秒以内
+ * - 完全無欠、街のほんものヒーロー:巻きぞえの市民は数えない(運で取れなくなるのを防ぐ)
+ * - 正義の暴走機関車:ワルに襲われた市民は数えない(ヒーローが傷つけた市民だけ)
+ * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
+ */
+const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
+  13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
+  19: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  20: { was: 'soSo', now: 'tooKind', why: 'なぐった市民0、ワルに襲われた市民は数えない' },
+  23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  48: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
+  70: { was: 'runawayTrain', now: 'tapProdigy', why: 'ヒーローが傷つけたのは巻きぞえ1人だけ' },
+  75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' }
+};
+
 describe('ステージ1は公開版(876e008)と同じ', () => {
   it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種)`, () => {
     for (const { seed, stage } of alleyV1.stages) {
@@ -57,15 +77,22 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
     for (const [id, c] of Object.entries(sp.TITLE_COMMENTS)) expect(titleCommentFor(id as TitleId, 'alley'), id).toEqual(c);
   });
 
-  it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録)`, () => {
+  it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録。わざと変えた条件の分は除く)`, () => {
     expect(titlesFor('alley').map((t) => ({ id: t.id, name: t.name, pose: t.pose }))).toEqual(alleyV1.titleDefs);
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
-    for (const { stats, title, name } of alleyV1.titles) {
+    alleyV1.titles.forEach(({ stats, title, name }, i) => {
       const s = { ...zero, ...stats, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
       const t = decideTitle(s);
+      const changed = CHANGED_TITLES[i];
+      if (changed) {
+        // わざと変えた分:公開版の答えとちがい、新しい条件の答えになる
+        expect(title, `#${i} 公開版の答え`).toBe(changed.was);
+        expect(t.id, `#${i} ${changed.why}`).toBe(changed.now);
+        return;
+      }
       expect({ id: t.id, name: t.name }, JSON.stringify(stats)).toEqual({ id: title, name });
-    }
+    });
   });
 });
 

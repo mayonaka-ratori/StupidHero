@@ -1,57 +1,43 @@
-// SNSに流す共有文を作る。形はSPEC「SNS共有」の文の例と同じ。
+// SNSに流す共有文を作る。数字は画像(共有カード)に入っているので、文は短くする。
 //
-// 【Stupid Hero】路地裏ステージ
-// 悪党8人撃破/市民3人負傷
-// 被害額¥2,400万(自販機30台分)   ← 地下駐車場は「ワゴン◯台分」など(damageAnalogy(yen, stageId))
-// 称号「歩く解体工事」(3/12)
+// おばあちゃんに全力パンチ!     ← いちばんひどかった場面の見出し(弱いときは称号)
 // #StupidHero
 // https://(ゲームのURL)
 //
-// 使い方:buildShareText({ stageId: stage.id, defeated, civHurt, damage, titleName, titlesCollected, titlesTotal, url })
-// ステージ名は stageId から取る(STAGES[stageId].name。地下駐車場なら「【Stupid Hero】地下駐車場ステージ」)。
+// 使い方:buildShareText({ caption: shareCaption({ worstScene, caption: worstCaption(s), titleName }), url })
 
-import { formatDamage } from './format';
-import { STAGE_IDS, STAGES } from './stages';
-import type { StageId } from './types';
+import type { WorstScene } from './types';
 
 export const SHARE_HASHTAG = '#StupidHero';
 
-export interface ShareInput {
-  /** どのステージか(stage.id)。名前はここから取る。stageName より優先 */
-  stageId?: StageId;
-  /** ステージの名前(例 '路地裏')。stageId を渡さないときだけ使う */
-  stageName?: string;
-  /** 悪党撃破数 */
-  defeated: number;
-  /** 市民負傷数 */
-  civHurt: number;
-  /** 被害額(円) */
-  damage: number;
-  /** 称号の名前(例 '歩く解体工事') */
+/** 見出しにして目を引く場面(市民やおばあさんに当たった、街がこわれた)。ボスを倒しただけ、何もなかったは弱い */
+const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit', 'bigPropBroken'];
+
+export interface ShareCaptionInput {
+  /** いちばんひどかった場面(stats.worstScene) */
+  worstScene: WorstScene | null;
+  /** その場面の見出し(worstCaption(stats)) */
+  caption: string;
+  /** 称号の名前 */
   titleName: string;
-  /** 集めた称号の数(今回の分を含む) */
-  titlesCollected: number;
-  /** 称号の全体の数(14) */
-  titlesTotal: number;
+}
+
+/** 共有文の1行目。ひどい場面があればその見出し、なければ称号 */
+export function shareCaption(i: ShareCaptionInput): string {
+  if (i.worstScene && STRONG_SCENES.includes(i.worstScene) && i.caption) return i.caption;
+  return `称号「${i.titleName}」`;
+}
+
+export interface ShareInput {
+  /** 1行目(shareCaption の答え) */
+  caption: string;
   /** ゲームのURL */
   url: string;
 }
 
-const stageNameOf = (i: ShareInput): string => (i.stageId ? STAGES[i.stageId].name : i.stageName ?? STAGES.alley.name);
-/** 被害額のたとえに使うステージ(stageId がなければ名前から探す。見つからなければ路地裏) */
-const stageIdOf = (i: ShareInput): StageId =>
-  i.stageId ?? STAGE_IDS.find((id) => STAGES[id].name === i.stageName) ?? 'alley';
-
 /** 共有する文を作る(改行は \n) */
 export function buildShareText(i: ShareInput): string {
-  return [
-    `【Stupid Hero】${stageNameOf(i)}ステージ`,
-    `悪党${i.defeated}人撃破/市民${i.civHurt}人負傷`,
-    `被害額${formatDamage(i.damage, stageIdOf(i))}`,
-    `称号「${i.titleName}」(${i.titlesCollected}/${i.titlesTotal})`,
-    SHARE_HASHTAG,
-    i.url
-  ].join('\n');
+  return [i.caption, SHARE_HASHTAG, i.url].join('\n');
 }
 
 /** 「Xに投稿」ボタン用のURL(共有メニューが使えないとき) */

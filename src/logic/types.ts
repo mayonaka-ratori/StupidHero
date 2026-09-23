@@ -256,6 +256,29 @@ export interface StageStats {
   worstScene: WorstScene | null;
   /** その場面を起こした技(説明の文を変えるため)。技でなければ null */
   worstAttack: AttackKind | null;
+  /** 自分で仕分けて当たった人数(時間切れでヒーローが決めた人は入れない) */
+  sortCorrect: number;
+  /** 自分で仕分けた人数(時間切れでヒーローが決めた人は入れない) */
+  sortTotal: number;
+  /** 時間切れでヒーローの勘で決まった人数 */
+  sortByHero: number;
+  /** ヒーローの勘が当たった人数 */
+  sortByHeroCorrect: number;
+  /** 波ごとの仕分けの数(答え合わせが済んだ波だけ。波1から順) */
+  sortWaves: SortTally[];
+}
+
+/** 1つの波の仕分けの当たり外れ(答え合わせの画面と結果画面で使う) */
+export interface SortTally {
+  wave: WaveNo;
+  /** 自分で仕分けて当たった人数 */
+  correct: number;
+  /** 自分で仕分けた人数 */
+  total: number;
+  /** ヒーローの勘で決まった人数 */
+  byHero: number;
+  /** ヒーローの勘が当たった人数 */
+  byHeroCorrect: number;
 }
 
 /** 称号1つ */
@@ -265,8 +288,10 @@ export interface TitleDef {
   order: number;
   name: string;
   pose: WinPose;
-  /** 条件の説明(日本語。称号の一覧を見せるとき用) */
+  /** 条件の説明(日本語。称号の一覧で、取った称号に出す) */
   condition: string;
+  /** まだ取っていない称号のヒント(称号の一覧で「ヒント:」のあとに出す。短く、ふだんの言葉で) */
+  hint: string;
   /** 結果画面のひとこと */
   comment: Speech;
   /** 取れるステージ(省略するとどのステージでも取れる) */

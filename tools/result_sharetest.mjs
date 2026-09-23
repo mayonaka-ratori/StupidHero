@@ -7,7 +7,6 @@ import { checker, mobileContext, openBrowser, openPage, touchPad } from './lib.m
 const outDir = process.argv[2] ?? '.';
 const port = process.argv[3] ?? '5204';
 const stage = process.argv[4] ?? 'alley';
-const STAGE_NAME = { alley: '路地裏', garage: '地下駐車場' }[stage];
 const BASE = `http://localhost:${port}/?scene=Result&stage=${stage}`;
 const browser = await openBrowser();
 const { check, done } = checker();
@@ -52,17 +51,23 @@ async function open(mode, extra = '') {
   });
   check('共有メニューがないと画像を重ねて出す', !!ov, JSON.stringify(ov));
   check('画像は1080×1350', ov && ov.w === 1080 && ov.h === 1350);
-  check('長押しで保存の文とXに投稿', ov && ov.text.includes('長押しで写真に保存') && ov.text.includes('Xに投稿'));
+  check('保存のしかたの文(指の端末は長押し)とXに投稿と画像を保存', ov && ov.text.includes('長押しで写真に保存') && ov.text.includes('Xに投稿') && ov.text.includes('画像を保存'));
+  // 画像を保存は PNG をダウンロードする
+  const [dl] = await Promise.all([
+    page.waitForEvent('download', { timeout: 3000 }).catch(() => null),
+    page.click('#share-save')
+  ]);
+  check('画像を保存で PNG をダウンロード', !!dl && dl.suggestedFilename() === 'stupid-hero.png', dl ? dl.suggestedFilename() : 'なし');
   await page.screenshot({ path: `${outDir}/${stage}_share_overlay.png` });
   // Xに投稿は新しいタブで x.com を開く
   const [popup] = await Promise.all([
     ctx.waitForEvent('page', { timeout: 3000 }).catch(() => null),
-    page.click('#share-overlay button:first-of-type')
+    page.click('#share-x')
   ]);
   const purl = popup ? popup.url() : '';
   check('Xに投稿で x.com/intent/tweet を開く', purl.includes('x.com/intent/tweet') || purl === 'about:blank' || !!popup, purl.slice(0, 80));
   if (popup) await popup.close();
-  await page.click('#share-overlay button:last-of-type');
+  await page.click('#share-close');
   await page.waitForTimeout(100);
   check('とじるで消える', await page.evaluate(() => !document.getElementById('share-overlay')));
   check('とじたらゲームのタップが戻る', await page.evaluate(() => window.resultDev.scene.input.enabled));
@@ -77,8 +82,9 @@ async function open(mode, extra = '') {
   const shares = await page.evaluate(() => window.__shares);
   check('navigator.share を1回呼ぶ', shares.length === 1, JSON.stringify(shares));
   check('PNGを1枚わたす', shares[0]?.files.length === 1 && shares[0].files[0].type === 'image/png');
-  check('文に称号とハッシュタグとURL', !!shares[0]?.text?.includes('#StupidHero') && shares[0].text.includes('称号「') && shares[0].text.includes(`http://localhost:${port}/`));
-  check('文のステージ名', !!shares[0]?.text?.startsWith(`【Stupid Hero】${STAGE_NAME}ステージ`), shares[0]?.text?.split('\n')[0]);
+  const lines = shares[0]?.text?.split('\n') ?? [];
+  check('文は見出し、ハッシュタグ、URLの3行だけ', lines.length === 3 && lines[1] === '#StupidHero' && lines[2] === `http://localhost:${port}/`, JSON.stringify(lines));
+  check('文に数字や称号の数を入れない', !/\d+\/\d+|撃破|負傷|被害額/.test(lines[0] ?? ''), lines[0]);
   check('ユーザーの操作の中で呼んでいる', shares[0]?.active !== false, String(shares[0]?.active));
   check('重ねて出さない', await page.evaluate(() => !document.getElementById('share-overlay')));
   await ctx.close();
@@ -127,6 +133,24 @@ async function open(mode, extra = '') {
   await page.waitForTimeout(1200);
   const act2 = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
   check('タイトルへで Title へ', act2.includes('Title'), act2.join(','));
+  await ctx.close();
+}
+
+// 6. パソコン(指でない、共有メニューなし):保存のしかたは「右クリックか長押しで保存」
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { try { delete Navigator.prototype.share; delete Navigator.prototype.canShare; } catch { /* */ } });
+  const page = await openPage(ctx, { errors });
+  await page.goto(BASE);
+  await page.waitForFunction(() => window.resultDev && window.resultDev.buttons && window.resultDev.log.includes('file'), null, { timeout: 10000 });
+  const pad = await touchPad(page);
+  const b = await page.evaluate(() => { const o = window.resultDev.buttons.share; return { x: o.x + o.w / 2, y: o.y + o.h / 2 }; });
+  const p = await pad.css(b.x, b.y);
+  await page.mouse.click(p.x, p.y);
+  await page.waitForTimeout(200);
+  const txt = await page.evaluate(() => document.getElementById('share-overlay')?.textContent ?? '');
+  check('パソコンでは「右クリックか長押しで保存」と画像を保存', txt.includes('右クリックか長押しで保存') && txt.includes('画像を保存'), txt.slice(0, 60));
+  await page.screenshot({ path: `${outDir}/${stage}_share_overlay_pc.png` });
   await ctx.close();
 }
 
