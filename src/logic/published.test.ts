@@ -37,6 +37,13 @@ const asPublished = (s: Stage) => ({
   }))
 });
 
+/**
+ * 結果発表の作り直しで、わざと変えたセリフ(比べない)。
+ * streetWatch:待てと行けの使い方は、初めて合図が出たときに言う(teachStop、teachGo)ので、なくした。
+ * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
+ */
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops']);
+
 describe('ステージ1は公開版(876e008)と同じ', () => {
   it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種)`, () => {
     for (const { seed, stage } of alleyV1.stages) {
@@ -48,7 +55,10 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
   it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
     for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no]);
-    for (const [k, list] of Object.entries(sp.REACTIONS)) expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
+    for (const [k, list] of Object.entries(sp.REACTIONS)) {
+      if (REDESIGNED_REACTIONS.has(k)) continue;
+      expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
+    }
     expect(ATTACK_SHOUTS).toEqual(sp.ATTACK_SHOUTS);
     for (const [k, list] of Object.entries(sp.MISCHIEF_LINES)) expect(MISCHIEF_LINES[k as keyof typeof MISCHIEF_LINES], k).toEqual(list);
     for (const [id, c] of Object.entries(sp.TITLE_COMMENTS)) expect(titleCommentFor(id as TitleId, 'alley'), id).toEqual(c);

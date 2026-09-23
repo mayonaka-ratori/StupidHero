@@ -11,7 +11,7 @@
 //   mischiefLine(person.look, rng)           // 悪さを始めた一言(ギャングは口笛で仲間を呼ぶ一言)
 
 import {
-  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_INTRO, GARAGE_NAMES,
+  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_JUDGE_LINES, GARAGE_INTRO, GARAGE_NAMES,
   GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS, GARAGE_TITLE_COMMENTS,
   GARAGE_TITLE_COMMENT_OVERRIDES, GARAGE_WAVE_INTRO, allLinkTexts, type GarageReactionKey
 } from './garageContent';
@@ -19,7 +19,7 @@ import { ANALOGY_UNITS } from './format';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM } from './rules';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, Speech, StageId, TitleId, WaveNo
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, Speech, StageId, TitleId, WaveNo
 } from './types';
 
 const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
@@ -334,10 +334,15 @@ export type ReactionKey =
   | 'timeUp'         // 時間切れ(ヒーロー)
   | 'timeUpOp'       // 時間切れへのツッコミ(オペレーター)
   | 'sortDone'       // 仕分けが終わって結果発表へ(ヒーロー)
-  | 'streetWatch'    // 結果発表の始まりの一言のあと、少ししてから(オペレーター)
+  | 'teachStop'      // その回で初めて待ての合図が出た:待ての使い方(オペレーター)
+  | 'teachGo'        // その回で初めてワルが悪さを始めた:行けの使い方(オペレーター)
+  | 'judge'          // ワルにした人に向かうときの決めつけ。見た目の一覧がないとき(ヒーロー。見た目ごとは JUDGE_LINES)
+  | 'judgeRight'     // ワルにした人が本当にワルだった:最初から分かってた顔(ヒーロー)
+  | 'stubborn'       // ワルにした人が市民だった:謝らずに言いはる(ヒーロー)
+  | 'ownFault'       // 言いはるヒーローを見て、仕分けた自分に気づく(オペレーター)
   | 'hitBad'         // ワルを倒した(オペレーター)
-  | 'hitBadHero'     // ワルを倒した(ヒーロー)
-  | 'oops'           // 市民を殴ってしまった:やっちまったー(ヒーロー)
+  | 'hitBadHero'     // 行けで追いかけたワルを倒した(ヒーロー)
+  | 'oops'           // 巻きぞえで市民に当ててしまった:やっちまったー(ヒーロー)
   | 'okay'           // 立ち直る:まあいいか(ヒーロー)
   | 'tsukkomi'       // まあいいか、へのツッコミ。そのステージで1回目(オペレーター)
   | 'tsukkomiShort'  // 同じステージの2回目から(オペレーター)
@@ -347,6 +352,7 @@ export type ReactionKey =
   | 'specialOnCiv'   // 必殺技が市民に当たった(オペレーター)
   | 'stop'           // 待てで止まった:了解(ヒーロー)
   | 'stopOp'         // 待てで止まったあと(オペレーター)
+  | 'stopBad'        // 待てで止めた人が本当はワルだった(オペレーター)
   | 'stopFailBoss'   // ボスに待てを押しても止まらない(ヒーロー)
   | 'go'             // 行けで追いかける(ヒーロー)
   | 'goOp'           // 行けを押したとき(オペレーター)
@@ -370,13 +376,34 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   timeUp: [hero('smug', '時間切れ！\nあとは勘で行く！'), hero('smug', '残りは\n気分で決める！')],
   timeUpOp: [op('panic', '勘はやめて！'), op('deadpan', 'せめて考えて')],
   sortDone: [hero('smug', '仕分け完了！\n行ってくる！'), hero('smug', 'よーし、\n出動！')],
-  streetWatch: [op('normal', '殴る前なら\n待てで止められる'), op('normal', '悪さをされたら\n行けで追いかけて')],
+  teachStop: [op('normal', 'ワルにした人だよ。\nちがうと思ったら待て！')],
+  teachGo: [op('panic', '悪さを始めた！\n行けで追いかけて！')],
+  judge: [
+    hero('smug', '目つきが悪い！\nワルで間違いない！'),
+    hero('smug', 'オーラが黒い！\nワルで間違いない！'),
+    hero('smug', 'ピンときた！\nワルで間違いない！')
+  ],
+  judgeRight: [
+    hero('smug', 'ほらね！\n顔に書いてあった！'),
+    hero('smug', 'やっぱり！\n思ったとおり！'),
+    hero('smug', 'ほらね！\nひと目で分かった！')
+  ],
+  stubborn: [
+    hero('smug', '目つきは\n悪かった！'),
+    hero('smug', 'でも怪しかった！'),
+    hero('smug', '顔がワルっぽかった！')
+  ],
+  ownFault: [
+    op('deadpan', '…ワルにしたの、\n私だけど'),
+    op('deadpan', '…仕分けたの、\n私だった'),
+    op('deadpan', '…ワルの札、\n私がつけたんだった')
+  ],
   hitBad: [op('hype', 'ナイス！'), op('hype', 'いいね！\nその調子！'), op('hype', 'よし、\n1人片付いた！')],
   hitBadHero: [hero('smug', '正義の勝利！'), hero('smug', '悪は許さない！')],
   oops: [
     hero('oops', 'やっちまったー！'),
     hero('oops', 'あっ…\nやっちまったー！'),
-    hero('oops', 'しまったーっ！\n市民だった！')
+    hero('oops', 'しまったーっ！\n巻きこんだ！')
   ],
   okay: [
     hero('smile', 'まあいいか！'),
@@ -403,6 +430,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   specialOnCiv: [op('panic', '必殺技を市民に\n当てないで！'), op('panic', '光線が市民に！\n何してんの！')],
   stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まります！'), hero('smile', 'おっと、了解！')],
   stopOp: [op('normal', '了解、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先へ！')],
+  stopBad: [op('deadpan', 'あ、ワルだったかも…'), op('deadpan', 'あれ？今の人、\nワルだったかも…')],
   stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'こいつは\n止まれない！')],
   go: [hero('smug', '行ってくる！'), hero('smug', '逃がすかーっ！'), hero('smug', '待てーっ！\n悪党ーっ！')],
   goOp: [op('hype', '行け！'), op('hype', '追いかけて！')],
@@ -426,6 +454,54 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   bossDefeated: [hero('smug', '正義は勝つ！'), hero('smug', '見たか！\nこれがヒーロー！')],
   bossDefeatedOp: [op('hype', 'やったー！\nボスを倒した！'), op('hype', '路地裏、\n平和になった！')]
 };
+
+/**
+ * ワルにした人に向かうときのヒーローの決めつけ。見た目ごと(ステージ2の見た目は garageContent.ts)。
+ * 本当に市民かワルかでは変えない(文で分かってしまわないように)。どれも札に合わせた、あと付けの理由
+ */
+const ALLEY_JUDGE_LINES: Readonly<Record<AlleyLook, readonly Speech[]>> = {
+  hoodie: [
+    hero('smug', 'ポケットがふくらんでる！\nワルで間違いない！'),
+    hero('smug', 'フードがあやしい！\nワルで間違いない！'),
+    hero('smug', '手をポケットに入れてる！\nワルで間違いない！')
+  ],
+  suit: [
+    hero('smug', 'すごくあせってる！\nワルで間違いない！'),
+    hero('smug', 'ネクタイが曲がってる！\nワルで間違いない！'),
+    hero('smug', '走り方があやしい！\nワルで間違いない！')
+  ],
+  shopper: [
+    hero('smug', '袋がパンパン！\nワルで間違いない！'),
+    hero('smug', '袋の中身があやしい！\nワルで間違いない！'),
+    hero('smug', '買い物しすぎ！\nワルで間違いない！')
+  ],
+  mohawk: [
+    hero('smug', 'トゲトゲ頭！\nワルで間違いない！'),
+    hero('smug', 'どう見ても悪そう！\nワルで間違いない！'),
+    hero('smug', '髪型がとがってる！\nワルで間違いない！')
+  ],
+  granny: [
+    hero('smug', '杖が武器っぽい！\nワルで間違いない！'),
+    hero('smug', '腰のたたき方があやしい！\nワルで間違いない！'),
+    hero('smug', 'にこにこしすぎ！\nワルで間違いない！')
+  ]
+};
+
+/** ワルにした人に向かうときの決めつけ(全部のステージの見た目) */
+export const JUDGE_LINES: Readonly<Record<Look, readonly Speech[]>> = {
+  ...ALLEY_JUDGE_LINES,
+  ...GARAGE_JUDGE_LINES
+};
+
+/** 結果発表の画面に出る短い文(始まりの帯と、本性ちらりの小さな吹き出し) */
+export const STREET_TEXTS = {
+  /** 結果発表の始まりの帯 */
+  band: '出動！待て・行けの出番',
+  /** ワルにした人に向かったとき、本当はワル(ボスも)なら、何かをさっと隠す */
+  peekBad: 'サッ…',
+  /** 本当は市民なら、小さくおじぎ */
+  peekCiv: 'ぺこり'
+} as const;
 
 /** ワルが悪さを始めたときの一言(オペレーター)。見た目ごと */
 export const MISCHIEF_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper' | 'mohawk', readonly Speech[]>> = {
@@ -522,6 +598,12 @@ export function tsukkomi(nth: number, rng?: Rng): Speech {
   return say(nth <= 1 ? 'tsukkomi' : 'tsukkomiShort', rng);
 }
 
+/** ワルにした人に向かうときのヒーローの決めつけ。見た目が分からなければ say('judge') と同じ */
+export function judgeLine(look: Look | undefined, rng?: Rng): Speech {
+  const list = look ? JUDGE_LINES[look] : undefined;
+  return list && list.length > 0 ? pickSpeech(list, rng) : say('judge', rng);
+}
+
 /** ワルが悪さを始めたときの一言。ステージ2のギャングは口笛で仲間を呼ぶ一言 */
 export function mischiefLine(look: Look, rng?: Rng): Speech {
   if (look === 'guard' || look === 'mechanic' || look === 'clubber' || look === 'officelady') {
@@ -549,6 +631,8 @@ export function allTexts(): string[] {
   for (const k of Object.keys(ATTACK_SHOUTS) as AttackKind[]) addList(ATTACK_SHOUTS[k]);
   for (const k of Object.keys(REACTIONS) as ReactionKey[]) addList(REACTIONS[k]);
   for (const k of Object.keys(MISCHIEF_LINES) as (keyof typeof MISCHIEF_LINES)[]) addList(MISCHIEF_LINES[k]);
+  for (const k of Object.keys(JUDGE_LINES) as Look[]) addList(JUDGE_LINES[k]);
+  out.push(...Object.values(STREET_TEXTS));
   addList(Object.values(TITLE_COMMENTS));
   // ステージ2
   addList(GARAGE_INTRO);

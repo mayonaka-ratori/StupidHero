@@ -4,6 +4,8 @@
 //
 // 画面:上のアクション部分はカメラ world(ヒーローについて動く)、下の操作部分はカメラ ui(street/layers.ts)。
 // 流れは run() の async の中で1人ずつ進める。待つのはシーンの時計(this.time)なので、ヒットストップと一時停止で止まる。
+// 早送り(▶▶)は、時計、動き(tween)、アニメ、毎フレームの動きをまとめて2倍にする(update の applySpeed)。
+// 待てと行けの合図が出ている間だけは、ふつうの速さに戻す(考える時間を減らさないため)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -12,17 +14,18 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
 import {
-  GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, formatYen, gatherMembers, isAttacked, mischiefLine, pickAttack,
-  resolveEncounter, rollCivHit, rollGroupWipeProps, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
+  GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, STREET_TEXTS, canStop, formatYen, gatherMembers, isAttacked, judgeLine,
+  mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollGroupWipeProps, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
   type AnyReactionKey, type AttackKind, type Encounter, type GangPhase, type Look, type PropKind, type ReactionKey, type Rng, type Speech,
   type StageDef, type StatsTracker, type WorstScene
 } from '../logic';
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, MuteButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
-  UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, panelRect, popText, shake, whenNoFlash
+  UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, lighter, panelRect, popText, shake, whenNoFlash
 } from '../ui';
 import { Actor, HEAD } from './street/actor';
+import { FastButton } from './street/fastButton';
 import { Layers } from './street/layers';
 import { HERO_START, VAN_Y, planGarage, planStreet, type GatherSpot } from './street/plan';
 import { snapshotLogical } from '../hires';
@@ -39,6 +42,17 @@ const WINDUP_MS = 1080;
 const BANNER_TOP_Y = 46;
 /** 飛び出す金額を、ほかの金額や吹き出しと重ならないようにずらすときの段の数 */
 const POP_TRIES = 6;
+/** 早送りの倍率 */
+const FAST = 2;
+/** ヒーローの決めつけの吹き出しを上げるドット数(相手の札と合図の間に入れる) */
+const JUDGE_RISE = 8;
+/** 本性ちらり(ワルにした人に向かったときに一瞬見せる正体)の長さ */
+const PEEK_MS = 700;
+
+/** 早送りのオンとオフ。ページを開いている間は、波や回をまたいで覚えておく */
+let fastOn = false;
+/** 待てと行けの使い方をもう言ったか(回ごと。その回で初めて合図が出たときだけ言う) */
+const taught = new WeakMap<GameRun, Set<'stop' | 'go'>>();
 
 interface PropObj { kind: PropKind; x: number; y: number; wall: boolean; sprite: Phaser.GameObjects.Sprite; broken: boolean }
 interface Walker { toX: number; fromX: number; fromY: number; toY: number; speed: number; resolve: () => void }
@@ -87,6 +101,12 @@ export class StreetScene extends Phaser.Scene {
   private goHandler: (() => void) | null = null;
   private flickers = new Set<Phaser.GameObjects.Components.Visible & Phaser.GameObjects.GameObject>();
   private heroBubble?: Bubble;
+  /** ヒーローの吹き出しを、頭の上からさらに何ドット上げるか */
+  private heroBubbleRise = 0;
+  /** 人について行く小さな吹き出し(本性ちらり)。dx, dy は足からのずれ */
+  private peeks: { b: Bubble; a: Actor; dx: number; dy: number }[] = [];
+  /** いまの速さ(早送りで2、待てと行けの合図の間は1) */
+  private speed = 1;
   /** 出ている飛び出す数字(重ならないようにずらすため) */
   private pops: { t: PixelText; wx: number; y: number; w: number; h: number; rise: number }[] = [];
   /** オペレーターが話した回数(あとから言い替えるとき、間にほかのセリフがあったかを見る) */
@@ -101,6 +121,7 @@ export class StreetScene extends Phaser.Scene {
   private stopBtn!: Button;
   private goBtn!: Button;
   private icons: Phaser.GameObjects.GameObject[] = [];
+  private fastBtn!: FastButton;
   private tDefeat!: PixelText;
   private tHurt!: PixelText;
   private tDamage!: PixelText;
@@ -128,7 +149,7 @@ export class StreetScene extends Phaser.Scene {
     this.queue = []; this.passers = []; this.props = []; this.bgs = []; this.icons = [];
     this.flickers = new Set();
     this.walker = null; this.slow = 1; this.stopHandler = null; this.goHandler = null;
-    this.heroBubble = undefined; this.pops = []; this.opSeq = 0; this.frameN = 0; this.civHits = []; this.civCried = null; this.leaving = false;
+    this.heroBubble = undefined; this.peeks = []; this.speed = 1; this.pops = []; this.opSeq = 0; this.frameN = 0; this.civHits = []; this.civCried = null; this.leaving = false;
     this.shownDamage = this.stats.damage; this.shown = { defeated: -1, hurt: -1, damage: '' };
     this.auraOn = false;
     this.camFocus = null;
@@ -137,6 +158,8 @@ export class StreetScene extends Phaser.Scene {
     this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
     this.startedAt = this.time.now;
+    // アニメの速さはゲーム全体の設定なので、次のシーンへ持ちこまないように戻す
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.anims.globalTimeScale = 1; });
     this.L = new Layers(this);
     this.buildWorld();
     this.buildPanel();
@@ -217,6 +240,8 @@ export class StreetScene extends Phaser.Scene {
       const pause = new PauseControl(this);
       this.icons.push(new IconButton(this, W - 12, 12, 'pause', () => pause.pause()));
       this.icons.push(new MuteButton(this, W - 34, 12, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }));
+      this.fastBtn = new FastButton(this, W - 56, 12, { isOn: () => fastOn, toggle: () => { audio.unlock(); fastOn = !fastOn; } });
+      this.icons.push(this.fastBtn);
 
       addPanel(this);
       // 縦に余裕があれば(縦長の画面)、横いっぱいに使い、セリフを大きな字にして、ボタンも大きくする
@@ -253,9 +278,11 @@ export class StreetScene extends Phaser.Scene {
     this.frameN++;
     const frozen = isFrozen(this);
     if (!frozen) {
-      const dt = Math.min(delta, 50) / 1000;
+      this.applySpeed();
+      const ms = Math.min(delta, 50) * this.speed;
+      const dt = ms / 1000;
       this.stepWalker(dt);
-      if (this.gang) this.stepGang(Math.min(delta, 50));
+      if (this.gang) this.stepGang(ms);
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
       this.camX += (target - this.camX) * Math.min(1, dt * 6);
@@ -273,8 +300,22 @@ export class StreetScene extends Phaser.Scene {
     for (const a of this.passers) if (a.state !== 'gone') a.sync();
     this.hero.sync();
     this.syncBubble();
+    this.syncPeeks();
     this.updateHud();
     this.updateButtons();
+  }
+
+  /**
+   * 早送りの速さを、時計、動き、アニメにかける。待てと行けの合図が出ている間はふつうの速さ。
+   * ヒットストップ(fx.ts)は止めたあと速さを1に戻すので、止まっていないときに毎フレーム合わせ直す
+   */
+  private applySpeed(): void {
+    const deciding = this.stopHandler !== null || this.goHandler !== null;
+    const sp = fastOn && !deciding ? FAST : 1;
+    this.speed = sp;
+    if (this.time.timeScale !== sp) this.time.timeScale = sp;
+    if (this.tweens.timeScale !== sp) this.tweens.timeScale = sp;
+    if (this.anims.globalTimeScale !== sp) this.anims.globalTimeScale = sp;
   }
 
   private stepWalker(dt: number): void {
@@ -309,8 +350,18 @@ export class StreetScene extends Phaser.Scene {
     if (!b) return;
     if (!b.active) { this.heroBubble = undefined; return; }
     const x = Math.round(this.L.screenX(this.hero.x) + 6);
-    const y = Math.round(this.hero.y - this.hero.lift - HEAD - 2);
+    const y = Math.round(this.hero.y - this.hero.lift - HEAD - 2 - this.heroBubbleRise);
     if (b.x !== x || b.y !== y) b.pointTo(x, y);
+  }
+
+  private syncPeeks(): void {
+    if (this.peeks.length === 0) return;
+    this.peeks = this.peeks.filter((p) => p.b.active);
+    for (const p of this.peeks) {
+      const x = Math.round(this.L.screenX(p.a.x) + p.dx);
+      const y = Math.round(p.a.y + p.dy);
+      if (p.b.x !== x || p.b.y !== y) p.b.pointTo(x, y);
+    }
   }
 
   private updateHud(force = false): void {
@@ -326,13 +377,14 @@ export class StreetScene extends Phaser.Scene {
   private updateButtons(): void {
     const st = this.stopHandler !== null;
     const go = this.goHandler !== null;
-    if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st);
-    if (this.goBtn.isEnabled !== go) this.goBtn.setEnabled(go);
-    // 押せるときはボタンを光らせて急がせる
-    if (this.frameN % 6 === 0) {
-      const lit = this.frameN % 12 === 0;
-      if (st) this.stopBtn.setColor(lit ? 0xfff2b0 : UI.stop);
-      if (go) this.goBtn.setColor(lit ? 0xff6a50 : UI.go);
+    if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st).setColor(UI.stop);
+    if (this.goBtn.isEnabled !== go) this.goBtn.setEnabled(go).setColor(UI.go);
+    // 押せるときは、ボタンをゆっくり明るくしたり戻したりする。
+    // 強く点滅させると、正しくワルにした人にも待てを押したくなるので、やさしく光らせるだけにする
+    if (this.frameN % 3 === 0 && (st || go)) {
+      const t = (1 - Math.cos((this.time.now / 1100) * Math.PI * 2)) / 2;
+      if (st) this.stopBtn.setColor(lighter(UI.stop, t * 0.3));
+      if (go) this.goBtn.setColor(lighter(UI.go, t * 0.25));
     }
   }
 
@@ -422,11 +474,13 @@ export class StreetScene extends Phaser.Scene {
     return say(key, rng, this.def.id);
   }
 
-  private heroSay(sp: Speech | string, ms = 1200): void {
+  /** rise は吹き出しを上げるドット数(合図の相手の札を隠さないとき) */
+  private heroSay(sp: Speech | string, ms = 1200, rise = 0): void {
     const text = typeof sp === 'string' ? sp : sp.text;
     this.heroBubble?.destroy();
+    this.heroBubbleRise = rise;
     const x = this.L.screenX(this.hero.x) + 6;
-    const y = this.hero.y - this.hero.lift - HEAD - 2;
+    const y = this.hero.y - this.hero.lift - HEAD - 2 - rise;
     // 画面の座標で置く(Bubble は画面の端からはみ出ないようにずれるため)。札より手前、合図より奥(合図を隠さないように)
     this.heroBubble = new Bubble(this, x, y, text, { tail: 'down-left', life: ms });
     this.heroBubble.setScrollFactor(0).setDepth(1100);
@@ -491,11 +545,10 @@ export class StreetScene extends Phaser.Scene {
   // ─── 流れ ─────────────────────────────────────
 
   private async play(): Promise<void> {
-    void banner(this, `WAVE${this.run.waveIndex + 1} 結果発表`, { hold: 600 });
+    // 見ているだけの画面だと思われないように、帯は「待てと行けの出番」と言い切る(波の数は左上に小さく出ている)
+    // 早送りでも帯は読めるように、出ている時間はふつうの速さのときと同じにする
+    void banner(this, STREET_TEXTS.band, { hold: fastOn ? 600 * FAST : 600 });
     this.opSay(this.line('sortDone', this.rng));
-    // 「仕分け完了!」がずっと残らないように、ほかのセリフが出ていなければ少ししてオペレーターの一言に替える
-    const seq = this.opSeq;
-    this.time.delayedCall(2600, () => { if (this.opSeq === seq && !this.leaving) this.opSay(this.line('streetWatch')); });
     await this.wait(700);
     for (const a of this.queue) {
       if (!a.standing || !a.person) continue;
@@ -515,7 +568,10 @@ export class StreetScene extends Phaser.Scene {
     return Math.round(a.y);
   }
 
-  /** 殴りに行く相手:48ドット手前で合図、ゆっくりになって、待てが効く。押さなければ技を出す */
+  /**
+   * 殴りに行く相手:48ドット手前で合図、ゆっくりになって、待てが効く。押さなければ技を出す。
+   * 合図と同時に、相手は本性を一瞬だけ見せ(本性ちらり)、ヒーローは見た目から「ワルで間違いない!」と決めつける
+   */
   private async attackEncounter(a: Actor, enc: Encounter): Promise<boolean> {
     await this.runTo(a.x - MARK.showDistance, { y: this.laneFor(a) });
     this.showMark(a, 'stop');
@@ -523,6 +579,12 @@ export class StreetScene extends Phaser.Scene {
     this.slow = MARK.slowmo;
     this.hero.sprite.anims.timeScale = MARK.slowmo;
     const k = this.pickAttack();
+    this.peek(a);
+    // 決めつけは技を出すまで出しておく(叫びは技を出す瞬間に替える)。
+    // 横に長いので相手の頭の上にかかる。札(ワル)を隠さないように、合図との間まで上げる
+    this.heroSay(judgeLine(a.person?.disguise ?? a.look, this.rng), 1600, JUDGE_RISE);
+    // その回で初めての合図なら、待ての使い方を言う
+    if (this.firstTime('stop')) this.opSay(this.line('teachStop'));
     const res = await this.markWindow(a, enc, k);
     this.stopAlarm.stop();
     this.slow = 1;
@@ -530,14 +592,45 @@ export class StreetScene extends Phaser.Scene {
     this.hideMark(a);
     this.auraOn = false;
     if (res === 'stop') { await this.doStop(a); return false; }
+    this.heroSay(shout(k, this.rng), 900);
     if (enc === 'bossFight') {
       await this.attack(a, k, 'reveal');
       await this.bossReveal(a);
       return true;
     }
     await this.attack(a, k, enc === 'hitCiv' ? 'civ' : 'bad');
-    await this.afterAttack(k);
+    await this.afterAttack(k, true);
     return false;
+  }
+
+  /** 本性ちらり:ワルにした人に向かったとき、本当はワル(ボスも)なら何かをさっと隠し、市民なら小さくおじぎする */
+  private peek(a: Actor): void {
+    const bad = !a.civ;
+    const dx = 9;
+    const dy = -40;
+    const b = new Bubble(this, this.L.screenX(a.x) + dx, a.y + dy, bad ? STREET_TEXTS.peekBad : STREET_TEXTS.peekCiv,
+      { tail: 'left', size: FS.small, life: PEEK_MS });
+    b.setScrollFactor(0).setDepth(1100);
+    this.peeks.push({ b, a, dx, dy });
+    if (bad) {
+      // くるっと背を向けて、すぐ戻る(何かを隠す)
+      a.faceLeft(false);
+      a.x += 1;
+      this.time.delayedCall(170, () => { if (a.standing) { a.faceLeft(true); a.x -= 1; } });
+    } else {
+      // 1〜2ドットだけ頭を下げる
+      const steps: [number, number][] = [[0, -1], [70, -2], [430, -1], [510, 0]];
+      for (const [t, l] of steps) this.time.delayedCall(t, () => { if (a.standing && a.lift <= 0) a.lift = l; });
+    }
+  }
+
+  /** 待てや行けの使い方を、その回でまだ言っていなければ true(言ったことにする) */
+  private firstTime(kind: 'stop' | 'go'): boolean {
+    let set = taught.get(this.run);
+    if (!set) { set = new Set(); taught.set(this.run, set); }
+    if (set.has(kind)) return false;
+    set.add(kind);
+    return true;
   }
 
   private markWindow(a: Actor, enc: Encounter, k: AttackKind): Promise<'stop' | 'attack'> {
@@ -564,7 +657,7 @@ export class StreetScene extends Phaser.Scene {
     });
   }
 
-  /** 技を出す前のため。叫びもここで(まだ待てが効く) */
+  /** 技を出す前のため(まだ待てが効く)。この間はヒーローの決めつけの吹き出しが出ている */
   private windup(k: AttackKind): void {
     const h = this.hero;
     h.sprite.anims.timeScale = 1;
@@ -573,7 +666,6 @@ export class StreetScene extends Phaser.Scene {
     else if (k === 'special') h.pose('special', 2);
     else h.pose('punch', 0);
     this.auraOn = true;
-    this.heroSay(shout(k, this.rng), 1300);
     if (k === 'special') { shake(this, 2, WINDUP_MS); audio.sfx('charge', { pitch: 0.7 }); }
   }
 
@@ -599,7 +691,8 @@ export class StreetScene extends Phaser.Scene {
     }
     a.pose('surprised');
     this.heroSay(this.line('stop', this.rng), 1000);
-    this.opSay(this.line('stopOp', this.rng));
+    // 止めた人が本当はワルだったら、オペレーターが小さく気づく(逃がしたに数える)
+    this.opSay(this.line(a.person!.truth === 'bad' ? 'stopBad' : 'stopOp', this.rng));
     await this.wait(900);
     if (a.standing) a.play('idle');
     // 市民だったら、ほっとしてぴょんと跳ぶ
@@ -837,27 +930,49 @@ export class StreetScene extends Phaser.Scene {
     this.opSay(this.line(key), true);
   }
 
-  /** 殴ったあと:市民に当たっていたら「やっちまったー!」→「まあいいか!」→ツッコミ。ワルだけならほめる */
-  private async afterAttack(k: AttackKind): Promise<void> {
+  /**
+   * 殴ったあと。ワルだけならほめる。ワルにした人が市民だったら、謝らずに言いはる(stubborn)。
+   * 巻きぞえだけなら「やっちまったー!」→「まあいいか!」→ツッコミ(ヒーローの雑さのせい)。
+   * judged は、ヒーローが決めつけて向かった相手か(行けで追いかけた相手なら false)
+   */
+  private async afterAttack(k: AttackKind, judged = false): Promise<void> {
     const hits = this.civHits;
     this.civHits = [];
     const cried = this.civCried;
     this.civCried = null;
     if (hits.length === 0) {
       this.opSay(this.line('hitBad', this.rng));
-      if (this.rng.chance(0.5)) this.heroSay(this.line('hitBadHero', this.rng), 900);
+      // 決めつけが当たったときは、最初から分かってた顔
+      if (judged) this.heroSay(this.line('judgeRight', this.rng), 1000);
+      else if (this.rng.chance(0.5)) this.heroSay(this.line('hitBadHero', this.rng), 900);
       this.hero.play('idle');
       await this.wait(420);
       return;
     }
+    const first = this.stats.heroMistakes - hits.length === 0;
+    if (hits.some((h) => !h.collateral)) { await this.stubborn(first); return; }
     let line: Speech | null = null;
     if (hits.some((h) => h.look === 'granny')) line = this.line('grannyHit', this.rng);
     else if (k === 'special') line = this.line('specialOnCiv', this.rng);
     else if (hits.some((h) => h.collateral)) line = this.line('collateral', this.rng);
     // 当たった瞬間にもう同じ種類の一言を出していたら、言い直さない
     if (cried === this.civLineKey(k, hits)) line = null;
-    const first = this.stats.heroMistakes - hits.length === 0;
     await this.oops(line, first);
+  }
+
+  /**
+   * ワルにした人が市民だった:オペレーターの「市民だってば!」(当たった瞬間に出ている)のあと、
+   * ヒーローは腕組みで「でも怪しかった!」と言いはり、オペレーターは仕分けたのが自分だと気づく
+   */
+  private async stubborn(first: boolean): Promise<void> {
+    const h = this.hero;
+    await this.wait(first ? 350 : 200);
+    h.play('win_arms', true);
+    audio.sfx('okay');
+    this.heroSay(this.line('stubborn', this.rng), first ? 1200 : 900);
+    await this.wait(first ? 1000 : 700);
+    this.opSay(this.line('ownFault', this.rng));
+    await this.wait(first ? 800 : 450);
   }
 
   private async oops(line: Speech | null, first: boolean): Promise<void> {
@@ -942,8 +1057,8 @@ export class StreetScene extends Phaser.Scene {
     if (kind && MISCHIEF_HURTS_CIV[kind] && v.standing) this.knock(v, 30, 12, 1);
     else if (v.standing) v.pose('surprised');
 
-    // 行けの合図
-    this.opSay(mischiefLine(look, this.rng), true);
+    // 行けの合図。その回で初めてなら、行けの使い方を言う
+    this.opSay(this.firstTime('go') ? this.line('teachGo') : mischiefLine(look, this.rng), true);
     h.pose('oops', 1);
     this.heroSay(this.line('mischiefHero', this.rng), 1300);
     await this.chaseOrEscape(a);
@@ -993,6 +1108,8 @@ export class StreetScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) {
       this.time.delayedCall(i * 170, () => { if (a.standing) a.faceLeft(i % 2 === 0); });
     }
+    // 「今なら行け!」が行けの使い方の代わり
+    this.firstTime('go');
     this.opSay(this.line('alone', this.rng), true);
     this.heroSay(this.line('aloneHero', this.rng), 1300);
     await this.wait(420);
@@ -1207,6 +1324,8 @@ export class StreetScene extends Phaser.Scene {
       g.count = new PixelText(this, Math.round(cx) + 42, Math.round(top) + 4, String(GANG.escapeSec), { size: FS.big, color: UI.gold, outline: true })
         .setOrigin(0.5, 0.5).setDepth(1200);
       this.goAlarm.start();
+      // 「行けでまとめて!」が行けの使い方の代わり
+      this.firstTime('go');
       this.opSay(this.line('gathered', this.rng), true);
       this.goHandler = () => this.gangGo();
     } else if (e === 'board') {

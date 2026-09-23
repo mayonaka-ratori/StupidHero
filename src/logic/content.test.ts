@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from './rng';
 import {
-  AGES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS, TITLE_COMMENTS,
-  allTexts, introFor, mischiefLine, reactionList, say, shout, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
+  AGES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, JUDGE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS, STREET_TEXTS,
+  TITLE_COMMENTS, allTexts, introFor, judgeLine, mischiefLine, reactionList, say, shout, titleCommentFor, tsukkomi, waveIntroFor,
+  type AnyReactionKey
 } from './content';
 import {
   GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
   GARAGE_WAVE_INTRO, LINK_HINTS, LINK_PROFILES, allLinkTexts
 } from './garageContent';
 import { TITLES, titlesFor } from './titles';
-import type { GangLook } from './types';
+import type { GangLook, Look } from './types';
 
 const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
 
@@ -100,6 +101,52 @@ describe('content の文の決まり', () => {
     expect(REACTIONS.tsukkomiShort).toContain(tsukkomi(2, rng));
     expect(mischiefLine('suit', rng).who).toBe('operator');
     expect(say('pass').who).toBe('hero');
+  });
+});
+
+describe('結果発表の決めつけと、待て・行けの使い方', () => {
+  const LOOKS = Object.keys(NAMES) as Look[];
+
+  it('どの見た目にも、ヒーローの決めつけが2つ以上あり、「ワルで間違いない!」で終わる', () => {
+    for (const look of LOOKS) {
+      const list = JUDGE_LINES[look];
+      expect(list.length, look).toBeGreaterThanOrEqual(2);
+      for (const s of list) {
+        expect(s.who, s.text).toBe('hero');
+        expect(s.text.split('\n')[1], s.text).toBe('ワルで間違いない！');
+      }
+    }
+    const rng = createRng(3);
+    expect(JUDGE_LINES.hoodie).toContain(judgeLine('hoodie', rng));
+    expect(JUDGE_LINES.officelady).toContain(judgeLine('officelady', rng));
+    expect(REACTIONS.judge).toContain(judgeLine(undefined, rng));
+  });
+
+  it('決めつけは市民かワルかで変えない(見た目だけで決まる。文で正体が分からない)', () => {
+    // JUDGE_LINES は見た目ごとの1つの一覧だけで、市民用とワル用に分かれていない
+    for (const look of LOOKS) expect(Array.isArray(JUDGE_LINES[look]), look).toBe(true);
+  });
+
+  it('言いはる、自分のせいに気づく、当たった、待てで止めたワル、使い方のセリフがある', () => {
+    for (const k of ['judgeRight', 'stubborn', 'teachStop', 'teachGo', 'ownFault', 'stopBad'] as const) {
+      expect(REACTIONS[k].length, k).toBeGreaterThanOrEqual(1);
+    }
+    for (const s of [...REACTIONS.judgeRight, ...REACTIONS.stubborn]) expect(s.who).toBe('hero');
+    for (const s of [...REACTIONS.teachStop, ...REACTIONS.teachGo, ...REACTIONS.ownFault, ...REACTIONS.stopBad]) expect(s.who).toBe('operator');
+    expect(REACTIONS.teachStop[0].text).toContain('待て');
+    expect(REACTIONS.teachGo[0].text).toContain('行け');
+    // 謝らない
+    for (const s of REACTIONS.stubborn) expect(s.text).not.toMatch(/ごめん|しまった|すみません/);
+    // 始まりの一言(待てと行けの説明)は、初めての合図のときに言うのでなくした
+    expect(Object.keys(REACTIONS)).not.toContain('streetWatch');
+  });
+
+  it('結果発表の帯と本性ちらりの文は allTexts に入っている', () => {
+    const all = new Set(allTexts());
+    for (const t of Object.values(STREET_TEXTS)) expect(all.has(t), t).toBe(true);
+    for (const look of LOOKS) for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
+    expect(STREET_TEXTS.band).toContain('待て');
+    expect(STREET_TEXTS.band).toContain('行け');
   });
 });
 

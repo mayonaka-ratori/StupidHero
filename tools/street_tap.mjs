@@ -1,7 +1,7 @@
 // 結果発表(Street)を指で試す(担当 street 用)。中断ボタン、待て、行けを指で押して、止まるか、反応するかを見る。
 // 使い方: npx vite --port 5202 --strictPort を動かしてから
 //   node tools/street_tap.mjs <URL(例 http://localhost:5202/)> [出力フォルダ] [ステージ(alley か garage)] [種]
-// alley :中断と再開、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)
+// alley :中断と再開、早送り(▶▶。合図の間はふつうの速さ)、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)
 // garage:中断と再開、見逃したギャングが仲間を呼んで集まったところで行け(まとめて吹き飛ばす)、
 //         ワゴンに乗りこんだところで行け(車ごと止める)
 // URL に ?scene= がなければ、開発用の入口で波1から始める。NG があれば exit code 1。
@@ -50,6 +50,10 @@ async function pauseCheck(page, pad) {
 if (stage === 'alley') {
   const { page, pad } = await open('random');
   await pauseCheck(page, pad);
+  // 早送り(中断ボタンの2つ左)。押すと時計も動きも2倍
+  await pad.tap(160, 12);
+  await page.waitForTimeout(200);
+  check('早送りで2倍になる', await S(page, () => window.streetDev.speed === 2 && window.streetDev.time.timeScale === 2));
   // 合図がないときの待ては暗く、押しても何も起きない
   check('合図がないとき待ては使えない', !(await btn(page, 'stopBtn')).en);
   // 合図が出るまで待って、指で待てを押す
@@ -58,6 +62,7 @@ if (stage === 'alley') {
     await page.waitForTimeout(60);
     const s = await btn(page, 'stopBtn');
     check('合図が出たら待てが使える', s.en);
+    check('待ての合図の間は、早送りでもふつうの速さ', await S(page, () => window.streetDev.speed === 1 && window.streetDev.time.timeScale === 1));
     const before = await stats(page);
     await page.waitForTimeout(500);
     await pad.tap(s.x, s.y);
