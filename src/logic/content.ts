@@ -430,7 +430,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
     hero('smile', '街の平和は\n任せて！')
   ],
   mischiefHero: [hero('oops', 'あれっ！？\nいい人だと思ったのに！'), hero('oops', 'えっ、\nワルだったの！？')],
-  escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n行っちゃった'), op('deadpan', '逃がしたね…')],
+  escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n逃げてった'), op('deadpan', '逃がしたね…')],
   bossReveal: [op('panic', '正体を現した！\nこいつがボスだ！'), op('panic', '出た！\n路地裏のボス！')],
   bossRevealHero: [hero('smug', 'やっぱりね！\n最初から分かってた！'), hero('smug', '見破ったり！')],
   bossRevealOp2: [op('deadpan', '絶対うそでしょ'), op('deadpan', '今気づいたよね')],

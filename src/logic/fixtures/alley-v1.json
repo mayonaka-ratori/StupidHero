@@ -3349,7 +3349,7 @@
    "mischiefHero": [{"who":"hero","face":"oops","text":"あれっ！？\nいい人だと思ったのに！"},{"who":"hero","face":"oops","text":"えっ、\nワルだったの！？"}],
    "escaped": [
     {"who":"operator","face":"deadpan","text":"逃げられた…"},
-    {"who":"operator","face":"deadpan","text":"あーあ、\n行っちゃった"},
+    {"who":"operator","face":"deadpan","text":"あーあ、\n逃げてった"},
     {"who":"operator","face":"deadpan","text":"逃がしたね…"}
    ],
    "bossReveal": [{"who":"operator","face":"panic","text":"正体を現した！\nこいつがボスだ！"},{"who":"operator","face":"panic","text":"出た！\n路地裏のボス！"}],
