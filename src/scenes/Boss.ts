@@ -599,10 +599,10 @@ export class BossScene extends Phaser.Scene {
           spawnFx(this, 'fx_hit_big', target.x, target.y, { depth: DEPTH_OF.fxTop });
           spawnFx(this, 'fx_dust', target.x, target.y + 6);
           for (let i = 0; i < 5; i++) throwDebris(this, target.x, target.y, Phaser.Math.Between(-44, 44), Phaser.Math.Between(10, 50));
-          popText(this, target.x, target.y - 10, label, { color: UI.danger, size: FS.big });
+          popText(this, Phaser.Math.Clamp(target.x, 30, 186), target.y - 10, label, { color: UI.danger, size: FS.big });
         });
       } else {
-        popText(this, hitX, hitY - 20, label, { color: UI.danger, size: FS.big });
+        popText(this, Phaser.Math.Clamp(hitX, 30, 186), hitY - 20, label, { color: UI.danger, size: FS.big });
       }
     });
   }
