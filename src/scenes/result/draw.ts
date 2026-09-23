@@ -11,6 +11,10 @@ import { FEET_OFFSET, sheetByKey } from '../../art/sheets';
 import { PixelText, type TextStyle } from '../../ui/text';
 import { withRes } from '../../hires';
 
+/** 背景の画像のキー(stage.def.bg と同じ形) */
+export interface BgKeys { far: string; wall: string; ground: string }
+const ALLEY_BG: BgKeys = { far: 'bg_alley_far', wall: 'bg_alley_wall', ground: 'bg_alley_ground' };
+
 export interface Canvas2D { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }
 
 /** 論理ドットで w×h のキャンバス。scale を渡すと、中身は scale 倍の細かさになる(描くときの座標は論理ドットのまま) */
@@ -92,15 +96,20 @@ function drawWrapped(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, key: st
   }
 }
 
-/** 夜の路地裏の背景(高さ214)。w は幅(216より広くてもよい)、scrollX は壁と地面のずらし量 */
-export function drawAlley(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, x: number, y: number, scrollX = 0, w = 216): void {
+/**
+ * 夜の路地裏の背景(高さ214)。w は幅(216より広くてもよい)、scrollX は壁と地面のずらし量。
+ * bg を渡すとそのステージの背景(stage.def.bg)
+ */
+export function drawAlley(
+  ctx: CanvasRenderingContext2D, scene: Phaser.Scene, x: number, y: number, scrollX = 0, w = 216, bg: BgKeys = ALLEY_BG
+): void {
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, 214);
   ctx.clip();
-  drawWrapped(ctx, scene, 'bg_alley_far', x, y, w, Math.floor(scrollX / 4));
-  drawWrapped(ctx, scene, 'bg_alley_wall', x, y, w, scrollX);
-  drawWrapped(ctx, scene, 'bg_alley_ground', x, y + 124, w, scrollX);
+  drawWrapped(ctx, scene, bg.far, x, y, w, Math.floor(scrollX / 4));
+  drawWrapped(ctx, scene, bg.wall, x, y, w, scrollX);
+  drawWrapped(ctx, scene, bg.ground, x, y + 124, w, scrollX);
   ctx.restore();
 }
 

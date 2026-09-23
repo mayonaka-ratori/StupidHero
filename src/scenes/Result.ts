@@ -1,5 +1,6 @@
 // 結果画面。称号、勝利ポーズ(背中で爆発)、数字の数え上げ、いちばんひどかった場面、共有。
-// 入口:Boss から。出口:もう一回 → startRun して Intro、タイトルへ → Title。
+// 入口:Boss から。出口:もう一回 → 同じステージで startRun して Intro、タイトルへ → Title。
+// 背景と共有カードはそのステージの絵(run.stage.def)。このプレイで次のステージが開いたら、最後に知らせる。
 // 共有カードは画面が出た時点で作っておく(result/card.ts)。共有の流れは result/share.ts。
 
 import Phaser from 'phaser';
@@ -8,11 +9,11 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  buildShareText, damageAnalogy, decideTitle, formatYen, saveResult,
+  buildShareText, damageAnalogy, decideTitle, formatYen, randomSeed, saveResult, say, STAGES,
   type RecordField, type SaveOutcome, type StageStats, type TitleDef
 } from '../logic';
 import {
-  Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, flash, goto, preloadFont, shake
+  Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake
 } from '../ui';
 import { getRun, startRun, type GameRun } from '../run';
 import { buildCard, cardTexts, makeFallbackShot, worstCaption, type Card } from './result/card';
@@ -20,6 +21,7 @@ import { makeCanvas } from './result/draw';
 import { fillSampleStats, makeSampleShot, memoryStorage, sampleName } from './result/sample';
 import { ShareFlow } from './result/share';
 import { Timeline } from './result/timeline';
+import { markJustUnlocked } from './stageselect/state';
 
 /** 同じプレイの記録を2回保存しないように */
 const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: SaveOutcome }>();
@@ -65,23 +67,27 @@ export class ResultScene extends Phaser.Scene {
       if (run.debug && run.stats.defeated === 0 && run.stats.damage === 0 && run.stats.civHurt === 0) fillSampleStats(run.stats, sample);
       const stats = run.stats.snapshot();
       const title = decideTitle(stats);
-      const saved = saveResult(run.stage.id, stats, title.id, run.debug ? memoryStorage() : undefined);
+      const saved = saveResult(run.stage.id, stats, title.id, run.debug ? memoryStorage(run.stage.id) : undefined);
       rec = { stats, title, saved };
       savedRuns.set(run, rec);
+      // 次のステージが開いた:ステージを選ぶ画面で鍵がこわれる演出をする
+      markJustUnlocked(this, saved.unlockedNow);
     }
-    if (!shot && run.debug) shot = makeSampleShot(this, sampleName());
+    if (!shot && run.debug) shot = makeSampleShot(this, sampleName(), run.stage.id);
     const { stats: s, title: t, saved } = rec;
+    const def = run.stage.def;
     dev.log.push(`title:${t.id}`);
+    if (saved.unlockedNow.length) dev.log.push(`unlocked:${saved.unlockedNow.join(',')}`);
 
     // ─── 音 ───
     audio.sfx('fanfare');
     this.time.delayedCall(1500, () => audio.playBgm('result'));
     this.input.on('pointerdown', () => audio.unlock());
 
-    // ─── 上:夜の路地裏と勝利ポーズ ───
-    this.add.tileSprite(0, 0, W, actionH, 'bg_alley_far').setOrigin(0).setTilePosition(Math.floor(run.scrollX / 4), 0);
-    this.add.tileSprite(0, 0, W, 130, 'bg_alley_wall').setOrigin(0).setTilePosition(run.scrollX, 0);
-    this.add.tileSprite(0, 124, W, 90, 'bg_alley_ground').setOrigin(0).setTilePosition(run.scrollX, 0);
+    // ─── 上:ステージの背景と勝利ポーズ ───
+    this.add.tileSprite(0, 0, W, actionH, def.bg.far).setOrigin(0).setTilePosition(Math.floor(run.scrollX / 4), 0);
+    this.add.tileSprite(0, 0, W, 130, def.bg.wall).setOrigin(0).setTilePosition(run.scrollX, 0);
+    this.add.tileSprite(0, 124, W, 90, def.bg.ground).setOrigin(0).setTilePosition(run.scrollX, 0);
 
     const fist = t.pose === 'win_fist';
     const hx = 108;
@@ -113,7 +119,9 @@ export class ResultScene extends Phaser.Scene {
     ];
     const rowH = 17;
     const boxY = top + 4;
-    const boxH = 8 + rowH * (rows.length + 1);
+    // ステージ2は、組ごと撃破した人数と車で逃げられた組の数を小さな字で1行足す
+    const gangRowH = def.hasGangs ? 14 : 0;
+    const boxH = 8 + rowH * (rows.length + 1) + gangRowH;
     new WindowFrame(this, 4, boxY, W - 8, boxH, 'win');
     const rowY = (i: number): number => boxY + 5 + i * rowH;
     const values = rows.map((r, i) => {
@@ -133,6 +141,16 @@ export class ResultScene extends Phaser.Scene {
     const gapR = W - 11 - Math.ceil(collected.width) - 3;
     const newFits = gapR - gapL >= tagW;
     collectedNew.x = Math.round(gapL + (gapR - gapL - tagW) / 2);
+    const gangTexts: PixelText[] = [];
+    if (gangRowH) {
+      const gy = rowY(rows.length) + rowH;
+      const byGroup = s.defeatedByWipe + s.defeatedByVan;
+      gangTexts.push(
+        new PixelText(this, 11, gy, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),
+        new PixelText(this, W - 11, gy, `車で逃げた{${s.groupsEscaped > 0 ? 'red' : 'gold'}}${s.groupsEscaped}{/}組`, { size: FS.body, color: UI.textDim })
+          .setOrigin(1, 0).setVisible(false)
+      );
+    }
 
     // ─── ボタン ───
     const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
@@ -143,11 +161,14 @@ export class ResultScene extends Phaser.Scene {
     const shareBtn = new Button(this, 6, shareY, W - 12, shareH, 'じゅんびちゅう', { color: 'stop' }).setEnabled(false);
     const againBtn = new Button(this, 6, rowBtnY, 99, smallH, 'もう一回', { color: 'civ' });
     const titleBtn = new Button(this, W - 105, rowBtnY, 99, smallH, 'タイトルへ', { color: 0x4a3f78 });
+    // 次のステージが開いたら、タイトルへのボタンに「NEW」をつける(タイトルからステージを選ぶ画面へ行ける)
+    const unlockNew = this.newTag(0, rowBtnY - 7).setVisible(false);
+    unlockNew.x = W - 6 - (unlockNew.getData('w') as number) + 1;
     dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn };
     againBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
-      goto(this, SCENES.intro, undefined, { onCovered: () => startRun(this) });
+      goto(this, SCENES.intro, undefined, { onCovered: () => startRun(this, randomSeed(), false, run.stage.id) });
     });
     titleBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
@@ -157,7 +178,7 @@ export class ResultScene extends Phaser.Scene {
     // ─── いちばんひどかった場面(小さく)───
     const thumbTop = boxY + boxH + 5;
     const thumbRoom = shareY - 5 - thumbTop;
-    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX);
+    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX, def);
     // Street が撮った画像がまだ読みこみ中なら、読めてから描き直す
     const pending = shot instanceof HTMLImageElement && !shot.complete ? shot : null;
     const shotReady = pending
@@ -231,7 +252,7 @@ export class ResultScene extends Phaser.Scene {
     });
     this.tl
       .wait(200)
-      .step(0, { end: () => { analogy.setVisible(true); sfx('sparkle'); } })
+      .step(0, { end: () => { analogy.setVisible(true); for (const g of gangTexts) g.setVisible(true); sfx('sparkle'); } })
       .wait(250)
       .step(0, {
         end: () => {
@@ -247,6 +268,21 @@ export class ResultScene extends Phaser.Scene {
           if (thumbParts.length) sfx('hit');
         }
       });
+    // 次のステージが開いた知らせ(帯とオペレーターのひとこと)
+    if (saved.unlockedNow.length) {
+      const opened = saved.unlockedNow[0];
+      this.tl.wait(700).step(0, {
+        end: () => {
+          void banner(this, `${STAGES[opened].name}が遊べる!`, { y: 128, hold: 1500, band: UI.gold });
+          sfx('fanfare');
+          if (!quiet.v) flash(this, 0xfff0c0, 2);
+          const u = say('unlocked', undefined, opened);
+          void cut.say(u.text, u.face, { who: u.who });
+          if (quiet.v) cut.skip();
+          unlockNew.setVisible(true);
+        }
+      });
+    }
 
     // タップで数え上げを飛ばす(ボタンの上は除く)
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
@@ -255,14 +291,14 @@ export class ResultScene extends Phaser.Scene {
     });
     const onUpdate = (_t: number, dt: number): void => {
       this.tl.update(dt);
-      this.blinkTags([titleNew, collectedNew, ...newTags]);
+      this.blinkTags([titleNew, collectedNew, unlockNew, ...newTags]);
     };
     this.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
 
     // ─── 共有 ───
     const url = location.origin + location.pathname;
     const text = buildShareText({
-      stageName: run.stage.name, defeated: s.defeated, civHurt: s.civHurt, damage: s.damage, titleName: t.name,
+      stageId: run.stage.id, defeated: s.defeated, civHurt: s.civHurt, damage: s.damage, titleName: t.name,
       titlesCollected: saved.titlesCollected, titlesTotal: saved.titlesTotal, url
     });
     dev.shareText = text;
@@ -283,7 +319,7 @@ export class ResultScene extends Phaser.Scene {
       this.share?.arm();
     });
 
-    const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX };
+    const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: def };
     const texts = [...cardTexts(cardIn), ...rows.map((r) => r.label), 'ワーストシーン', 'NEW'];
     const alive = (): boolean => this.sys.isActive() || this.sys.isPaused();
     // 共有ボタンを使えるようにする(File が作れなかったときも、画像を大きく出す方で共有できる)

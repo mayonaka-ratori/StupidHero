@@ -8,14 +8,15 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { HURRY_AT_SEC, WAVE_INTRO, say, type Person, type SortChoice, type Speech } from '../logic';
+import { accessorySheet } from '../art/recolor';
+import { HURRY_AT_SEC, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, WindowFrame,
   addPanel, banner, flash, gotoWhenFree, panelRect, shake
 } from '../ui';
 import {
-  BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawAlley, drawLightPool, edgeGlow, spotlightDim, unlockOnTap
+  BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawLightPool, drawStageBg, edgeGlow, spotlightDim, unlockOnTap
 } from './sort/common';
 import { makeStamp, popStamp } from './sort/stamp';
 import { drawHand } from './sort/introDemo';
@@ -129,8 +130,8 @@ export class SortScene extends Phaser.Scene {
   // ─── 画面を組む ─────────────────────────────────
 
   private buildAction(W: number): void {
-    // 暗くした路地裏と、真ん中のスポットライト
-    drawAlley(this);
+    // 暗くしたステージの背景と、真ん中のスポットライト
+    drawStageBg(this, this.run.stage.def);
     this.add.image(0, 0, spotlightDim(this, CX, FEET_Y)).setOrigin(0).setDepth(Z.dim);
     const pool = this.add.graphics().setDepth(Z.dim + 0.5);
     drawLightPool(pool, CX, FEET_Y + 1, 46, 7);
@@ -154,7 +155,7 @@ export class SortScene extends Phaser.Scene {
     };
 
     // 左上:ステージ、何人目、時間
-    new PixelText(this, 4, 3, 'STAGE1', { size: FS.body, color: UI.gold, outline: true });
+    new PixelText(this, 4, 3, `STAGE${this.run.stage.def.no}`, { size: FS.body, color: UI.gold, outline: true });
     this.countText = new PixelText(this, 4, 18, '', { size: FS.body, outline: true });
     this.timeBar = new TimeBar(this, 4, 35, 40, 6);
     this.secText = new PixelText(this, 4, 44, '', { size: FS.big, outline: true });
@@ -230,7 +231,7 @@ export class SortScene extends Phaser.Scene {
     audio.sfx('reveal', { volume: 0.6 });
     void banner(this, `WAVE ${wave.no}`, { hold: 700, y: 128 });
     await this.sleep(200);
-    for (const s of WAVE_INTRO[wave.no]) {
+    for (const s of waveIntroFor(this.run.stage.id, wave.no)) {
       if (this.introSkip) break;
       await this.cut.say(s.text, s.face, { who: s.who, speed: 45 });
       await this.sleep(450);
@@ -290,10 +291,12 @@ export class SortScene extends Phaser.Scene {
     const s = this.cards.find((c) => c !== this.card) ?? this.cards[0];
     this.card = s;
     this.tweens.killTweensOf(s);
-    s.setTexture(p.sheetKey).setOrigin(...originFor(p.sheetKey)).setAngle(0).setDepth(Z.actor);
+    // ステージ2の人は、小物(腕章、首の布など)をその人の色に塗った絵にする
+    const key = accessorySheet(this, p.sheetKey, p.accessory?.color);
+    s.setTexture(key).setOrigin(...originFor(p.sheetKey)).setAngle(0).setDepth(Z.actor);
     const sx = from === 'right' ? CX + 64 : CX - 64;
     s.setPosition(sx, FEET_Y).setVisible(true).setFlipX(from === 'right');
-    s.play(animKey(p.sheetKey, 'walk'));
+    s.play(animKey(key, 'walk'));
     this.shadow.setVisible(true).setX(sx);
     if (this.state !== 'timeup') this.showProfile(p);
     this.updateHud();
@@ -303,7 +306,7 @@ export class SortScene extends Phaser.Scene {
       onUpdate: () => { s.x = Math.round(s.x); this.shadow.x = s.x; },
       onComplete: () => {
         s.setFlipX(false);
-        s.play(animKey(p.sheetKey, 'sortIdle'));
+        s.play(animKey(key, 'sortIdle'));
         if (this.state === 'play') this.locked = false;
       }
     });

@@ -1,16 +1,22 @@
 // タイトルから結果画面まで、自動で通しで遊ぶ。エラーが出ないかと、各場面の見た目を確かめる。
-// 使い方: node tools/playthrough.mjs <URL> <出力フォルダ> [種]
+// 使い方: node tools/playthrough.mjs <URL> <出力フォルダ> [種] [ステージ(alley か garage)]
+// garage のときは、開発用の入口で掛け合いから始める(鍵が開いていなくても遊べる)
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 
-const [url, outDir, seed = ''] = process.argv.slice(2);
+const [url, outDir, seed = '', stage = 'alley'] = process.argv.slice(2);
 mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
 const errors = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-await page.goto(url + (seed ? `?seed=${seed}` : ''));
+// 途中で Vite がページを読み直さないように、通知を切る
+await page.routeWebSocket(/.*/, () => {});
+const q = new URLSearchParams();
+if (seed) q.set('seed', seed);
+if (stage === 'garage') { q.set('scene', 'Intro'); q.set('stage', 'garage'); }
+await page.goto(url + (q.toString() ? `?${q}` : ''));
 await page.waitForFunction(() => window.__game && window.__game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
 await page.waitForTimeout(1500);
 
@@ -39,6 +45,7 @@ while (Date.now() - t0 < 300000) {
   const k = keys.includes('Result') ? 'Result' : keys[keys.length - 1] ?? '';
   if (k !== last) { await page.waitForTimeout(400); await shot(k); last = k; console.log(((Date.now() - t0) / 1000).toFixed(1) + 's', k); }
   if (k === 'Result') { await page.waitForTimeout(7000); await shot('result_end'); break; }
+  if (k === 'StageSelect') { await page.evaluate(() => window.__sh?.select?.('alley')); await page.waitForTimeout(800); continue; }
   if (k === 'Intro') { await tap(108, H - 80); await page.waitForTimeout(250); continue; }
   if (k === 'Sort') {
     await page.waitForTimeout(700);

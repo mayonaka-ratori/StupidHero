@@ -1,5 +1,6 @@
 // タイトル、ステージ前の掛け合い、仕分けの3つのシーンで使う小さな道具。
 //   drawAlley(this)            路地裏の背景(遠く、壁、地面)を置く
+//   drawStageBg(this, def)     そのステージの背景(def.bg)を置く(路地裏なら drawAlley と同じ)
 //   spotlightDim(this)         スポットライトの形に穴のあいた「暗くする網目」のテクスチャ
 //   edgeGlow(g, side, level)   画面の左右の端を光らせる帯を描く
 //   flicker(this, obj)         1コマおきに見えたり消えたりさせる(半透明の代わり)
@@ -10,6 +11,7 @@ import { UI } from '../../config';
 import { layout } from '../../layout';
 import { audio } from '../../audio';
 import { MuteButton, goto, type GotoOptions } from '../../ui';
+import { STAGES, type StageDef } from '../../logic/stages';
 
 /** 背景の重なり(ゲームの絵は 900 より下) */
 export const Z = {
@@ -32,15 +34,20 @@ export interface AlleyLayers {
   ground: Phaser.GameObjects.TileSprite;
 }
 
-/** 路地裏の背景を置く。y はアクション部分の上端(ふつう0) */
-export function drawAlley(scene: Phaser.Scene, scrollX = 0, y = 0): AlleyLayers {
+/** 路地裏の背景を置く。y はアクション部分の上端(ふつう0)。bg を渡すとほかのステージの背景 */
+export function drawAlley(scene: Phaser.Scene, scrollX = 0, y = 0, bg: StageDef['bg'] = STAGES.alley.bg): AlleyLayers {
   const { W } = layout;
-  const far = scene.add.image(0, y, 'bg_alley_far').setOrigin(0).setDepth(Z.far);
-  const wall = scene.add.tileSprite(0, y, W, 130, 'bg_alley_wall').setOrigin(0).setDepth(Z.wall);
-  const ground = scene.add.tileSprite(0, y + 124, W, 90, 'bg_alley_ground').setOrigin(0).setDepth(Z.ground);
+  const far = scene.add.image(0, y, bg.far).setOrigin(0).setDepth(Z.far);
+  const wall = scene.add.tileSprite(0, y, W, 130, bg.wall).setOrigin(0).setDepth(Z.wall);
+  const ground = scene.add.tileSprite(0, y + 124, W, 90, bg.ground).setOrigin(0).setDepth(Z.ground);
   wall.tilePositionX = Math.round(scrollX);
   ground.tilePositionX = Math.round(scrollX);
   return { far, wall, ground };
+}
+
+/** そのステージの背景(遠く、壁、地面)を置く */
+export function drawStageBg(scene: Phaser.Scene, def: Pick<StageDef, 'bg'>, scrollX = 0, y = 0): AlleyLayers {
+  return drawAlley(scene, scrollX, y, def.bg);
 }
 
 /**

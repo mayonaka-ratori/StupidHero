@@ -1,5 +1,6 @@
 // タイトル画面。夜の路地裏で、サーチライトの光の中にヒーローが立つ。
-// 「タップしてスタート」のタップで音を鳴らし始め、1回のプレイを作って掛け合い(Intro)へ。
+// 「タップしてスタート」のタップで音を鳴らし始め、ステージを選ぶ画面(StageSelect)へ。
+// 称号の数は全部のステージを合わせた数(称号5/14)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -7,7 +8,6 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { loadRecords, TITLE_COUNT } from '../logic';
-import { startRun } from '../run';
 import { FS, PixelText, flash, gotoWhenFree, shake } from '../ui';
 import { Z, addMute, devHook, drawAlley, drawLightPool, flicker } from './sort/common';
 
@@ -176,17 +176,16 @@ export class TitleScene extends Phaser.Scene {
     k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
   }
 
-  /** スタート:音を鳴らし始め、1回のプレイを作って掛け合いへ */
+  /** スタート:音を鳴らし始め、ステージを選ぶ画面へ */
   private begin(): void {
     if (this.started) return;
     this.started = true;
     audio.unlock();
     audio.playBgm('title');
     audio.sfx('button');
-    startRun(this);
     flash(this, 0xffffff, 2);
     this.hero.play(animKey('hero', 'okay'));
     this.kiran();
-    this.time.delayedCall(320, () => gotoWhenFree(this, SCENES.intro, undefined, { kind: 'wipe' }));
+    this.time.delayedCall(320, () => gotoWhenFree(this, SCENES.stageSelect, undefined, { kind: 'wipe' }));
   }
 }

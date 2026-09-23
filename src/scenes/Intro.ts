@@ -1,5 +1,5 @@
 // ステージ前の掛け合い。ヒーローとオペレーターが下のカットインで順に話す。
-// 初回は INTRO(遊び方の説明つき)、2回目からは INTRO_REPLAY。
+// そのステージの初回は introFor(stage.id)(遊び方の説明つき)、同じステージの2回目からは短い版。
 // タップで次へ(文字送りの途中なら全部出す)。右上の「とばす」で仕分けへ。
 
 import Phaser from 'phaser';
@@ -7,13 +7,15 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { INTRO, INTRO_REPLAY, type Speech } from '../logic';
+import { introFor, type Speech, type StageId } from '../logic';
 import { getRun } from '../run';
 import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect } from '../ui';
-import { Z, addMute, devHook, drawAlley, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
+import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
 const HERO_X = 60;
+/** このページで掛け合いを見たステージ(registry に入れる) */
+const INTRO_SEEN = 'introSeen';
 const FEET_Y = 204;
 
 export class IntroScene extends Phaser.Scene {
@@ -31,15 +33,19 @@ export class IntroScene extends Phaser.Scene {
   create(): void {
     const { W } = layout;
     const run = getRun(this);
-    this.lines = run.playCount >= 2 ? INTRO_REPLAY : INTRO;
+    // このページを開いてから、同じステージの掛け合いを見たことがあれば短い版にする
+    // (路地裏を遊んでから地下駐車場に行ったときは、地下駐車場の遊び方をはじめから教える)
+    const seen = (this.registry.get(INTRO_SEEN) as StageId[] | undefined) ?? [];
+    this.lines = introFor(run.stage.id, seen.includes(run.stage.id));
+    if (!seen.includes(run.stage.id)) this.registry.set(INTRO_SEEN, [...seen, run.stage.id]);
     this.index = -1;
     this.leaving = false;
     unlockOnTap(this);
     // 「もう一回」から来たときに結果画面の曲が残らないように(タイトルから来たときは同じ曲なので何もしない)
     audio.playBgm('title');
 
-    // 上:路地裏とヒーロー
-    drawAlley(this);
+    // 上:ステージの背景とヒーロー
+    drawStageBg(this, run.stage.def);
     const pool = this.add.graphics().setDepth(Z.ground + 1);
     drawLightPool(pool, HERO_X, FEET_Y + 1, 34, 5);
     const aura = this.add.sprite(HERO_X, FEET_Y - 44, 'fx_aura').setScale(2).setDepth(Z.aura);

@@ -5,14 +5,23 @@
 import Phaser from 'phaser';
 import { UI } from '../../config';
 import { animKey, originFor } from '../../art/sheets';
+import { accessorySheet } from '../../art/recolor';
+import { ACCESSORY_COLORS } from '../../logic';
 import { Button, FS, PixelText, TimeBar, WindowFrame } from '../../ui';
 import { makeStamp } from './stamp';
 
-export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go';
+export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go'
+  | 'match' | 'signal' | 'whistle' | 'van';
 
 /** セリフの言葉から、お手本の種類を決める */
 export function demoKindFor(text: string): DemoKind | null {
   const t = text.replace(/\n/g, '');
+  // ステージ2(地下駐車場)の手がかりと、仲間を呼ぶ、車で逃げる
+  if (/おそろい|同じ色|前の人と似/.test(t)) return 'match';
+  if (/合図/.test(t)) return 'signal';
+  if (/口笛/.test(t)) return 'whistle';
+  // 「地下駐車場」の車では出さない
+  if (/車[にもごで]|走り出/.test(t)) return 'van';
   if (/スワイプ|左がワル/.test(t)) return 'swipe';
   if (/ボタン/.test(t)) return 'buttons';
   if (/プロフィール|見た目/.test(t)) return 'clues';
@@ -58,6 +67,8 @@ export class IntroDemo {
   private arrows: PixelText[];
   private caption: PixelText;
   private extras: Phaser.GameObjects.GameObject[] = [];
+  private mask!: Phaser.Display.Masks.GeometryMask;
+  private van?: Phaser.GameObjects.Sprite;
   private bar?: TimeBar;
   private kind: DemoKind | null = null;
   private t = 0;
@@ -83,7 +94,8 @@ export class IntroDemo {
     // 枠の中だけ見せる
     const maskG = scene.make.graphics({}, false);
     maskG.fillStyle(0xffffff, 1).fillRect(this.root.x + 3, this.root.y + 3, w - 6, h - 6);
-    this.person.setMask(maskG.createGeometryMask());
+    this.mask = maskG.createGeometryMask();
+    this.person.setMask(this.mask);
     this.root.setVisible(false);
   }
 
@@ -96,6 +108,7 @@ export class IntroDemo {
     for (const o of this.extras) o.destroy();
     this.extras = [];
     this.bar = undefined;
+    this.van = undefined;
     if (!kind) { this.root.setVisible(false); return; }
     this.root.setVisible(true);
     // 開くときに縦に広がる(3コマ)
@@ -114,7 +127,47 @@ export class IntroDemo {
     const sc = this.scene;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.root.add(o); this.extras.push(o); return o; };
     const bw = this.w - 16;
+    // ステージ2の人(小物をその色に塗る)
+    const gang = (key: string, color: number, x: number): Phaser.GameObjects.Sprite => {
+      const k = accessorySheet(sc, key, color);
+      const p = add(sc.add.sprite(x, this.feetY, k).setOrigin(...originFor(key)));
+      p.setMask(this.mask);
+      p.play(animKey(k, 'sortIdle'));
+      return p;
+    };
+    const red = ACCESSORY_COLORS.red.color;
     switch (kind) {
+      case 'match': {
+        // おそろいの色の小物をつけた2人。小物の色の「!」を点滅させる
+        this.person.setVisible(false);
+        gang('guard_bad', red, this.cx - 20);
+        gang('clubber_bad', red, this.cx + 20).setFlipX(true);
+        this.caption.setText('おそろい？');
+        break;
+      }
+      case 'signal': {
+        const k = accessorySheet(sc, 'mechanic_bad', red);
+        this.person.setTexture(k).setOrigin(...originFor('mechanic_bad'));
+        this.person.play(animKey(k, 'sortIdle'));
+        this.caption.setText('合図？');
+        break;
+      }
+      case 'whistle': {
+        const k = accessorySheet(sc, 'guard_bad', red);
+        this.person.setTexture(k).setOrigin(...originFor('guard_bad'));
+        this.person.play({ key: animKey(k, 'mischief'), repeat: -1, repeatDelay: 300 });
+        this.caption.setText('ピューッ');
+        break;
+      }
+      case 'van': {
+        this.person.setVisible(false);
+        this.van = add(sc.add.sprite(this.cx, this.h - 37, 'prop_van', 1).setOrigin(0.5, 1));
+        this.van.setMask(this.mask);
+        const b = add(new Button(sc, 8, this.h - 34, bw, 26, '行け!', { color: 'go', size: FS.body }));
+        b.hit.disableInteractive();
+        this.hand.setVisible(true);
+        break;
+      }
       case 'swipe':
         this.hand.setVisible(true);
         break;
@@ -175,6 +228,10 @@ export class IntroDemo {
       case 'timeUp': this.timeStep(); break;
       case 'stop':
       case 'go': this.tapStep(); break;
+      case 'match':
+      case 'signal':
+      case 'whistle': this.cluesStep(); break;
+      case 'van': this.vanStep(); break;
       default: break;
     }
   }
@@ -242,6 +299,23 @@ export class IntroDemo {
     const bad = Math.floor(this.t / cycle) % 2 === 0;
     this.stampBad.setVisible(done && bad).setPosition(this.cx, this.feetY - 50).setScale(t < 1640 ? 2 : 1);
     this.stampCiv.setVisible(done && !bad).setPosition(this.cx, this.feetY - 50).setScale(t < 1640 ? 2 : 1);
+  }
+
+  /** ワゴンが走り出して、行けを押すと止まる */
+  private vanStep(): void {
+    this.tapStep();
+    if (!this.van) return;
+    const cycle = 1800;
+    const t = this.t % cycle;
+    if (t < 1100) {
+      // 走る(2コマ)。右へ少しずつ
+      this.van.setFrame(1 + (Math.floor(this.t / 90) % 2));
+      this.van.x = this.cx - 10 + Math.round((t / 1100) * 24);
+    } else {
+      // 行けで止まった:こわれたワゴン
+      this.van.setFrame(3);
+      this.van.x = this.cx + 14 + (t < 1200 ? (Math.floor(t / 30) % 2 ? 2 : -2) : 0);
+    }
   }
 
   /** ボタンをトントンと押す */

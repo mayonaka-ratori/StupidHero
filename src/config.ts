@@ -14,6 +14,7 @@ export const FONT_FAMILY = 'DotGothic16';
 export const SCENES = {
   boot: 'Boot',
   title: 'Title',
+  stageSelect: 'StageSelect',
   intro: 'Intro',
   sort: 'Sort',
   street: 'Street',

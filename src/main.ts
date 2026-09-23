@@ -4,6 +4,7 @@ import { computeLayout, computeRes, fitCanvas } from './layout';
 import { installHiRes, RES } from './hires';
 import { BootScene } from './scenes/Boot';
 import { TitleScene } from './scenes/Title';
+import { StageSelectScene } from './scenes/StageSelect';
 import { IntroScene } from './scenes/Intro';
 import { SortScene } from './scenes/Sort';
 import { StreetScene } from './scenes/Street';
@@ -29,7 +30,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   audio: { noAudio: true },
   banner: false,
-  scene: [BootScene, TitleScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene, PauseOverlay, WipeScene]
+  scene: [BootScene, TitleScene, StageSelectScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene, PauseOverlay, WipeScene]
 });
 
 const refit = (): void => {

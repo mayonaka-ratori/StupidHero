@@ -1,16 +1,18 @@
 // 共有カード。横216×縦270のドット絵を作り、ぼかさずに5倍して 1080×1350 の PNG にする。
 // 結果画面が出た時点で作っておく(ボタンを押してから作ると、iPhoneで共有メニューが開かないため)。
-//   const card = buildCard(this, { title, stats, saved, shot, scrollX });
+//   const card = buildCard(this, { title, stats, saved, shot, scrollX, stage: run.stage.def });
 //   card.dataUrl      // 大きく出すとき(長押しで保存)
 //   await card.file   // navigator.share に渡す File(作れなければ null)
 //
 // 並び:上に称号とヒーローの勝利ポーズ(背中で爆発)、オペレーターのひとこと。
-//       真ん中にいちばんひどかった場面。下に数字、被害額のたとえ、称号の数、ロゴ。
+//       真ん中にいちばんひどかった場面(右上にステージの名前)。下に数字、被害額のたとえ、称号の数、ロゴ。
+// 背景とボスの絵は stage(stage.def)から。省略すると路地裏。
 
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  damageAnalogy, formatYen, type AttackKind, type SaveOutcome, type StageStats, type TitleDef, type WorstScene
+  STAGES, damageAnalogy, formatYen, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
+  type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
 import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
@@ -44,16 +46,23 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
   }
 };
 
+/** ステージごとに言い方を変える見出し(地下駐車場は「街」ではない) */
+const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = {
+  garage: { bigPropBroken: '駐車場ボロボロ!' }
+};
+
 /** ワーストシーンの説明の文 */
-export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'>): string {
+export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {
   if (!s.worstScene) return 'ひどいことはなかった!';
   const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
-  return byAttack ?? WORST_CAPTION[s.worstScene];
+  const byStage = s.stageId ? WORST_CAPTION_BY_STAGE[s.stageId]?.[s.worstScene] : undefined;
+  return byAttack ?? byStage ?? WORST_CAPTION[s.worstScene];
 }
 
 /** 説明の文の全部(字を先に読みこむため) */
 const ALL_CAPTIONS = [
   ...Object.values(WORST_CAPTION),
+  ...Object.values(WORST_CAPTION_BY_STAGE).flatMap((t) => Object.values(t ?? {})),
   ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {}))
 ];
 
@@ -64,7 +73,15 @@ export interface CardInput {
   /** いちばんひどかった場面(216×214)。なければ代わりの絵を描く */
   shot: CanvasImageSource | null;
   scrollX: number;
+  /** どのステージか(背景、ボスの絵、名前)。省略すると路地裏 */
+  stage?: CardStage;
 }
+
+/** 共有カードに使うステージの中身 */
+export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name'>;
+
+/** カードに出すステージの名前(「地下駐車場ステージ」) */
+const stageLabel = (st: CardStage): string => `${st.name}ステージ`;
 
 export interface Card {
   /** 216×270 */
@@ -79,19 +96,20 @@ export interface Card {
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, i.title.comment.text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS,
+    i.title.name, i.title.comment.text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
     'ひどいことはなかった!', '悪党撃破', '市民負傷', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage).text, '0123456789/,¥万億'
   ];
 }
 
-/** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている */
-export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number): HTMLCanvasElement {
+/** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている(背景とボスはそのステージの絵) */
+export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number, stage: CardStage = STAGES[stats.stageId ?? 'alley']): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, scrollX);
+  drawAlley(ctx, scene, 0, 0, scrollX, 216, stage.bg);
   const feet = 194;
   if (stats.bossDefeated) {
-    drawSprite(ctx, scene, 'boss', frameOf('boss', 'defeat', 3), 140, feet, { anchor: 'feet' });
+    const boss = stage.bossSheet;
+    drawSprite(ctx, scene, boss, frameOf(boss, 'defeat', 3), 140, feet, { anchor: 'feet' });
     drawSprite(ctx, scene, 'fx_stars', frameOf('fx_stars', 'play', 1), 132, feet - 30, { anchor: 'center' });
   }
   drawSprite(ctx, scene, 'hero', frameOf('hero', 'win_arms', 0), 76, feet, { anchor: 'feet' });
@@ -103,13 +121,14 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   const { canvas, ctx } = makeCanvas(CARD_W, CARD_H, CARD_SCALE);
   const W = CARD_W;
   const s = i.stats;
+  const stage = i.stage ?? STAGES[s.stageId ?? 'alley'];
   fill(ctx, UI.panel, [0, 0, W, CARD_H]);
 
   // ─── 上:勝利ポーズ ───
   const TOP = 96;
   {
     const bg = makeCanvas(W, 214);
-    drawAlley(bg.ctx, scene, 0, 0, i.scrollX);
+    drawAlley(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
     ctx.drawImage(bg.canvas, 0, 100, W, TOP, 0, 0, W, TOP);
     const hx = 46;
     const feet = i.title.pose === 'win_fist' ? 84 : 90;
@@ -151,7 +170,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   // 下の数字を4行にするので、写真は少し低め(下の端は前と同じところで切る)
   const MID_H = 70;
   {
-    const shot = i.shot ?? makeFallbackShot(scene, s, i.scrollX);
+    const shot = i.shot ?? makeFallbackShot(scene, s, i.scrollX, stage);
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
     ctx.drawImage(shot, 0, 196 - MID_H, W, MID_H, 0, MID, W, MID_H);
     // 見出し
@@ -159,6 +178,12 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0x000000, [0, MID, lab.w + 8, lab.h + 5]);
     fill(ctx, UI.bad, [0, MID, lab.w + 7, lab.h + 4]);
     drawText(ctx, scene, 4, MID + 2, 'ワーストシーン', { size: 12, color: 0xffffff });
+    // ステージの名前(右上)
+    const sl = stageLabel(stage);
+    const sz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, sl, { size: 12 });
+    fill(ctx, 0x000000, [W - sz.w - 8, MID, sz.w + 8, sz.h + 4]);
+    fill(ctx, UI.gold, [W - sz.w - 8, MID + sz.h + 3, sz.w + 8, 1]);
+    drawText(ctx, scene, W - 4, MID + 2, sl, { size: 12, color: UI.gold }, [1, 0]);
     const cap = worstCaption(s);
     drawText(ctx, scene, W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [1, 1]);
   }
