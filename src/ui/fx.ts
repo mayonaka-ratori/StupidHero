@@ -16,6 +16,7 @@ import { UI } from '../config';
 import { layout } from '../layout';
 import { PixelText } from './text';
 import { DEPTH, FS } from './theme';
+import { px } from '../hires';
 
 /** 画面全体を一瞬光らせる */
 export function flash(scene: Phaser.Scene, color = 0xffffff, frames = 2): void {
@@ -221,5 +222,5 @@ export function tapSpark(scene: Phaser.Scene, x: number, y: number, color = 0xff
 
 /** タップのたびに火花を出す */
 export function enableTapSparks(scene: Phaser.Scene, color = 0xffffff): void {
-  scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => tapSpark(scene, p.x, p.y, color));
+  scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => { const q = px(p); tapSpark(scene, q.x, q.y, color); });
 }

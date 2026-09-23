@@ -1,6 +1,7 @@
 import '@fontsource/dotgothic16';
 import Phaser from 'phaser';
-import { computeLayout, fitCanvas } from './layout';
+import { computeLayout, computeRes, fitCanvas } from './layout';
+import { installHiRes, RES } from './hires';
 import { BootScene } from './scenes/Boot';
 import { TitleScene } from './scenes/Title';
 import { IntroScene } from './scenes/Intro';
@@ -12,12 +13,13 @@ import { WipeScene } from './ui/transition';
 import { PauseOverlay } from './ui/pause';
 
 const L = computeLayout();
+installHiRes(computeRes(L.W, L.H));
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: L.W,
-  height: L.H,
+  width: L.W * RES,
+  height: L.H * RES,
   backgroundColor: '#000000',
   pixelArt: true,
   roundPixels: true,

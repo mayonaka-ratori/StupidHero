@@ -23,6 +23,7 @@ import {
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
 import { HERO_START, planStreet } from './street/plan';
+import { snapshotLogical } from '../hires';
 
 /** ヒーローの走る速さ(ドット/秒) */
 const RUN = 84;
@@ -357,10 +358,11 @@ export class StreetScene extends Phaser.Scene {
     // 当たった相手が吹っ飛び始めたところを撮る(ヒットストップのあと少しして)
     this.time.delayedCall(90, () => {
       for (const i of icons) i.setVisible(false);
-      this.game.renderer.snapshotArea(0, 0, layout.W, layout.actionH, (img) => {
-        if (img instanceof HTMLImageElement) this.run.worstShot = img;
-        for (const i of icons) i.setVisible(true);
+      snapshotLogical(this.game, 0, 0, layout.W, layout.actionH, (img) => {
+        this.run.worstShot = img;
       });
+      // 撮影はこのフレームの描画で行われるので、次のフレームでアイコンを戻す
+      this.time.delayedCall(0, () => { for (const i of icons) i.setVisible(true); });
     });
   }
 

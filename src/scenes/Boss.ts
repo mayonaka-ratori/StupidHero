@@ -20,6 +20,7 @@ import { DEPTH_OF } from './boss/depth';
 import { flyPunch, spawnFx, SpeedLines, throwDebris } from './boss/effects';
 import { BossHud, RushMeter } from './boss/hud';
 import { BossProps } from './boss/props';
+import { px, snapshotLogical } from '../hires';
 
 /** 背景の奥の層が手前に対してどれだけ動くか(Street と合わせる) */
 const FAR_PARALLAX = 0.25;
@@ -198,7 +199,8 @@ export class BossScene extends Phaser.Scene {
   private onPress(p: Phaser.Input.Pointer): void {
     audio.unlock();
     if (this.phase !== 'fight') return;
-    tapSpark(this, p.x, p.y, UI.gold);
+    const q = px(p);
+    tapSpark(this, q.x, q.y, UI.gold);
     const res = this.fight.tap();
     const tps = this.fight.tapsPerSec;
     const power = tps / BOSS.maxTapsPerSec; // 0〜1
@@ -384,8 +386,8 @@ export class BossScene extends Phaser.Scene {
     if (run.stats.reportScene('bossDefeated')) {
       // 最後の一撃の瞬間を撮ってから、爆発を始める(白い光が写らないように)
       const { W, actionH } = layout;
-      this.game.renderer.snapshotArea(0, 0, W, actionH, (img) => {
-        if (img instanceof HTMLImageElement) run.worstShot = img;
+      snapshotLogical(this.game, 0, 0, W, actionH, (img) => {
+        run.worstShot = img;
         finale();
       });
       this.time.delayedCall(250, finale);

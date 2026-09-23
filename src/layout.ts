@@ -34,8 +34,15 @@ export function computeLayout(): Layout {
   return layout;
 }
 
+/** 論理ドット1つを、端末の画素いくつで表示するか(キャンバスを細かく作る倍率に使う。1〜6) */
+export function computeRes(W: number, H: number): number {
+  const dpr = window.devicePixelRatio || 1;
+  const s = Math.min((window.innerWidth * dpr) / W, (window.innerHeight * dpr) / H);
+  return Math.max(1, Math.min(6, Math.round(s)));
+}
+
 /**
- * キャンバスを画面に合わせて拡大する。
+ * キャンバスを画面に合わせて表示する大きさを決める(キャンバスの中身の細かさとは別)。
  * 実際の画素の数で整数倍にし、整数倍だと小さくなりすぎるときだけ小数倍にする。
  */
 export function fitCanvas(canvas: HTMLCanvasElement, W: number, H: number): void {

@@ -11,6 +11,8 @@
 // シーンが終わると自動で後始末する。
 
 import Phaser from 'phaser';
+import { px } from '../hires';
+import { layout } from '../layout';
 
 export type SwipeDir = 'left' | 'right';
 
@@ -87,12 +89,13 @@ export class SwipeInput {
   private nearEdge(x: number): boolean {
     const canvas = this.scene.game.canvas;
     const rect = canvas.getBoundingClientRect();
-    const cssX = rect.left + (x / this.scene.scale.width) * rect.width;
+    const cssX = rect.left + (x / layout.W) * rect.width;
     return cssX < this.opt.edgeCss || cssX > window.innerWidth - this.opt.edgeCss;
   }
 
-  private down(p: Phaser.Input.Pointer): void {
+  private down(ptr: Phaser.Input.Pointer): void {
     if (!this.enabled || this.pointerId >= 0) return;
+    const p = { id: ptr.id, ...px(ptr) };
     if (!this.area.contains(p.x, p.y) || this.nearEdge(p.x)) return;
     this.pointerId = p.id;
     this.startX = p.x;
@@ -101,8 +104,9 @@ export class SwipeInput {
     this.opt.onStart?.(p.x, p.y);
   }
 
-  private move(p: Phaser.Input.Pointer): void {
-    if (p.id !== this.pointerId) return;
+  private move(ptr: Phaser.Input.Pointer): void {
+    if (ptr.id !== this.pointerId) return;
+    const p = px(ptr);
     if (!this.enabled) { this.reset(); this.opt.onCancel?.(); return; }
     const now = performance.now();
     this.samples.push({ t: now, x: p.x });
@@ -110,8 +114,9 @@ export class SwipeInput {
     this.opt.onMove?.(Math.round(p.x - this.startX), Math.round(p.y - this.startY));
   }
 
-  private up(p: Phaser.Input.Pointer): void {
-    if (p.id !== this.pointerId) return;
+  private up(ptr: Phaser.Input.Pointer): void {
+    if (ptr.id !== this.pointerId) return;
+    const p = px(ptr);
     this.pointerId = -1;
     if (!this.enabled) { this.opt.onCancel?.(); return; }
     const dx = p.x - this.startX;
