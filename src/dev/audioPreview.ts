@@ -11,11 +11,16 @@ import {
   backlogSteps,
   renderBgm,
   renderSfx,
+  renderSfxRepeat,
   renderWorstCase,
   renderWorstCaseBoss2,
   renderWorstCaseStreet2,
-  SFX_START
+  SFX_START,
+  songSeconds
 } from '../audio/offline';
+
+/** ステージ2で足した効果音(何度も続けて鳴らしたときの大きさも測る) */
+const STAGE2_SFX: SfxName[] = ['whistle', 'engine', 'skid', 'horn', 'crash'];
 
 const engine = audio as unknown as Engine;
 
@@ -80,11 +85,15 @@ interface Row {
 async function check(): Promise<{ rows: Row[]; backlog: number }> {
   const rows: Row[] = [];
   for (const n of BGM_NAMES) {
-    const sec = n === 'result' ? 12 : 8;
+    // 前奏とくり返し1回ぶん + 2秒(くり返しのつなぎ目とエコーの残りまで)
+    const sec = Math.ceil(songSeconds(n)) + 2;
     rows.push({ kind: 'bgm', name: n, final: analyze(await renderBgm(n, sec)), raw: analyze(await renderBgm(n, sec, false)) });
   }
   for (const n of SFX_NAMES) {
     rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n as SfxName), SFX_START), raw: analyze(await renderSfx(n as SfxName, false), SFX_START) });
+  }
+  for (const n of STAGE2_SFX) {
+    rows.push({ kind: 'rep', name: n + '×', final: analyze(await renderSfxRepeat(n), SFX_START), raw: analyze(await renderSfxRepeat(n, false), SFX_START) });
   }
   rows.push({ kind: 'mix', name: 'boss+sfx', final: analyze(await renderWorstCase()), raw: analyze(await renderWorstCase(false)) });
   rows.push({ kind: 'mix', name: 'boss2+sfx', final: analyze(await renderWorstCaseBoss2()), raw: analyze(await renderWorstCaseBoss2(false)) });

@@ -1,5 +1,6 @@
 // 確かめる用:OfflineAudioContext で曲や効果音を描き出し、音の大きさを数字で見る。ゲームからは使わない。
 import type { BgmName, SfxName } from './index';
+import { SFX_GAP, SFX_GAP_DEFAULT } from './engine';
 import { createMixer } from './mixer';
 import { BgmPlayer, compile } from './sequencer';
 import { SFX } from './sfx';
@@ -40,6 +41,12 @@ export function analyze(buf: AudioBuffer, start = 0): Level {
   return { peak, rmsDb: rms > 0 ? 20 * Math.log10(rms) : -Infinity, lastSound: Math.max(0, last / buf.sampleRate - start), hot };
 }
 
+/** 曲の前奏とくり返し1回ぶんの長さ(秒)。これに少し足して描き出すと、くり返しのつなぎ目とエコーの残りまで測れる */
+export function songSeconds(name: BgmName): number {
+  const s = compile(SONGS[name]);
+  return ((s.intro?.steps ?? 0) + s.loop.steps) * (60 / s.bpm / 4);
+}
+
 /** 曲を seconds 秒描き出す。limit=false でコンプレッサーとクリップを通さない */
 export async function renderBgm(name: BgmName, seconds: number, limit = true): Promise<AudioBuffer> {
   const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
@@ -57,6 +64,18 @@ export async function renderSfx(name: SfxName, limit = true, seconds = 2): Promi
   const ctx = new OfflineAudioContext(2, Math.ceil((SFX_START + seconds) * RATE), RATE);
   const mix = createMixer(ctx, ctx.destination, limit);
   SFX[name](ctx, mix.sfx, SFX_START, 1);
+  return ctx.startRendering();
+}
+
+/**
+ * 同じ効果音を、ゲームで鳴らせるいちばん短い間隔(SFX_GAP)で seconds 秒のあいだ鳴らし続ける。
+ * 何度も鳴ったときに重なって大きくなりすぎないかを見る
+ */
+export async function renderSfxRepeat(name: SfxName, limit = true, seconds = 2): Promise<AudioBuffer> {
+  const ctx = new OfflineAudioContext(2, Math.ceil((SFX_START + seconds + 1) * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const gap = Math.max(SFX_GAP[name] ?? SFX_GAP_DEFAULT, 0.005);
+  for (let t = SFX_START; t < SFX_START + seconds; t += gap) SFX[name](ctx, mix.sfx, t, 1);
   return ctx.startRendering();
 }
 

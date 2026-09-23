@@ -32,7 +32,7 @@ for (const r of res.rows) {
 }
 // ステージ2の音がそろっているか
 const names = new Set(res.rows.map((r) => r.name));
-for (const n of ['street2', 'boss2', 'whistle', 'engine', 'skid', 'horn', 'crash', 'boss2+sfx', 'street2+sfx']) {
+for (const n of ['street2', 'boss2', 'whistle', 'engine', 'skid', 'horn', 'crash', 'whistle×', 'engine×', 'skid×', 'horn×', 'crash×', 'boss2+sfx', 'street2+sfx']) {
   if (!names.has(n)) ng(`${n} が測れていない`);
 }
 if (res.backlog > 4) ng(`遅れたときに ${res.backlog} マスをまとめて予約した`);
