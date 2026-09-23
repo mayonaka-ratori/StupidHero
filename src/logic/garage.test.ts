@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sheetByKey } from '../art/sheets';
 import { AGES, NAMES } from './content';
-import { BOSS2_AGES, LOOK_NOUN } from './garageContent';
+import { BOSS2_AGES, ordinalName } from './garageContent';
 import { GANG, GANG_COLOR_IDS } from './rules';
 import { createStage, findBoss } from './stage';
 import { STAGES } from './stages';
@@ -20,10 +20,10 @@ describe('createStage(seed, "garage")', () => {
     expect(s.name).toBe('地下駐車場');
   });
 
-  it('波の人数と時間がSTAGE2の表の通り(5人20秒、6人18秒、6人と女ボス20秒)', () => {
+  it('波の人数と時間がSTAGE2の表の通り(5人30秒、6人26秒、6人と女ボス28秒。時間ははじめの表より長くした)', () => {
     for (const s of stages) {
       expect(s.waves.map((w) => w.no)).toEqual([1, 2, 3]);
-      expect(s.waves.map((w) => w.seconds)).toEqual([20, 18, 20]);
+      expect(s.waves.map((w) => w.seconds)).toEqual([30, 26, 28]);
       expect(s.waves.map((w) => w.people.length)).toEqual([5, 6, 7]);
       expect(s.peopleTotal).toBe(18);
       expect(s.waves.map((w) => w.hasBoss)).toEqual([false, false, true]);
@@ -143,7 +143,7 @@ describe('createStage(seed, "garage")', () => {
     const badLines = new Set<string>();
     for (const s of stages) {
       for (const p of everyone(s)) {
-        const text = p.link?.where === 'profile' ? p.profile.line.replace(/さっきの.+?(と|を|に|から)/, '{n}') : p.profile.line;
+        const text = p.link?.where === 'profile' ? p.profile.line.replace(/^\d人目/, '{n}') : p.profile.line;
         if (p.truth === 'civ') civLines.add(text);
         if (p.truth === 'bad') badLines.add(text);
       }
@@ -203,7 +203,8 @@ describe('前の人とのつながり', () => {
           expect(to).toBeDefined();
           expect(to.index).toBeLessThan(p.index);
           const text = p.link.where === 'profile' ? p.profile.line : p.hint.text;
-          expect(text).toContain(`さっきの${LOOK_NOUN[to.look as keyof typeof LOOK_NOUN]}`);
+          expect(text.startsWith(ordinalName(to.index))).toBe(true);
+          expect(text).not.toContain('さっき');
         }
       }
     }
@@ -261,14 +262,14 @@ describe('前の人とのつながり', () => {
     expect(civLinks / gangLinks).toBeLessThan(1.6);
   });
 
-  it('「おそろいの色」の文は、本当に色が同じときだけ', () => {
+  it('「同じ色の小物」の文は、本当に色が同じときだけ', () => {
     let seen = 0;
     for (const s of stages) {
       for (const w of s.waves) {
         for (const p of w.people) {
           if (!p.link) continue;
           const text = p.link.where === 'profile' ? p.profile.line : p.hint.text;
-          if (!text.includes('おそろいの色')) continue;
+          if (!text.includes('同じ色の')) continue;
           seen++;
           const to = w.people.find((q) => q.id === p.link!.toId)!;
           expect(p.accessory!.id).toBe(to.accessory!.id);

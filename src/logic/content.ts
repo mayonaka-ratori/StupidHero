@@ -49,8 +49,31 @@ export const AGES: Readonly<Record<Look, readonly [number, number]>> = {
 };
 
 /**
+ * 市民にもワルにも出るプロフィールの一文(どちらにも本当のこと)。
+ * これが出た人は、文だけでは決められない。見た目、動き、一言、「持ち物」の窓と合わせて決める
+ */
+export const BOTH_PROFILE_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper', readonly string[]>> = {
+  hoodie: [
+    '路地裏は\nよく通る',
+    'ポケットに\n手を入れるくせがある',
+    'パーカーは\n三枚持っている'
+  ],
+  suit: [
+    'スーツは\n毎日同じ',
+    '今日は\n忙しい一日だった',
+    'この辺の道は\nよく知っている'
+  ],
+  shopper: [
+    '袋はいつも\nぱんぱん',
+    '商店街には\n毎日来る',
+    '重い袋にも\nもう慣れた'
+  ]
+};
+
+/**
  * プロフィールの一文。嘘は書かないが、どちらとも取れる。
  * 市民とワルで似た言い回しを並べ、どちらの一覧にも見た目や動きの手がかりに合う言葉を混ぜる。
+ * 組の見た目(パーカー、スーツ、買い物袋)には、どちらにも出る文(BOTH_PROFILE_LINES)も入れる
  */
 export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad?: readonly string[] }>> = {
   hoodie: {
@@ -61,7 +84,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '夜の散歩が好き。\n路地裏は近道',
       '手ぶらに見えるが\n持つ物は持っている',
       '最近、財布を\n新しくした',
-      'バイト帰り。\n今日は給料日'
+      'バイト帰り。\n今日は給料日',
+      ...BOTH_PROFILE_LINES.hoodie
     ],
     // ワル:ポケットからナイフの柄。ポケットを押さえてキョロキョロ
     bad: [
@@ -70,7 +94,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '夜の路地裏に\nくわしい',
       '手ぶらに見えるが\nそうでもない',
       '最近、よく\n後ろをふり返る',
-      '今日は\n稼ぎどきらしい'
+      '今日は\n稼ぎどきらしい',
+      ...BOTH_PROFILE_LINES.hoodie
     ]
   },
   suit: {
@@ -81,7 +106,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '大事な物を\n届けるところ',
       '今日は朝から\n走りっぱなし',
       '家族には\n頭が上がらない',
-      '路地裏は近道。\n急いでいる'
+      '路地裏は近道。\n急いでいる',
+      ...BOTH_PROFILE_LINES.suit
     ],
     // ワル:女物のバッグを抱えている。バッグを抱え直して後ろを気にする
     bad: [
@@ -90,7 +116,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '大事な物を\n運んでいるところ',
       '今日は朝から\n走りっぱなし',
       '赤い物が好き。\n最近手に入れた',
-      '荷物が多いのは\n慣れている'
+      '荷物が多いのは\n慣れている',
+      ...BOTH_PROFILE_LINES.suit
     ]
   },
   shopper: {
@@ -101,7 +128,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '重い物を持つのは\n得意',
       'この辺の店は\nだいたい知ってる',
       '買い物は\n早い者勝ち',
-      '袋は二重にする派'
+      '袋は二重にする派',
+      ...BOTH_PROFILE_LINES.shopper
     ],
     // ワル:袋から財布や腕時計がのぞく。袋の口を手でふさぐ
     bad: [
@@ -110,7 +138,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       'キラキラした物が\n好き',
       'この辺の人は\nだいたい知ってる',
       '財布はいくつ\nあっても困らない',
-      '人ごみが好き。\n用事はすぐ済む'
+      '人ごみが好き。\n用事はすぐ済む',
+      ...BOTH_PROFILE_LINES.shopper
     ]
   },
   mohawk: {
@@ -175,6 +204,8 @@ export const BOSS_PROFILE_LINES: Readonly<Record<DisguiseLook, readonly string[]
 /**
  * オペレーターの一言。嘘はつかないが、どちらとも取れる言い方にする。
  * SPECの表の一言(「ポケットがふくらんでる…」など)は市民にもワルにも入れる。
+ * 顔は文だけで決める(同じ文はいつも同じ顔)。組の見た目は、市民とワルで顔の数をそろえる
+ * (あわてた顔が出たらワル、のように顔だけで分からないように)
  */
 export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint[]; bad?: readonly OperatorHint[] }>> = {
   hoodie: {
@@ -183,14 +214,16 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', 'ずっと手を\nポケットに入れてる'),
       hint('normal', '誰かを\n待ってるみたい'),
       hint('deadpan', '落ち着いてる…\nように見える'),
-      hint('normal', '茶色い物が\nちらっと見えた')
+      hint('normal', '茶色い物が\nちらっと見えた'),
+      hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ],
     bad: [
       hint('normal', 'ポケットが\nふくらんでる…'),
       hint('normal', 'ポケットを\n押さえてるね'),
-      hint('panic', 'さっきから\nキョロキョロしてる'),
+      hint('normal', 'さっきから\nキョロキョロしてる'),
       hint('deadpan', '落ち着きが\nないような…'),
-      hint('normal', '黄色い物が\nちらっと見えた')
+      hint('normal', '黄色い物が\nちらっと見えた'),
+      hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ]
   },
   suit: {
@@ -215,14 +248,16 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '袋を何度も\n持ち直してる'),
       hint('normal', '白い物が\nのぞいてる'),
       hint('normal', '買い物帰り\nかな？'),
-      hint('deadpan', '袋、\nはち切れそう')
+      hint('deadpan', '袋、\nはち切れそう'),
+      hint('panic', '袋から何か\n落ちそう！')
     ],
     bad: [
       hint('normal', '袋がやけに\n重そう'),
       hint('normal', '袋の口を\n押さえてるね'),
       hint('normal', '金色の物が\nのぞいてる'),
-      hint('deadpan', '買い物帰り…\nなのかな？'),
-      hint('panic', '袋、\nはち切れそう')
+      hint('normal', '買い物帰り…\nなのかな？'),
+      hint('deadpan', '袋、\nはち切れそう'),
+      hint('panic', '袋から何か\n落ちそう！')
     ]
   },
   mohawk: {

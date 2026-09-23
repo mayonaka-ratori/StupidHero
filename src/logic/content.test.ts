@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from './rng';
+import { createStage } from './stage';
 import {
-  AGES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS, TITLE_COMMENTS,
+  AGES, BOTH_PROFILE_LINES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS, TITLE_COMMENTS,
   allTexts, introFor, mischiefLine, reactionList, say, shout, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
 } from './content';
 import {
@@ -68,6 +69,59 @@ describe('content の文の決まり', () => {
     expect(has('shopper', '袋がやけに重そう')).toBe(true);
   });
 
+  it('オペレーターの一言は、同じ文ならいつも同じ顔(市民かワルかで顔を変えない。全部のステージ)', () => {
+    const faceOf = new Map<string, string>();
+    const lists = [
+      ...Object.values(OPERATOR_HINTS).flatMap((h) => [h.civ ?? [], h.bad ?? []]),
+      ...Object.values(BOSS_HINTS)
+    ];
+    for (const h of lists.flat()) {
+      const seen = faceOf.get(h.text);
+      if (seen) expect(h.face, h.text).toBe(seen);
+      faceOf.set(h.text, h.face);
+    }
+    expect(faceOf.get('袋、\nはち切れそう')).toBe('deadpan');
+  });
+
+  it('組の見た目(パーカー、スーツ、買い物袋)は、市民とワルで顔の数が同じ(顔だけで分からない)', () => {
+    const count = (l: readonly { face: string }[]) => {
+      const c: Record<string, number> = {};
+      for (const h of l) c[h.face] = (c[h.face] ?? 0) + 1;
+      return c;
+    };
+    for (const look of ['hoodie', 'suit', 'shopper'] as const) {
+      expect(count(OPERATOR_HINTS[look].civ!), look).toEqual(count(OPERATOR_HINTS[look].bad!));
+      expect(OPERATOR_HINTS[look].civ!.some((h) => h.face === 'panic'), look).toBe(true);
+    }
+  });
+
+  it('組の見た目には、市民にもワルにも出るプロフィールの文が3つずつあり、どちらの一覧でも3割くらいになる', () => {
+    for (const look of ['hoodie', 'suit', 'shopper'] as const) {
+      const { civ, bad } = PROFILE_LINES[look];
+      const both = civ!.filter((l) => bad!.includes(l));
+      for (const l of BOTH_PROFILE_LINES[look]) expect(both, look).toContain(l);
+      expect(both.length / civ!.length, look).toBeGreaterThanOrEqual(0.3);
+      expect(both.length / bad!.length, look).toBeGreaterThanOrEqual(0.3);
+    }
+  });
+
+  it('路地裏の組の見た目の人は、プロフィールの文だけでは決められないことがよくある', () => {
+    // 文が相手の一覧にもあれば、文だけでは決まらない
+    let ambiguous = 0;
+    let total = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      for (const w of createStage(seed).waves) {
+        for (const p of w.people) {
+          if (p.truth === 'boss' || !['hoodie', 'suit', 'shopper'].includes(p.look)) continue;
+          const other = PROFILE_LINES[p.look][p.truth === 'bad' ? 'civ' : 'bad']!;
+          total++;
+          if (other.includes(p.profile.line)) ambiguous++;
+        }
+      }
+    }
+    expect(ambiguous / total).toBeGreaterThan(0.25);
+  });
+
   it('ボスの化けた姿には、3種類とも文と一言がある', () => {
     for (const d of ['suit', 'granny', 'shopper'] as const) {
       expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
@@ -113,8 +167,8 @@ describe('ステージ2の文', () => {
     for (const t of allLinkTexts()) expect(all.has(t), t).toBe(true);
   });
 
-  it('つながりの文は、見た目を入れたあとに {n} が残らない(字数は allTexts の決まりで確かめる)', () => {
-    for (const t of allLinkTexts()) expect(t).not.toContain('{n}');
+  it('つながりの文は、番号と小物の呼び名を入れたあとに {n} と {item} が残らず、「さっきの」で呼ばない(字数は allTexts の決まりで確かめる)', () => {
+    for (const t of allLinkTexts()) expect(t).not.toMatch(/\{n\}|\{item\}|さっき/);
     // ギャング向けも市民向けも、プロフィールにも一言にもある
     for (const list of [LINK_HINTS, LINK_PROFILES]) {
       expect(list.some((t) => t.for !== 'civ')).toBe(true);
