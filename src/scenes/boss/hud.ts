@@ -13,7 +13,8 @@ export class BossHud {
   private damage: PixelText;
   private last = { d: -1, h: -1, y: -1 };
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number) {
+  /** damageBlinkMs:被害額が増えたときに点滅させる長さ。ステージ2は手を止めると1秒ごとに増えるので短くする */
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, private readonly damageBlinkMs = 500) {
     new WindowFrame(scene, x, y, w, BossHud.H, 'win');
     // 名前と数字の間は、半角スペースの代わりに少しずらして置く
     const label = (lx: number, ly: number, t: string): PixelText =>
@@ -35,7 +36,7 @@ export class BossHud {
     if (h !== this.last.h) this.hurt.setText(String(h));
     if (yen !== this.last.y) {
       this.damage.setText(formatYen(yen));
-      if (this.last.y >= 0) blink(this.damage, 500);
+      if (this.last.y >= 0) blink(this.damage, this.damageBlinkMs);
     }
     this.last = { d, h, y: yen };
   }

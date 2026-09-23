@@ -11,7 +11,7 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  STAGES, damageAnalogy, formatYen, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
+  STAGES, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
   type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
@@ -93,12 +93,17 @@ export interface Card {
   file: Promise<File | null>;
 }
 
+/** どのステージのカードか(ひとことと被害額のたとえの言い方が変わる) */
+const stageIdOf = (i: CardInput): StageId => i.stats.stageId ?? 'alley';
+/** 称号のひとこと(ステージに合った言い方) */
+const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCommentFor(i.title.id, stageIdOf(i));
+
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, i.title.comment.text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
+    i.title.name, commentOf(i).text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
     'ひどいことはなかった!', '悪党撃破', '市民負傷', '逃がした', '被害額', '人', '称号', '#StupidHero',
-    formatYen(i.stats.damage), damageAnalogy(i.stats.damage).text, '0123456789/,¥万億'
+    formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億'
   ];
 }
 
@@ -146,13 +151,14 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     drawText(ctx, scene, W / 2, 4, i.title.name, { size: 16, color: UI.gold, outline: true }, [0.5, 0]);
 
     // オペレーターのひとこと(白い吹き出しと顔)
-    const face = i.title.comment.who === 'operator' ? 'face_operator' : 'face_hero';
+    const comment = commentOf(i);
+    const face = comment.who === 'operator' ? 'face_operator' : 'face_hero';
     const fx = W - 36, fy = TOP - 36;
     fill(ctx, 0xffffff, [fx - 1, fy - 1, 34, 34]);
     fill(ctx, 0x7fb0e6, [fx, fy, 32, 32]);
-    drawSprite(ctx, scene, face, frameOf(face, i.title.comment.face, 1), fx, fy);
+    drawSprite(ctx, scene, face, frameOf(face, comment.face, 1), fx, fy);
     const bubbleStyle = { size: 12, color: 0x111111, lineSpacing: 2 };
-    const tsz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, i.title.comment.text, bubbleStyle);
+    const tsz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, comment.text, bubbleStyle);
     const bw = tsz.w + 8, bh = tsz.h + 6;
     const bx = Math.min(W - 4 - bw, fx - 6 - Math.floor(bw / 2) + 8);
     const by = fy - bh - 3;
@@ -162,7 +168,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const tx = Math.min(fx + 6, bx + bw - 6);
     for (let k = 0; k < 4; k++) fill(ctx, 0x000000, [tx + k - 1, by + bh + k, 3, 1]);
     for (let k = 0; k < 3; k++) fill(ctx, 0xffffff, [tx + k, by + bh - 1 + k, 1, 1]);
-    drawText(ctx, scene, bx + 4, by + 3, i.title.comment.text, bubbleStyle);
+    drawText(ctx, scene, bx + 4, by + 3, comment.text, bubbleStyle);
   }
 
   // ─── 真ん中:いちばんひどかった場面 ───
@@ -208,7 +214,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
     pair(6, y0 + rowH, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
     pair(6, y0 + rowH * 2, '被害額', formatYen(s.damage), UI.gold);
-    drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);
+    drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage, stageIdOf(i)).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);
   }
 
   // ─── いちばん下:ロゴと称号の数 ───

@@ -198,7 +198,7 @@ export class StageCard {
     const e = this.entry;
     const y0 = thumbH + 9;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.info.add(o); return o; };
-    add(new PixelText(sc, 8, y0, e.def.name, { size: FS.big, color: this.locked ? 0x8a84a0 : UI.gold, outline: true }));
+    const nameText = add(new PixelText(sc, 8, y0, e.def.name, { size: FS.big, color: this.locked ? 0x8a84a0 : UI.gold, outline: true }));
     const r1 = y0 + 20, r2 = r1 + 15;
     if (this.locked) {
       const g = add(sc.add.graphics());
@@ -209,7 +209,16 @@ export class StageCard {
     }
     const total = titlesFor(e.id).length;
     // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/14」は全部のステージを合わせた数)
-    add(new PixelText(sc, w - 8, y0 + 3, `このステージの称号{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    const cnt = add(new PixelText(sc, w - 8, y0 + 3, `このステージの称号{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    // ステージの名前とぶつかるときは、絵の右下に黒い帯をしいて出す
+    if (8 + nameText.width + 6 > w - 8 - cnt.width) {
+      const bx = 5 + this.tw - Math.ceil(cnt.width) - 6, by = 5 + thumbH - 15;
+      const bg = add(sc.add.graphics());
+      bg.fillStyle(0x000000, 1).fillRect(bx, by, Math.ceil(cnt.width) + 6, 15);
+      bg.fillStyle(UI.gold, 1).fillRect(bx, by, 1, 15);
+      cnt.setPosition(5 + this.tw - 3, by + 2);
+      this.info.bringToTop(cnt);
+    }
     // 下に余裕があれば「タップで出発」
     if (this.box.h - (thumbH + 9 + 20 + 30) >= 16) {
       const go = add(new PixelText(sc, w - 8, this.box.h - 19, 'タップで出発▶', { size: FS.body, color: UI.gold, outline: true }).setOrigin(1, 0));

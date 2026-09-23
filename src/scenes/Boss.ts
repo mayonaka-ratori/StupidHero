@@ -106,6 +106,12 @@ export class BossScene extends Phaser.Scene {
   private boardAt = 0;
   private lastHoodSmokeAt = -1e9;
   private boardTweens: Phaser.Tweens.Tween[] = [];
+  /** セリフを出した回数(あとから続きを言うとき、間にほかのセリフがあったかを見る) */
+  private speakSeq = 0;
+  /** 手が止まったのに「車が暴れてる!」をまだ言えていない(飛び乗っている間やほかのセリフの途中だった) */
+  private idleLinePending = false;
+  /** 「効いてない!」を最後に出した時刻 */
+  private lastNoEffectAt = -1e9;
 
   constructor() { super(SCENES.boss); }
 
@@ -129,6 +135,9 @@ export class BossScene extends Phaser.Scene {
     this.carTaps = this.carRampages = this.boardAt = 0;
     this.lastHoodSmokeAt = -1e9;
     this.boardTweens = [];
+    this.speakSeq = 0;
+    this.idleLinePending = false;
+    this.lastNoEffectAt = -1e9;
     if (import.meta.env.DEV && this.run.debug) (window as unknown as { bossScene?: BossScene }).bossScene = this;
 
     const { W, actionH } = layout;
@@ -164,7 +173,8 @@ export class BossScene extends Phaser.Scene {
     // 下:撃破、負傷、被害額、カットイン、大きな行け!ボタン
     addPanel(this);
     const r = panelRect();
-    this.hud = new BossHud(this, r.x, r.y, r.w);
+    // 地下駐車場は被害額の点滅を短く(手を止めると1秒ごとに増え、長いと数字が半分の時間消えて読めない)
+    this.hud = new BossHud(this, r.x, r.y, r.w, this.car ? 160 : 500);
     this.hud.refresh(this.run.stats);
     const cutY = r.y + BossHud.H + 4;
     this.cut = new CutIn(this, r.x, cutY, r.w, 46);
@@ -229,6 +239,7 @@ export class BossScene extends Phaser.Scene {
 
   private speak(s: Speech, alarm = false): Promise<void> {
     if (!this.sys.isActive() && !this.sys.isPaused()) return Promise.resolve();
+    this.speakSeq++;
     return this.cut.say(s.text, s.face, { who: s.who, alarm });
   }
 
@@ -256,7 +267,10 @@ export class BossScene extends Phaser.Scene {
     if (this.phase !== 'fight') return;
     const q = px(p);
     tapSpark(this, q.x, q.y, UI.gold);
+    const hpBefore = this.fight.hp;
     const res = this.fight.tap();
+    // 車に飛び乗って手前に出てくる間は体力が減らない(logic の carHoldSec)。「効いてない!」を見せる
+    const noEffect = res.counted && !res.defeated && this.carMode === 'boarding' && this.fight.hp >= hpBefore - 1e-6;
     const tps = this.fight.tapsPerSec;
     const power = tps / BOSS.maxTapsPerSec; // 0〜1
     this.combo++;
@@ -311,7 +325,8 @@ export class BossScene extends Phaser.Scene {
 
     // 体力のバー
     this.hp.setValue(this.fight.hpRatio);
-    this.hp.hit();
+    if (noEffect) this.showNoEffect(hx, fy);
+    else this.hp.hit();
 
     // 連打の数
     this.comboText.setText(`{gold}${this.combo}{/}連打!`).setVisible(true);
@@ -359,6 +374,7 @@ export class BossScene extends Phaser.Scene {
     // 手が止まった:ボスが暴れる
     const idle = this.fight.isIdle;
     if (idle && !this.wasIdle) this.startIdle();
+    this.flushIdleLine();
 
     // ヒーロー
     if (!rushing && !idle && this.hero.anims.currentAnim?.key === animKey('hero', 'punch')) this.playAnim(this.hero, 'hero', 'idle');
@@ -390,7 +406,7 @@ export class BossScene extends Phaser.Scene {
     this.meter.update(tps);
     // 「連打!」:始まりの0.9秒と、車に飛び乗った直後と、手が止まっている間だけ点滅
     const intro = this.time.now - this.fightStartAt < 900;
-    const boarded = this.carMode !== 'foot' && this.time.now - this.boardAt < 1600;
+    const boarded = this.carMode === 'car' && this.time.now - this.boardAt < 1600;
     this.mashText.setVisible(((intro || boarded) && this.frame % 4 < 2) || (idle && Math.floor(this.frame / 8) % 2 === 0));
 
     const t = formatSeconds(this.fight.elapsedSec);
@@ -433,7 +449,10 @@ export class BossScene extends Phaser.Scene {
     // セリフ:オペレーター → ヒーロー
     void (async () => {
       await this.speak(this.line('bossCar', rng), true);
-      if (this.phase === 'fight') await this.speak(this.line('bossCarHero', rng));
+      // 間にほかのセリフ(「車が暴れてる!」など)が出ていたら、ヒーローのセリフで上書きしない
+      const seq = this.speakSeq;
+      await this.wait(350);
+      if (this.phase === 'fight' && this.speakSeq === seq && !this.wasIdle) await this.speak(this.line('bossCarHero', rng));
     })();
 
     // 飛び乗る:高く跳んで、奥の車の屋根へ
@@ -524,7 +543,29 @@ export class BossScene extends Phaser.Scene {
     if (this.time.now - this.lastIdleLineAt > 2500 && this.carMode !== 'boarding') {
       this.lastIdleLineAt = this.time.now;
       void this.speak(inCar ? this.line('bossCarIdle', this.run.rng) : this.line('bossIdle'), true);
+    } else if (inCar) {
+      // 飛び乗っている途中や、ほかのセリフのすぐあと:車が手前に来て、セリフが終わってから言う
+      this.idleLinePending = true;
     }
+  }
+
+  /** 手が止まったままなら、言えていなかった「車が暴れてる!」を言う(毎フレーム) */
+  private flushIdleLine(): void {
+    if (!this.idleLinePending) return;
+    if (!this.wasIdle) { this.idleLinePending = false; return; }
+    if (this.carMode !== 'car' || this.cut.isTyping || this.time.now - this.lastIdleLineAt < 1200) return;
+    this.idleLinePending = false;
+    this.lastIdleLineAt = this.time.now;
+    void this.speak(this.line('bossCarIdle', this.run.rng), true);
+  }
+
+  /** 飛び乗っている間の連打:光の拳がはじかれて、「効いてない!」 */
+  private showNoEffect(x: number, y: number): void {
+    spawnFx(this, 'fx_kiran', x + Phaser.Math.Between(-6, 6), y + Phaser.Math.Between(-6, 6), { depth: DEPTH_OF.fxTop });
+    if (this.time.now - this.lastNoEffectAt < 450) return;
+    this.lastNoEffectAt = this.time.now;
+    audio.sfx('stop', { volume: 0.5, pitch: 1.3 });
+    popText(this, Phaser.Math.Clamp(x, 44, 172), y + 20, '効いてない!', { color: 0xffffff, size: FS.big, ms: 700 });
   }
 
   private endIdle(): void {

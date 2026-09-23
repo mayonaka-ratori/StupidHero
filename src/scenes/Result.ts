@@ -9,7 +9,7 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  buildShareText, damageAnalogy, decideTitle, formatYen, randomSeed, saveResult, say, STAGES,
+  buildShareText, damageAnalogy, decideTitle, formatYen, randomSeed, saveResult, say, STAGES, titleCommentFor,
   type RecordField, type SaveOutcome, type StageStats, type TitleDef
 } from '../logic';
 import {
@@ -139,7 +139,7 @@ export class ResultScene extends Phaser.Scene {
       return new PixelText(this, W - 11, rowY(i), '', { size: FS.big, color: r.color, outline: true }).setOrigin(1, 0);
     });
     const newTags = rows.map((r, i) => this.newTag(11 + 16 * r.label.length + 4, rowY(i) + 3).setVisible(false));
-    const analogy = new PixelText(this, 11, rowY(rows.length), damageAnalogy(s.damage).text, { size: FS.big, color: UI.gold, outline: true })
+    const analogy = new PixelText(this, 11, rowY(rows.length), damageAnalogy(s.damage, run.stage.id).text, { size: FS.big, color: UI.gold, outline: true })
       .setVisible(false);
     const collected = new PixelText(this, W - 11, rowY(rows.length),
       `称号{gold}${saved.titlesCollected}{/}/${saved.titlesTotal}`, { size: FS.big, color: UI.textDim, outline: true })
@@ -238,7 +238,7 @@ export class ResultScene extends Phaser.Scene {
         }
       })
       .wait(250)
-      .step(0, { end: () => { void cut.say(t.comment.text, t.comment.face, { who: t.comment.who }); if (quiet.v) cut.skip(); } });
+      .step(0, { end: () => { const c = titleCommentFor(t.id, run.stage.id); void cut.say(c.text, c.face, { who: c.who }); if (quiet.v) cut.skip(); } });
     rows.forEach((r, i) => {
       let last = -1;
       this.tl.wait(i === 0 ? 100 : 90).step(r.target === 0 ? 200 : r.ms, {

@@ -193,6 +193,8 @@ export class StreetScene extends Phaser.Scene {
       const choice = this.run.sorts[s.person.id] ?? 'civ';
       a.tag = new Tag(this, s.x, s.y - HEAD, choice).follow(a.sprite, -HEAD);
       this.queue.push(a);
+      // 化けた女ボスの金の小物は、ときどきキラッと光らせる(1色だとオレンジに見えるため)
+      if (s.person.truth === 'boss' && s.person.accessory) this.goldGlint(a);
     }
 
     this.hero = new Actor(this, 'hero', HERO_START.x, HERO_START.y);
@@ -1034,6 +1036,40 @@ export class StreetScene extends Phaser.Scene {
     return new Promise((resolve) => this.tweens.add({ targets: a, x, y, duration: ms, ease, onComplete: () => resolve() }));
   }
 
+  /** 化けた女ボスの金の小物(首や腕のあたり)が、ときどき小さく光る。正体を現したら止める */
+  private goldGlint(a: Actor): void {
+    const disguise = a.sprite.texture.key;
+    const ev = this.time.addEvent({
+      delay: 1300, loop: true, startAt: this.rng.int(0, 1200), callback: () => {
+        if (!a.sprite.active || a.sprite.texture.key !== disguise) { ev.remove(); return; }
+        if (!a.standing || !a.sprite.visible) return;
+        const dx = a.sprite.flipX ? -4 : 4;
+        this.fx('fx_sparkle', a.x + dx, a.y - 38 - a.lift, { depth: a.y + 0.6 });
+      }
+    });
+  }
+
+  /** 壊れた車から、しばらく黒い煙が上がる */
+  private smoke(van: PropObj, ms: number): void {
+    const until = this.time.now + ms;
+    const ev = this.time.addEvent({
+      delay: 240, loop: true, callback: () => {
+        if (this.time.now > until || !van.sprite.active) { ev.remove(); return; }
+        const x0 = van.sprite.x + this.rng.int(-30, 20);
+        const y0 = van.y - 50;
+        const d = this.add.sprite(x0, y0, 'fx_dust').setDepth(van.y + 0.5).setTint(0x3a3448);
+        d.play(animKey('fx_dust', 'play'));
+        const o = { t: 0 };
+        this.tweens.add({
+          targets: o, t: 1, duration: 700,
+          onUpdate: () => d.setPosition(Math.round(x0 - o.t * 6), Math.round(y0 - o.t * 22)),
+          onComplete: () => d.destroy()
+        });
+        d.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => d.destroy());
+      }
+    });
+  }
+
   /** 大きな行けの合図(組の頭の上、ワゴンの上) */
   private bigMark(x: number, y: number, scale: number): Phaser.GameObjects.Sprite {
     const m = this.add.sprite(Math.round(x), Math.round(y), 'fx_mark_go').play(animKey('fx_mark_go', 'play')).setDepth(1200);
@@ -1341,6 +1377,7 @@ export class StreetScene extends Phaser.Scene {
     this.tweens.add({ targets: van.sprite, x: Math.round(van.x), duration: 260, ease: 'Quad.easeOut' });
     const cost = this.stats.vanStopped(g.call.size);
     this.pop(van.x, van.y - 66, formatYen(cost), true);
+    this.smoke(van, 6000);
     this.report(sceneForProp('van'));
     // 組の全員がのびて出てくる
     g.members.forEach((m, i) => {
