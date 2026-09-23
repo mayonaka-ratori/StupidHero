@@ -5,6 +5,11 @@ name: Pages
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 公開する版(タグかブランチかコミット)
+        required: true
+        default: v0.1
 
 permissions:
   contents: read
@@ -20,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
