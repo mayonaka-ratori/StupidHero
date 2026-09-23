@@ -6,6 +6,8 @@ import { chromium } from 'playwright-core';
 const [url, expr, wait = '3000', out, dpr = '1'] = process.argv.slice(2);
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: Number(dpr), hasTouch: true, isMobile: true });
+// ほかの担当がファイルを書きかえるとViteがページを読み直すので、Viteの通知を切っておく
+await page.routeWebSocket(/.*/, () => {});
 page.on('pageerror', (e) => console.error('pageerror:', e.message));
 await page.goto(url);
 await page.waitForTimeout(Number(wait));

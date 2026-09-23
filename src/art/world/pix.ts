@@ -121,6 +121,8 @@ export function shadeT(m: Mask, x: number, y: number): number {
   return wh * th + (1 - wh) * tv;
 }
 
+const NB4: Pt[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
 /** 塗った順に重ねていく絵。 */
 export class Painter {
   readonly g: PixelGrid;
@@ -138,10 +140,12 @@ export class Painter {
     if (sep !== 'none') {
       const c = sep === 'outline' ? OUTLINE : rp[2];
       const edge: Pt[] = [];
-      for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
-        if (m.has(x, y) || !this.g.get(x, y)) continue;
-        if (m.has(x - 1, y) || m.has(x + 1, y) || m.has(x, y - 1) || m.has(x, y + 1)) edge.push([x, y]);
-      }
+      m.each((x, y) => {
+        for (const [dx, dy] of NB4) {
+          const nx = x + dx, ny = y + dy;
+          if (!m.has(nx, ny) && this.g.get(nx, ny)) edge.push([nx, ny]);
+        }
+      });
       for (const [x, y] of edge) this.g.px(x, y, c);
     }
     const hi = o.hi ?? 0.3, lo = o.lo ?? 0.66;

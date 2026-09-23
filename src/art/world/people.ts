@@ -328,19 +328,22 @@ function drawTote(P: Painter, pose: Pose, kind: 'rice' | 'loot', cover = false):
   const m = P.mask().poly([[x, y], [x + 11, y], [x + 12, y + 11], [x - 1, y + 11]]);
   P.fill(m, TOTE, { sep: 'outline', hi: 0.25, lo: 0.7 });
   P.line([x, y + 1], [x + 11, y + 1], TOTE[0]);
+  // 持ち手をにぎる奥の手(胴に隠れないように描き直す)
+  P.fill(P.mask().ellipse(hx, hy, 1.7, 1.7).union(P.mask().capsule([hx - 1, hy - 4], [hx, hy - 1], 1.4)), [SKIN[1], SKIN[1], SKIN[2]], { sep: 'outline' });
+  P.fill(P.mask().capsule([hx - 1.5, hy - 7], [hx - 1, hy - 4], 1.8), [CARDIGAN[1], CARDIGAN[2], CARDIGAN[2]], { sep: 'outline' });
   if (cover) void 0;
 }
 
 function pickpocketMischief(): Pose[] {
   const bag = (p: Pose): Pose => { const q = clonePose(p); q.aB = { e: [39, 28], h: [40, 35] }; return q; };
-  const f0 = bag(withFace(movePose(STAND, 0, 1), 'sly'));
+  const f0 = bag(withFace(moveUpper(STAND, 0, 1), 'sly'));
   f0.head = [36, 20]; f0.neck = [34, 21];
   f0.aF = { e: [33, 30], h: [38, 33] };
-  const f1 = bag(withFace(movePose(STAND, 2, 1), 'sly'));
+  const f1 = bag(withFace(moveUpper(movePose(STAND, 2, 0), 0, 1), 'sly'));
   f1.head = [38, 20]; f1.neck = [36, 21];
   f1.aF = { e: [38, 30], h: [45, 35] };
   f1.lF = { k: [36, 47], a: [39, 56] };
-  const f2 = bag(withFace(movePose(STAND, 3, 1), 'grin'));
+  const f2 = bag(withFace(moveUpper(movePose(STAND, 3, 0), 0, 1), 'grin'));
   f2.head = [40, 20]; f2.neck = [37, 21];
   f2.aF = { e: [41, 30], h: [49, 34] };
   f2.lF = { k: [37, 47], a: [41, 56] };
@@ -374,8 +377,10 @@ function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pos
     cover(withFace(base, 'worried', { look: -1 }), 3),
     cover(withFace(base, 'sly'), 2)
   ];
-  const civ = civRows(civLook, base, civSort, { walk: walkFrames(base).map(withBag) });
-  const bad = civRows(badLook, base, badSort, { walk: walkFrames(base).map(withBag) });
+  // 驚く、吹っ飛ぶ、のびているコマでは袋を手放す
+  const noBag = shopperLook();
+  const civ = civRows(civLook, base, civSort, { walk: walkFrames(base).map(withBag), lookFor: (_p, row) => (row >= 3 ? noBag : civLook) });
+  const bad = civRows(badLook, base, badSort, { walk: walkFrames(base).map(withBag), lookFor: (_p, row) => (row >= 3 ? noBag : badLook) });
   const pp = pickpocketMischief();
   bad.push(pp.map((p, i) => drawPerson(shopperLook({
     mid: (P, q) => drawTote(P, q, 'loot'),
@@ -420,13 +425,9 @@ function mohawkLook(knifeAng: number | null): Look {
     torso(P, pose) {
       const n = pose.neck, p = pose.hip;
       const lean = (p[0] - n[0]) / Math.max(1, p[1] - n[1]);
-      // はだけた胸
-      for (let dy = 1; dy <= 15; dy++) {
-        const w = dy < 11 ? 3 : 2;
-        for (let dx = 0; dx < w; dx++) pick(P, n[0] + 3 + dx + lean * dy, n[1] + dy, dx === 0 ? SKIN[1] : SKIN[0]);
-        pick(P, n[0] + 2 + lean * dy, n[1] + dy, OUTLINE);
-      }
-      pick(P, n[0] + 4 + lean * 7, n[1] + 7, SKIN[2]); pick(P, n[0] + 4 + lean * 11, n[1] + 11, SKIN[2]);
+      // えりもとの V と、前のジッパー
+      for (let dy = 0; dy <= 4; dy++) for (let dx = 0; dx <= 3 - Math.floor(dy * 0.7); dx++) pick(P, n[0] + 2 + dx + lean * dy, n[1] + dy, dx === 0 ? SKIN[1] : SKIN[0]);
+      for (let dy = 5; dy <= 16; dy++) pick(P, n[0] + 3 + lean * dy, n[1] + dy, dy % 2 ? BLADE[1] : VEST[2]);
       // 肩のびょう
       pick(P, n[0] - 4, n[1] + 1, BLADE[0]); pick(P, n[0] - 6, n[1] + 3, BLADE[0]); pick(P, n[0] - 2, n[1] + 2, BLADE[0]);
       // ベルト
@@ -450,7 +451,7 @@ function mohawkSheets(): PixelGrid[][] {
   base.lB = { k: [37, 47], a: [37, 56] }; base.lF = { k: [28, 47], a: [27, 56] };
   base.hip = [32, 38]; base.head = [34, 19]; base.neck = [33, 20];
   base.aB = { e: [41, 28], h: [45, 32] };
-  base.aF = { e: [29, 29], h: [31, 36] };
+  base.aF = { e: [30, 30], h: [36, 33] };
   const K = -0.6;
   const look = mohawkLook(K);
   // ナイフをくるくる回す
@@ -572,7 +573,7 @@ function grannySheets(): { civ: PixelGrid[][]; civSort: Pose[]; look: Look } {
 function tattoo(P: Painter, pose: Pose): void {
   // 手前の前腕の、袖から出た肌のところに入れ墨(水色1色と、ふち色の線)
   const a = pose.aF;
-  const c = R([a.e[0] + (a.h[0] - a.e[0]) * 0.62, a.e[1] + (a.h[1] - a.e[1]) * 0.62]);
+  const c = R([a.e[0] + (a.h[0] - a.e[0]) * 0.2, a.e[1] + (a.h[1] - a.e[1]) * 0.2 + 1]);
   const pat = ['.11.', '1o11', '11o1', '.11.'];
   const skin = new Set<string>(SKIN);
   pat.forEach((r, j) => {
@@ -590,7 +591,7 @@ function disguiseLook(base: Look): Look {
   const prev = base.front;
   return {
     ...base,
-    sleeve: 'rolled',
+    sleeve: 'short',
     build: { ...b, sh: b.sh + 1, arm: b.arm + 0.4, thigh: b.thigh + 0.2 },
     front(P, pose) {
       tattoo(P, pose);

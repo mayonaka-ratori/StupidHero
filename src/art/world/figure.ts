@@ -155,10 +155,9 @@ export const HAIR_SLICK: HairStyle = {
 };
 
 export const HAIR_BUN: HairStyle = {
-  top: 3,
+  top: 2,
   ear: false,
   rows: [
-    '..hhh........',
     '.hHHhh.......',
     '.hHhhh.......',
     '..hhhhhhh....',
@@ -389,7 +388,7 @@ export function pelvisMask(P: Painter, b: Build, pose: Pose): Mask {
 
 function drawSweat(P: Painter, pose: Pose, c: string): void {
   const x = Math.round(pose.head[0] + (pose.look === -1 ? -9 : 8)), y = Math.round(pose.head[1] - 13);
-  P.px(x, y, c).px(x, y + 1, c).px(x - 1, y + 2, c).px(x, y + 2, c).px(x + 1, y + 2, c).px(x, y + 3, c);
+  P.px(x, y, c).px(x, y + 1, c).px(x - 1, y + 2, c).px(x, y + 2, c).px(x + 1, y + 2, c).px(x - 1, y + 3, c).px(x, y + 3, c).px(x + 1, y + 3, c);
 }
 
 /** 人を1コマ描く */

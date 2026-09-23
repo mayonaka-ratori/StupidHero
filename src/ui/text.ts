@@ -35,9 +35,14 @@ export interface TextStyle {
   letterSpacing?: number;
   /** 箱の幅を決めて、その中でそろえる(0なら文字の幅) */
   fixedWidth?: number;
+  /** とぎれた細い線をつなぐ。ふつうは16の倍数でない大きさのときだけつなぐ */
+  bridge?: boolean;
 }
 
-const DEFAULTS: Required<TextStyle> = {
+/** 全部の値が決まった書き方 */
+export type FullTextStyle = Required<Omit<TextStyle, 'bridge'>> & { bridge?: boolean };
+
+const DEFAULTS: FullTextStyle = {
   size: 12, color: UI.text, wrap: 0, lineSpacing: 2, align: 'left',
   outline: false, shadow: false, threshold: 128, letterSpacing: 0, fixedWidth: 0
 };
@@ -119,7 +124,7 @@ function parse(text: string, base: number): { ch: string; color: number }[] {
   return out;
 }
 
-function layoutText(text: string, st: Required<TextStyle>): Laid {
+function layoutText(text: string, st: FullTextStyle): Laid {
   const chars = parse(text, st.color);
   const glyphs: Glyph[] = [];
   const lineW: number[] = [];
@@ -178,7 +183,7 @@ let seq = 0;
 
 export class PixelText extends Phaser.GameObjects.Image {
   private tex: Phaser.Textures.CanvasTexture;
-  private st: Required<TextStyle>;
+  private st: FullTextStyle;
   private raw = '';
   private laid: Laid = { glyphs: [], lines: [0], w: 0, h: 0 };
   private visible_ = -1;
@@ -207,7 +212,7 @@ export class PixelText extends Phaser.GameObjects.Image {
   get length(): number { return this.laid.glyphs.length; }
   /** 行の数 */
   get lineCount(): number { return this.laid.lines.length; }
-  get style(): Readonly<Required<TextStyle>> { return this.st; }
+  get style(): Readonly<FullTextStyle> { return this.st; }
 
   setText(text: string | number): this {
     const s = String(text);
@@ -268,26 +273,33 @@ export class PixelText extends Phaser.GameObjects.Image {
     ctx.font = fontOf(size);
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    for (const g of glyphs) {
-      ctx.fillStyle = '#' + g.color.toString(16).padStart(6, '0');
-      ctx.fillText(g.ch, p.l + g.x, p.t + g.line * lineStep);
-    }
+    // 濃さは白で測る(暗い色で書くと、ブラウザが字を細く描くため)。色はあとで字の升ごとに塗る
+    ctx.fillStyle = '#ffffff';
+    for (const g of glyphs) ctx.fillText(g.ch, p.l + g.x, p.t + g.line * lineStep);
     const src = ctx.getImageData(0, 0, W, H).data;
 
-    // 使っている色(にじんだ色をいちばん近い色にそろえる)
     const palette = Array.from(new Set(glyphs.map((g) => g.color)));
-    const pr = palette.map((c) => (c >> 16) & 255), pg = palette.map((c) => (c >> 8) & 255), pb = palette.map((c) => c & 255);
+    // どのドットがどの字の色か(字の升で決める。升の外は同じ行のいちばん近い字)
+    const colorAt = new Int16Array(W * H);
+    if (palette.length > 1) {
+      const idx = glyphs.map((g) => palette.indexOf(g.color));
+      for (let y = 0; y < H; y++) {
+        const line = Math.max(0, Math.min(this.laid.lines.length - 1, Math.floor((y - p.t) / lineStep)));
+        const inLine = glyphs.map((g, k) => [g, k] as const).filter(([g]) => g.line === line);
+        for (let x = 0; x < W; x++) {
+          let best = 0, bd = 1e9;
+          for (const [g, k] of inLine) {
+            const cx = p.l + g.x + charW(g.ch, size) / 2;
+            const d = Math.abs(x - cx);
+            if (d < bd) { bd = d; best = idx[k]; }
+          }
+          colorAt[y * W + x] = best;
+        }
+      }
+    }
     const mask = new Int16Array(W * H).fill(-1);
     const alpha = (x: number, y: number): number => (x >= 0 && y >= 0 && x < W && y < H ? src[(y * W + x) * 4 + 3] : 0);
-    const nearest = (i: number): number => {
-      if (palette.length === 1) return 0;
-      let best = 0, bd = 1e9;
-      for (let k = 0; k < palette.length; k++) {
-        const d = Math.abs(src[i * 4] - pr[k]) + Math.abs(src[i * 4 + 1] - pg[k]) + Math.abs(src[i * 4 + 2] - pb[k]);
-        if (d < bd) { bd = d; best = k; }
-      }
-      return best;
-    };
+    const nearest = (i: number): number => colorAt[i];
     for (let i = 0; i < W * H; i++) if (src[i * 4 + 3] >= threshold) mask[i] = nearest(i);
     // 細い線(「!」の棒など)は、ドットが2つにまたがって薄くなり、全部消えてしまうことがある。
     // 近くに残ったドットがない薄いドットは拾い直し、2つ並んだら濃い方だけ残す。
@@ -315,6 +327,21 @@ export class PixelText extends Phaser.GameObjects.Image {
     thin(1, 0);
     thin(0, 1);
     for (let i = 0; i < W * H; i++) if (rescued[i]) mask[i] = nearest(i);
+    // 点線のようにとぎれた縦と横の線をつなぐ(ドットの升目が1ドットより細いと、ところどころ行が抜けるため)
+    if (this.st.bridge ?? size % 16 !== 0) {
+      const add: number[] = [];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (mask[i] >= 0 || src[i * 4 + 3] < low) continue;
+        // 上下(左右)が1ドットの細い線で、そのあいだだけが抜けているときだけつなぐ(漢字がつぶれないように)
+        const thinV = (yy: number): boolean => isOn(x, yy) && !isOn(x - 1, yy) && !isOn(x + 1, yy);
+        const thinH = (xx: number): boolean => isOn(xx, y) && !isOn(xx, y - 1) && !isOn(xx, y + 1);
+        const v = thinV(y - 1) && thinV(y + 1) && !isOn(x - 1, y) && !isOn(x + 1, y);
+        const h = thinH(x - 1) && thinH(x + 1) && !isOn(x, y - 1) && !isOn(x, y + 1);
+        if (v || h) add.push(i);
+      }
+      for (const i of add) mask[i] = nearest(i);
+    }
 
     this.tex.setSize(W, H);
     const out = this.tex.context.createImageData(W, H);

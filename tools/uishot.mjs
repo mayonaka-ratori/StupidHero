@@ -8,6 +8,8 @@ const [url, out, w = '390', h = '844', wait = '2000', dpr = '1'] = process.argv.
 if (!url || !out) { console.error('usage: node tools/uishot.mjs <url> <out.png> [w] [h] [waitMs] [dpr]'); process.exit(1); }
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: Number(w), height: Number(h) }, deviceScaleFactor: Number(dpr), hasTouch: true, isMobile: true });
+// ほかの担当がファイルを書きかえるとViteがページを読み直すので、Viteの通知を切っておく
+await page.routeWebSocket(/.*/, () => {});
 page.on('pageerror', (e) => console.error('pageerror:', e.message));
 page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('404')) console.error('console:', m.text()); });
 await page.goto(url);

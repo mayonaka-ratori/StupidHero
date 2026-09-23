@@ -31,6 +31,8 @@ export interface SwipeOptions {
 
 export class SwipeInput {
   enabled = true;
+  /** 最後に指を離したときの速さ(ドット/ミリ秒。調整用) */
+  lastSpeed = 0;
   private area: Phaser.Geom.Rectangle;
   private opt: Required<Omit<SwipeOptions, 'onStart' | 'onMove' | 'onSwipe' | 'onCancel'>> & SwipeOptions;
   private pointerId = -1;
@@ -71,6 +73,16 @@ export class SwipeInput {
     input.off('pointerupoutside', this.up, this);
   }
 
+  /** 指を離す直前の速さ。最後の動きから100ミリ秒以内の動きで測る。離す前に止まっていたら0 */
+  private speed(now: number): number {
+    const s = this.samples;
+    const last = s[s.length - 1];
+    if (!last || s.length < 2 || now - last.t > 80) return 0;
+    const first = s.find((q) => last.t - q.t <= 100) ?? s[0];
+    const from = first === last ? s[s.length - 2] : first;
+    return (last.x - from.x) / Math.max(1, last.t - from.t);
+  }
+
   /** 論理座標の x が、画面(ブラウザの窓)の左右の端に近いか */
   private nearEdge(x: number): boolean {
     const canvas = this.scene.game.canvas;
@@ -103,11 +115,8 @@ export class SwipeInput {
     this.pointerId = -1;
     if (!this.enabled) { this.opt.onCancel?.(); return; }
     const dx = p.x - this.startX;
-    const now = performance.now();
-    this.samples.push({ t: now, x: p.x });
-    const first = this.samples.find((s) => now - s.t <= 100) ?? this.samples[0];
-    const dt = Math.max(1, now - first.t);
-    const v = (p.x - first.x) / dt;
+    const v = this.speed(performance.now());
+    this.lastSpeed = v;
     this.samples = [];
     const dir: SwipeDir = dx < 0 ? 'left' : 'right';
     const far = Math.abs(dx) >= this.opt.distance;

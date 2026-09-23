@@ -12,7 +12,7 @@ import { computeLayout, fitCanvas, layout } from '../layout';
 import { generateArt } from '../art';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText, SwipeInput, Tag,
-  TimeBar, WindowFrame, addPanel, banner, blink, enableTapSparks, flash, goto, impact, panelRect, popText,
+  TimeBar, WindowFrame, addPanel, ditherTexture, banner, blink, enableTapSparks, flash, goto, impact, panelRect, popText,
   preloadFont, shake, type TailDir
 } from '../ui';
 
@@ -49,11 +49,7 @@ abstract class Page extends Phaser.Scene {
     this.add.image(0, 0, 'bg_alley_far').setOrigin(0);
     this.add.image(0, 0, 'bg_alley_wall').setOrigin(0);
     this.add.image(0, 124, 'bg_alley_ground').setOrigin(0);
-    if (dim) {
-      const g = this.add.graphics();
-      g.fillStyle(0x080610, 1);
-      for (let y = 0; y < actionH; y++) for (let x = (y % 2); x < W; x += 2) g.fillRect(x, y, 1, 1);
-    }
+    if (dim) this.add.tileSprite(0, 0, W, actionH, ditherTexture(this)).setOrigin(0);
   }
 
   protected person(key: string, x: number, feetY: number, scale = 1, anim = 'idle'): Phaser.GameObjects.Sprite {
@@ -80,16 +76,16 @@ class SortPage extends Page {
     this.chrome();
     addPanel(this);
     const r = panelRect();
-    const prof = new WindowFrame(this, r.x, r.y, r.w, 46, 'win');
+    const prof = new WindowFrame(this, r.x, r.y, r.w, 52, 'win');
     void prof;
     new PixelText(this, r.x + 6, r.y + 5, 'タカシ(24)', { size: FS.body, color: UI.gold });
-    new PixelText(this, r.x + 6, r.y + 5 + 15, '夜になるとこのへんをうろうろしている', { size: FS.body, wrap: r.w - 12 });
-    const by = r.y + 56;
+    new PixelText(this, r.x + 6, r.y + 5 + 16, '夜になるとこのへんをうろうろしている', { size: FS.body, wrap: r.w - 12 });
+    const by = r.y + 60;
     const bh = Math.min(56, r.bottom - by - 16);
     const bw = Math.floor((r.w - 8) / 2);
     const bad = new Button(this, r.x, by, bw, bh, '◀ワル', { color: 'bad', onPress: () => log('press:bad') });
     const civ = new Button(this, r.x + bw + 8, by, bw, bh, '市民▶', { color: 'civ', onPress: () => log('press:civ') });
-    new PixelText(this, W / 2, by + bh + 5, '左右にスワイプでもOK', { size: FS.small, color: UI.textDim }).setOrigin(0.5, 0);
+    new PixelText(this, W / 2, by + bh + 5, '左右にスワイプでもOK', { size: FS.body, color: UI.textDim }).setOrigin(0.5, 0);
     const alarm = new EdgeAlarm(this).start();
     Object.assign(dev, { cut, time, bad, civ, alarm, guy });
   }
@@ -109,7 +105,7 @@ class ResultPage extends Page {
     worker.setFlipX(true);
     new Tag(this, worker.x, worker.y - 58, 'bad').pop();
     const hero = this.person('hero', 40, 204, 1, 'punch');
-    new Bubble(this, 36, 140, '光の鉄拳ーッ!!', { tail: 'down-left' });
+    new Bubble(this, 30, 132, '光の鉄拳ーッ!!', { tail: 'down-left' });
     new PixelText(this, 6, 6, '結果発表', { size: FS.body, color: UI.gold, outline: true });
     this.chrome();
     addPanel(this);
@@ -218,7 +214,7 @@ class SwipePage extends Page {
     this.chrome();
     addPanel(this);
     const r = panelRect();
-    new PixelText(this, r.x, r.y, '黄色い四角の中から始めたときだけ動く。画面の左右の端から始めた動きは無視する。', { size: FS.body, wrap: r.w, color: UI.textDim });
+    new PixelText(this, r.x, r.y + 18, '黄色い四角の中から始めたときだけ動く。画面の左右の端から始めた動きは無視する。', { size: FS.body, wrap: r.w, color: UI.textDim });
     Object.assign(dev, { swipe, card });
   }
 }
@@ -240,6 +236,10 @@ class TextPage extends Page {
     const s = new PixelText(this, 2, y, '影つき:撃破{gold}1234{/} 負傷{red}0{/} {civ}市民{/}', { size: 12, shadow: true });
     y += s.height + 4;
     new PixelText(this, 108, y, '真ん中寄せ\nふたつめの行は長め', { size: 12, align: 'center' }).setOrigin(0.5, 0);
+    y += 34;
+    const cmp = '了解!まあいいか!いい警告青負傷被害額三川';
+    new PixelText(this, 2, y, 'つなぐ:' + cmp, { size: 12 });
+    new PixelText(this, 2, y + 16, 'そのまま:' + cmp, { size: 12, bridge: false });
     this.chrome();
   }
 }
