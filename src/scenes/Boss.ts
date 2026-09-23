@@ -269,7 +269,8 @@ export class BossScene extends Phaser.Scene {
     }
     this.hero.anims.timeScale = 1.2 + power * 3.3;
     this.heroPush = Math.min(12, this.heroPush + 3);
-    this.playAnim(this.boss, this.bossKey, 'hit');
+    // 車に飛び乗っている途中は、跳ぶ動きを続ける
+    if (this.carMode !== 'boarding' || this.riding) this.playAnim(this.boss, this.bossKey, 'hit');
     this.whiteFrames = 2;
 
     let hx: number, fy: number;
