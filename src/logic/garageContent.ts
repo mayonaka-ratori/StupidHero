@@ -418,6 +418,33 @@ export const GARAGE_REACTIONS: Readonly<Record<GarageReactionKey, readonly Speec
 };
 
 /**
+ * ワルにした人に向かうときのヒーローの決めつけ(地下駐車場の見た目。路地裏の分は content.ts の JUDGE_LINES)。
+ * 市民かギャングかでは変えない。小物の名前(タオルとバンダナ)でも言い分けない
+ */
+export const GARAGE_JUDGE_LINES: Readonly<Record<GangLook, readonly Speech[]>> = {
+  guard: [
+    hero('smug', '腕章があやしい！\nワルで間違いない！'),
+    hero('smug', 'カギを持ちすぎ！\nワルで間違いない！'),
+    hero('smug', '見回りがあやしい！\nワルで間違いない！')
+  ],
+  mechanic: [
+    hero('smug', '首に何か巻いてる！\nワルで間違いない！'),
+    hero('smug', 'つなぎが油っぽい！\nワルで間違いない！'),
+    hero('smug', '手が真っ黒！\nワルで間違いない！')
+  ],
+  clubber: [
+    hero('smug', '服がハデすぎる！\nワルで間違いない！'),
+    hero('smug', 'ヘアバンドがハデ！\nワルで間違いない！'),
+    hero('smug', 'ノリが軽そう！\nワルで間違いない！')
+  ],
+  officelady: [
+    hero('smug', 'スカーフがあやしい！\nワルで間違いない！'),
+    hero('smug', 'ヒールの音があやしい！\nワルで間違いない！'),
+    hero('smug', '目つきが鋭い！\nワルで間違いない！')
+  ]
+};
+
+/**
  * 地下駐車場で言い方を変える、路地裏と同じ種類のセリフ(content.ts の ReactionKey)。
  * ここにない種類は、路地裏と同じ文を使う
  */
@@ -429,7 +456,6 @@ export const GARAGE_OVERRIDES = {
     hero('smile', '駐車場の平和は\n任せて！')
   ],
   escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n逃げられた'), op('deadpan', '逃がしたね…')],
-  streetWatch: [op('normal', '殴る前なら\n待てで止められる'), op('normal', '仲間が集まったら\n行けでまとめて！')],
   bossReveal: [op('panic', '正体を現した！\nギャングの女ボス！'), op('panic', '出た！\n駐車場の女ボス！')],
   bossRampage: [op('panic', '女ボスだった！\n手下の車が来る！'), op('panic', '素通りした人が\n女ボスだった！')],
   bossIdle: [op('panic', '手を止めないで！\n駐車場が壊れてく！'), op('panic', '連打して！\n被害が増えてる！')],
