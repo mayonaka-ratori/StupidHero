@@ -95,7 +95,7 @@ export class Actor {
     // 高く跳ぶほど影は小さく
     this.shadow.setPosition(sx, Math.round(this.y) - 1).setVisible(this.state !== 'gone' && this.sprite.visible);
     this.shadow.setScale((this.lift > 20 ? 0.5 : this.lift > 6 ? 0.75 : 1) * this.shadowW, 1);
-    if (this.mark) this.mark.setPosition(sx, sy - HEAD - 30);
+    if (this.mark) this.mark.setPosition(sx, sy - HEAD - 60);
     if (this.stars) this.stars.setPosition(sx + (this.sprite.flipX ? 8 : -8), Math.round(this.y) - 16);
   }
 

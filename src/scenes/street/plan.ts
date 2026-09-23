@@ -47,7 +47,7 @@ export function planStreet(people: readonly Person[], passBadIds: ReadonlySet<st
     if (s.person.truth === 'boss') return;
     const look = rng.pick(PASSERS.filter((p) => p.look !== 'granny' || rng.chance(0.3)));
     const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
-    passers.push({ ...look, x: s.x + 64 + rng.int(-3, 3), y });
+    passers.push({ ...look, x: s.x + 72 + rng.int(-3, 3), y });
   });
 
   // 壊れる物

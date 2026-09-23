@@ -18,20 +18,20 @@ import {
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, MuteButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
-  banner, flash, goto, hitStop, impact, isFrozen, panelRect, popText, shake
+  UIX, banner, flash, goto, hitStop, impact, isFrozen, panelRect, popText, shake
 } from '../ui';
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
 import { HERO_START, planStreet } from './street/plan';
 
 /** ヒーローの走る速さ(ドット/秒) */
-const RUN = 70;
+const RUN = 84;
 /** ヒーローの画面の中での位置(左寄り) */
 const HERO_SCREEN_X = 60;
 /** 殴りかかる距離(相手の何ドット手前で技を出すか) */
 const ATTACK_GAP = 34;
 /** 技を出す前のため(この間も待てが効く)。マークが出てから殴るまで合わせて約1.5秒になるように */
-const WINDUP_MS = 780;
+const WINDUP_MS = 1080;
 
 interface PropObj { kind: PropKind; x: number; y: number; wall: boolean; sprite: Phaser.GameObjects.Sprite; broken: boolean }
 interface Walker { toX: number; fromX: number; fromY: number; toY: number; speed: number; resolve: () => void }
@@ -56,6 +56,7 @@ export class StreetScene extends Phaser.Scene {
   private camFocus: number | null = null;
   /** 開発用:?attack=special などで技を決める */
   private forceAttack: AttackKind | null = null;
+  private startedAt = 0;
   private walker: Walker | null = null;
   private slow = 1;
   private stopHandler: (() => void) | null = null;
@@ -95,6 +96,7 @@ export class StreetScene extends Phaser.Scene {
     const fa = new URLSearchParams(location.search).get('attack');
     this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
+    this.startedAt = this.time.now;
     this.L = new Layers(this);
     this.buildWorld();
     this.buildPanel();
@@ -127,7 +129,7 @@ export class StreetScene extends Phaser.Scene {
       const key = `prop_${p.kind}`;
       const sprite = this.add.sprite(p.x, p.y, key, 0);
       const origin = p.wall ? [0.5, 0.5] : [0.5, 1];
-      sprite.setOrigin(origin[0], origin[1]).setDepth(p.wall ? -15 : p.y - 30);
+      sprite.setOrigin(origin[0], origin[1]).setDepth(p.wall ? -15 : p.y);
       this.props.push({ ...p, sprite, broken: false });
     }
     for (const s of plan.passers) {
@@ -185,7 +187,7 @@ export class StreetScene extends Phaser.Scene {
       const by = cutY + cutH + 5;
       const bh = Math.max(40, Math.min(72, r.bottom - by));
       const bw = Math.floor((r.w - 8) / 2);
-      this.stopBtn = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', onPress: () => { audio.unlock(); this.stopHandler?.(); } });
+      this.stopBtn = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', textColor: UIX.stopText, onPress: () => { audio.unlock(); this.stopHandler?.(); } });
       this.goBtn = new Button(this, r.x + bw + 8, by, bw, bh, '行け!', { color: 'go', onPress: () => { audio.unlock(); this.goHandler?.(); } });
       this.stopBtn.setEnabled(false);
       this.goBtn.setEnabled(false);
@@ -793,7 +795,7 @@ export class StreetScene extends Phaser.Scene {
     // 悪さの相手
     let victim = this.passers.find((p) => p.standing && p.x > a.x + 24 && p.x < a.x + 96);
     if (!victim) {
-      victim = new Actor(this, 'suit_civ', a.x + 64, a.y < 192 ? 204 : 178);
+      victim = new Actor(this, 'suit_civ', a.x + 72, a.y < 192 ? 204 : 178);
       victim.look = 'suit'; victim.civ = true;
       victim.faceLeft(true).play('idle');
       this.passers.push(victim);
@@ -803,7 +805,7 @@ export class StreetScene extends Phaser.Scene {
     a.faceLeft(false).play('walk', true, 2.4);
     this.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
     await new Promise<void>((resolve) => this.tweens.add({
-      targets: a, x: v.x - 20, y: v.y, duration: 620, ease: 'Sine.easeInOut', onComplete: () => resolve()
+      targets: a, x: v.x - 18, y: v.y, duration: 620, ease: 'Sine.easeInOut', onComplete: () => resolve()
     }));
     a.play('mischief', true);
     await this.wait(330);
@@ -848,7 +850,7 @@ export class StreetScene extends Phaser.Scene {
     this.stats.escaped();
     this.opSay(say('escaped', this.rng));
     h.play('idle');
-    await this.wait(700);
+    await this.wait(500);
     if (v.standing) v.play('idle');
   }
 
@@ -918,6 +920,7 @@ export class StreetScene extends Phaser.Scene {
   private toBoss(): void {
     if (this.leaving) return;
     this.leaving = true;
+    this.devLog('to boss');
     this.run.scrollX = this.L.world.scrollX;
     goto(this, nextAfterStreet(this.run));
   }
@@ -932,7 +935,13 @@ export class StreetScene extends Phaser.Scene {
     await banner(this, `WAVE${this.run.waveIndex + 1} CLEAR!`, { hold: 700 });
     if (this.leaving) return;
     this.leaving = true;
+    this.devLog('wave clear');
     this.run.scrollX = this.L.world.scrollX;
     goto(this, nextAfterStreet(this.run));
+  }
+
+  /** 開発用:かかった時間を出す(途中から始めたときだけ) */
+  private devLog(what: string): void {
+    if (this.run.debug) console.info(`[street] ${what} ${(this.time.now - this.startedAt) / 1000}s`);
   }
 }
