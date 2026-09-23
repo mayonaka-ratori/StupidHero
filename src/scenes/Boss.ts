@@ -14,7 +14,7 @@ import { BOSS, BossFight, findBoss, formatSeconds, formatYen, say, type Speech }
 import { getRun, type GameRun } from '../run';
 import {
   Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText,
-  addPanel, banner, blink, flash, goto, hitStop, impact, panelRect, popText, shake, tapSpark
+  addPanel, banner, blink, flash, gotoWhenFree, hitStop, impact, panelRect, popText, shake, tapSpark
 } from '../ui';
 import { DEPTH_OF } from './boss/depth';
 import { flyPunch, spawnFx, SpeedLines, throwDebris } from './boss/effects';
@@ -82,7 +82,7 @@ export class BossScene extends Phaser.Scene {
     this.lastIdleLineAt = this.lastRushLineAt = -1e9;
     this.shownTime = '';
     this.icons = [];
-    if (this.run.debug) (window as unknown as { bossScene?: BossScene }).bossScene = this;
+    if (import.meta.env.DEV && this.run.debug) (window as unknown as { bossScene?: BossScene }).bossScene = this;
 
     const { W, actionH } = layout;
     this.drawBackground();
@@ -442,6 +442,6 @@ export class BossScene extends Phaser.Scene {
     await this.wait(400);
     await this.speak(say('bossDefeatedOp', this.run.rng));
     await this.wait(900);
-    goto(this, SCENES.result, undefined, { kind: 'wipe' });
+    gotoWhenFree(this, SCENES.result, undefined, { kind: 'wipe' });
   }
 }

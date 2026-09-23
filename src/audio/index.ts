@@ -13,6 +13,8 @@ export interface AudioEngine {
   unlock(): void;
   playBgm(name: BgmName): void;   // 同じ曲なら何もしない。違う曲なら切り替える
   stopBgm(fadeMs?: number): void;
+  pauseBgm(): void;                // 一時停止:曲を止める(流したい曲は覚えておく)
+  resumeBgm(): void;               // 再開:止めた曲をまた流す
   sfx(name: SfxName, opts?: { pitch?: number; volume?: number }): void;
   setMuted(muted: boolean): void;
   isMuted(): boolean;

@@ -74,9 +74,19 @@ export class Button extends Phaser.GameObjects.Container {
     };
     scene.input.on('pointerup', up);
     scene.input.on('pointerupoutside', up);
+    // シーンが一時停止したら、押している状態を空にする(再開のタップを離したときに残らないように)
+    const onPause = (): void => {
+      if (this.down.size === 0) return;
+      this.down.clear();
+      this.releaseTimer?.remove();
+      this.releaseTimer = undefined;
+      this.redraw();
+    };
+    scene.events.on(Phaser.Scenes.Events.PAUSE, onPause);
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
       scene.input.off('pointerup', up);
       scene.input.off('pointerupoutside', up);
+      scene.events.off(Phaser.Scenes.Events.PAUSE, onPause);
     });
     this.redraw();
   }

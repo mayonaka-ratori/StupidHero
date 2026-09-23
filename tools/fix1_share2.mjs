@@ -1,0 +1,17 @@
+import { open } from './fix1_common.mjs';
+const { browser, page, H, tap, errors } = await open('?scene=Result&seed=9');
+await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 20000 });
+const st = () => page.evaluate(() => { const a = window.resultDev.buttons.share; return { en: a.isEnabled, label: a.label.text, log: [...window.resultDev.log], overlay: !!document.querySelector('#share-overlay') }; });
+console.log('at start', await st());
+const b = await page.evaluate(() => { const a = window.resultDev.buttons.share; return { x: a.x + a.w / 2, y: a.y + a.h / 2 }; });
+await tap(b.x, b.y);
+await page.waitForTimeout(200);
+console.log('after early tap', await st());
+await page.waitForFunction(() => window.resultDev.log.includes('file'), null, { timeout: 20000 });
+await page.waitForTimeout(100);
+console.log('file ready', await st());
+await tap(b.x, b.y);
+await page.waitForTimeout(500);
+console.log('after tap', await st(), await page.evaluate(() => document.querySelector('#share-overlay img')?.naturalWidth));
+console.log(errors.filter(e => !e.includes('WebGL') && !e.includes('GPU')).join('\n') || 'no errors');
+await browser.close();

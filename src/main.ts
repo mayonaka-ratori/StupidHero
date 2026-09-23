@@ -44,5 +44,5 @@ window.addEventListener('orientationchange', () => setTimeout(refit, 200));
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault());
 
-// 開発と自動テスト用:ブラウザからゲームの状態を見られるようにする
-(window as unknown as { __game: Phaser.Game }).__game = game;
+// 開発と自動テスト用:ブラウザからゲームの状態を見られるようにする(開発用のサーバーのときだけ)
+if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

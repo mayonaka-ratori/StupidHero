@@ -43,6 +43,8 @@ export class Engine implements AudioEngine {
   private player: BgmPlayer | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  /** 一時停止中(pauseBgm から resumeBgm まで)は曲を流さない */
+  private paused = false;
   private armed = false;
   private lastSfx = new Map<SfxName, number>();
   private voiceEnds: number[] = [];
@@ -114,6 +116,17 @@ export class Engine implements AudioEngine {
     this.killPlayer(fadeMs / 1000);
   }
 
+  pauseBgm(): void {
+    this.paused = true;
+    this.killPlayer(0.05);
+  }
+
+  resumeBgm(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    this.startWanted();
+  }
+
   sfx(name: SfxName, opts?: { pitch?: number; volume?: number }): void {
     const ctx = this.ctx;
     const mix = this.mix;
@@ -169,7 +182,7 @@ export class Engine implements AudioEngine {
 
   private startWanted(): void {
     const ctx = this.ctx;
-    if (!ctx || !this.mix || !this.want || this.player || this.hidden) return;
+    if (!ctx || !this.mix || !this.want || this.player || this.hidden || this.paused) return;
     this.player = new BgmPlayer(ctx, this.mix.bgm, compile(SONGS[this.want]), this.want, ctx.currentTime + 0.06);
     this.pump();
     if (this.timer === null) this.timer = setInterval(this.pump, TICK_MS);

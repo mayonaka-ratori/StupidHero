@@ -325,6 +325,7 @@ export type ReactionKey =
   | 'okay'           // 立ち直る:まあいいか(ヒーロー)
   | 'tsukkomi'       // まあいいか、へのツッコミ。そのステージで1回目(オペレーター)
   | 'tsukkomiShort'  // 同じステージの2回目から(オペレーター)
+  | 'hitCiv'         // ヒーローが市民を直接殴った瞬間(オペレーター)
   | 'collateral'     // 巻きぞえで市民に当たった(オペレーター)
   | 'grannyHit'      // おばあさんに当たった(オペレーター)
   | 'specialOnCiv'   // 必殺技が市民に当たった(オペレーター)
@@ -371,6 +372,11 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
     op('deadpan', 'まあいいか、じゃない！\nあとで謝って！')
   ],
   tsukkomiShort: [op('deadpan', 'じゃない！'), op('deadpan', 'こら！'), op('deadpan', 'またか！'), op('deadpan', 'ちょっと！')],
+  hitCiv: [
+    op('panic', 'あっ！\nその人、市民！'),
+    op('panic', 'ちょっと！\n市民だってば！'),
+    op('panic', '待って！\n今の、市民だよ！')
+  ],
   collateral: [
     op('panic', '後ろの人にも\n当たってる！'),
     op('panic', '巻きぞえ！\n関係ない人！'),

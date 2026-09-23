@@ -8,6 +8,7 @@
 //   });
 //   swipe.enabled = false;                            // 一時的に止める
 //   swipe.setArea(rect);                              // 受け付ける四角を変える
+// シーンが一時停止したら、動かしている最中の指を放して onCancel を呼ぶ(再開のタップで勝手に決まらないように)。
 // シーンが終わると自動で後始末する。
 
 import Phaser from 'phaser';
@@ -50,6 +51,7 @@ export class SwipeInput {
     input.on('pointermove', this.move, this);
     input.on('pointerup', this.up, this);
     input.on('pointerupoutside', this.up, this);
+    scene.events.on(Phaser.Scenes.Events.PAUSE, this.onPause, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 
@@ -67,7 +69,15 @@ export class SwipeInput {
     this.samples = [];
   }
 
+  /** シーンが一時停止した:動かしている最中なら、指を放して元に戻す */
+  private onPause(): void {
+    if (this.pointerId < 0) return;
+    this.reset();
+    this.opt.onCancel?.();
+  }
+
   destroy(): void {
+    this.scene.events.off(Phaser.Scenes.Events.PAUSE, this.onPause, this);
     const input = this.scene.input;
     input.off('pointerdown', this.down, this);
     input.off('pointermove', this.move, this);

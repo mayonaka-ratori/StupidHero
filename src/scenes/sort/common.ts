@@ -152,8 +152,11 @@ export function unlockOnTap(scene: Phaser.Scene): void {
  * ワイプのシーンの登録が保留になり、直後の start が「Scene key not found」で失敗して止まってしまう。
  * ゲームの更新の外(setTimeout)から呼んで避ける。
  */
-export function gotoSafe(scene: Phaser.Scene, to: string, data?: object, opt: GotoOptions = { kind: 'wipe' }): void {
-  window.setTimeout(() => goto(scene, to, data, opt), 0);
+export function gotoSafe(
+  scene: Phaser.Scene, to: string, data?: object, opt: GotoOptions = { kind: 'wipe' }, onResult?: (accepted: boolean) => void
+): void {
+  // 切り替えの途中だと goto は受け付けない。そのときは onResult(false) で知らせる
+  window.setTimeout(() => { onResult?.(goto(scene, to, data, opt)); }, 0);
 }
 
 /** 開発中だけ、自動テストから中身をさわれるようにする */

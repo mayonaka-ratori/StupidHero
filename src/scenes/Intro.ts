@@ -35,6 +35,8 @@ export class IntroScene extends Phaser.Scene {
     this.index = -1;
     this.leaving = false;
     unlockOnTap(this);
+    // 「もう一回」から来たときに結果画面の曲が残らないように(タイトルから来たときは同じ曲なので何もしない)
+    audio.playBgm('title');
 
     // 上:路地裏とヒーロー
     drawAlley(this);
@@ -123,6 +125,7 @@ export class IntroScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     audio.sfx('button');
-    gotoSafe(this, SCENES.sort);
+    // 切り替えの途中で受け付けられなかったら、また入力を受け付ける
+    gotoSafe(this, SCENES.sort, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
   }
 }

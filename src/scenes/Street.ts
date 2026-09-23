@@ -13,12 +13,12 @@ import { animKey } from '../art/sheets';
 import {
   MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, formatYen, isAttacked, mischiefLine, pickAttack, resolveEncounter,
   rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
-  type AttackKind, type Encounter, type Look, type PropKind, type Rng, type Speech, type StatsTracker, type WorstScene
+  type AttackKind, type Encounter, type Look, type PropKind, type ReactionKey, type Rng, type Speech, type StatsTracker, type WorstScene
 } from '../logic';
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, MuteButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
-  UIX, banner, flash, goto, hitStop, impact, isFrozen, panelRect, popText, shake
+  UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, panelRect, popText, shake
 } from '../ui';
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
@@ -66,6 +66,8 @@ export class StreetScene extends Phaser.Scene {
   private heroBubble?: Bubble;
   private frameN = 0;
   private civHits: CivHit[] = [];
+  /** この攻撃で、市民に当たったときにオペレーターが言った一言の種類 */
+  private civCried: ReactionKey | null = null;
   private leaving = false;
   // 下の操作部分
   private cut!: CutIn;
@@ -90,7 +92,7 @@ export class StreetScene extends Phaser.Scene {
     this.queue = []; this.passers = []; this.props = []; this.bgs = []; this.icons = [];
     this.flickers = new Set();
     this.walker = null; this.slow = 1; this.stopHandler = null; this.goHandler = null;
-    this.heroBubble = undefined; this.frameN = 0; this.civHits = []; this.leaving = false;
+    this.heroBubble = undefined; this.frameN = 0; this.civHits = []; this.civCried = null; this.leaving = false;
     this.shownDamage = this.stats.damage; this.shown = { defeated: -1, hurt: -1, damage: '' };
     this.auraOn = false;
     this.camFocus = null;
@@ -104,8 +106,8 @@ export class StreetScene extends Phaser.Scene {
 
     audio.playBgm('street');
     this.input.on('pointerdown', () => audio.unlock());
-    const dev = window as unknown as { streetDev?: unknown };
-    dev.streetDev = this;
+    // 開発中だけ、自動テストから中身をさわれるようにする
+    if (import.meta.env.DEV) (window as unknown as { streetDev?: unknown }).streetDev = this;
     void this.play();
   }
 
@@ -653,6 +655,7 @@ export class StreetScene extends Phaser.Scene {
     if (mode === 'civ') {
       this.stats.hurtCiv('hero', t.look);
       this.civHits.push({ look: t.look!, collateral: false });
+      this.civCry(this.civLineKey(k));
       this.report(sceneForCivHit(t.look!, k));
     } else {
       this.stats.defeatBad(mode === 'go' ? 'go' : 'sort');
@@ -685,6 +688,7 @@ export class StreetScene extends Phaser.Scene {
     this.knock(c, 40, 20, dir);
     this.stats.hurtCiv('collateral', c.look);
     this.civHits.push({ look: c.look!, collateral: true });
+    this.civCry(this.civLineKey(k));
     this.report(sceneForCivHit(c.look!, k));
   }
 
@@ -724,10 +728,28 @@ export class StreetScene extends Phaser.Scene {
     this.report(sceneForProp(p.kind));
   }
 
+  /** 市民に当たったときのオペレーターの一言の種類(おばあさん > 必殺技 > 巻きぞえ > 直接) */
+  private civLineKey(k: AttackKind, hits: readonly CivHit[] = this.civHits): ReactionKey {
+    if (hits.some((h) => h.look === 'granny')) return 'grannyHit';
+    if (k === 'special') return 'specialOnCiv';
+    if (hits.some((h) => h.collateral)) return 'collateral';
+    return 'hitCiv';
+  }
+
+  /** 市民に当たった瞬間:オペレーターがあわてる(前の「ナイス!」などを残さない)。同じ攻撃では、より強い一言に変わるときだけ言い直す */
+  private civCry(key: ReactionKey): void {
+    const rank: ReactionKey[] = ['hitCiv', 'collateral', 'specialOnCiv', 'grannyHit'];
+    if (this.civCried && rank.indexOf(key) <= rank.indexOf(this.civCried)) return;
+    this.civCried = key;
+    this.opSay(say(key), true);
+  }
+
   /** 殴ったあと:市民に当たっていたら「やっちまったー!」→「まあいいか!」→ツッコミ。ワルだけならほめる */
   private async afterAttack(k: AttackKind): Promise<void> {
     const hits = this.civHits;
     this.civHits = [];
+    const cried = this.civCried;
+    this.civCried = null;
     if (hits.length === 0) {
       this.opSay(say('hitBad', this.rng));
       if (this.rng.chance(0.5)) this.heroSay(say('hitBadHero', this.rng), 900);
@@ -739,6 +761,8 @@ export class StreetScene extends Phaser.Scene {
     if (hits.some((h) => h.look === 'granny')) line = say('grannyHit', this.rng);
     else if (k === 'special') line = say('specialOnCiv', this.rng);
     else if (hits.some((h) => h.collateral)) line = say('collateral', this.rng);
+    // 当たった瞬間にもう同じ種類の一言を出していたら、言い直さない
+    if (cried === this.civLineKey(k, hits)) line = null;
     const first = this.stats.heroMistakes - hits.length === 0;
     await this.oops(line, first);
   }
@@ -924,7 +948,7 @@ export class StreetScene extends Phaser.Scene {
     this.leaving = true;
     this.devLog('to boss');
     this.run.scrollX = this.L.world.scrollX;
-    goto(this, nextAfterStreet(this.run));
+    gotoWhenFree(this, nextAfterStreet(this.run));
   }
 
   private async waveClear(): Promise<void> {
@@ -939,7 +963,7 @@ export class StreetScene extends Phaser.Scene {
     this.leaving = true;
     this.devLog('wave clear');
     this.run.scrollX = this.L.world.scrollX;
-    goto(this, nextAfterStreet(this.run));
+    gotoWhenFree(this, nextAfterStreet(this.run));
   }
 
   /** 開発用:かかった時間を出す(途中から始めたときだけ) */

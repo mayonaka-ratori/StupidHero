@@ -12,10 +12,10 @@ import { HURRY_AT_SEC, WAVE_INTRO, say, type Person, type SortChoice, type Speec
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, WindowFrame,
-  addPanel, banner, flash, panelRect, shake
+  addPanel, banner, flash, gotoWhenFree, panelRect, shake
 } from '../ui';
 import {
-  BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawAlley, gotoSafe, drawLightPool, edgeGlow, spotlightDim, unlockOnTap
+  BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawAlley, drawLightPool, edgeGlow, spotlightDim, unlockOnTap
 } from './sort/common';
 import { makeStamp, popStamp } from './sort/stamp';
 import { drawHand } from './sort/introDemo';
@@ -380,7 +380,8 @@ export class SortScene extends Phaser.Scene {
 
   update(_t: number, dt: number): void {
     this.drawGlow();
-    if (this.state !== 'play') return;
+    // 全員決めたら時計を止める(次へ行くまでの間に「時間切れ」にならないように)
+    if (this.state !== 'play' || this.idx >= this.people.length) return;
     this.leftMs -= dt;
     const sec = Math.ceil(this.leftMs / 1000);
     if (!this.hurried && this.leftMs <= HURRY_AT_SEC * 1000) this.hurry();
@@ -469,7 +470,7 @@ export class SortScene extends Phaser.Scene {
 
   private leave(): void {
     this.state = 'done';
-    gotoSafe(this, SCENES.street);
+    gotoWhenFree(this, SCENES.street, undefined, { kind: 'wipe' });
   }
 
   // ─── 端の光 ─────────────────────────────────────

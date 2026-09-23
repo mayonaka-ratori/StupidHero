@@ -81,9 +81,10 @@ function unfreeze(scene: Phaser.Scene): void {
   const f = frozen.get(scene);
   if (!f) return;
   frozen.delete(scene);
-  if (!scene.sys || !scene.sys.settings.active) return;
-  scene.time.timeScale = 1;
-  scene.tweens.timeScale = 1;
+  // 一時停止中(画面が隠れたときなど)でも必ず戻す。戻さないと再開したあとも止まったままになる
+  if (!scene.sys) return;
+  if (scene.time) scene.time.timeScale = 1;
+  if (scene.tweens) scene.tweens.timeScale = 1;
   for (const s of f.anims) if (s.active) s.anims.resume();
 }
 

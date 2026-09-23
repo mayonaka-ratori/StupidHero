@@ -53,7 +53,7 @@ export class ResultScene extends Phaser.Scene {
     this.tl = new Timeline();
     this.card = undefined;
     this.file = null;
-    (window as unknown as { resultDev: ResultDev }).resultDev = dev;
+    if (import.meta.env.DEV) (window as unknown as { resultDev: ResultDev }).resultDev = dev;
     dev.scene = this;
     dev.log.length = 0;
 
@@ -133,14 +133,15 @@ export class ResultScene extends Phaser.Scene {
     const smallH = 26, shareH = 30, gap = 5;
     const rowBtnY = bottom - smallH;
     const shareY = rowBtnY - gap - shareH;
-    const shareBtn = new Button(this, 6, shareY, W - 12, shareH, '共有する', { color: 'stop' });
+    // 共有の画像(File)ができるまでは押せない
+    const shareBtn = new Button(this, 6, shareY, W - 12, shareH, 'じゅんびちゅう', { color: 'stop' }).setEnabled(false);
     const againBtn = new Button(this, 6, rowBtnY, 99, smallH, 'もう一回', { color: 'civ' });
     const titleBtn = new Button(this, W - 105, rowBtnY, 99, smallH, 'タイトルへ', { color: 0x4a3f78 });
     dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn };
     againBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
-      startRun(this);
-      goto(this, SCENES.intro);
+      // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
+      goto(this, SCENES.intro, undefined, { onCovered: () => startRun(this) });
     });
     titleBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
@@ -174,7 +175,10 @@ export class ResultScene extends Phaser.Scene {
       const cap = new PixelText(this, 124, ty + 16, capText, { size: FS.body, color: UI.text, wrap: W - 124 - 4 });
       thumbParts.push(g, img, lab, cap);
       for (const o of thumbParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
-      img.setInteractive().on('pointerdown', () => { audio.sfx('button'); this.share?.showOverlay(); });
+      img.setInteractive().on('pointerdown', () => {
+        if (!this.card) return;   // 画像がまだできていない
+        audio.sfx('button'); this.share?.showOverlay();
+      });
       void shotReady.then(() => {
         if (!this.textures.exists(THUMB_KEY)) return;
         tc.ctx.drawImage(baseShot, 0, 212 - th * 2, 216, th * 2, 0, 0, 108, th);
@@ -243,10 +247,11 @@ export class ResultScene extends Phaser.Scene {
       if (over.length) return;
       this.skipAll(quiet, cut);
     });
-    this.events.on(Phaser.Scenes.Events.UPDATE, (_t: number, dt: number) => {
+    const onUpdate = (_t: number, dt: number): void => {
       this.tl.update(dt);
       this.blinkTags([titleNew, collectedNew, ...newTags]);
-    });
+    };
+    this.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
 
     // ─── 共有 ───
     const url = location.origin + location.pathname;
@@ -265,6 +270,7 @@ export class ResultScene extends Phaser.Scene {
     });
     dev.share = this.share;
     shareBtn.on('press', () => {
+      if (!shareBtn.isEnabled) return;
       audio.unlock();
       audio.sfx('button');
       this.skipAll(quiet, cut);
@@ -273,15 +279,28 @@ export class ResultScene extends Phaser.Scene {
 
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX };
     const texts = [...cardTexts(cardIn), ...rows.map((r) => r.label), 'ワーストシーン', 'NEW'];
+    const alive = (): boolean => this.sys.isActive() || this.sys.isPaused();
+    // 共有ボタンを使えるようにする(File が作れなかったときも、画像を大きく出す方で共有できる)
+    const shareReady = (): void => {
+      if (!alive() || shareBtn.isEnabled) return;
+      shareBtn.setLabel('共有する').setEnabled(true);
+    };
     Promise.all([preloadFont(texts, [10, 12, 16]), shotReady]).then(() => {
-      if (!this.sys.isActive() && !this.sys.isPaused()) return;
+      if (!alive()) return;
       this.card = buildCard(this, cardIn);
       dev.card = this.card;
       dev.log.push('card');
-      void this.card.file.then((f) => { this.file = f; dev.log.push(f ? 'file' : 'nofile'); });
-    });
+      const card = this.card;
+      void card.file.then((f) => {
+        if (this.card !== card) return;
+        this.file = f;
+        dev.log.push(f ? 'file' : 'nofile');
+        shareReady();
+      }, () => { if (this.card === card) { dev.log.push('nofile'); shareReady(); } });
+    }).catch((e: unknown) => { console.error(e); });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
       this.share?.destroy();
       this.share = undefined;
       if (this.textures.exists(THUMB_KEY)) this.textures.remove(THUMB_KEY);

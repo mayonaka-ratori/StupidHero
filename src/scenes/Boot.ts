@@ -44,7 +44,8 @@ export class BootScene extends Phaser.Scene {
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       fontReady.then(() => {
         generateArt(this, skip);
-        this.scene.start(debugJump(this) ?? SCENES.title);
+        // 途中のシーンから始めるのは開発用のサーバーのときだけ
+        this.scene.start((import.meta.env.DEV ? debugJump(this) : null) ?? SCENES.title);
       });
     });
     this.load.start();
@@ -52,7 +53,7 @@ export class BootScene extends Phaser.Scene {
 }
 
 /**
- * 開発用:URLで途中のシーンから始める。
+ * 開発用:URLで途中のシーンから始める(import.meta.env.DEV のときだけ使う)。
  *   ?scene=Sort&wave=2&seed=123
  *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
  *   ?scene=Boss   ?scene=Result

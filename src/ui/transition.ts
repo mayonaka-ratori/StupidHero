@@ -3,7 +3,10 @@
 //   goto(this, SCENES.sort, { wave: 1 });                  // ふつうのワイプ(合わせて約0.4秒)
 //   goto(this, SCENES.result, data, { kind: 'fade' });       // 段階的に暗くなるフェード
 //   goto(this, SCENES.title, undefined, { ms: 600, color: 0xffffff });   // 白いワイプ、ゆっくり
-// 切り替えの途中でもう一度呼んでも無視する(ボタンの連打で2回行かないように)。
+// 切り替えの途中でもう一度呼んでも無視する(ボタンの連打で2回行かないように)。goto は受け付けたら true、無視したら false を返す。
+//   if (goto(this, SCENES.sort)) this.leaving = true;      // 受け付けたときだけ「出ていく途中」にする
+//   gotoWhenFree(this, SCENES.street);                     // 自動で次へ進むとき:切り替えの途中なら、終わってから行く
+// 画面が隠れている間はワイプを進めない。
 // 途中はタップを受け付けない。上に 'UiWipe' というシーンが重なる。
 
 import Phaser from 'phaser';
@@ -25,8 +28,8 @@ let busy = false;
 /** いま切り替えの途中か */
 export const isTransitioning = (): boolean => busy;
 
-export function goto(from: Phaser.Scene, to: string, data?: object, opt: GotoOptions = {}): void {
-  if (busy) return;
+export function goto(from: Phaser.Scene, to: string, data?: object, opt: GotoOptions = {}): boolean {
+  if (busy) return false;
   busy = true;
   const mgr = from.game.scene;
   try {
@@ -39,6 +42,22 @@ export function goto(from: Phaser.Scene, to: string, data?: object, opt: GotoOpt
     console.error(e);
     from.scene.start(to, data);
   }
+  return true;
+}
+
+/**
+ * 自動で次へ進むとき用。切り替えの途中なら、終わるのを待ってから行く。
+ * シーンが止めてある(一時停止)間は待ち、シーンが終わっていたら行かない。
+ */
+export function gotoWhenFree(from: Phaser.Scene, to: string, data?: object, opt: GotoOptions = {}): void {
+  const tryGo = (): void => {
+    const sys = from.sys;
+    if (!sys || (!sys.isActive() && !sys.isPaused())) return;
+    if (sys.isPaused() || busy) { window.setTimeout(tryGo, 50); return; }
+    if (!goto(from, to, data, opt)) window.setTimeout(tryGo, 50);
+  };
+  // ゲームの更新の外から呼ぶ(更新中に start すると失敗することがあるため。sort/common.ts の gotoSafe と同じ)
+  window.setTimeout(tryGo, 0);
 }
 
 interface WipeData { from: string; to: string; data?: object; opt: GotoOptions }
@@ -84,9 +103,16 @@ export class WipeScene extends Phaser.Scene {
     };
 
     let t0 = this.time.now;
+    let last = t0;
     let phase: 'close' | 'open' = 'close';
     draw(0, false);
     const tick = (): void => {
+      // 画面が隠れている間は進めない(戻ったときに時間が飛んでいても、その分は数えない)
+      const now = this.time.now;
+      const step = now - last;
+      last = now;
+      if (document.hidden) { t0 += step; return; }
+      if (step > 100) t0 += step - 16;
       const t = Math.min(1, (this.time.now - t0) / half);
       if (phase === 'close') {
         draw(t, false);

@@ -8,10 +8,11 @@
 //   new IconButton(this, 204, 12, 'pause', () => pause.pause());
 //   pause.enabled = false;                 // 結果画面などで、隠れても止めないとき
 // 止めている間は、そのシーンの時計、動き、アニメがすべて止まる。上に 'UiPause' というシーンが重なる。
-// 音の担当は pauseEvents.on('pause' | 'resume', fn) でも受け取れる。
+// 音の担当は pauseEvents.on('pause' | 'resume', fn) でも受け取れる。止めている間は曲も止める(下の pauseEvents.on)。
 
 import Phaser from 'phaser';
 import { UI } from '../config';
+import { audio } from '../audio';
 import { layout } from '../layout';
 import { PixelText } from './text';
 import { FS } from './theme';
@@ -20,6 +21,9 @@ export const PAUSE_SCENE = 'UiPause';
 
 /** 止めた/再開したを知らせる。('pause', reason) と ('resume') */
 export const pauseEvents = new Phaser.Events.EventEmitter();
+// 止めている間は曲も止める
+pauseEvents.on('pause', () => audio.pauseBgm());
+pauseEvents.on('resume', () => audio.resumeBgm());
 
 export type PauseReason = 'button' | 'hidden';
 
@@ -38,6 +42,7 @@ export class PauseControl {
   private isPaused = false;
   private opt: PauseOptions;
   private onVis = (): void => { if (document.hidden) this.pause('hidden'); };
+  private onEnd = (): void => this.destroy();
 
   constructor(private scene: Phaser.Scene, opt: PauseOptions = {}) {
     this.opt = opt;
@@ -45,8 +50,8 @@ export class PauseControl {
       document.addEventListener('visibilitychange', this.onVis);
       window.addEventListener('pagehide', this.onVis);
     }
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
-    scene.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroy());
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onEnd);
+    scene.events.once(Phaser.Scenes.Events.DESTROY, this.onEnd);
   }
 
   get paused(): boolean { return this.isPaused; }
@@ -78,9 +83,13 @@ export class PauseControl {
   destroy(): void {
     document.removeEventListener('visibilitychange', this.onVis);
     window.removeEventListener('pagehide', this.onVis);
+    this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.onEnd);
+    this.scene.events.off(Phaser.Scenes.Events.DESTROY, this.onEnd);
     if (this.isPaused) {
       this.isPaused = false;
       this.scene.game.scene.stop(PAUSE_SCENE);
+      // 止めたままシーンが終わったときも、曲などを戻す
+      pauseEvents.emit('resume');
     }
   }
 }
