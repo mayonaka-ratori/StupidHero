@@ -13,6 +13,7 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
   escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
+  sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [],
   ...over
 });
 
@@ -37,7 +38,7 @@ describe('称号', () => {
   });
 
   it('完全無欠は全員撃破、負傷0、¥500万未満。¥500万ちょうどなら ほんものヒーロー', () => {
-    const perfect = base({ allDefeated: true, civHurt: 0, damage: 4_990_000, bossFightSec: 3, civSavedByStop: 5 });
+    const perfect = base({ allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 4_990_000, bossFightSec: 3, civSavedByStop: 5 });
     expect(decideTitle(perfect).id).toBe('flawless');
     expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
   });
@@ -57,7 +58,7 @@ describe('称号', () => {
   });
 
   it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
-    const s = base({ damage: 50_000_000, bossSortedCiv: true, grannyHit: true, allDefeated: true, civHurt: 3, defeated: 9 });
+    const s = base({ damage: 50_000_000, bossSortedCiv: true, grannyHit: true, allDefeated: true, civHurt: 3, civHurtByHero: 3, defeated: 9 });
     expect(decideTitle(s).id).toBe('demolition');
     expect(decideTitle({ ...s, damage: 49_990_000 }).id).toBe('bossBuddy');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
@@ -69,19 +70,61 @@ describe('称号', () => {
     expect(decideTitle(s).id).toBe('soSo');
   });
 
-  it('連打の申し子は5秒以内(ちょうど5秒を含む)。ボス戦がなければ入らない', () => {
-    expect(decideTitle(base({ bossFightSec: 5 })).id).toBe('tapProdigy');
-    expect(decideTitle(base({ bossFightSec: 5.01 })).id).toBe('soSo');
+  it('連打の申し子は7秒以内(ちょうど7秒を含む)。ボス戦がなければ入らない', () => {
+    expect(decideTitle(base({ bossFightSec: 7 })).id).toBe('tapProdigy');
+    expect(decideTitle(base({ bossFightSec: 5.5 })).id).toBe('tapProdigy');
+    expect(decideTitle(base({ bossFightSec: 7.01 })).id).toBe('soSo');
     expect(decideTitle(base({ bossFightSec: null })).id).toBe('soSo');
     expect(decideTitle(base({ bossFightSec: 4, civSavedByStop: 3 })).id).toBe('tapProdigy');
   });
 
   it('待ての達人 → 追い打ちの鬼 → やさしすぎるヒーロー', () => {
-    const s = base({ civSavedByStop: 3, defeatedByGo: 3, civHurt: 0, escaped: 3 });
+    const s = base({ civSavedByStop: 3, defeatedByGo: 3, civHurt: 0, civHurtByHero: 0, escaped: 3 });
     expect(decideTitle(s).id).toBe('stopMaster');
     expect(decideTitle({ ...s, civSavedByStop: 2 }).id).toBe('chaseDemon');
     expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2 }).id).toBe('tooKind');
-    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2, civHurt: 1 }).id).toBe('soSo');
+    expect(decideTitle({ ...s, civSavedByStop: 2, defeatedByGo: 2, civHurt: 1, civHurtByHero: 1 }).id).toBe('soSo');
+  });
+});
+
+describe('称号の市民のけがの数え方', () => {
+  const allDown = (over: Partial<StageStats> = {}): StageStats =>
+    base({ allDefeated: true, defeated: 9, damage: 1_000_000, bossFightSec: 9, escaped: 0, civHurt: 0, civHurtByHero: 0, ...over });
+
+  it('完全無欠と ほんものヒーロー は巻きぞえを数えない(仕分けが全部正しければ運で落ちない)', () => {
+    expect(decideTitle(allDown()).id).toBe('flawless');
+    expect(decideTitle(allDown({ civHurt: 2, civHurtByCollateral: 2 })).id).toBe('flawless');
+    expect(decideTitle(allDown({ civHurt: 2, civHurtByCollateral: 2, damage: 6_000_000 })).id).toBe('realHero');
+    // なぐった市民やワルに襲われた市民がいれば入らない
+    expect(decideTitle(allDown({ civHurt: 1, civHurtByHero: 1 })).id).toBe('soSo');
+    expect(decideTitle(allDown({ civHurt: 1, civHurtByVillain: 1 })).id).toBe('soSo');
+    // 巻きぞえでもおばあさんに当たったら、おばあちゃんの敵
+    expect(decideTitle(allDown({ civHurt: 1, civHurtByCollateral: 1, grannyHit: true })).id).toBe('grannyFoe');
+    // ボスを市民に仕分けたら完全無欠にはしない
+    expect(decideTitle(allDown({ bossSortedCiv: true })).id).toBe('bossBuddy');
+  });
+
+  it('正義の暴走機関車は、なぐった市民と巻きぞえの合計(ワルに襲われた市民は数えない)', () => {
+    expect(decideTitle(allDown({ civHurt: 3, civHurtByHero: 1, civHurtByCollateral: 2 })).id).toBe('runawayTrain');
+    // 仕分けが全部正しくても、巻きぞえが3人以上なら完全無欠ではなく暴走機関車
+    expect(decideTitle(allDown({ civHurt: 3, civHurtByCollateral: 3 })).id).toBe('runawayTrain');
+    expect(decideTitle(allDown({ civHurt: 3, civHurtByHero: 1, civHurtByVillain: 2 })).id).toBe('soSo');
+  });
+
+  it('やさしすぎるヒーローは、なぐった市民がいないこと(逃がしたワルが襲った市民と巻きぞえは数えない)', () => {
+    const kind = base({ civHurt: 2, civHurtByHero: 0, civHurtByVillain: 2, escaped: 3 });
+    expect(decideTitle(kind).id).toBe('tooKind');
+    expect(decideTitle({ ...kind, civHurt: 3, civHurtByCollateral: 1 }).id).toBe('tooKind');
+    expect(decideTitle({ ...kind, civHurt: 3, civHurtByHero: 1 }).id).toBe('soSo');
+  });
+
+  it('どの称号にも、条件とヒントの文がある', () => {
+    for (const t of TITLES) {
+      expect(t.condition.length, t.id).toBeGreaterThan(0);
+      expect(t.hint.length, t.id).toBeGreaterThan(0);
+      expect(t.hint, t.id).not.toMatch(/[ —]/);
+      expect(t.condition, t.id).not.toMatch(/[ —]/);
+    }
   });
 });
 

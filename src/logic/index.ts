@@ -24,7 +24,8 @@
 //   // 結果:const s = stats.snapshot(); const title = decideTitle(s);
 //   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   const saved = saveResult(stage.id, s, title.id);   // saved.unlockedNow で「次のステージが開いた」
-//   //   buildShareText({ stageId: stage.id, ..., titlesCollected: saved.titlesCollected, titlesTotal: saved.titlesTotal, url })
+//   //   buildShareText({ caption: shareCaption({ worstScene: s.worstScene, caption, titleName }), url })
+//   // 答え合わせ(波ごと):tallySorts(wave.people, sorts, randomSorted) を stats.recordSorts に。決め手の文は reasonFor(person, wave)
 
 export * from './types';
 export * from './rng';
@@ -41,3 +42,4 @@ export * from './boss';
 export * from './format';
 export * from './share';
 export * from './records';
+export * from './reasons';

@@ -3,7 +3,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SCENES } from './config';
 import { createStage } from './logic';
-import { currentWave, fillUnsorted, getRun, nextAfterStreet, setSort, startRun } from './run';
+import {
+  currentWave, fillUnsorted, getRun, nextAfterReview, nextAfterStreet, recordAllSorts, setSort, startRun
+} from './run';
 import type Phaser from 'phaser';
 
 vi.mock('phaser', () => {
@@ -34,20 +36,40 @@ describe('startRun と getRun', () => {
 });
 
 describe('場面の流れ', () => {
-  it('Street のあとは、波1と波2なら次の波の Sort、波3なら Boss', () => {
+  it('Street のあと、波1と波2は答え合わせを通って次の波の Sort、波3は Boss → 答え合わせ → Result', () => {
     for (const stageId of ['alley', 'garage'] as const) {
       const run = startRun(fakeScene(), 7, false, stageId);
       const seen: string[] = [];
       for (let i = 0; i < 3; i++) {
         expect(currentWave(run).no).toBe(i + 1);
-        seen.push(nextAfterStreet(run));
+        fillUnsorted(run);
+        const next = nextAfterStreet(run);
+        seen.push(next);
+        // Street のあとでは波は進まない(答え合わせでその波を見せるため)
+        expect(run.waveIndex).toBe(i);
+        if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
       }
-      expect(seen).toEqual([SCENES.sort, SCENES.sort, SCENES.boss]);
+      expect(seen).toEqual([SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.boss]);
       expect(run.waveIndex).toBe(2);
+      // ボス戦のあと(Boss は SCENES.waveReview へ行く)
+      expect(nextAfterReview(run)).toBe(SCENES.result);
       // 波3のあとにもう一度呼んでも、波は進まない
-      expect(nextAfterStreet(run)).toBe(SCENES.boss);
+      expect(nextAfterReview(run)).toBe(SCENES.result);
       expect(run.waveIndex).toBe(2);
+      // 答え合わせのたびに、その波の当たり外れが残る
+      const s = run.stats.snapshot();
+      expect(s.sortWaves.map((w) => w.wave)).toEqual([1, 2, 3]);
+      expect(s.sortTotal + s.sortByHero).toBe(run.stage.peopleTotal);
     }
+  });
+
+  it('答え合わせを通らずに結果画面へ来ても、仕分けの済んだ波は recordAllSorts で数える', () => {
+    const run = startRun(fakeScene(), 3);
+    for (const w of run.stage.waves.slice(0, 2)) for (const p of w.people) setSort(run, p, p.truth === 'civ' ? 'civ' : 'bad');
+    recordAllSorts(run);
+    const s = run.stats.snapshot();
+    expect(s.sortWaves.map((w) => w.wave)).toEqual([1, 2]);
+    expect(s.sortCorrect).toBe(s.sortTotal);
   });
 
   it('fillUnsorted は、今の波で仕分けていない人だけをヒーローの気まぐれで決める', () => {
@@ -65,7 +87,7 @@ describe('場面の流れ', () => {
     expect(Object.keys(run.sorts)).toHaveLength(currentWave(run).people.length);
     expect(fillUnsorted(run)).toEqual([]);
     // 次の波に進むと、その波の人を決める
-    nextAfterStreet(run);
+    nextAfterReview(run);
     expect(fillUnsorted(run)).toHaveLength(currentWave(run).people.length);
   });
 

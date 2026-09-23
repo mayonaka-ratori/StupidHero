@@ -14,7 +14,9 @@
 
 import { GANG, isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
 import { STAGES } from './stages';
-import type { AttackKind, HurtCause, Look, PropKind, StageId, StageStats, Truth, WorstScene } from './types';
+import type {
+  AttackKind, HurtCause, Look, Person, PropKind, SortChoice, SortTally, StageId, StageStats, Truth, WorstScene
+} from './types';
 
 /** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
 export const isGroup = (size: number): boolean => size >= GANG.groupSize.min;
@@ -33,6 +35,31 @@ export function sceneForCivHit(look: Look, attack?: AttackKind): WorstScene {
   if (look === 'granny') return 'grannyHit';
   if (attack === 'special') return 'specialOnCiv';
   return 'civHit';
+}
+
+/** 仕分けが当たっているか。ボスはワルに仕分けていれば当たり */
+export const sortIsCorrect = (truth: Truth, choice: SortChoice | undefined): boolean =>
+  choice !== undefined && (truth === 'civ' ? choice === 'civ' : choice === 'bad');
+
+/**
+ * 1つの波の仕分けの当たり外れを数える。
+ * byHero は時間切れでヒーローの勘で決まった人の id(run.randomSorted)。その人は自分の仕分けには数えない
+ */
+export function tallySorts(
+  people: readonly Pick<Person, 'id' | 'wave' | 'truth'>[], sorts: Readonly<Record<string, SortChoice>>, byHero: readonly string[]
+): SortTally {
+  const t: SortTally = { wave: people[0]?.wave ?? 1, correct: 0, total: 0, byHero: 0, byHeroCorrect: 0 };
+  for (const p of people) {
+    const ok = sortIsCorrect(p.truth, sorts[p.id]);
+    if (byHero.includes(p.id)) {
+      t.byHero++;
+      if (ok) t.byHeroCorrect++;
+    } else {
+      t.total++;
+      if (ok) t.correct++;
+    }
+  }
+  return t;
 }
 
 export class StatsTracker {
@@ -61,6 +88,7 @@ export class StatsTracker {
   private bossFightSec: number | null = null;
   private worst: WorstScene | null = null;
   private worstAttack: AttackKind | null = null;
+  private sortWaves = new Map<number, SortTally>();
 
   /**
    * @param villainTotal 倒すべき相手の総数(ワル全員とボス)。stage.villainTotal を渡す
@@ -193,6 +221,18 @@ export class StatsTracker {
     }
   }
 
+  // ─── 仕分けの答え合わせ ───
+
+  /** 波の仕分けの当たり外れを残す(tallySorts の答え)。同じ波をもう一度渡したら置きかえる */
+  recordSorts(tally: SortTally): void {
+    this.sortWaves.set(tally.wave, { ...tally });
+  }
+
+  /** その波の答え合わせが済んでいるか */
+  hasSorts(wave: number): boolean {
+    return this.sortWaves.has(wave);
+  }
+
   // ─── いちばんひどかった場面 ───
 
   /**
@@ -223,6 +263,8 @@ export class StatsTracker {
   /** 今の数字をまとめて返す(あとで変えても、返したものは変わらない) */
   snapshot(): StageStats {
     const defeated = this.defeated;
+    const waves = [...this.sortWaves.values()].sort((a, b) => a.wave - b.wave).map((t) => ({ ...t }));
+    const sum = (k: 'correct' | 'total' | 'byHero' | 'byHeroCorrect'): number => waves.reduce((n, t) => n + t[k], 0);
     return {
       stageId: this.stageId,
       defeated,
@@ -253,7 +295,12 @@ export class StatsTracker {
       villainTotal: this.villainTotal,
       allDefeated: this.villainTotal > 0 && defeated >= this.villainTotal,
       worstScene: this.worst,
-      worstAttack: this.worstAttack
+      worstAttack: this.worstAttack,
+      sortCorrect: sum('correct'),
+      sortTotal: sum('total'),
+      sortByHero: sum('byHero'),
+      sortByHeroCorrect: sum('byHeroCorrect'),
+      sortWaves: waves
     };
   }
 }

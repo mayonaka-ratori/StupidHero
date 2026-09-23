@@ -2,16 +2,19 @@
 //
 // 流れ:
 //   Boot → Title → StageSelect(ステージを選ぶ。ここで startRun(scene, seed, false, stageId))
-//   → Intro → Sort(波1) → Street(波1) → Sort(波2) → Street(波2) → Sort(波3) → Street(波3)
-//   → Boss → Result → (もう一回なら同じステージで startRun して Intro、タイトルへなら Title)
+//   → Intro → Sort(波1) → Street(波1) → WaveReview(波1の答え合わせ) → Sort(波2) → Street(波2) → WaveReview
+//   → Sort(波3) → Street(波3) → Boss → WaveReview(波3の答え合わせ) → Result
+//   → (もう一回なら同じステージで startRun して Intro、タイトルへなら Title)
 // Sort は時間切れのとき fillUnsorted() で残りを決める(Street も入口で念のため呼ぶ)。
 // Street は波の最後まで進んだら nextAfterStreet() を呼ぶ。波3ではボスの前まで来たら Boss へ行く。
+// Boss はボスを倒したら WaveReview へ。WaveReview は次へで nextAfterReview() を呼ぶ(波を進めるのはここ)。
 // 開発用に Boot から途中のシーンへ飛ぶときは startRun(scene, seed, true, stageId)(Boot.ts の debugJump)。
 
 import type Phaser from 'phaser';
 import { SCENES } from './config';
 import { createRng, createStage, decideUnsorted, randomSeed, StatsTracker } from './logic';
 import type { Rng } from './logic/rng';
+import { tallySorts } from './logic/stats';
 import type { Person, SortChoice, Stage, StageId, Wave } from './logic/types';
 
 export interface GameRun {
@@ -80,11 +83,31 @@ export function fillUnsorted(run: GameRun): Person[] {
   return filled;
 }
 
-/** Street が波の最後まで進んだあとの行き先 */
+/** 最後の波(波3)か */
+export const isLastWave = (run: GameRun): boolean => run.waveIndex >= run.stage.waves.length - 1;
+
+/** Street が波の最後まで進んだあとの行き先。波1と波2は答え合わせ、波3はボス戦(答え合わせはボス戦のあと) */
 export function nextAfterStreet(run: GameRun): string {
-  if (run.waveIndex < run.stage.waves.length - 1) {
-    run.waveIndex += 1;
-    return SCENES.sort;
-  }
-  return SCENES.boss;
+  return isLastWave(run) ? SCENES.boss : SCENES.waveReview;
+}
+
+/** その波の仕分けの当たり外れを stats に残す(何回呼んでもよい) */
+export function recordWaveSorts(run: GameRun, waveIndex = run.waveIndex): void {
+  const w = run.stage.waves[waveIndex];
+  if (w) run.stats.recordSorts(tallySorts(w.people, run.sorts, run.randomSorted));
+}
+
+/** 答え合わせがまだで、全員の仕分けが決まっている波を stats に残す(結果画面の前に念のため) */
+export function recordAllSorts(run: GameRun): void {
+  run.stage.waves.forEach((w, i) => {
+    if (!run.stats.hasSorts(w.no) && w.people.every((p) => run.sorts[p.id])) recordWaveSorts(run, i);
+  });
+}
+
+/** 答え合わせの次へ。波1と波2なら次の波の Sort(ここで波を進める)、波3なら Result */
+export function nextAfterReview(run: GameRun): string {
+  recordWaveSorts(run);
+  if (isLastWave(run)) return SCENES.result;
+  run.waveIndex += 1;
+  return SCENES.sort;
 }

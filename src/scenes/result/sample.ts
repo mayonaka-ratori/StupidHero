@@ -73,7 +73,7 @@ function fillGarageSample(stats: StatsTracker, name: SampleName): void {
       n(5, () => stats.defeatBad('sort'));
       stats.groupWiped(3);
       stats.groupEscaped(2);
-      stats.defeatBoss(6.4);
+      stats.defeatBoss(7.6);
       stats.hurtCiv('hero', 'mechanic');
       stats.hurtCiv('collateral', 'officelady');
       stats.breakProp('pillar'); stats.breakProp('car'); stats.breakProp('cone'); stats.breakProp('extinguisher');

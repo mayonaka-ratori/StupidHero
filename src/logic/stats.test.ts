@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { StatsTracker, isGroup, sceneForCivHit, sceneForProp } from './stats';
+import { StatsTracker, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
 
 describe('StatsTracker', () => {
   it('撃破は仕分け、行け、ボスの合計', () => {
@@ -188,5 +188,40 @@ describe('StatsTracker(ステージ2)', () => {
     const r = new StatsTracker(8).snapshot();
     expect(r.stageId).toBe('alley');
     expect([r.defeatedByWipe, r.defeatedByVan, r.groupsWiped, r.groupsEscaped, r.escapedByVan, r.vansStopped]).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});
+
+describe('仕分けの答え合わせ', () => {
+  const people = [
+    { id: 'a', wave: 2 as const, truth: 'bad' as const },
+    { id: 'b', wave: 2 as const, truth: 'civ' as const },
+    { id: 'c', wave: 2 as const, truth: 'boss' as const },
+    { id: 'd', wave: 2 as const, truth: 'civ' as const },
+    { id: 'e', wave: 2 as const, truth: 'bad' as const }
+  ];
+
+  it('ボスはワルに仕分ければ当たり。仕分けていない人ははずれ', () => {
+    expect(sortIsCorrect('boss', 'bad')).toBe(true);
+    expect(sortIsCorrect('boss', 'civ')).toBe(false);
+    expect(sortIsCorrect('civ', 'civ')).toBe(true);
+    expect(sortIsCorrect('bad', undefined)).toBe(false);
+  });
+
+  it('時間切れでヒーローが決めた人は、自分の仕分けとは別に数える', () => {
+    const t = tallySorts(people, { a: 'bad', b: 'bad', c: 'bad', d: 'civ', e: 'bad' }, ['d', 'e']);
+    expect(t).toEqual({ wave: 2, correct: 2, total: 3, byHero: 2, byHeroCorrect: 2 });
+  });
+
+  it('波ごとに残し、合計を snapshot に出す。同じ波は置きかえる', () => {
+    const s = new StatsTracker(9);
+    expect(s.snapshot()).toMatchObject({ sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [] });
+    s.recordSorts({ wave: 2, correct: 3, total: 4, byHero: 1, byHeroCorrect: 0 });
+    s.recordSorts({ wave: 1, correct: 5, total: 5, byHero: 0, byHeroCorrect: 0 });
+    s.recordSorts({ wave: 2, correct: 4, total: 4, byHero: 1, byHeroCorrect: 1 });
+    expect(s.hasSorts(2)).toBe(true);
+    expect(s.hasSorts(3)).toBe(false);
+    const r = s.snapshot();
+    expect([r.sortCorrect, r.sortTotal, r.sortByHero, r.sortByHeroCorrect]).toEqual([9, 9, 1, 1]);
+    expect(r.sortWaves.map((w) => w.wave)).toEqual([1, 2]);
   });
 });
