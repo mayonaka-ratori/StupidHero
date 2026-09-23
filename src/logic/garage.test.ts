@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sheetByKey } from '../art/sheets';
-import { LOOK_NOUN } from './garageContent';
+import { AGES, NAMES } from './content';
+import { BOSS2_AGES, LOOK_NOUN } from './garageContent';
 import { GANG, GANG_COLOR_IDS } from './rules';
 import { createStage, findBoss } from './stage';
 import { STAGES } from './stages';
@@ -125,6 +126,30 @@ describe('createStage(seed, "garage")', () => {
       expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
     }
     expect(disguises.size).toBe(3);
+  });
+
+  it('女ボスの名前は、化けた姿の市民と同じ名前の一覧から(偽名)。年齢も化けた姿の幅に入る', () => {
+    for (const s of stages) {
+      const boss = findBoss(s)!;
+      const look = boss.disguise!;
+      expect(NAMES[look]).toContain(boss.profile.name);
+      expect(boss.profile.age).toBeGreaterThanOrEqual(Math.max(AGES[look][0], BOSS2_AGES[0]));
+      expect(boss.profile.age).toBeLessThanOrEqual(Math.min(AGES[look][1], BOSS2_AGES[1]));
+    }
+  });
+
+  it('プロフィールとつながりの文は、市民にもギャングにも出る', () => {
+    const civLines = new Set<string>();
+    const badLines = new Set<string>();
+    for (const s of stages) {
+      for (const p of everyone(s)) {
+        const text = p.link?.where === 'profile' ? p.profile.line.replace(/さっきの.+?(と|を|に|から)/, '{n}') : p.profile.line;
+        if (p.truth === 'civ') civLines.add(text);
+        if (p.truth === 'bad') badLines.add(text);
+      }
+    }
+    const both = [...civLines].filter((t) => badLines.has(t));
+    expect(both.length).toBeGreaterThanOrEqual(10);
   });
 
   it('見た目は4種類。絵のキーは全部 sheets.ts にある', () => {

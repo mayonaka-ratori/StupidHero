@@ -13,7 +13,13 @@
 //   if (encounter === 'passBad' && person.group) {
 //     const group = wave.groups.find((g) => g.id === person.group)!;
 //     const comers = gatherMembers(group.memberIds, (id) => defeated.has(id) || stoppedIds.has(id));
-//     const call = new GangCall(comers);      // 口笛を吹いた人を含む、集まる人の id
+//     if (comers.length < 2) {
+//       // 仲間が誰も来ない(ほかの仲間はもう倒した、または待てで止めた)。組にならないので、
+//       // ステージ1の見逃したワルと同じ流れ:say('alone', rng, 'garage') と say('aloneHero', rng, 'garage')、
+//       // 行けで追い打ちなら stats.defeatBad('go')、押さずに逃げたら stats.escaped()
+//     } else {
+//       const call = new GangCall(comers);    // 口笛を吹いた人を含む、集まる人の id
+//     }
 //   }
 //   // 仲間が着いたら call.gathered()(呼ばなくても GANG.gatherSec で集まったことになる。
 //   //  gathered() で集まったときは update から 'wait' は来ないので、その場でマークを出す)
@@ -76,6 +82,11 @@ export class GangCall {
   /** 組の人数(まとめて吹き飛ばした人数、逃げた人数に使う) */
   get size(): number {
     return this.members.length;
+  }
+
+  /** 1人だけ(仲間が誰も来ない)か。そのときは組ではなく、ステージ1の見逃したワルと同じ流れにする */
+  get alone(): boolean {
+    return this.members.length < GANG.groupSize.min;
   }
 
   get phase(): GangPhase {

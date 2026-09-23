@@ -13,8 +13,9 @@
 import {
   BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_NAMES,
   GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS, GARAGE_TITLE_COMMENTS,
-  GARAGE_WAVE_INTRO, BOSS2_NAMES, allLinkTexts, type GarageReactionKey
+  GARAGE_TITLE_COMMENT_OVERRIDES, GARAGE_WAVE_INTRO, allLinkTexts, type GarageReactionKey
 } from './garageContent';
+import { ANALOGY_UNITS } from './format';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM } from './rules';
 import type { Rng } from './rng';
 import type {
@@ -468,6 +469,21 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   ...GARAGE_TITLE_COMMENTS
 };
 
+const GARAGE_TITLE_COMMENT_LIST: Readonly<Partial<Record<TitleId, Speech>>> = GARAGE_TITLE_COMMENT_OVERRIDES;
+
+/**
+ * 称号のひとことを、ステージに合った言い方で返す(結果画面と共有カード用)。
+ * 例:titleCommentFor('demolition', 'garage') は「駐車場の修理代、誰が払うの…」。
+ * 言い方を変えていない称号は title.comment(TITLE_COMMENTS)と同じ
+ */
+export function titleCommentFor(id: TitleId, stageId: StageId = 'alley'): Speech {
+  if (stageId === 'garage') {
+    const o = GARAGE_TITLE_COMMENT_LIST[id];
+    if (o) return o;
+  }
+  return TITLE_COMMENTS[id];
+}
+
 // ─── 選ぶための関数 ───────────────────────────────
 
 /** 一覧から1つ選ぶ。rng を渡さなければ Math.random で選ぶ */
@@ -560,8 +576,9 @@ export function allTexts(): string[] {
   for (const k of Object.keys(GARAGE_REACTIONS) as GarageReactionKey[]) addList(GARAGE_REACTIONS[k]);
   for (const l of Object.values(GARAGE_OVERRIDE_LISTS)) if (l) addList(l);
   out.push(...allLinkTexts());
-  // 女ボスの名前(NAMES には入っていないので、フォントを読みこむためにここに入れる)
-  out.push(...BOSS2_NAMES);
+  addList(Object.values(GARAGE_TITLE_COMMENT_OVERRIDES));
+  // 被害額のたとえの物の名前(フォントの読みこみ用。数字は別に読みこむ)
+  for (const u of Object.values(ANALOGY_UNITS)) out.push(`${u.name}${u.counter}分`);
   // 小物の色と名前(プロフィールの横などに出すとき用)
   for (const c of Object.values(ACCESSORY_COLORS)) out.push(c.name);
   for (const i of Object.values(ACCESSORY_ITEM)) out.push(i.civ, i.bad);

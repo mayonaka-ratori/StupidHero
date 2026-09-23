@@ -73,6 +73,8 @@ export const TITLES: readonly TitleDef[] = [
     id: 'grannyFoe', order: 6, name: 'おばあちゃんの敵', pose: 'win_shy',
     condition: 'おばあさんを殴った',
     comment: TITLE_COMMENTS.grannyFoe,
+    // 地下駐車場にはおばあさんが出ないので、路地裏だけ
+    stages: ['alley'],
     test: (s) => s.grannyHit
   },
   {
@@ -126,7 +128,10 @@ export const TITLES: readonly TitleDef[] = [
   }
 ];
 
-/** 称号の全体の数(全部のステージを合わせて14) */
+/**
+ * 称号の全体の数(全部のステージを合わせて14)。
+ * 路地裏で取れるのは12(一網打尽、ギャングの運転手を除く)、地下駐車場は13(おばあちゃんの敵を除く)
+ */
 export const TITLE_COUNT = TITLES.length;
 
 /** そのステージで取れる称号 */
@@ -134,7 +139,10 @@ export function titlesFor(stageId: StageId): TitleDef[] {
   return TITLES.filter((t) => !t.stages || t.stages.includes(stageId));
 }
 
-/** 数字から称号を決める(上から順に調べ、最初に当てはまったもの) */
+/**
+ * 数字から称号を決める(上から順に調べ、最初に当てはまったもの)。
+ * 結果画面のひとことは titleCommentFor(title.id, stage.id)(content.ts)でステージに合った言い方にする
+ */
 export function decideTitle(stats: StageStats): TitleDef {
   return TITLES.find((t) => t.test(stats)) ?? TITLES[TITLES.length - 1];
 }

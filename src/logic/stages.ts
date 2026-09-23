@@ -79,7 +79,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     unlocks: 'garage',
     unlockAfter: null,
     lockedText: null,
-    onlyTitles: []
+    onlyTitles: ['grannyFoe']
   },
   garage: {
     id: 'garage',
@@ -98,7 +98,10 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     waves: GARAGE_WAVES,
     hasGangs: true,
     bossRampageCost: BOSS2_RAMPAGE_COST,
-    bossFight: { carAtHpRatio: BOSS2.carAtHpRatio, carIdleCostPerSec: BOSS2.carIdleCostPerSec },
+    bossFight: {
+      carAtHpRatio: BOSS2.carAtHpRatio, carIdleCostPerSec: BOSS2.carIdleCostPerSec,
+      carHoldSec: BOSS2.carHoldSec, carMinSec: BOSS2.carMinSec
+    },
     unlocks: null,
     unlockAfter: 'alley',
     lockedText: '路地裏をクリアすると遊べる',

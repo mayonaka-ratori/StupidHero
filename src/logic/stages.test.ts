@@ -13,7 +13,7 @@ describe('ステージの定義', () => {
     expect(STAGES.garage.bossSheet).toBe('boss2');
     expect(STAGES.alley.bossRampageCost).toBe(10_000_000);
     expect(STAGES.garage.bossRampageCost).toBe(15_000_000);
-    expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000 });
+    expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });
     expect(STAGES.garage.unlockAfter).toBe('alley');
     expect(STAGES.alley.unlocks).toBe('garage');
   });

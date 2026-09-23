@@ -8,10 +8,16 @@
 //   stats.groupEscaped(n)  // 車で逃げきられた(全員を逃がしたに数える)
 //   ギャングの口笛(見逃したギャング)では stats.mischief を呼ばない(呼んでも何も足さない)。
 //   組が市民を襲うことはないので、市民負傷は増えない。
+//   仲間が誰も来なかった(1人だけ)ときは、画面はステージ1の見逃したワルと同じ流れにする
+//   (行けで defeatBad('go')、逃げたら escaped())。1人で groupWiped などを呼んでも、人数は数えるが
+//   組の数(称号「一網打尽」「ギャングの運転手」の数)には入れない(GANG.groupSize.min 人以上だけ組)
 
-import { isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
+import { GANG, isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
 import { STAGES } from './stages';
 import type { AttackKind, HurtCause, Look, PropKind, StageId, StageStats, Truth, WorstScene } from './types';
+
+/** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
+export const isGroup = (size: number): boolean => size >= GANG.groupSize.min;
 
 /** いちばんひどかった場面の段階。数が小さいほどひどい(SPECの1〜5) */
 export const WORST_SCENE_RANK: Readonly<Record<WorstScene, number>> = {
@@ -79,7 +85,7 @@ export class StatsTracker {
   groupWiped(size: number): void {
     if (size <= 0) return;
     this.defeatedByWipe += size;
-    this.groupsWiped++;
+    if (isGroup(size)) this.groupsWiped++;
   }
 
   /**
@@ -98,7 +104,7 @@ export class StatsTracker {
     if (size <= 0) return;
     this.escapedByVan += size;
     this.escapedCount += size;
-    this.groupsEscaped++;
+    if (isGroup(size)) this.groupsEscaped++;
   }
 
   /** ボスを倒した。seconds はボス戦にかかった秒数(BossFight.seconds) */

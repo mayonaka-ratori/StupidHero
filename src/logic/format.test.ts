@@ -32,6 +32,27 @@ describe('format', () => {
     expect(damageAnalogy(0).text).toBe('被害ゼロ');
   });
 
+  it('地下駐車場のたとえは三角コーン、ワゴン、高級車(路地裏の物は出さない)', () => {
+    expect(damageAnalogy(10_000, 'garage').text).toBe('三角コーン1個分');
+    expect(damageAnalogy(300_000, 'garage').text).toBe('三角コーン30個分');
+    expect(damageAnalogy(490_000, 'garage').unit).toBe('cone');
+    expect(damageAnalogy(500_000, 'garage').text).toBe('ワゴン0.1台分');
+    expect(damageAnalogy(8_060_000, 'garage').text).toBe('ワゴン1.6台分');
+    expect(damageAnalogy(50_000_000, 'garage').text).toBe('ワゴン10台分');
+    expect(damageAnalogy(199_000_000, 'garage').unit).toBe('van');
+    expect(damageAnalogy(200_000_000, 'garage').text).toBe('高級車10台分');
+    expect(damageAnalogy(0, 'garage').text).toBe('被害ゼロ');
+    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
+      const t = damageAnalogy(yen, 'garage').text;
+      expect(t).not.toMatch(/ゴミ箱|自販機|一軒家|^車/);
+      expect(damageAnalogy(yen, 'garage').count).toBeGreaterThan(0);
+    }
+    expect(formatDamage(24_000_000, 'garage')).toBe('¥2,400万(ワゴン4.8台分)');
+    // 路地裏(省略したとき)は今まで通り
+    expect(damageAnalogy(24_000_000, 'alley').text).toBe('自販機30台分');
+    expect(formatDamage(24_000_000)).toBe('¥2,400万(自販機30台分)');
+  });
+
   it('被害額とたとえをまとめて', () => {
     expect(formatDamage(24_000_000)).toBe('¥2,400万(自販機30台分)');
   });

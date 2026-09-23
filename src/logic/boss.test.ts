@@ -178,4 +178,79 @@ describe('BossFight(女ボス:車に乗る)', () => {
     expect(f.inCar).toBe(true);
     expect(f.damageYen).toBe(0);
   });
+
+  it('全力で連打しても、車に乗ってから1.3秒は体力が減らず、そのあと最低1.5秒は倒れない', () => {
+    const f = new BossFight(opts);
+    let boardAt = -1;
+    let hpAtBoard = 0;
+    const holdHp: number[] = [];
+    while (!f.isOver) {
+      const r = f.tap();
+      if (r.boardedCar) {
+        boardAt = f.elapsedSec;
+        hpAtBoard = f.hp;
+      }
+      f.update(100);
+      if (boardAt >= 0 && !f.isOver && f.elapsedSec <= boardAt + 1.3 + 1e-9) holdHp.push(f.hp);
+    }
+    expect(boardAt).toBeGreaterThan(1.7);
+    expect(boardAt).toBeLessThan(2.1);
+    // 車が手前に出てくるまでは体力がそのまま
+    expect(holdHp.length).toBeGreaterThan(10);
+    for (const hp of holdHp) expect(hp).toBeCloseTo(hpAtBoard, 9);
+    // 手前に来てから1.5秒たつまで倒れない。それでも5秒以内(連打の申し子)には入る
+    expect(f.seconds!).toBeGreaterThanOrEqual(boardAt + 1.3 + 1.5 - 1e-9);
+    expect(f.seconds!).toBeLessThanOrEqual(5);
+  });
+
+  it('体力の下限の線は、手前に来てから1.5秒かけてなめらかに0まで下がる', () => {
+    const f = new BossFight(opts);
+    let boardAt = -1;
+    let prev = Infinity;
+    while (!f.isOver) {
+      if (f.tap().boardedCar) boardAt = f.elapsedSec;
+      f.update(50);
+      if (boardAt >= 0 && f.elapsedSec > boardAt + 1.3) {
+        expect(f.hp).toBeLessThanOrEqual(prev + 1e-9);
+        // 1回の update(0.05秒)で減るのは、線の傾き(約20÷1.5秒)の分まで
+        if (prev !== Infinity) expect(prev - f.hp).toBeLessThan(1);
+      }
+      prev = f.hp;
+    }
+    expect(f.hp).toBe(0);
+  });
+
+  it('連打をやめると下限の線は関係なく、時間で減って倒れる', () => {
+    const f = new BossFight(opts);
+    for (let i = 0; i < 21; i++) {
+      f.tap();
+      f.update(100);
+    }
+    expect(f.inCar).toBe(true);
+    f.update(20_000);
+    expect(f.isOver).toBe(true);
+    // 連打のあとは時間で減る分だけ(15×√(残り÷40))。下限の線(乗ってから2.8秒)よりあと
+    expect(f.seconds!).toBeCloseTo(15 * Math.sqrt((40 - f.tapsCounted) / 40), 5);
+    expect(f.carBoardedAt! + 2.8).toBeLessThan(f.seconds!);
+  });
+
+  it('遅く車に乗っても15秒をこえない', () => {
+    const f = new BossFight({ ...opts, carAtHpRatio: 0.05 });
+    for (let t = 0; t < 20_000 && !f.isOver; t += 16) {
+      f.update(16);
+      if (t % 200 === 0) f.tap();
+    }
+    expect(f.inCar).toBe(true);
+    expect(f.seconds!).toBeLessThanOrEqual(15 + 1e-9);
+  });
+
+  it('ステージ1の設定には、体力の下限の線がない', () => {
+    expect(STAGES.alley.bossFight).toEqual({});
+    const f = new BossFight(STAGES.alley.bossFight);
+    for (let i = 0; i < 40; i++) {
+      f.tap();
+      f.update(100);
+    }
+    expect(f.isOver).toBe(true);
+  });
 });

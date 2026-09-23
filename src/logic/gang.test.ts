@@ -10,6 +10,14 @@ describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車
     expect(GANG.groupSize).toEqual({ min: 2, max: 3 });
   });
 
+  it('仲間が誰も来ないときは1人だけ(alone)', () => {
+    const gone = new Set(['b', 'c']);
+    const comers = gatherMembers(['a', 'b', 'c'], (id) => gone.has(id));
+    expect(comers).toEqual(['a']);
+    expect(new GangCall(comers).alone).toBe(true);
+    expect(new GangCall(['a', 'c']).alone).toBe(false);
+  });
+
   it('集まるのは、まだ倒していない仲間(待てで止めた仲間は来ない)', () => {
     const gone = new Set(['b']);
     expect(gatherMembers(['a', 'b', 'c'], (id) => gone.has(id))).toEqual(['a', 'c']);

@@ -25,8 +25,10 @@ export const GARAGE_NAMES: Readonly<Record<GangLook, readonly string[]>> = {
   officelady: ['青木美穂', '西田沙織', '中島綾', '福田香織', '小野寺瞳', '森本麻衣', '関口舞', '三浦千尋', '水野彩花', '河合玲奈']
 };
 
-/** 女ボスの名前(化けた姿が警備員や整備士でも、女ボスなので女性の名前)と年齢の幅 */
-export const BOSS2_NAMES: readonly string[] = ['黒川レイカ', '氷室マリ', '金城アヤ', '紅林サキ', '白鳥カオル', '神崎ミレイ'];
+/**
+ * 女ボスの年齢の幅。化けているときの名前は、化けた姿の市民と同じ一覧(GARAGE_NAMES)から選ぶ偽名
+ * (女性の名前だとすぐ分かってしまうので)。年齢もこの幅と化けた姿の幅の重なりから選ぶ
+ */
 export const BOSS2_AGES: readonly [number, number] = [34, 46];
 
 /** 見た目ごとの年齢の幅(両端を含む)。市民とギャングで同じ */
@@ -38,7 +40,8 @@ export const GARAGE_AGES: Readonly<Record<GangLook, readonly [number, number]>> 
 };
 
 /**
- * プロフィールの一文。嘘は書かないが、どちらとも取れる。市民とギャングで似た言い回しを並べる。
+ * プロフィールの一文。嘘は書かないが、どちらとも取れる。市民とギャングで似た言い回しを並べ、
+ * どちらにも出る文も入れる(文だけで決まらないように。小物の名前(タオルとバンダナ)でも言い分けない)。
  * 仕分けの画面の動き(sortIdle):ギャングは指で小さな合図、市民は頭をかく、あくび、指を鳴らす など
  */
 export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly string[]; bad: readonly string[] }>> = {
@@ -49,7 +52,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       '車の持ち主は\nだいたい覚えている',
       '懐中電灯は\n三本持っている',
       '休みの日も\nつい見回りをする',
-      '腕章は\n毎朝アイロンがけ'
+      '腕章は\n毎朝アイロンがけ',
+      '夜の駐車場は\n静かで好き',
+      '無線の相手は\nいつも同じ人'
     ],
     bad: [
       '夜勤の日は\nなぜか知り合いが多い',
@@ -57,7 +62,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       '車の持ち主は\nだいたい調べてある',
       '無線の相手は\n会社の人…らしい',
       '見回りの道順を\nよく変える',
-      '腕章は最近\nもらったばかり'
+      '腕章は最近\nもらったばかり',
+      '夜の駐車場は\n静かで好き',
+      '無線の相手は\nいつも同じ人'
     ]
   },
   mechanic: {
@@ -67,7 +74,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       'エンジンの音で\n車の調子が分かる',
       '工具箱は\nいつも持ち歩く',
       '夜中の呼び出しにも\nすぐ来る',
-      '首のタオルは\n汗ふき用'
+      '首に巻いた布は\n手放せない',
+      '車のカギなら\n何本も持っている',
+      '夜中の駐車場が\n仕事場'
     ],
     bad: [
       'この駐車場の車は\nだいたい開けられる',
@@ -75,7 +84,8 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       'エンジンのかけ方を\n何通りも知っている',
       '工具箱の中身は\n工具だけじゃない',
       '夜中の仕事が\n多い',
-      '首のバンダナは\nお気に入り'
+      '首に巻いた布は\n手放せない',
+      '夜中の駐車場が\n仕事場'
     ]
   },
   clubber: {
@@ -85,7 +95,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       '派手な服は\n目立ちたいから',
       '夜はこれから。\n朝まで遊ぶ',
       'ダンスの大会で\n三位になった',
-      '友だちが多い。\nみんな派手'
+      '友だちが多い。\nみんな派手',
+      'スマホの充電が\nもう切れそう',
+      '朝まで\n帰るつもりはない'
     ],
     bad: [
       'クラブ帰り…\nということにしている',
@@ -93,7 +105,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       '派手な服は\n目立たないため',
       '夜はこれから。\n朝まで仕事',
       'ダンスで\n指先をきたえている',
-      '友だちが多い。\nみんな無口'
+      '友だちが多い。\nみんな無口',
+      'スマホの充電が\nもう切れそう',
+      '朝まで\n帰るつもりはない'
     ]
   },
   officelady: {
@@ -103,7 +117,9 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       'スカーフは\n母のおさがり',
       '会社では\n経理を担当',
       '駐車場の場所を\nまた忘れた',
-      '運転は\nちょっと苦手'
+      '運転は\nちょっと苦手',
+      '駐車場の場所は\nぜんぶ覚えている',
+      '今夜は\n大事な約束がある'
     ],
     bad: [
       '残業帰り。\n車は待たせてある',
@@ -111,14 +127,16 @@ export const GARAGE_PROFILE_LINES: Readonly<Record<GangLook, { civ: readonly str
       'スカーフは\n最近そろえた',
       '会社では\nお金の係',
       '駐車場の場所は\nぜんぶ覚えている',
-      '運転は\n人にまかせる'
+      '運転は\n人にまかせる',
+      '今夜は\n大事な約束がある'
     ]
   }
 };
 
 /**
  * オペレーターの一言。嘘はつかないが、どちらとも取れる言い方にする。
- * 見た目の一言は市民にもギャングにも入れる。ギャングの合図(指)と、市民の似た動き(頭をかく、あくび、指を鳴らす)を言い分ける
+ * 見た目の一言は市民にもギャングにも入れる。ギャングの合図(指)と、市民の似た動き(頭をかく、あくび、指を鳴らす)を言い分ける。
+ * あわてた顔(panic)は市民にもギャングにも同じくらい入れ、同じ文はいつも同じ顔にする(顔だけで分からないように)
  */
 export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly OperatorHint[]; bad: readonly OperatorHint[] }>> = {
   guard: {
@@ -128,7 +146,8 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('deadpan', '眠そう。\nあくびしてる'),
       hint('normal', '頭をかいてる…'),
       hint('normal', 'カギの束を\n持ってる'),
-      hint('normal', '無線で\n誰かと話してる')
+      hint('normal', '無線で\n誰かと話してる'),
+      hint('panic', 'あっちの車を\nじっと見てる')
     ],
     bad: [
       hint('normal', '警備員さん…\nだよね？'),
@@ -146,7 +165,7 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('normal', 'スパナを\n持ってる'),
       hint('deadpan', 'あくびしてる…\n夜勤かな'),
       hint('normal', '手をふいてる…？'),
-      hint('normal', '車を\nじっと見てる')
+      hint('panic', '車を\nじっと見てる')
     ],
     bad: [
       hint('normal', 'つなぎが\n油で真っ黒'),
@@ -164,7 +183,8 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('normal', '音楽に合わせて\n指を鳴らしてる'),
       hint('deadpan', 'ノリノリだね…'),
       hint('normal', 'スマホばっかり\n見てる'),
-      hint('normal', '誰かを\n探してるみたい')
+      hint('normal', '誰かを\n探してるみたい'),
+      hint('panic', 'まわりを\n気にしてる')
     ],
     bad: [
       hint('normal', 'すごく\n派手な服…'),
@@ -182,7 +202,8 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('normal', 'カギを探してる…'),
       hint('deadpan', 'つかれた顔…\n残業かな'),
       hint('normal', '時計を\n気にしてる'),
-      hint('normal', '髪をさわってる')
+      hint('normal', '髪をさわってる'),
+      hint('panic', '出口の方を\n何度も見てる')
     ],
     bad: [
       hint('normal', 'スカーフが\nおしゃれ'),
@@ -271,27 +292,32 @@ export interface LinkTemplate {
   sameColor?: boolean;
 }
 
-/** オペレーターの一言に出すつながり */
+/**
+ * オペレーターの一言に出すつながり。文だけで決まらないように、どれも市民にもギャングにも出す
+ * (ちがいは相手:ギャングは同じ組の前の仲間、市民は前の誰か)
+ */
 export const LINK_HINTS: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'bad', text: 'さっきの{n}と\n目で合図した？' },
-  { face: 'panic', for: 'bad', text: 'さっきの{n}を\n目で追ってる' },
-  { face: 'normal', for: 'bad', text: 'さっきの{n}に\nうなずいた…？' },
-  { face: 'normal', for: 'bad', text: 'さっきの{n}と\n同じ指輪…？' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}と\n目で合図した？' },
+  { face: 'panic', for: 'both', text: 'さっきの{n}を\n目で追ってる' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}に\nうなずいた…？' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ指輪…？' },
   { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ時計してる…' },
   { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ車のカギ…？' },
   { face: 'normal', for: 'both', text: 'さっきの{n}と\nおそろいの色…？', sameColor: true },
-  { face: 'normal', for: 'civ', text: 'さっきの{n}と\n目が合った？' },
-  { face: 'normal', for: 'civ', text: 'さっきの{n}を\nちらっと見た' },
-  { face: 'deadpan', for: 'civ', text: 'さっきの{n}と\n同じ駐車券…？' }
+  { face: 'normal', for: 'both', text: 'さっきの{n}と\n目が合った？' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}を\nちらっと見た' },
+  { face: 'deadpan', for: 'both', text: 'さっきの{n}と\n同じ駐車券…？' },
+  { face: 'panic', for: 'both', text: 'さっきの{n}から\n目をそらした！' }
 ];
 
-/** プロフィールに出すつながり */
+/** プロフィールに出すつながり(どれも市民にもギャングにも出す) */
 export const LINK_PROFILES: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'bad', text: 'さっきの{n}とは\n古い付き合い' },
-  { face: 'normal', for: 'bad', text: 'さっきの{n}と\n同じ車で来た' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n古い付き合い' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ車で来た' },
   { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ店の常連' },
-  { face: 'normal', for: 'civ', text: 'さっきの{n}とは\n同じマンション' },
-  { face: 'normal', for: 'civ', text: 'さっきの{n}と\n同じ会社…らしい' }
+  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n同じマンション' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}と\n同じ会社…らしい' },
+  { face: 'normal', for: 'both', text: 'さっきの{n}とは\n前に会った気がする' }
 ];
 
 /** つながりの文を作る。例:linkText(LINK_HINTS[0].text, 'guard') → 'さっきの警備員と\n目で合図した？' */
@@ -313,20 +339,15 @@ export function allLinkTexts(): string[] {
 /** 地下駐車場を最初に遊ぶときの掛け合い。新しい手がかり、仲間を呼ぶ、車で逃げる、を教える */
 export const GARAGE_INTRO: readonly Speech[] = [
   hero('smug', '次は地下駐車場！\nギャング退治だ！'),
-  op('normal', 'ギャングは\n2〜3人の組で動く'),
-  op('normal', '同じ組の仲間は\nおそろいの色の小物'),
+  op('normal', 'ギャングは2〜3人。\nおそろいの色の小物'),
   op('deadpan', 'でも同じ色の市民も\nたまにいるからね'),
-  op('normal', '指でこっそり\n合図するのも手がかり'),
-  op('normal', '前の人と似てたら\n仲間かも'),
+  op('normal', '指でこっそり合図。\n前の人と似てたら仲間'),
   hero('smug', '全部覚えた！\nたぶん！'),
-  op('deadpan', 'たぶん、ね'),
   op('normal', 'ギャングを見逃すと\n口笛で仲間を呼ぶ'),
   op('normal', '集まったら行け！\nまとめて吹き飛ばせる'),
-  hero('smug', 'まとめて！？\n最高じゃん！'),
   op('panic', 'ほっとくと3秒で\n車に乗って逃げる'),
   op('normal', '走り出しても\nすぐ行けなら止まる'),
-  hero('smug', '車ごと\nぶっ飛ばす！'),
-  op('panic', '駐車場は\n壊さないでね！')
+  hero('smug', '車ごと\nぶっ飛ばす！')
 ];
 
 /** 地下駐車場の2回目からの短い掛け合い */
@@ -367,6 +388,8 @@ export type GarageReactionKey =
   | 'vanStop'      // 車ごと止める(ヒーロー)
   | 'vanStopOp'    // 車を止めた(オペレーター)
   | 'vanEscaped'   // 車で逃げられた(オペレーター)
+  | 'alone'        // 口笛を吹いたが仲間が誰も来ない(オペレーター)。このあとはステージ1の見逃したワルと同じ流れ
+  | 'aloneHero'    // 同じ場面(ヒーロー)
   | 'bossCar'      // ボス戦:女ボスが車に飛び乗った(オペレーター)
   | 'bossCarHero'  // 同じ場面(ヒーロー)
   | 'bossCarIdle'  // 車に乗ったあと、手が止まって車が暴れている(オペレーター)
@@ -384,7 +407,9 @@ export const GARAGE_REACTIONS: Readonly<Record<GarageReactionKey, readonly Speec
   drive: [op('panic', '走り出した！\n今なら行け！'), op('panic', '逃げる！\n行けを押して！')],
   vanStop: [hero('smug', '車ごと\n止めてやる！'), hero('smug', '逃がすかーっ！\n車ごと行く！')],
   vanStopOp: [op('deadpan', '止めた…けど\n車がぺしゃんこ'), op('deadpan', 'ナイス…\n車は弁償ね')],
-  vanEscaped: [op('deadpan', '逃げられた…\n組ごと行っちゃった'), op('deadpan', 'あーあ、\n車で逃げられた')],
+  vanEscaped: [op('deadpan', '組ごと車で\n逃げられた…'), op('deadpan', 'あーあ、\n車で逃げられた')],
+  alone: [op('normal', '誰も来ない！\n今なら行け！'), op('deadpan', '仲間、来ないね…\n行けで追いかけて')],
+  aloneHero: [hero('smug', 'ひとりなら\n楽勝だね！'), hero('smug', '呼んでも無駄！\n待てーっ！')],
   bossCar: [op('panic', '車に飛び乗った！\n逃げる気だ！'), op('panic', '高級車で\n逃げる気だ！')],
   bossCarHero: [hero('smug', '車ごと\nぶっ飛ばす！'), hero('smug', '逃がさないよ！\n連打、連打！')],
   bossCarIdle: [op('panic', '車が暴れてる！\n連打して！'), op('panic', '柱にぶつかった！\n手を止めないで！')],
@@ -397,6 +422,13 @@ export const GARAGE_REACTIONS: Readonly<Record<GarageReactionKey, readonly Speec
  * ここにない種類は、路地裏と同じ文を使う
  */
 export const GARAGE_OVERRIDES = {
+  pass: [
+    hero('smile', 'こんばんは！'),
+    hero('smile', '気をつけて\n帰ってね！'),
+    hero('smile', '安全運転でね！'),
+    hero('smile', '駐車場の平和は\n任せて！')
+  ],
+  escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n逃げられた'), op('deadpan', '逃がしたね…')],
   streetWatch: [op('normal', '殴る前なら\n待てで止められる'), op('normal', '仲間が集まったら\n行けでまとめて！')],
   bossReveal: [op('panic', '正体を現した！\nギャングの女ボス！'), op('panic', '出た！\n駐車場の女ボス！')],
   bossRampage: [op('panic', '女ボスだった！\n手下の車が来る！'), op('panic', '素通りした人が\n女ボスだった！')],
@@ -404,6 +436,14 @@ export const GARAGE_OVERRIDES = {
   bossDefeated: [hero('smug', '正義は勝つ！'), hero('smug', '見たか！\n車ごと一発！')],
   bossDefeatedOp: [op('hype', 'やったー！\n女ボスを倒した！'), op('hype', '駐車場、\n平和になった！')]
 } as const satisfies Readonly<Record<string, readonly Speech[]>>;
+
+/**
+ * 地下駐車場で言い方を変える称号のひとこと(路地裏の文に「街」が入っているもの)。
+ * content.ts の titleCommentFor(id, 'garage') で出る
+ */
+export const GARAGE_TITLE_COMMENT_OVERRIDES = {
+  demolition: op('deadpan', '駐車場の修理代、\n誰が払うの…')
+} as const;
 
 /** 称号のひとこと(ステージ2の2つ) */
 export const GARAGE_TITLE_COMMENTS = {

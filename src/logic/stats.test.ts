@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { StatsTracker, sceneForCivHit, sceneForProp } from './stats';
+import { StatsTracker, isGroup, sceneForCivHit, sceneForProp } from './stats';
 
 describe('StatsTracker', () => {
   it('撃破は仕分け、行け、ボスの合計', () => {
@@ -133,6 +133,42 @@ describe('StatsTracker(ステージ2)', () => {
     expect(r.escapedByVan).toBe(5);
     expect(r.groupsEscaped).toBe(2);
     expect(r.civHurt).toBe(0);
+  });
+
+  it('1人だけの組は、人数は数えるが組の数(一網打尽、ギャングの運転手)には入れない', () => {
+    const s = new StatsTracker(9, 'garage');
+    s.groupWiped(1);
+    s.groupWiped(2);
+    s.groupEscaped(1);
+    s.groupEscaped(3);
+    s.vanStopped(1);
+    const r = s.snapshot();
+    expect(r.groupsWiped).toBe(1);
+    expect(r.groupsEscaped).toBe(1);
+    expect(r.defeatedByWipe).toBe(3);
+    expect(r.defeatedByVan).toBe(1);
+    expect(r.escaped).toBe(4);
+    expect(r.escapedByVan).toBe(4);
+    expect(isGroup(1)).toBe(false);
+    expect(isGroup(2)).toBe(true);
+    // 1人の組を3回吹き飛ばしても、逃げられても、称号の組の数は0のまま
+    const t = new StatsTracker(9, 'garage');
+    for (let i = 0; i < 3; i++) {
+      t.groupWiped(1);
+      t.groupEscaped(1);
+    }
+    expect(t.snapshot().groupsWiped).toBe(0);
+    expect(t.snapshot().groupsEscaped).toBe(0);
+  });
+
+  it('1人だけのときの画面の流れ(行けで追い打ち、逃げたら escaped)は、ステージ1と同じ数え方', () => {
+    const s = new StatsTracker(9, 'garage');
+    s.defeatBad('go');
+    s.escaped();
+    const r = s.snapshot();
+    expect(r.defeatedByGo).toBe(1);
+    expect(r.escaped).toBe(1);
+    expect(r.groupsWiped + r.groupsEscaped).toBe(0);
   });
 
   it('ギャングの口笛は悪さではない(被害額も市民負傷も増えない)', () => {

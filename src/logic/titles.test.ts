@@ -94,7 +94,13 @@ describe('称号(ステージ2)', () => {
     expect(titleById('gangDriver').pose).toBe('win_shy');
     expect(titleById('roundUp').stages).toEqual(['garage']);
     expect(titlesFor('alley')).toHaveLength(12);
-    expect(titlesFor('garage')).toHaveLength(14);
+    expect(titlesFor('garage')).toHaveLength(13);
+    // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ
+    expect(titleById('grannyFoe').stages).toEqual(['alley']);
+    expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
+    expect(titlesFor('alley').map((t) => t.id)).toContain('grannyFoe');
+    // どちらかのステージでは必ず取れる
+    for (const t of TITLES) expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t), t.id).toBe(true);
   });
 
   it('一網打尽:まとめて吹き飛ばした組が2組以上', () => {

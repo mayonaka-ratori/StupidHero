@@ -10,6 +10,9 @@
 // ステージ2の女ボス(STAGE2「ボス戦」):
 // - 体力が半分を切ると高級車に飛び乗る(tap/update の結果の boardedCar が true になる。inCar で今の状態)
 // - 車に乗ったあと、手が止まっている間は1秒ごとに¥100万(乗る前は¥50万)
+// - 車の場面がすぐ終わらないように、車に乗ってから carHoldSec の間は体力を減らさない(飛び乗って手前に出てくる間)。
+//   そのあと carMinSec かけてしか0まで減らない(体力の下限の線。どんなに速く連打しても、車が手前に来てから最低この秒数は戦う)。
+//   15秒で必ず倒せるのは変わらない
 // - 設定は STAGES[stageId].bossFight に入っている。new BossFight(stage.def.bossFight)
 //
 // 使い方:
@@ -39,6 +42,10 @@ export interface BossFightOptions {
   carAtHpRatio?: number;
   /** ステージ2:車に乗ったあと、手が止まっている間に1秒ごとに増える被害額(¥100万)。省略すると idleCostPerSec と同じ */
   carIdleCostPerSec?: number;
+  /** ステージ2:車に乗ってから、体力を減らさない秒数(飛び乗って手前に出てくるまで)。既定 0 */
+  carHoldSec?: number;
+  /** ステージ2:carHoldSec のあと、体力が0になるまでの最短の秒数(車が手前に来てから最低この秒数は戦う)。既定 0 */
+  carMinSec?: number;
 }
 
 export interface BossTapResult {
@@ -69,6 +76,8 @@ export class BossFight {
   private readonly idleCostPerSec: number;
   private readonly carAtHpRatio: number | null;
   private readonly carIdleCostPerSec: number;
+  private readonly carHoldSec: number;
+  private readonly carMinSec: number;
 
   /** ボス戦の時計(秒) */
   private t = 0;
@@ -82,6 +91,8 @@ export class BossFight {
   private endedAt: number | null = null;
   /** 車に乗った時刻(乗っていなければ null) */
   private carAt: number | null = null;
+  /** 車に乗った瞬間の体力(体力の下限の線の始まり) */
+  private carHp = 0;
 
   constructor(opts: BossFightOptions = {}) {
     this.maxHp = opts.hpTaps ?? BOSS.hpTaps;
@@ -91,6 +102,31 @@ export class BossFight {
     this.idleCostPerSec = opts.idleCostPerSec ?? BOSS.idleCostPerSec;
     this.carAtHpRatio = opts.carAtHpRatio ?? null;
     this.carIdleCostPerSec = opts.carIdleCostPerSec ?? this.idleCostPerSec;
+    this.carHoldSec = Math.max(0, opts.carHoldSec ?? 0);
+    this.carMinSec = Math.max(0, opts.carMinSec ?? 0);
+  }
+
+  /** 連打と時間だけで決まる体力(下限の線を入れない) */
+  private rawHpAt(t: number, counted = this.counted): number {
+    return this.maxHp - counted - this.passiveAt(t);
+  }
+
+  /** 車に乗ってからの体力の下限の線の [減り始め, 0になる時刻]。線がなければ null */
+  private floorSpan(carAt: number): [number, number] | null {
+    if (this.carHoldSec <= 0 && this.carMinSec <= 0) return null;
+    const holdEnd = Math.min(carAt + this.carHoldSec, this.maxSec);
+    return [holdEnd, Math.min(holdEnd + this.carMinSec, this.maxSec)];
+  }
+
+  /** 時刻 t の体力の下限(車に乗る前と、線がないときは 0) */
+  private floorAt(t: number): number {
+    if (this.carAt === null) return 0;
+    const span = this.floorSpan(this.carAt);
+    if (!span) return 0;
+    const [holdEnd, end] = span;
+    if (t >= end) return 0;
+    if (t <= holdEnd) return this.carHp;
+    return (this.carHp * (end - t)) / (end - holdEnd);
   }
 
   /** 時間で減った体力(連打の回数に換算) */
@@ -117,6 +153,7 @@ export class BossFight {
     if (this.carAtHpRatio === null || this.carAt !== null) return false;
     if (this.hp >= this.maxHp * this.carAtHpRatio) return false;
     this.carAt = at;
+    this.carHp = Math.max(0, this.rawHpAt(at));
     return true;
   }
 
@@ -142,12 +179,6 @@ export class BossFight {
     if (this.isOver || deltaMs <= 0) return { damageYen: 0, idleTicks: 0, defeated: false, boardedCar: false };
     const from = this.t;
     let to = from + deltaMs / 1000;
-    const tDefeat = this.defeatTimeFor(this.counted);
-    let defeated = false;
-    if (tDefeat <= to) {
-      to = Math.max(from, tDefeat);
-      defeated = true;
-    }
     // 車に乗る時刻(ステージ2)。この update の中で乗るなら、その前と後で被害額の速さを変える
     let boardedCar = false;
     let carAt = this.carAt;
@@ -157,6 +188,15 @@ export class BossFight {
         carAt = tCar;
         boardedCar = true;
       }
+    }
+    // 倒す時刻。車に乗っていれば、体力の下限の線が0になるまでは倒れない
+    let tDefeat = this.defeatTimeFor(this.counted);
+    const span = carAt !== null ? this.floorSpan(carAt) : null;
+    if (span) tDefeat = Math.max(tDefeat, span[1]);
+    let defeated = false;
+    if (tDefeat <= to) {
+      to = Math.max(from, tDefeat);
+      defeated = true;
     }
     // 手が止まっていた時間(最後の連打から idleAfterSec たってから)。1秒たまるごとに1回、その時点の額を足す
     const idleStart = Math.max(from, this.lastTapAt + this.idleAfterSec);
@@ -179,14 +219,17 @@ export class BossFight {
     }
     this.damage += damageYen;
     this.t = to;
-    if (boardedCar) this.carAt = carAt;
+    if (boardedCar && carAt !== null) {
+      this.carAt = carAt;
+      this.carHp = Math.max(0, this.rawHpAt(carAt));
+    }
     if (defeated) this.endedAt = to;
     return { damageYen, idleTicks, defeated, boardedCar };
   }
 
   /** 残りの体力(0〜maxHp。小数になる) */
   get hp(): number {
-    return Math.max(0, this.maxHp - this.counted - this.passiveAt(this.t));
+    return Math.max(0, this.rawHpAt(this.t), this.floorAt(this.t));
   }
 
   /** 残りの体力の割合(1〜0)。体力のバーに使う */

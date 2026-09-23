@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from './rng';
 import {
   AGES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS, TITLE_COMMENTS,
-  allTexts, introFor, mischiefLine, reactionList, say, shout, tsukkomi, waveIntroFor, type AnyReactionKey
+  allTexts, introFor, mischiefLine, reactionList, say, shout, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
 } from './content';
 import {
-  BOSS2_NAMES, GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_OVERRIDES, GARAGE_REACTIONS, GARAGE_WAVE_INTRO,
-  LINK_HINTS, LINK_PROFILES, allLinkTexts
+  GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
+  GARAGE_WAVE_INTRO, LINK_HINTS, LINK_PROFILES, allLinkTexts
 } from './garageContent';
-import { TITLES } from './titles';
+import { TITLES, titlesFor } from './titles';
+import type { GangLook } from './types';
+
+const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
 
 describe('content の文の決まり', () => {
   const texts = allTexts();
@@ -103,7 +106,6 @@ describe('ステージ2の文', () => {
     const all = new Set(allTexts());
     for (const t of garageTexts) expect(all.has(t), t).toBe(true);
     for (const t of allLinkTexts()) expect(all.has(t), t).toBe(true);
-    for (const n of BOSS2_NAMES) expect(all.has(n)).toBe(true);
   });
 
   it('つながりの文は、どの見た目を入れても1行12文字まで', () => {
@@ -132,7 +134,7 @@ describe('ステージ2の文', () => {
       expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
       expect(BOSS_HINTS[d].length).toBeGreaterThanOrEqual(3);
     }
-    const all = [...Object.values(NAMES).flat(), ...BOSS2_NAMES];
+    const all = Object.values(NAMES).flat();
     expect(new Set(all).size).toBe(all.length);
   });
 
@@ -164,5 +166,78 @@ describe('ステージ2の文', () => {
   it('新しい称号のひとこと', () => {
     expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
     expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
+  });
+
+  it('あわてた顔は市民の一言にもギャングの一言にも出る。同じ文はいつも同じ顔', () => {
+    for (const look of GANG_LOOKS) {
+      const civPanic = GARAGE_OPERATOR_HINTS[look].civ.filter((h) => h.face === 'panic').length;
+      const badPanic = GARAGE_OPERATOR_HINTS[look].bad.filter((h) => h.face === 'panic').length;
+      expect(civPanic, look).toBeGreaterThan(0);
+      expect(badPanic, look).toBeGreaterThan(0);
+      expect(Math.abs(civPanic - badPanic), look).toBeLessThanOrEqual(1);
+    }
+    const faceOf = new Map<string, string>();
+    const all = [
+      ...GANG_LOOKS.flatMap((l) => [...GARAGE_OPERATOR_HINTS[l].civ, ...GARAGE_OPERATOR_HINTS[l].bad]),
+      ...LINK_HINTS
+    ];
+    for (const h of all) {
+      const seen = faceOf.get(h.text);
+      if (seen) expect(h.face, h.text).toBe(seen);
+      faceOf.set(h.text, h.face);
+    }
+    // つながりの一言にも、あわてた顔がある(市民にも出る)
+    expect(LINK_HINTS.some((t) => t.face === 'panic' && t.for !== 'bad')).toBe(true);
+  });
+
+  it('プロフィールには市民とギャングの両方に出る文がある。小物の名前で言い分けない', () => {
+    for (const look of GANG_LOOKS) {
+      const { civ, bad } = GARAGE_PROFILE_LINES[look];
+      const both = civ.filter((l) => bad.includes(l));
+      expect(both.length, look).toBeGreaterThanOrEqual(2);
+      for (const l of [...civ, ...bad]) expect(l).not.toMatch(/タオル|バンダナ/);
+    }
+  });
+
+  it('つながりの文は、どれも市民にもギャングにも出る(文だけでは決まらない)', () => {
+    for (const t of [...LINK_HINTS, ...LINK_PROFILES]) expect(t.for, t.text).toBe('both');
+  });
+
+  it('仲間が誰も来ないときのセリフ(オペレーターとヒーロー)', () => {
+    const rng = createRng(9);
+    expect(say('alone', rng, 'garage').who).toBe('operator');
+    expect(say('aloneHero', rng, 'garage').who).toBe('hero');
+    expect(GARAGE_REACTIONS.alone.length).toBeGreaterThanOrEqual(2);
+    expect(GARAGE_REACTIONS.aloneHero.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('地下駐車場のセリフと称号のひとことに「街」「路地裏」は出ない', () => {
+    const keys = [...Object.keys(REACTIONS), ...Object.keys(GARAGE_REACTIONS)] as AnyReactionKey[];
+    for (const k of keys) {
+      for (const s of reactionList(k, 'garage')) expect(s.text, k).not.toMatch(/街|路地裏/);
+    }
+    for (const t of titlesFor('garage')) expect(titleCommentFor(t.id, 'garage').text, t.id).not.toMatch(/街|路地裏/);
+    expect(titleCommentFor('demolition', 'garage').text).toContain('駐車場');
+    // 路地裏は今まで通り
+    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(t.comment);
+    expect(titleCommentFor('demolition', 'alley')).toBe(TITLE_COMMENTS.demolition);
+    expect(reactionList('pass')).toBe(REACTIONS.pass);
+    expect(reactionList('escaped')).toBe(REACTIONS.escaped);
+  });
+
+  it('初めての掛け合いは10枚くらい', () => {
+    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(11);
+    expect(GARAGE_INTRO.some((s) => s.who === 'hero')).toBe(true);
+  });
+
+  it('禁則で最後の行が1字だけになりやすい言い回し(〜っちゃった)を使わない', () => {
+    const texts = [
+      ...GARAGE_INTRO, ...GARAGE_INTRO_REPLAY, ...Object.values(GARAGE_WAVE_INTRO).flat(),
+      ...Object.values(GARAGE_REACTIONS).flat(), ...Object.values(GARAGE_OVERRIDES).flat()
+    ].map((s) => s.text);
+    // 行の終わりの字の前に、行の頭に来られない字(小さいかな、ー)が2つ続くと、折り返したときに1字だけ残る
+    for (const t of texts) {
+      for (const line of t.split('\n')) expect(line, t).not.toMatch(/[ぁぃぅぇぉっゃゅょァィゥェォッャュョー]{2}[^！？…、。]$/);
+    }
   });
 });

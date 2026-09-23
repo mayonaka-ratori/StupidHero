@@ -17,9 +17,12 @@
 //   //   地下駐車場で passBad のギャング:口笛 → gatherMembers → new GangCall(...)(gang.ts)
 //   //     行け:call.go() が 'wipe' なら stats.groupWiped(n)、'vanStop' なら stats.vanStopped(n)
 //   //     逃げきられたら stats.groupEscaped(n)
+//   //     仲間が誰も来ない(gatherMembers が1人だけ):say('alone') と say('aloneHero') のあと、ステージ1の
+//   //     見逃したワルと同じ流れ(行けで stats.defeatBad('go')、押さずに逃げたら stats.escaped())
 //   //   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
 //   // ボス戦:const fight = new BossFight(def.bossFight); tap() と update(deltaMs)。boardedCar で女ボスが車に乗る
 //   // 結果:const s = stats.snapshot(); const title = decideTitle(s);
+//   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   const saved = saveResult(stage.id, s, title.id);   // saved.unlockedNow で「次のステージが開いた」
 //   //   buildShareText({ stageId: stage.id, ..., titlesCollected: saved.titlesCollected, titlesTotal: saved.titlesTotal, url })
 
