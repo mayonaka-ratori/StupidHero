@@ -4,7 +4,7 @@ import { buildShareText, xPostUrl } from './share';
 describe('共有文', () => {
   it('SPECの例と同じ形', () => {
     const text = buildShareText({
-      stageName: '路地裏', defeated: 8, civHurt: 3, damage: 24_000_000,
+      stageId: 'alley', defeated: 8, civHurt: 3, damage: 24_000_000,
       titleName: '歩く解体工事', titlesCollected: 3, titlesTotal: 12, url: 'https://example.com/stupidhero/'
     });
     expect(text).toBe([
@@ -20,10 +20,8 @@ describe('共有文', () => {
   it('Xに投稿のURL', () => {
     expect(xPostUrl('あ #B')).toBe('https://x.com/intent/tweet?text=%E3%81%82%20%23B');
   });
-});
 
-describe('共有文のステージ名', () => {
-  it('ステージから取る', () => {
+  it('ステージ名と被害額のたとえはステージから取る', () => {
     const base = { defeated: 9, civHurt: 0, damage: 5_000_000, titleName: '一網打尽', titlesCollected: 5, titlesTotal: 14, url: 'u' };
     expect(buildShareText({ ...base, stageId: 'garage' }).split('\n')[0]).toBe('【Stupid Hero】地下駐車場ステージ');
     expect(buildShareText({ ...base, stageId: 'alley' }).split('\n')[0]).toBe('【Stupid Hero】路地裏ステージ');

@@ -1,9 +1,12 @@
 // 1回のプレイの状態。シーンの間はこれで受け渡す(scene.registry の 'run' に入れる)。
 //
 // 流れ:
-//   Title → Intro → Sort(波1) → Street(波1) → Sort(波2) → Street(波2) → Sort(波3) → Street(波3)
-//   → Boss → Result → (もう一回なら Intro、タイトルへなら Title)
+//   Boot → Title → StageSelect(ステージを選ぶ。ここで startRun(scene, seed, false, stageId))
+//   → Intro → Sort(波1) → Street(波1) → Sort(波2) → Street(波2) → Sort(波3) → Street(波3)
+//   → Boss → Result → (もう一回なら同じステージで startRun して Intro、タイトルへなら Title)
+// Sort は時間切れのとき fillUnsorted() で残りを決める(Street も入口で念のため呼ぶ)。
 // Street は波の最後まで進んだら nextAfterStreet() を呼ぶ。波3ではボスの前まで来たら Boss へ行く。
+// 開発用に Boot から途中のシーンへ飛ぶときは startRun(scene, seed, true, stageId)(Boot.ts の debugJump)。
 
 import type Phaser from 'phaser';
 import { SCENES } from './config';

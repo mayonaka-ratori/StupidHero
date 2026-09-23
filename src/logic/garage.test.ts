@@ -283,19 +283,3 @@ describe('前の人とのつながり', () => {
     expect([...where].sort()).toEqual(['hint', 'profile']);
   });
 });
-
-describe('路地裏は今まで通り', () => {
-  it('stageId を省略すると路地裏。組も小物もつながりもない', () => {
-    const s = createStage(123);
-    expect(s.id).toBe('alley');
-    expect(s.def).toBe(STAGES.alley);
-    for (const w of s.waves) {
-      expect(w.groups).toEqual([]);
-      for (const p of w.people) {
-        expect(p.group).toBeUndefined();
-        expect(p.accessory).toBeUndefined();
-        expect(p.link).toBeUndefined();
-      }
-    }
-  });
-});

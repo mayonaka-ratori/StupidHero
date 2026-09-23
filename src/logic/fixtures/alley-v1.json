@@ -1,0 +1,5701 @@
+{
+ "note": "公開版(876e008)の src/logic で作った固定の答え。ステージ1が変わっていないことを確かめる。作り直さないこと",
+ "stages": [
+  {
+   "seed": 1,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 1,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"伊藤隆","age":48,"line":"時間には\nうるさい方"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"高橋修","age":32,"line":"大事な物を\n運んでいるところ"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":22,"line":"手ぶらに見えるが\n持つ物は持っている"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"毒島ケン","age":25,"line":"この辺で一番\n強い(自称)"},
+        "hint": {"face":"normal","text":"うん、あれは\n迷わなくていい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"森カズヤ","age":22,"line":"ポケットの中身は\n見せたくない"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"原田里香","age":39,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":39,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":23,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"村田京子","age":53,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"梅田ハナ","age":82,"line":"最近、耳が遠い。\n目はいい"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"山下亮","age":31,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":18,"line":"夜の散歩が好き。\n路地裏は近道"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":40,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"吉田稔","age":51,"line":"この辺の店には\n顔がきく"},
+        "hint": {"face":"normal","text":"なんか…\n背、高くない？"},
+        "disguise": "suit"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":41,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":25,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 10,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 2,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 2,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":27,"line":"ポケットの中身は\n今月の全財産"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"井上恵子","age":32,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":54,"line":"時間には\nうるさい方"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"権田ゴウ","age":22,"line":"市民はカモだと\n思っている"},
+        "hint": {"face":"hype","text":"ナイフ回してる。\n練習にちょうどいい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"木村リョウ","age":25,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"原田里香","age":34,"line":"この辺の店は\nだいたい知ってる"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"伊藤隆","age":33,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":59,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"normal","text":"金色の物が\nのぞいてる"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"吉田稔","age":45,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"松田コウ","age":27,"line":"手ぶらに見えるが\n持つ物は持っている"},
+        "hint": {"face":"normal","text":"誰かを\n待ってるみたい"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"石井レン","age":17,"line":"夜の散歩が好き。\n路地裏は近道"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"高橋修","age":50,"line":"この辺の店には\n顔がきく"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "suit"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"鈴木健一","age":48,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"今井キク","age":74,"line":"孫にお小遣いを\n届けるところ"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"加藤正樹","age":51,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"清水ダイチ","age":24,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 7,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 3,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 3,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":39,"line":"家族には\n頭が上がらない"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":27,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"鬼塚リュウジ","age":25,"line":"この辺で一番\n強い(自称)"},
+        "hint": {"face":"normal","text":"うん、あれは\n迷わなくていい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"藤田真理","age":47,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":41,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"松田コウ","age":27,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":40,"line":"大事な物を\n運んでいるところ"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"原田里香","age":53,"line":"この辺の店は\nだいたい知ってる"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"木村リョウ","age":21,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":46,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"deadpan","text":"汗びっしょり…"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"野口タマ","age":85,"line":"若いころは\n町内の人気者"},
+        "hint": {"face":"deadpan","text":"殴ったら\n一生言われるよ"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"後藤明美","age":61,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"池田ショウ","age":23,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"吉田稔","age":29,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"井上恵子","age":60,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"山下亮","age":49,"line":"この辺の店には\n顔がきく"},
+        "hint": {"face":"normal","text":"スーツが\nぱつぱつだね"},
+        "disguise": "suit"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 42,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 42,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"木村リョウ","age":23,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"石井レン","age":17,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"高橋修","age":51,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"田中誠","age":40,"line":"路地裏は近道。\n急いでいる"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"権田ゴウ","age":24,"line":"市民はカモだと\n思っている"},
+        "hint": {"face":"deadpan","text":"…あれは\n分かるよね？"},
+        "mischief": "threaten"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"小林徹","age":44,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"長谷川幸","age":38,"line":"袋の中身は\n家族の一週間分"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"竹内キヨ","age":76,"line":"路地裏の猫に\nエサをやっている"},
+        "hint": {"face":"deadpan","text":"殴ったら\n一生言われるよ"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"山口直美","age":45,"line":"今日は大漁。\n持ちきれない"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"鈴木健一","age":45,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"岡田久美","age":50,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"伊藤隆","age":42,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":28,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"前田ソウタ","age":23,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"誰かを\n待ってるみたい"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"村上シズ","age":76,"line":"毎朝、腕立てを\n百回している"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "granny"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":37,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 9,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 123,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 123,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"長谷川幸","age":59,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"木村リョウ","age":23,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":42,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"中村聡","age":46,"line":"会議に遅れそう。\n走るしかない"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"牙野ジン","age":20,"line":"ナイフ集めが趣味"},
+        "hint": {"face":"hype","text":"ナイフ回してる。\n練習にちょうどいい"},
+        "mischief": "threaten"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":51,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"池田ショウ","age":20,"line":"ポケットの中身は\n見せたくない"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"松田コウ","age":20,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"山口直美","age":45,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"藤田真理","age":32,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"normal","text":"袋を何度も\n持ち直してる"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":23,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"誰かを\n待ってるみたい"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"山下亮","age":33,"line":"急ぐ理由は\n人に言えない"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"加藤正樹","age":43,"line":"スーツが最近\nきつくなってきた"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "suit"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"岡田久美","age":37,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"今井キク","age":84,"line":"孫にお小遣いを\n届けるところ"},
+        "hint": {"face":"normal","text":"おばあちゃん…\nだよね？"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":23,"line":"今日は\n稼ぎどきらしい"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 777,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 777,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":26,"line":"手ぶらに見えるが\n持つ物は持っている"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"牙野ジン","age":20,"line":"ひったくり歴\n十年"},
+        "hint": {"face":"hype","text":"ナイフ回してる。\n練習にちょうどいい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":28,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"藤田真理","age":61,"line":"今日は特売日。\n買いすぎた"},
+        "hint": {"face":"normal","text":"袋を何度も\n持ち直してる"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"原田里香","age":47,"line":"今日は大漁。\n持ちきれない"},
+        "hint": {"face":"panic","text":"袋、\nはち切れそう"},
+        "mischief": "pickpocket"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"中村聡","age":50,"line":"時間には\nうるさい方"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"池田ショウ","age":19,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"石井レン","age":18,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"井上恵子","age":50,"line":"この辺の店は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"吉田稔","age":53,"line":"急ぐ理由は\n人に言えない"},
+        "hint": {"face":"deadpan","text":"荷物を\n大事そうに抱えてる"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"松田コウ","age":25,"line":"ポケットの中身は\n今月の全財産"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"渡辺浩二","age":47,"line":"この辺の店には\n顔がきく"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "suit"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"大野スエ","age":81,"line":"腰は痛いが\n散歩は毎日"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"後藤明美","age":50,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":25,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"長谷川幸","age":47,"line":"袋の中身は\n家族の一週間分"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 7,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 2024,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 2024,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"黒岩ダン","age":20,"line":"この辺で一番\n強い(自称)"},
+        "hint": {"face":"hype","text":"ナイフ回してる。\n練習にちょうどいい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":23,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"高橋修","age":52,"line":"会議に遅れそう。\n走るしかない"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"伊藤隆","age":39,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"石井レン","age":26,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":52,"line":"路地裏は近道。\n急いでいる"},
+        "hint": {"face":"deadpan","text":"汗びっしょり…"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"木村リョウ","age":26,"line":"ポケットの中身は\n今月の全財産"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"山口直美","age":52,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"金色の物が\nのぞいてる"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"村田京子","age":43,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":19,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"竹内キヨ","age":78,"line":"最近、耳が遠い。\n目はいい"},
+        "hint": {"face":"normal","text":"杖をついてる。\nゆっくりだね"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_shopper",
+        "profile": {"name":"佐々木陽子","age":34,"line":"力仕事なら\nまかせてほしい"},
+        "hint": {"face":"panic","text":"腕に何か\n見えた気がする"},
+        "disguise": "shopper"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":48,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"後藤明美","age":38,"line":"今日は大漁。\n持ちきれない"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"林ユウキ","age":24,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"前田ソウタ","age":18,"line":"手ぶらに見えるが\n持つ物は持っている"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 9,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 7919,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 7919,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"山口直美","age":58,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"中村聡","age":35,"line":"大事な物を\n運んでいるところ"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"田中誠","age":48,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"木村リョウ","age":26,"line":"手ぶらに見えるが\n持つ物は持っている"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"鬼塚リュウジ","age":21,"line":"この辺で一番\n強い(自称)"},
+        "hint": {"face":"deadpan","text":"…あれは\n分かるよね？"},
+        "mischief": "threaten"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"岡田久美","age":44,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"高橋修","age":29,"line":"会議に遅れそう。\n走るしかない"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":37,"line":"今日は大漁。\n持ちきれない"},
+        "hint": {"face":"panic","text":"袋、\nはち切れそう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":21,"line":"ポケットの中身は\n見せたくない"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"池田ショウ","age":24,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"吉田稔","age":52,"line":"急ぐ理由は\n人に言えない"},
+        "hint": {"face":"deadpan","text":"荷物を\n大事そうに抱えてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"林ユウキ","age":24,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"山下亮","age":40,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"村上シズ","age":73,"line":"孫にお小遣いを\n届けるところ"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_shopper",
+        "profile": {"name":"松本由美","age":49,"line":"買い物袋は\n片手で三つ持てる"},
+        "hint": {"face":"panic","text":"腕に何か\n見えた気がする"},
+        "disguise": "shopper"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":27,"line":"今日は\n稼ぎどきらしい"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 7,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 65535,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 65535,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":28,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":45,"line":"今日は大漁。\n持ちきれない"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"池田ショウ","age":23,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"後藤明美","age":33,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"毒島ケン","age":27,"line":"好きな言葉は\n「よこせ」"},
+        "hint": {"face":"deadpan","text":"見た目どおりだと\n思う"},
+        "mischief": "threaten"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"吉田稔","age":28,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"山下亮","age":41,"line":"路地裏は近道。\n急いでいる"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"岡田久美","age":56,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":45,"line":"袋の中身は\nひみつ"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"菊池フミ","age":71,"line":"腰は痛いが\n散歩は毎日"},
+        "hint": {"face":"deadpan","text":"殴ったら\n一生言われるよ"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"鈴木健一","age":48,"line":"大事な物を\n運んでいるところ"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"斉藤ハヤト","age":20,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"石井レン","age":19,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"高橋修","age":36,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"村上シズ","age":73,"line":"若いころは\n町内の人気者"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"野口タマ","age":74,"line":"孫みたいな子分…\nいや、孫が大勢いる"},
+        "hint": {"face":"normal","text":"おばあちゃんにしては\n肩幅が広い…"},
+        "disguise": "granny"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 99999,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 99999,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":28,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"田中誠","age":46,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"牙野ジン","age":27,"line":"ナイフ集めが趣味"},
+        "hint": {"face":"normal","text":"うん、あれは\n迷わなくていい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"池田ショウ","age":20,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":33,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"鈴木健一","age":41,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"石井レン","age":22,"line":"夜の散歩が好き。\n路地裏は近道"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"後藤明美","age":49,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":21,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":53,"line":"時間には\nうるさい方"},
+        "hint": {"face":"deadpan","text":"汗びっしょり…"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"梅田ハナ","age":83,"line":"毎朝、腕立てを\n百回している"},
+        "hint": {"face":"normal","text":"なんか…\n背、高くない？"},
+        "disguise": "granny"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"中村聡","age":39,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"原田里香","age":41,"line":"この辺の店は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":61,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"panic","text":"袋、\nはち切れそう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"小川ウメ","age":88,"line":"路地裏の猫に\nエサをやっている"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":47,"line":"家族には\n頭が上がらない"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 9,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 123456789,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 123456789,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":39,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"deadpan","text":"汗びっしょり…"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"赤城トオル","age":21,"line":"ナイフ集めが趣味"},
+        "hint": {"face":"deadpan","text":"見た目どおりだと\n思う"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"村上シズ","age":86,"line":"腰は痛いが\n散歩は毎日"},
+        "hint": {"face":"normal","text":"腰をたたいてる…"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"岡田久美","age":56,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"金色の物が\nのぞいてる"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":39,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"山下亮","age":37,"line":"時間には\nうるさい方"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"}
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"後藤明美","age":56,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"林ユウキ","age":17,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"鈴木健一","age":45,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":42,"line":"キラキラした物が\n好き"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"森カズヤ","age":18,"line":"ポケットの中身は\n見せたくない"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"伊藤隆","age":39,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"原田里香","age":58,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"山口直美","age":55,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_shopper",
+        "profile": {"name":"佐々木陽子","age":32,"line":"買い物袋は\n片手で三つ持てる"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "shopper"
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"山本タクミ","age":21,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"誰かを\n待ってるみたい"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 10,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": 4294967295,
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 4294967295,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"木村リョウ","age":21,"line":"バイト帰り。\n今日は給料日"},
+        "hint": {"face":"normal","text":"茶色い物が\nちらっと見えた"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"吉田稔","age":51,"line":"会議に遅れそう。\n走るしかない"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"赤城トオル","age":23,"line":"ナイフ集めが趣味"},
+        "hint": {"face":"normal","text":"うん、あれは\n迷わなくていい"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"松田コウ","age":19,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"伊藤隆","age":48,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":36,"line":"袋の中身は\nひみつ"},
+        "hint": {"face":"panic","text":"袋、\nはち切れそう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"原田里香","age":58,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"森カズヤ","age":21,"line":"夜の散歩が好き。\n路地裏は近道"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":44,"line":"家族には\n頭が上がらない"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"加藤正樹","age":28,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"杉山チヨ","age":89,"line":"孫にお小遣いを\n届けるところ"},
+        "hint": {"face":"normal","text":"おばあちゃん…\nだよね？"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"井上恵子","age":45,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"岡田久美","age":54,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "suit",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_suit",
+        "profile": {"name":"鈴木健一","age":34,"line":"会社で一番\n背が高い"},
+        "hint": {"face":"panic","text":"腕に何か\n見えた気がする"},
+        "disguise": "suit"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":24,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"石井レン","age":23,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": "abc",
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 440920331,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"吉田稔","age":42,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"山口直美","age":57,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":18,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"毒島ケン","age":22,"line":"ナイフ集めが趣味"},
+        "hint": {"face":"deadpan","text":"見た目どおりだと\n思う"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":20,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"normal","text":"ずっと手を\nポケットに入れてる"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":28,"line":"ポケットの中身は\n見せたくない"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"田中誠","age":32,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"normal","text":"赤い物が\nちらっと見えた"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"岡田久美","age":46,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"panic","text":"袋、\nはち切れそう"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"野口タマ","age":76,"line":"路地裏の猫に\nエサをやっている"},
+        "hint": {"face":"normal","text":"こっちを見て\nにこにこしてる"}
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"渡辺浩二","age":53,"line":"時間には\nうるさい方"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"林ユウキ","age":27,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"山下亮","age":47,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"村田京子","age":55,"line":"買い物は\n早い者勝ち"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"長谷川幸","age":49,"line":"キラキラした物が\n好き"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"松田コウ","age":21,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"誰かを\n待ってるみたい"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"梅田ハナ","age":71,"line":"毎朝、腕立てを\n百回している"},
+        "hint": {"face":"normal","text":"おばあちゃんにしては\n肩幅が広い…"},
+        "disguise": "granny"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 9,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": "stupid",
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 2103957938,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"黒岩ダン","age":26,"line":"好きな言葉は\n「よこせ」"},
+        "hint": {"face":"deadpan","text":"…あれは\n分かるよね？"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"森カズヤ","age":17,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"deadpan","text":"落ち着きが\nないような…"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":39,"line":"大事な物を\n届けるところ"},
+        "hint": {"face":"normal","text":"金色の物が\nちらっと見えた"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":17,"line":"夜の散歩が好き。\n路地裏は近道"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"山下亮","age":44,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":25,"line":"今日は\n稼ぎどきらしい"},
+        "hint": {"face":"normal","text":"黄色い物が\nちらっと見えた"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"後藤明美","age":33,"line":"袋の中身は\nひみつ"},
+        "hint": {"face":"deadpan","text":"買い物帰り…\nなのかな？"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"杉山チヨ","age":85,"line":"腰は痛いが\n散歩は毎日"},
+        "hint": {"face":"normal","text":"おばあちゃん…\nだよね？"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"鈴木健一","age":49,"line":"大事な物を\n運んでいるところ"},
+        "hint": {"face":"normal","text":"後ろばっかり\n気にしてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"佐々木陽子","age":50,"line":"袋は二重にする派"},
+        "hint": {"face":"normal","text":"白い物が\nのぞいてる"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"高橋修","age":38,"line":"後ろが\n気になる性分"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"林ユウキ","age":26,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"大野スエ","age":79,"line":"杖は重い方が\n好き"},
+        "hint": {"face":"normal","text":"おばあちゃんにしては\n肩幅が広い…"},
+        "disguise": "granny"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":56,"line":"人ごみが好き。\n用事はすぐ済む"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"吉田稔","age":30,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"岡田久美","age":35,"line":"袋の中身は\n家族の一週間分"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 10,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": "hero",
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 456875097,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"松井トメ","age":78,"line":"杖は\n三本目"},
+        "hint": {"face":"deadpan","text":"殴ったら\n一生言われるよ"}
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"鈴木健一","age":32,"line":"荷物が多いのは\n慣れている"},
+        "hint": {"face":"panic","text":"すごく\nあせってるね"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"赤城トオル","age":27,"line":"ひったくり歴\n十年"},
+        "hint": {"face":"deadpan","text":"…あれは\n分かるよね？"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"松本由美","age":59,"line":"この辺の店は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"藤田真理","age":48,"line":"財布はいくつ\nあっても困らない"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"},
+        "mischief": "pickpocket"
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"前田ソウタ","age":24,"line":"最近、よく\n後ろをふり返る"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"池田ショウ","age":19,"line":"ポケットの中身は\n今月の全財産"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"伊藤隆","age":40,"line":"会議に遅れそう。\n走るしかない"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":45,"line":"急ぐ理由は\n人に言えない"},
+        "hint": {"face":"deadpan","text":"荷物を\n大事そうに抱えてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"村田京子","age":45,"line":"袋は二重にする派"},
+        "hint": {"face":"deadpan","text":"袋、\nはち切れそう"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"長谷川幸","age":48,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"normal","text":"袋を何度も\n持ち直してる"}
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"井上恵子","age":58,"line":"この辺の人は\nだいたい知ってる"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"今井キク","age":71,"line":"孫にお小遣いを\n届けるところ"},
+        "hint": {"face":"normal","text":"杖をついてる。\nゆっくりだね"}
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"清水ダイチ","age":27,"line":"手ぶらに見えるが\nそうでもない"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"石井レン","age":26,"line":"最近、財布を\n新しくした"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "granny",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_granny",
+        "profile": {"name":"小川ウメ","age":84,"line":"杖は重い方が\n好き"},
+        "hint": {"face":"normal","text":"水色の模様が\nちらっと見えた"},
+        "disguise": "granny"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  },
+  {
+   "seed": "路地裏",
+   "stage": {
+    "id": "alley",
+    "name": "路地裏",
+    "seed": 4292583615,
+    "waves": [
+     {
+      "no": 1,
+      "seconds": 20,
+      "people": [
+       {
+        "id": "w1-1",
+        "index": 0,
+        "wave": 1,
+        "look": "mohawk",
+        "truth": "bad",
+        "sheetKey": "villain_mohawk",
+        "profile": {"name":"毒島ケン","age":26,"line":"髪のセットに\n毎朝二時間"},
+        "hint": {"face":"deadpan","text":"見た目どおりだと\n思う"},
+        "mischief": "threaten"
+       },
+       {
+        "id": "w1-2",
+        "index": 1,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"松本由美","age":33,"line":"袋の中身は\n家族の一週間分"},
+        "hint": {"face":"normal","text":"買い物帰り\nかな？"}
+       },
+       {
+        "id": "w1-3",
+        "index": 2,
+        "wave": 1,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"清水ダイチ","age":23,"line":"人を待っている。\n相手はまだ来ない"},
+        "hint": {"face":"normal","text":"ポケットが\nふくらんでる…"}
+       },
+       {
+        "id": "w1-4",
+        "index": 3,
+        "wave": 1,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"菊池フミ","age":78,"line":"杖は\n三本目"},
+        "hint": {"face":"normal","text":"おばあちゃん…\nだよね？"}
+       },
+       {
+        "id": "w1-5",
+        "index": 4,
+        "wave": 1,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"村田京子","age":38,"line":"キラキラした物が\n好き"},
+        "hint": {"face":"normal","text":"金色の物が\nのぞいてる"},
+        "mischief": "pickpocket"
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": false
+     },
+     {
+      "no": 2,
+      "seconds": 15,
+      "people": [
+       {
+        "id": "w2-1",
+        "index": 0,
+        "wave": 2,
+        "look": "shopper",
+        "truth": "bad",
+        "sheetKey": "shopper_bad",
+        "profile": {"name":"原田里香","age":32,"line":"袋の中身は\nひみつ"},
+        "hint": {"face":"normal","text":"袋の口を\n押さえてるね"},
+        "mischief": "pickpocket"
+       },
+       {
+        "id": "w2-2",
+        "index": 1,
+        "wave": 2,
+        "look": "granny",
+        "truth": "civ",
+        "sheetKey": "granny_civ",
+        "profile": {"name":"今井キク","age":89,"line":"最近、耳が遠い。\n目はいい"},
+        "hint": {"face":"deadpan","text":"殴ったら\n一生言われるよ"}
+       },
+       {
+        "id": "w2-3",
+        "index": 2,
+        "wave": 2,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"木村リョウ","age":27,"line":"夜の路地裏に\nくわしい"},
+        "hint": {"face":"normal","text":"ポケットを\n押さえてるね"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w2-4",
+        "index": 3,
+        "wave": 2,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"渡辺浩二","age":47,"line":"赤い物が好き。\n最近手に入れた"},
+        "hint": {"face":"normal","text":"さっきから\nずっと走ってる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w2-5",
+        "index": 4,
+        "wave": 2,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"加藤正樹","age":32,"line":"路地裏は近道。\n急いでいる"},
+        "hint": {"face":"deadpan","text":"汗びっしょり…"}
+       }
+      ],
+      "badCount": 3,
+      "hasBoss": false
+     },
+     {
+      "no": 3,
+      "seconds": 18,
+      "people": [
+       {
+        "id": "w3-1",
+        "index": 0,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "bad",
+        "sheetKey": "hoodie_bad",
+        "profile": {"name":"斉藤ハヤト","age":25,"line":"待ち合わせ中。\n相手は決めてない"},
+        "hint": {"face":"panic","text":"さっきから\nキョロキョロしてる"},
+        "mischief": "shove"
+       },
+       {
+        "id": "w3-2",
+        "index": 1,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "boss",
+        "sheetKey": "boss_disguise_shopper",
+        "profile": {"name":"山口直美","age":41,"line":"力仕事なら\nまかせてほしい"},
+        "hint": {"face":"panic","text":"腕に何か\n見えた気がする"},
+        "disguise": "shopper"
+       },
+       {
+        "id": "w3-3",
+        "index": 2,
+        "wave": 3,
+        "look": "suit",
+        "truth": "bad",
+        "sheetKey": "suit_bad",
+        "profile": {"name":"吉田稔","age":34,"line":"急ぐ理由は\n人に言えない"},
+        "hint": {"face":"deadpan","text":"荷物を\n大事そうに抱えてる"},
+        "mischief": "snatch"
+       },
+       {
+        "id": "w3-4",
+        "index": 3,
+        "wave": 3,
+        "look": "hoodie",
+        "truth": "civ",
+        "sheetKey": "hoodie_civ",
+        "profile": {"name":"林ユウキ","age":27,"line":"ポケットの中身は\n今月の全財産"},
+        "hint": {"face":"deadpan","text":"落ち着いてる…\nように見える"}
+       },
+       {
+        "id": "w3-5",
+        "index": 4,
+        "wave": 3,
+        "look": "shopper",
+        "truth": "civ",
+        "sheetKey": "shopper_civ",
+        "profile": {"name":"藤田真理","age":41,"line":"重い物を持つのは\n得意"},
+        "hint": {"face":"normal","text":"袋がやけに\n重そう"}
+       },
+       {
+        "id": "w3-6",
+        "index": 5,
+        "wave": 3,
+        "look": "suit",
+        "truth": "civ",
+        "sheetKey": "suit_civ",
+        "profile": {"name":"小林徹","age":44,"line":"今日は朝から\n走りっぱなし"},
+        "hint": {"face":"normal","text":"時計ばっかり\n見てる"}
+       }
+      ],
+      "badCount": 2,
+      "hasBoss": true
+     }
+    ],
+    "villainTotal": 8,
+    "peopleTotal": 16
+   }
+  }
+ ],
+ "speech": {
+  "INTRO": [
+   {"who":"hero","face":"smug","text":"今日も街の平和は\nこのヒーローが守る！"},
+   {"who":"operator","face":"deadpan","text":"ワルと市民の区別も\nつかないくせに"},
+   {"who":"hero","face":"smile","text":"そこは相棒の出番！\n頼りにしてるよ！"},
+   {"who":"operator","face":"normal","text":"はいはい。\nじゃあいつものやつ"},
+   {"who":"operator","face":"normal","text":"左にスワイプでワル\n右にスワイプで市民"},
+   {"who":"operator","face":"normal","text":"下のボタンでも\n仕分けできるよ"},
+   {"who":"operator","face":"normal","text":"見た目と動きと\nプロフィールを見て"},
+   {"who":"operator","face":"hype","text":"あと私の一言も\nヒントにしてね"},
+   {"who":"operator","face":"normal","text":"時間切れだと\nこの子が勝手に決める"},
+   {"who":"hero","face":"smug","text":"半々で当たる！\nたぶん！"},
+   {"who":"operator","face":"deadpan","text":"それ、ただの運"},
+   {"who":"operator","face":"normal","text":"結果発表で、殴る前に\n待てで止められる"},
+   {"who":"operator","face":"normal","text":"逃げるワルには\n行けで追い打ち！"},
+   {"who":"hero","face":"smug","text":"任せて！\n全員ぶっ飛ばす！"},
+   {"who":"operator","face":"panic","text":"全員は\nぶっ飛ばさないで！"}
+  ],
+  "INTRO_REPLAY": [
+   {"who":"hero","face":"smug","text":"もう一回！\n今度こそ完ぺき！"},
+   {"who":"operator","face":"deadpan","text":"左がワル、\n右が市民だからね"},
+   {"who":"operator","face":"normal","text":"待てと行けも\n忘れないで"},
+   {"who":"hero","face":"smile","text":"任せて！"}
+  ],
+  "WAVE_INTRO": {
+   "1": [{"who":"operator","face":"normal","text":"まずは練習。\n5人来るよ"},{"who":"operator","face":"normal","text":"一目で分かる\nワルもいるからね"}],
+   "2": [{"who":"operator","face":"normal","text":"次の5人。\n時間は短めだよ"},{"who":"hero","face":"smug","text":"どんと来い！"}],
+   "3": [{"who":"operator","face":"panic","text":"最後の波！\nボスがまぎれてる"},{"who":"operator","face":"normal","text":"どこか1か所\nおかしい人を探して"}]
+  },
+  "REACTIONS": {
+   "sortHurry": [{"who":"operator","face":"panic","text":"あと5秒！\n急いで！"},{"who":"operator","face":"panic","text":"時間ないよ！"}],
+   "timeUp": [{"who":"hero","face":"smug","text":"時間切れ！\nあとは勘で行く！"},{"who":"hero","face":"smug","text":"残りは\n気分で決める！"}],
+   "timeUpOp": [{"who":"operator","face":"panic","text":"勘はやめて！"},{"who":"operator","face":"deadpan","text":"せめて考えて"}],
+   "sortDone": [{"who":"hero","face":"smug","text":"仕分け完了！\n行ってくる！"},{"who":"hero","face":"smug","text":"よーし、\n出動！"}],
+   "streetWatch": [{"who":"operator","face":"normal","text":"殴る前なら\n待てで止められる"},{"who":"operator","face":"normal","text":"悪さをされたら\n行けで追いかけて"}],
+   "hitBad": [{"who":"operator","face":"hype","text":"ナイス！"},{"who":"operator","face":"hype","text":"いいね！\nその調子！"},{"who":"operator","face":"hype","text":"よし、\n1人片付いた！"}],
+   "hitBadHero": [{"who":"hero","face":"smug","text":"正義の勝利！"},{"who":"hero","face":"smug","text":"悪は許さない！"}],
+   "oops": [{"who":"hero","face":"oops","text":"やっちまったー！"},{"who":"hero","face":"oops","text":"あっ…\nやっちまったー！"},{"who":"hero","face":"oops","text":"しまったーっ！\n市民だった！"}],
+   "okay": [{"who":"hero","face":"smile","text":"まあいいか！"},{"who":"hero","face":"smile","text":"まあいいか！\n次いこ、次！"},{"who":"hero","face":"smile","text":"まあいいか！\n元気出していこ！"}],
+   "tsukkomi": [
+    {"who":"operator","face":"deadpan","text":"まあいいか、\nじゃない！"},
+    {"who":"operator","face":"deadpan","text":"まあいいか、じゃない！\n市民だよ今の！"},
+    {"who":"operator","face":"deadpan","text":"まあいいか、じゃない！\nあとで謝って！"}
+   ],
+   "tsukkomiShort": [
+    {"who":"operator","face":"deadpan","text":"じゃない！"},
+    {"who":"operator","face":"deadpan","text":"こら！"},
+    {"who":"operator","face":"deadpan","text":"またか！"},
+    {"who":"operator","face":"deadpan","text":"ちょっと！"}
+   ],
+   "hitCiv": [
+    {"who":"operator","face":"panic","text":"あっ！\nその人、市民！"},
+    {"who":"operator","face":"panic","text":"ちょっと！\n市民だってば！"},
+    {"who":"operator","face":"panic","text":"待って！\n今の、市民だよ！"}
+   ],
+   "collateral": [
+    {"who":"operator","face":"panic","text":"後ろの人にも\n当たってる！"},
+    {"who":"operator","face":"panic","text":"巻きぞえ！\n関係ない人！"},
+    {"who":"operator","face":"panic","text":"今の、奥の人に\n当たったよ！"}
+   ],
+   "grannyHit": [{"who":"operator","face":"panic","text":"おばあちゃん\nだったのに！"},{"who":"operator","face":"panic","text":"よりによって\nおばあちゃん！"}],
+   "specialOnCiv": [{"who":"operator","face":"panic","text":"必殺技を市民に\n当てないで！"},{"who":"operator","face":"panic","text":"光線が市民に！\n何してんの！"}],
+   "stop": [{"who":"hero","face":"smile","text":"了解！"},{"who":"hero","face":"smile","text":"了解！\n止まります！"},{"who":"hero","face":"smile","text":"おっと、了解！"}],
+   "stopOp": [{"who":"operator","face":"normal","text":"了解、次！"},{"who":"operator","face":"normal","text":"はい、次に\n行こう！"},{"who":"operator","face":"normal","text":"よし、先へ！"}],
+   "stopFailBoss": [{"who":"hero","face":"oops","text":"えっ、止まれ…\nないっ！"},{"who":"hero","face":"smug","text":"こいつは\n止まれない！"}],
+   "go": [{"who":"hero","face":"smug","text":"行ってくる！"},{"who":"hero","face":"smug","text":"逃がすかーっ！"},{"who":"hero","face":"smug","text":"待てーっ！\n悪党ーっ！"}],
+   "goOp": [{"who":"operator","face":"hype","text":"行け！"},{"who":"operator","face":"hype","text":"追いかけて！"}],
+   "pass": [
+    {"who":"hero","face":"smile","text":"こんにちは！"},
+    {"who":"hero","face":"smile","text":"気をつけて\n帰ってね！"},
+    {"who":"hero","face":"smile","text":"いい夜だね！"},
+    {"who":"hero","face":"smile","text":"街の平和は\n任せて！"}
+   ],
+   "mischiefHero": [{"who":"hero","face":"oops","text":"あれっ！？\nいい人だと思ったのに！"},{"who":"hero","face":"oops","text":"えっ、\nワルだったの！？"}],
+   "escaped": [
+    {"who":"operator","face":"deadpan","text":"逃げられた…"},
+    {"who":"operator","face":"deadpan","text":"あーあ、\n行っちゃった"},
+    {"who":"operator","face":"deadpan","text":"逃がしたね…"}
+   ],
+   "bossReveal": [{"who":"operator","face":"panic","text":"正体を現した！\nこいつがボスだ！"},{"who":"operator","face":"panic","text":"出た！\n路地裏のボス！"}],
+   "bossRevealHero": [{"who":"hero","face":"smug","text":"やっぱりね！\n最初から分かってた！"},{"who":"hero","face":"smug","text":"見破ったり！"}],
+   "bossRevealOp2": [{"who":"operator","face":"deadpan","text":"絶対うそでしょ"},{"who":"operator","face":"deadpan","text":"今気づいたよね"}],
+   "bossRampage": [{"who":"operator","face":"panic","text":"ボスだったの！？\n街が壊れてく！"},{"who":"operator","face":"panic","text":"素通りした人が\nボスだった！"}],
+   "bossRampageHero": [{"who":"hero","face":"oops","text":"えっ、ボス！？\n手を振っちゃった！"},{"who":"hero","face":"oops","text":"いい人そう\nだったのに！"}],
+   "bossStart": [{"who":"operator","face":"hype","text":"行けを連打！\nぶっ飛ばせ！"},{"who":"operator","face":"hype","text":"連打、連打！\n行けを押して！"}],
+   "bossStartHero": [{"who":"hero","face":"smug","text":"ラッシュで\n決めるよ！"},{"who":"hero","face":"smug","text":"かかってこい！"}],
+   "bossIdle": [{"who":"operator","face":"panic","text":"手を止めないで！\n街が壊れてく！"},{"who":"operator","face":"panic","text":"連打して！\n被害が増えてる！"}],
+   "bossRush": [{"who":"operator","face":"hype","text":"いいぞ！\nもっと速く！"},{"who":"operator","face":"hype","text":"その調子！\n押しまくれ！"}],
+   "bossDefeated": [{"who":"hero","face":"smug","text":"正義は勝つ！"},{"who":"hero","face":"smug","text":"見たか！\nこれがヒーロー！"}],
+   "bossDefeatedOp": [{"who":"operator","face":"hype","text":"やったー！\nボスを倒した！"},{"who":"operator","face":"hype","text":"路地裏、\n平和になった！"}]
+  },
+  "ATTACK_SHOUTS": {
+   "charge": [{"who":"hero","face":"smug","text":"光の突撃ーっ！"},{"who":"hero","face":"smug","text":"光になって\n突っこむよ！"},{"who":"hero","face":"smug","text":"突撃ーっ！\nどいてどいて！"}],
+   "punch": [{"who":"hero","face":"smug","text":"光のパンチ！"},{"who":"hero","face":"smug","text":"光のパンチ！\nもう一発！"},{"who":"hero","face":"smug","text":"くらえっ！\n光のパンチ！"}],
+   "stomp": [{"who":"hero","face":"smug","text":"踏みつぶし！"},{"who":"hero","face":"smug","text":"高く跳んで…\n踏みつぶし！"},{"who":"hero","face":"smug","text":"上から失礼！\nどーん！"}],
+   "special": [{"who":"hero","face":"smug","text":"必殺技！\nいっけーっ！"},{"who":"hero","face":"smug","text":"出た！\n必殺技！"},{"who":"hero","face":"smug","text":"全部まとめて\n吹っ飛べーっ！"}]
+  },
+  "MISCHIEF_LINES": {
+   "hoodie": [{"who":"operator","face":"panic","text":"あっ！\n人を突き飛ばした！"},{"who":"operator","face":"panic","text":"悪さを始めた！\n行けを押して！"}],
+   "suit": [{"who":"operator","face":"panic","text":"あっ！\nバッグをひったくった！"},{"who":"operator","face":"panic","text":"悪さを始めた！\n行けを押して！"}],
+   "shopper": [{"who":"operator","face":"panic","text":"あっ！\n財布を抜き取った！"},{"who":"operator","face":"panic","text":"悪さを始めた！\n行けを押して！"}],
+   "mohawk": [{"who":"operator","face":"panic","text":"あっ！\nナイフで脅してる！"},{"who":"operator","face":"panic","text":"悪さを始めた！\n行けを押して！"}]
+  },
+  "TITLE_COMMENTS": {
+   "flawless": {"who":"operator","face":"hype","text":"文句なし！\n今日は本物だった！"},
+   "civNemesis": {"who":"operator","face":"deadpan","text":"倒れた市民の方が\n多いんだけど"},
+   "demolition": {"who":"operator","face":"deadpan","text":"街の修理代、\n誰が払うの…"},
+   "bossBuddy": {"who":"operator","face":"deadpan","text":"ボスに笑顔で\n手を振ってたよね"},
+   "grannyFoe": {"who":"operator","face":"deadpan","text":"おばあちゃんに\n謝りに行くよ"},
+   "runawayTrain": {"who":"operator","face":"deadpan","text":"全員倒したけど\n止まる気なかったね"},
+   "realHero": {"who":"operator","face":"hype","text":"市民は無傷！\nやるじゃん！"},
+   "tapProdigy": {"who":"operator","face":"hype","text":"連打、速すぎ！\n指、大丈夫？"},
+   "stopMaster": {"who":"operator","face":"normal","text":"止まれてえらい！\n…私のおかげだけど"},
+   "chaseDemon": {"who":"operator","face":"normal","text":"逃げても逃げても\n追いかけてたね"},
+   "tooKind": {"who":"operator","face":"deadpan","text":"やさしいのはいいけど\nワルは逃げたよ"},
+   "soSo": {"who":"operator","face":"normal","text":"まあまあ…\nだったかな"}
+  }
+ },
+ "titleDefs": [
+  {"id":"flawless","name":"完全無欠のヒーロー","pose":"win_pose"},
+  {"id":"civNemesis","name":"市民の天敵","pose":"win_shy"},
+  {"id":"demolition","name":"歩く解体工事","pose":"win_fist"},
+  {"id":"bossBuddy","name":"ボスの親友","pose":"win_shy"},
+  {"id":"grannyFoe","name":"おばあちゃんの敵","pose":"win_shy"},
+  {"id":"runawayTrain","name":"正義の暴走機関車","pose":"win_arms"},
+  {"id":"realHero","name":"街のほんものヒーロー","pose":"win_pose"},
+  {"id":"tapProdigy","name":"連打の申し子","pose":"win_fist"},
+  {"id":"stopMaster","name":"待ての達人","pose":"win_pose"},
+  {"id":"chaseDemon","name":"追い打ちの鬼","pose":"win_arms"},
+  {"id":"tooKind","name":"やさしすぎるヒーロー","pose":"win_pose"},
+  {"id":"soSo","name":"まあまあヒーロー","pose":"win_arms"}
+ ],
+ "titles": [
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 0,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "flawless",
+   "name": "完全無欠のヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 0,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "realHero",
+   "name": "街のほんものヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 5,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "runawayTrain",
+   "name": "正義の暴走機関車"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.01,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": false,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": null,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "stopMaster",
+   "name": "待ての達人"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "chaseDemon",
+   "name": "追い打ちの鬼"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 0,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tooKind",
+   "name": "やさしすぎるヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 0,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 8000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 8,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 7,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 1,
+    "damage": 23000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 2,
+    "damage": 23000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 6,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 1,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 3,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 9,
+    "civHurtByHero": 5,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 2,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 2,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 9,
+    "civHurtByHero": 5,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 1,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "runawayTrain",
+   "name": "正義の暴走機関車"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "stopMaster",
+   "name": "待ての達人"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 7,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 8,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 6,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "chaseDemon",
+   "name": "追い打ちの鬼"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "runawayTrain",
+   "name": "正義の暴走機関車"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 6,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 6,
+    "civHurtByHero": 5,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 0,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 1,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "stopMaster",
+   "name": "待ての達人"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 6,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 23000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": false,
+    "civHurt": 5,
+    "civHurtByHero": 5,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": null,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 1,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "runawayTrain",
+   "name": "正義の暴走機関車"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 4,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 8,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 0,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "chaseDemon",
+   "name": "追い打ちの鬼"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 23000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 3,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 2,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 8,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 0,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 6,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": false,
+    "civHurt": 1,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": null,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "chaseDemon",
+   "name": "追い打ちの鬼"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 0,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "soSo",
+   "name": "まあまあヒーロー"
+  },
+  {
+   "stats": {
+    "defeated": 0,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 7,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 5,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 7,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": true,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "bossBuddy",
+   "name": "ボスの親友"
+  },
+  {
+   "stats": {
+    "defeated": 9,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 49990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": true,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "runawayTrain",
+   "name": "正義の暴走機関車"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 2,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 1,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "tapProdigy",
+   "name": "連打の申し子"
+  },
+  {
+   "stats": {
+    "defeated": 3,
+    "defeatedBySort": 5,
+    "defeatedByGo": 4,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 2,
+    "civHurtByVillain": 2,
+    "damage": 5000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 0,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 0,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 7,
+    "civHurtByHero": 5,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 1,
+    "damage": 1200000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 1,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 4.99,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 0,
+    "defeatedBySort": 5,
+    "defeatedByGo": 1,
+    "bossDefeated": true,
+    "civHurt": 4,
+    "civHurtByHero": 4,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 71000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 4,
+    "civSavedByStop": 3,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 14.9,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "civNemesis",
+   "name": "市民の天敵"
+  },
+  {
+   "stats": {
+    "defeated": 5,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 1,
+    "civHurtByHero": 1,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 0,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 3,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "chaseDemon",
+   "name": "追い打ちの鬼"
+  },
+  {
+   "stats": {
+    "defeated": 3,
+    "defeatedBySort": 5,
+    "defeatedByGo": 3,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 2,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 1,
+    "damage": 23000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 0,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 5.5,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  },
+  {
+   "stats": {
+    "defeated": 1,
+    "defeatedBySort": 5,
+    "defeatedByGo": 2,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 0,
+    "civHurtByCollateral": 1,
+    "civHurtByVillain": 2,
+    "damage": 50000000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 2,
+    "badSparedByStop": 0,
+    "grannyHit": false,
+    "bossSortedCiv": false,
+    "bossFightSec": 3.2,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "demolition",
+   "name": "歩く解体工事"
+  },
+  {
+   "stats": {
+    "defeated": 7,
+    "defeatedBySort": 5,
+    "defeatedByGo": 0,
+    "bossDefeated": true,
+    "civHurt": 3,
+    "civHurtByHero": 3,
+    "civHurtByCollateral": 0,
+    "civHurtByVillain": 0,
+    "damage": 4990000,
+    "damageByProps": 8000000,
+    "damageByMischief": 0,
+    "damageByBoss": 0,
+    "propsBroken": {"trash":0,"window":0,"sign":0,"vending":0,"car":0},
+    "escaped": 2,
+    "civSavedByStop": 4,
+    "badSparedByStop": 0,
+    "grannyHit": true,
+    "bossSortedCiv": false,
+    "bossFightSec": 8,
+    "villainTotal": 9,
+    "allDefeated": false,
+    "worstScene": null,
+    "worstAttack": null
+   },
+   "title": "grannyFoe",
+   "name": "おばあちゃんの敵"
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "note": "公開版(876e008)の saveResult が localStorage に書いた本当の文字列。作り直さないこと",
+ "key": "stupidhero.records.v1",
+ "noBoss": {
+  "text": "{\"version\":1,\"stages\":{\"alley\":{\"mostDefeated\":4,\"fewestHurt\":3,\"highestDamage\":12300000,\"fastestBossSec\":null,\"plays\":1}},\"titles\":[\"soSo\"]}",
+  "loaded": {"version":1,"stages":{"alley":{"mostDefeated":4,"fewestHurt":3,"highestDamage":12300000,"fastestBossSec":null,"plays":1}},"titles":["soSo"]}
+ },
+ "cleared": {
+  "text": "{\"version\":1,\"stages\":{\"alley\":{\"mostDefeated\":9,\"fewestHurt\":0,\"highestDamage\":62000000,\"fastestBossSec\":4.8,\"plays\":3}},\"titles\":[\"soSo\",\"demolition\",\"flawless\"]}",
+  "loaded": {
+   "version": 1,
+   "stages": {"alley":{"mostDefeated":9,"fewestHurt":0,"highestDamage":62000000,"fastestBossSec":4.8,"plays":3}},
+   "titles": ["soSo","demolition","flawless"]
+  }
+ }
+}

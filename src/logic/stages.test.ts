@@ -4,13 +4,12 @@ import { ATTACKS, ATTACK_KINDS, PROP_COST } from './rules';
 import { STAGES, STAGE_IDS, isStageId, sheetKeyFor, stageTexts } from './stages';
 
 describe('ステージの定義', () => {
-  it('番号、名前、曲、ボスの絵', () => {
+  it('番号、名前、値段とボス戦の数字、開く順。ステージ2は曲もボスの絵も別', () => {
     expect(STAGE_IDS).toEqual(['alley', 'garage']);
     expect(STAGE_IDS.map((id) => [STAGES[id].no, STAGES[id].name])).toEqual([[1, '路地裏'], [2, '地下駐車場']]);
-    expect(STAGES.alley.bgm).toEqual({ street: 'street', boss: 'boss' });
-    expect(STAGES.garage.bgm).toEqual({ street: 'street2', boss: 'boss2' });
-    expect(STAGES.alley.bossSheet).toBe('boss');
-    expect(STAGES.garage.bossSheet).toBe('boss2');
+    expect(STAGES.garage.bgm.street).not.toBe(STAGES.alley.bgm.street);
+    expect(STAGES.garage.bgm.boss).not.toBe(STAGES.alley.bgm.boss);
+    expect(STAGES.garage.bossSheet).not.toBe(STAGES.alley.bossSheet);
     expect(STAGES.alley.bossRampageCost).toBe(10_000_000);
     expect(STAGES.garage.bossRampageCost).toBe(15_000_000);
     expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRng } from './rng';
+import { createRng, type Rng } from './rng';
 import {
   ATTACKS, ATTACK_KINDS, BOSS, MARK, PROP_COST, WAVES, canStop, civHitChanceAt, decideUnsorted, isAttacked,
   pickAttack, pickMarkTarget, propBreakChanceAt, resolveEncounter, rollPropsBroken
@@ -17,15 +17,12 @@ describe('rules', () => {
     expect(BOSS.maxSec).toBe(15);
   });
 
-  it('攻撃の割合は 30/35/30/5', () => {
+  it('攻撃の割合は 30/35/30/5。pickAttack はこの重みで引く(重みで引く仕組みは rng.test で確かめる)', () => {
     expect(ATTACK_KINDS.map((k) => ATTACKS[k].weight)).toEqual([30, 35, 30, 5]);
-    const rng = createRng(3);
-    const n: Record<string, number> = { charge: 0, punch: 0, stomp: 0, special: 0 };
-    for (let i = 0; i < 20000; i++) n[pickAttack(rng)]++;
-    expect(n.charge / 20000).toBeCloseTo(0.3, 1);
-    expect(n.punch / 20000).toBeCloseTo(0.35, 1);
-    expect(n.special / 20000).toBeGreaterThan(0.03);
-    expect(n.special / 20000).toBeLessThan(0.07);
+    const asked: Record<string, number>[] = [];
+    const fake = { weighted: (w: Record<string, number>) => (asked.push(w), 'stomp') } as unknown as Rng;
+    expect(pickAttack(fake)).toBe('stomp');
+    expect(asked).toEqual([{ charge: 30, punch: 35, stomp: 30, special: 5 }]);
   });
 
   it('時間切れは半々', () => {

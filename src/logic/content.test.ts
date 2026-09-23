@@ -20,13 +20,12 @@ describe('content の文の決まり', () => {
     expect(texts.length).toBeGreaterThan(200);
   });
 
-  it.each(texts.map((t) => [t]))('%j は1行12文字まで、2行まで', (t) => {
-    const lines = t.split('\n');
-    expect(lines.length).toBeLessThanOrEqual(2);
-    for (const l of lines) {
-      expect(l.length).toBeGreaterThan(0);
-      expect([...l].length).toBeLessThanOrEqual(12);
-    }
+  it('どの文も1行12文字まで、2行まで(空の行もない)', () => {
+    const wrong = texts.filter((t) => {
+      const lines = t.split('\n');
+      return lines.length > 2 || lines.some((l) => l.length === 0 || [...l].length > 12);
+    });
+    expect(wrong, `決まりに合わない文:\n${wrong.map((t) => JSON.stringify(t)).join('\n')}`).toEqual([]);
   });
 
   it('半角スペース、エムダッシュ、半角の!?を使わない', () => {
@@ -35,13 +34,17 @@ describe('content の文の決まり', () => {
     }
   });
 
-  it('名前は見た目ごとに十分あり、ステージの中で足りる', () => {
+  it('名前は見た目ごとに十分あり(ステージ2の見た目は8人以上)、全部のステージで重ならない。ボスの偽名もこの一覧から', () => {
     for (const [look, names] of Object.entries(NAMES)) {
       expect(names.length, look).toBeGreaterThanOrEqual(6);
-      expect(new Set(names).size).toBe(names.length);
+      expect(new Set(names).size, look).toBe(names.length);
     }
+    for (const look of GANG_LOOKS) expect(NAMES[look].length, look).toBeGreaterThanOrEqual(8);
+    // ボス(路地裏も地下駐車場も)の名前は、化けた姿の見た目の一覧から選ぶ
+    for (const d of Object.keys(BOSS_PROFILE_LINES) as (keyof typeof NAMES)[]) expect(NAMES[d]?.length, d).toBeGreaterThanOrEqual(6);
     const all = Object.values(NAMES).flat();
-    expect(new Set(all).size).toBe(all.length);
+    const dup = all.filter((n, i) => all.indexOf(n) !== i);
+    expect(dup, '重なっている名前').toEqual([]);
   });
 
   it('組の見た目は市民とワルの両方の文と一言がある。年齢の幅は共通', () => {
@@ -81,8 +84,10 @@ describe('content の文の決まり', () => {
     expect(INTRO.some((s) => s.who === 'operator')).toBe(true);
   });
 
-  it('称号ごとにひとことがある', () => {
-    for (const t of TITLES) expect(TITLE_COMMENTS[t.id]).toBe(t.comment);
+  it('称号ごとにひとことがある(ステージ2の称号はオペレーターが言う)', () => {
+    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBe(t.comment);
+    expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
+    expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
   });
 
   it('選ぶ関数', () => {
@@ -108,13 +113,8 @@ describe('ステージ2の文', () => {
     for (const t of allLinkTexts()) expect(all.has(t), t).toBe(true);
   });
 
-  it('つながりの文は、どの見た目を入れても1行12文字まで', () => {
-    for (const t of allLinkTexts()) {
-      const lines = t.split('\n');
-      expect(lines.length).toBeLessThanOrEqual(2);
-      for (const l of lines) expect([...l].length, t).toBeLessThanOrEqual(12);
-      expect(t).not.toContain('{n}');
-    }
+  it('つながりの文は、見た目を入れたあとに {n} が残らない(字数は allTexts の決まりで確かめる)', () => {
+    for (const t of allLinkTexts()) expect(t).not.toContain('{n}');
     // ギャング向けも市民向けも、プロフィールにも一言にもある
     for (const list of [LINK_HINTS, LINK_PROFILES]) {
       expect(list.some((t) => t.for !== 'civ')).toBe(true);
@@ -122,20 +122,17 @@ describe('ステージ2の文', () => {
     }
   });
 
-  it('4つの見た目に、市民とギャングの文と一言が何通りもある。名前は重ならない', () => {
+  it('4つの見た目に、市民とギャングの文と一言が何通りもある', () => {
     for (const look of ['guard', 'mechanic', 'clubber', 'officelady'] as const) {
       expect(PROFILE_LINES[look].civ!.length).toBeGreaterThanOrEqual(5);
       expect(PROFILE_LINES[look].bad!.length).toBeGreaterThanOrEqual(5);
       expect(OPERATOR_HINTS[look].civ!.length).toBeGreaterThanOrEqual(5);
       expect(OPERATOR_HINTS[look].bad!.length).toBeGreaterThanOrEqual(5);
-      expect(NAMES[look].length).toBeGreaterThanOrEqual(8);
     }
     for (const d of ['guard', 'mechanic', 'officelady'] as const) {
       expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
       expect(BOSS_HINTS[d].length).toBeGreaterThanOrEqual(3);
     }
-    const all = Object.values(NAMES).flat();
-    expect(new Set(all).size).toBe(all.length);
   });
 
   it('掛け合いで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
@@ -161,11 +158,6 @@ describe('ステージ2の文', () => {
     expect(REACTIONS.bossReveal).toContain(say('bossReveal', rng));
     expect(REACTIONS.oops).toContain(say('oops', rng, 'garage'));
     expect(GARAGE_REACTIONS.whistle).toContain(mischiefLine('clubber', rng));
-  });
-
-  it('新しい称号のひとこと', () => {
-    expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
-    expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
   });
 
   it('あわてた顔は市民の一言にもギャングの一言にも出る。同じ文はいつも同じ顔', () => {

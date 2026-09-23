@@ -1,17 +1,21 @@
 // 結果画面の共有ともう一回を、タッチで試す(result 担当)。
 // 使い方: npx vite --port 5204 --strictPort を動かしてから
-//   node tools/result_sharetest.mjs [出力フォルダ]
-import { chromium } from 'playwright-core';
+//   node tools/result_sharetest.mjs [出力フォルダ] [ポート] [ステージ(alley か garage)]
+// NG があれば exit code 1。
+import { checker, mobileContext, openBrowser, openPage, touchPad } from './lib.mjs';
 
-const BASE = 'http://localhost:5204/?scene=Result';
 const outDir = process.argv[2] ?? '.';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
-let failed = 0;
-const check = (name, ok, extra = '') => { console.log(`${ok ? 'OK ' : 'NG '} ${name} ${extra}`); if (!ok) failed++; };
+const port = process.argv[3] ?? '5204';
+const stage = process.argv[4] ?? 'alley';
+const STAGE_NAME = { alley: '路地裏', garage: '地下駐車場' }[stage];
+const BASE = `http://localhost:${port}/?scene=Result&stage=${stage}`;
+const browser = await openBrowser();
+const { check, done } = checker();
+const errors = [];
 
 /** mode: 'none' 共有メニューなし / 'ok' 共有できる / 'abort' キャンセルされる / 'fail' 失敗する */
 async function open(mode, extra = '') {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const ctx = await mobileContext(browser);
   await ctx.addInitScript((m) => {
     window.__shares = [];
     if (m === 'none') { try { delete Navigator.prototype.share; delete Navigator.prototype.canShare; } catch { /* */ } return; }
@@ -23,25 +27,11 @@ async function open(mode, extra = '') {
       return Promise.resolve();
     };
   }, mode);
-  const page = await ctx.newPage();
-  await page.routeWebSocket(/.*/, () => {});
-  page.on('pageerror', (e) => { console.error('pageerror:', e.message); failed++; });
-  const cdp = await ctx.newCDPSession(page);
+  const page = await openPage(ctx, { errors });
   await page.goto(BASE + extra);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons && window.resultDev.log.includes('file'), null, { timeout: 10000 });
-  const css = (lx, ly) => page.evaluate(([x, y]) => {
-    const g = window.resultDev.scene.game;
-    const r = g.canvas.getBoundingClientRect();
-    return { x: r.left + (x * r.width) / g.scale.width, y: r.top + (y * r.height) / g.scale.height };
-  }, [lx, ly]);
-  const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
-  const tapAt = async (lx, ly) => {
-    const p = await css(lx, ly);
-    await touch('touchStart', [{ x: p.x, y: p.y, id: 1 }]);
-    await page.waitForTimeout(50);
-    await touch('touchEnd', []);
-    await page.waitForTimeout(80);
-  };
+  const pad = await touchPad(page);
+  const tapAt = (lx, ly) => pad.tap(lx, ly, 50);
   const tapBtn = async (name) => {
     const b = await page.evaluate((n) => { const o = window.resultDev.buttons[n]; return { x: o.x + o.w / 2, y: o.y + o.h / 2 }; }, name);
     await tapAt(b.x, b.y);
@@ -63,7 +53,7 @@ async function open(mode, extra = '') {
   check('共有メニューがないと画像を重ねて出す', !!ov, JSON.stringify(ov));
   check('画像は1080×1350', ov && ov.w === 1080 && ov.h === 1350);
   check('長押しで保存の文とXに投稿', ov && ov.text.includes('長押しで写真に保存') && ov.text.includes('Xに投稿'));
-  await page.screenshot({ path: `${outDir}/share_overlay.png` });
+  await page.screenshot({ path: `${outDir}/${stage}_share_overlay.png` });
   // Xに投稿は新しいタブで x.com を開く
   const [popup] = await Promise.all([
     ctx.waitForEvent('page', { timeout: 3000 }).catch(() => null),
@@ -87,7 +77,8 @@ async function open(mode, extra = '') {
   const shares = await page.evaluate(() => window.__shares);
   check('navigator.share を1回呼ぶ', shares.length === 1, JSON.stringify(shares));
   check('PNGを1枚わたす', shares[0]?.files.length === 1 && shares[0].files[0].type === 'image/png');
-  check('文に称号とハッシュタグとURL', !!shares[0]?.text?.includes('#StupidHero') && shares[0].text.includes('称号「') && shares[0].text.includes('http://localhost:5204/'));
+  check('文に称号とハッシュタグとURL', !!shares[0]?.text?.includes('#StupidHero') && shares[0].text.includes('称号「') && shares[0].text.includes(`http://localhost:${port}/`));
+  check('文のステージ名', !!shares[0]?.text?.startsWith(`【Stupid Hero】${STAGE_NAME}ステージ`), shares[0]?.text?.split('\n')[0]);
   check('ユーザーの操作の中で呼んでいる', shares[0]?.active !== false, String(shares[0]?.active));
   check('重ねて出さない', await page.evaluate(() => !document.getElementById('share-overlay')));
   await ctx.close();
@@ -121,14 +112,14 @@ async function open(mode, extra = '') {
   await tapAt(150, 150);
   const done = await page.evaluate(() => window.resultDev.scene.tl.done);
   check('タップで数え上げを最後まで飛ばす', done);
-  await page.screenshot({ path: `${outDir}/skip.png` });
+  await page.screenshot({ path: `${outDir}/${stage}_skip.png` });
   await page.waitForTimeout(600);
   await tapBtn('again');
   await page.waitForTimeout(1200);
   const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
   check('もう一回で Intro へ', active.includes('Intro'), active.join(','));
-  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, count: r.playCount, wave: r.waveIndex }; });
-  check('もう一回で新しいプレイ', run.debug === false && run.count === 2 && run.wave === 0, JSON.stringify(run));
+  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, count: r.playCount, wave: r.waveIndex, stage: r.stage.id }; });
+  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.count === 2 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
   await page.goto(BASE);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);
@@ -139,6 +130,6 @@ async function open(mode, extra = '') {
   await ctx.close();
 }
 
+check('エラーが出ない', errors.length === 0, errors.join('\n'));
 await browser.close();
-console.log(failed ? `${failed} 件 NG` : 'ぜんぶ OK');
-process.exit(failed ? 1 : 0);
+done();

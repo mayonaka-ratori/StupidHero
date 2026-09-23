@@ -48,19 +48,19 @@ describe('BossFight', () => {
     expect(f.damageYen).toBe(0);
   });
 
-  it('何もしなくても15秒ちょうどで倒れる', () => {
+  it('何もしなくても15秒ちょうどで倒れ、被害額は14回ぶん(0.6秒から15秒まで)。細かく進めても一度に進めても同じ', () => {
     const f = new BossFight();
-    run(f, 20);
+    expect(run(f, 20)).toBe(7_000_000);
     expect(f.isOver).toBe(true);
     expect(f.seconds!).toBeCloseTo(15, 5);
     expect(f.hp).toBe(0);
-  });
-
-  it('大きく時間を進めても15秒を超えない', () => {
-    const f = new BossFight();
-    const r = f.update(60_000);
+    // 大きく時間を進めても15秒を超えず、手が止まった回数も14回のまま
+    const g = new BossFight();
+    const r = g.update(60_000);
     expect(r.defeated).toBe(true);
-    expect(f.seconds).toBeCloseTo(15, 5);
+    expect(r.idleTicks).toBe(14);
+    expect(g.seconds).toBeCloseTo(15, 5);
+    expect(g.damageYen).toBe(7_000_000);
   });
 
   it('体力は時間でも少しずつ減る', () => {
@@ -84,13 +84,6 @@ describe('BossFight', () => {
       expect(f.tap().counted).toBe(true);
     }
     expect(f.damageYen).toBe(1_000_000);
-  });
-
-  it('何もしないと、被害額は14回ぶん(0.6秒から15秒まで)', () => {
-    const f = new BossFight();
-    const r = f.update(15_000);
-    expect(r.idleTicks).toBe(14);
-    expect(f.damageYen).toBe(7_000_000);
   });
 
   it('ふつうの速さ(1秒に6回)なら5秒前後', () => {
