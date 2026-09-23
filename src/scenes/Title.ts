@@ -7,6 +7,7 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
+import { purgeAccessorySheets } from '../art/recolor';
 import { loadRecords, TITLE_COUNT } from '../logic';
 import { FS, PixelText, flash, gotoWhenFree, shake } from '../ui';
 import { Z, addMute, devHook, drawAlley, drawLightPool, flicker } from './sort/common';
@@ -28,6 +29,8 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     this.started = false;
+    // ステージ2で人ごとに塗り替えた絵を捨てる(遊ぶたびにたまり続けないように)
+    purgeAccessorySheets(this);
     const { W, H } = layout;
     this.top = Math.max(0, H - 214 - BOTTOM_H);
     this.feetY = this.top + 204;
@@ -57,11 +60,16 @@ export class TitleScene extends Phaser.Scene {
     this.time.addEvent({ delay: 2600, loop: true, callback: () => this.kiran() });
 
     // ロゴ:上から落ちてきて、ドンと止まる
+    // (跳ね返りで上に戻ると、低い画面では「STUPID」の上が一瞬切れるので、落ちてドンと止めて小さく弾ませる)
     const logo = this.add.image(Math.round(W / 2), -40, 'logo').setDepth(Z.stamp);
+    const logoY = Math.round(Math.max(40, this.top * 0.62));
     this.tweens.add({
-      targets: logo, y: Math.round(Math.max(40, this.top * 0.62)), duration: 380, ease: 'Bounce.easeOut', delay: 150,
+      targets: logo, y: logoY, duration: 300, ease: 'Quad.easeIn', delay: 150,
       onUpdate: () => { logo.y = Math.round(logo.y); },
-      onComplete: () => { shake(this, 3, 180); }
+      onComplete: () => {
+        shake(this, 3, 180);
+        this.tweens.add({ targets: logo, y: logoY + 3, duration: 70, yoyo: true, ease: 'Quad.easeOut', onUpdate: () => { logo.y = Math.round(logo.y); } });
+      }
     });
     // ロゴのふちを時々光らせる
     this.time.addEvent({

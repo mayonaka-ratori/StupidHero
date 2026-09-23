@@ -36,18 +36,12 @@ const TINT: Ramp = [md(3, 4, 5), md(1, 2, 3), md(1, 1, 2)];
 const STRIPE = md(6, 1, 1);
 
 function van(state: 0 | 1 | 2 | 3): PixelGrid {
+  if (state === 3) return vanWreck();
   const P = new Painter(128, 64);
-  const broken = state === 3;
   const bob = state === 1 ? -1 : 0;
   const Y = (y: number) => y + bob;
-  const dent = (x: number, y: number): Pt => {
-    if (!broken) return [x, Y(y)];
-    let dy = 0;
-    if (y < 14) dy += Math.max(0, 4 - Math.abs(x - 60) / 7);
-    if (x > 112 && y < 40) dy += (x - 112) * 0.3;
-    return [x, y + dy];
-  };
-  const poly = (pts: Pt[]) => pts.map(([x, y]) => dent(x, y));
+  const at = (x: number, y: number): Pt => [x, Y(y)];
+  const poly = (pts: Pt[]) => pts.map(([x, y]) => at(x, y));
   const body = P.mask().poly(poly([[5, 11], [9, 6], [100, 6], [106, 8], [116, 25], [122, 28], [124, 33], [124, 53], [4, 53], [4, 15]]));
   P.fill(body, VAN[1], { sep: 'none', flat: true });
   body.each((x, y) => {
@@ -60,48 +54,121 @@ function van(state: 0 | 1 | 2 | 3): PixelGrid {
   const glass = P.mask().poly(poly([[92, 11], [102, 11], [111, 25], [92, 25]]))
     .union(P.mask().poly(poly([[38, 11], [86, 11], [86, 24], [38, 24]])))
     .union(P.mask().poly(poly([[9, 11], [30, 11], [30, 24], [8, 24]])));
-  if (!broken) {
-    P.fill(glass, TINT, { sep: 'outline', hi: 0.2, lo: 0.6 });
-    for (const x0 of [46, 70, 14, 96]) P.line(dent(x0 + 4, 12), dent(x0, 23), TINT[0]);
-  } else {
-    P.fill(glass, DARK, { sep: 'outline', flat: true });
-    const shards: Pt[][] = [[[38, 11], [48, 11], [38, 19]], [[86, 11], [86, 20], [78, 11]], [[92, 25], [92, 17], [98, 25]], [[30, 11], [30, 18], [24, 11]]];
-    for (const s of shards) P.fill(P.mask().poly(poly(s)).intersect(glass), TINT[1], { sep: 'none', flat: true });
-    P.line(dent(40, 18), dent(46, 12), WHITE).line(dent(84, 18), dent(80, 12), WHITE);
-  }
+  P.fill(glass, TINT, { sep: 'outline', hi: 0.2, lo: 0.6 });
+  for (const x0 of [46, 70, 14, 96]) P.line(at(x0 + 4, 12), at(x0, 23), TINT[0]);
   // 横の赤い線と、スライドドア
-  for (let x = 5; x <= 123; x++) { const [px, py] = dent(x, 30); if (body.has(px, Math.round(py))) { P.px(px, py, STRIPE); P.px(px, py + 1, STRIPE); } }
-  P.line(dent(34, 8), dent(34, 52), OUTLINE).line(dent(89, 8), dent(89, 52), OUTLINE);
-  P.line(dent(35, 9), dent(35, 45), VAN[0]);
-  for (const x of [82, 96]) { const [hx, hy] = dent(x, 34); P.rect(hx, Math.round(hy), 4, 1, OUTLINE); }
+  for (let x = 5; x <= 123; x++) { const [px, py] = at(x, 30); if (body.has(px, py)) { P.px(px, py, STRIPE); P.px(px, py + 1, STRIPE); } }
+  P.line(at(34, 8), at(34, 52), OUTLINE).line(at(89, 8), at(89, 52), OUTLINE);
+  P.line(at(35, 9), at(35, 45), VAN[0]);
+  for (const x of [82, 96]) P.rect(x, Y(34), 4, 1, OUTLINE);
   // ライト
-  const hl = dent(120, 34);
-  if (!broken) {
-    P.rect(hl[0], Math.round(hl[1]), 4, 4, HEAD).px(hl[0] + 3, Math.round(hl[1]), WHITE);
-  } else {
-    P.rect(hl[0], Math.round(hl[1]), 4, 4, DARK).px(hl[0] + 1, Math.round(hl[1]) + 1, HEAD);
-  }
+  P.rect(120, Y(34), 4, 4, HEAD).px(123, Y(34), WHITE);
   P.rect(4, Y(32), 2, 6, TAIL).px(4, Y(32), WHITE);
   // バンパー
   P.fill(P.mask().rect(2, Y(48), 8, 5).union(P.mask().rect(117, Y(48), 9, 5)), METAL, { sep: 'outline', hi: 0.4, lo: 0.8 });
-  if (broken) {
-    // へこみ、ドアのずれ、ボンネットのしわ
-    P.fill(P.mask().ellipse(62, 40, 8, 5), VAN[2], { sep: 'none', flat: true });
-    P.line([55, 37], [64, 44], VAN[0]).line([58, 44], [68, 36], OUTLINE);
-    P.line([114, 30], [119, 36], VAN[0]).line([119, 36], [123, 34], OUTLINE);
-    P.line([20, 38], [28, 44], OUTLINE);
-  }
   // 車輪のまわりの切り欠き
   for (const cx of [26, 101]) P.fill(P.mask().ellipse(cx, Y(53), 11.5, 10.5).intersect(P.mask().rect(0, Y(40), 128, 14)), DARK, { sep: 'none', flat: true });
   const spin = state === 1 ? 0 : state === 2 ? Math.PI / 3 : 0.4;
   wheel(P, 26, 54, 9, spin, false, METAL);
-  wheel(P, 101, 54, 9, spin, broken, METAL);
+  wheel(P, 101, 54, 9, spin, false, METAL);
   P.outline();
   // 走る:後ろから排気の煙
   if (state === 1) { puff(P, 2, 50, 3); P.outline(); }
   if (state === 2) { puff(P, 3, 47, 2.5); puff(P, 1, 43, 1.5); P.outline(); }
   return P.g;
 }
+
+/**
+ * 壊れたワゴン:一目で壊れたと分かるように、屋根がV字にへこみ、窓は全部割れ、
+ * 後ろがつぶれ、前のタイヤがパンクして前のめりに傾き、バンパーが落ちかけている
+ */
+function vanWreck(): PixelGrid {
+  const P = new Painter(128, 64);
+  // 前のめり(前のタイヤがパンク)+ 屋根のへこみ + 後ろのつぶれ
+  const bend = (x: number, y: number): Pt => {
+    let dx = 0, dy = 0;
+    dy += Math.max(0, x - 26) * 0.05;
+    const roof = clamp((24 - y) / 18, 0, 1);
+    dy += Math.max(0, 11 - Math.abs(x - 60) / 2.6) * roof;
+    if (x < 18) dx += (18 - x) * 0.55 * clamp(1 - Math.abs(y - 32) / 20, 0, 1);
+    return [Math.round(x + dx), Math.round(y + dy)];
+  };
+  const poly = (pts: Pt[]) => pts.map(([x, y]) => bend(x, y));
+  const edge: Pt[] = [];
+  const addEdge = (a: Pt, b: Pt, n: number) => { for (let i = 0; i < n; i++) edge.push([a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n]); };
+  // 形の点を細かくして、曲げたときに屋根がなめらかに折れるようにする
+  addEdge([5, 11], [9, 6], 2); addEdge([9, 6], [100, 6], 24); addEdge([100, 6], [106, 8], 1); addEdge([106, 8], [116, 25], 3);
+  addEdge([116, 25], [124, 33], 2); addEdge([124, 33], [124, 53], 2); addEdge([124, 53], [4, 53], 4); addEdge([4, 53], [4, 15], 8); addEdge([4, 15], [5, 11], 1);
+  const body = P.mask().poly(poly(edge));
+  P.fill(body, VAN[1], { sep: 'none', flat: true });
+  body.each((x, y) => {
+    if (!body.has(x, y - 1)) P.px(x, y, VAN[0]);
+    else if (y >= 47) P.px(x, y, VAN[2]);
+    else if (!body.has(x + 1, y)) P.px(x, y, VAN[2]);
+    else if (!body.has(x - 1, y)) P.px(x, y, VAN[0]);
+  });
+  // 屋根の折れ目(深い影)
+  for (let x = 44; x <= 76; x++) { const [px, py] = bend(x, 7); P.px(px, py + 1, VAN[2]); }
+  P.line(bend(60, 7), bend(60, 22), VAN[2]);
+  // 窓は全部割れて真っ暗。ふちにガラスのかけらが残り、白いひびが走る
+  const winPolys: Pt[][] = [[[92, 11], [102, 11], [111, 25], [92, 25]], [[38, 11], [86, 11], [86, 24], [38, 24]], [[10, 11], [30, 11], [30, 24], [9, 24]]];
+  const glass = P.mask();
+  for (const w of winPolys) {
+    const pts: Pt[] = [];
+    for (let i = 0; i < w.length; i++) { const a = w[i], b = w[(i + 1) % w.length]; for (let k = 0; k < 6; k++) pts.push([a[0] + ((b[0] - a[0]) * k) / 6, a[1] + ((b[1] - a[1]) * k) / 6]); }
+    glass.union(P.mask().poly(poly(pts)));
+  }
+  P.fill(glass, DARK, { sep: 'outline', flat: true });
+  const shards: Pt[][] = [
+    [[38, 24], [38, 15], [44, 24]], [[86, 24], [86, 17], [80, 24]], [[62, 24], [58, 19], [66, 24]],
+    [[92, 25], [92, 18], [97, 25]], [[111, 25], [104, 25], [107, 19]], [[30, 24], [30, 17], [25, 24]], [[9, 24], [9, 19], [14, 24]]
+  ];
+  for (const sh of shards) P.fill(P.mask().poly(poly(sh)).intersect(glass), TINT[1], { sep: 'none', flat: true });
+  // ひび(割れた星)
+  const star = (cx: number, cy: number, arms: Pt[]) => { const c = bend(cx, cy); for (const [ax, ay] of arms) { const e = bend(cx + ax, cy + ay); P.line(c, e, WHITE); } };
+  star(50, 20, [[-6, -3], [5, -5], [7, 3], [-4, 4]]);
+  star(76, 19, [[-5, -4], [6, -3], [4, 5]]);
+  star(99, 20, [[-4, -4], [4, -2], [2, 4]]);
+  star(20, 19, [[-5, -3], [5, -4], [3, 4]]);
+  // 横の赤い線(曲がって切れる)
+  for (let x = 5; x <= 123; x++) {
+    if (x > 58 && x < 66) continue;
+    const [px, py] = bend(x, 30);
+    if (body.has(px, py)) { P.px(px, py, STRIPE); if (body.has(px, py + 1)) P.px(px, py + 1, STRIPE); }
+  }
+  // スライドドアが外れかけて、すき間が開いている
+  P.line(bend(34, 8), bend(34, 52), OUTLINE);
+  const gap = P.mask().poly(poly([[86, 12], [90, 12], [91, 52], [86, 50]]));
+  P.fill(gap.intersect(body), DARK, { sep: 'none', flat: true });
+  P.line(bend(85, 12), bend(85, 50), VAN[0]);
+  // 横腹の大きなへこみと焦げ
+  P.fill(P.mask().ellipse(54, 40, 10, 6).intersect(body), VAN[2], { sep: 'none', flat: true });
+  P.line(bend(46, 37), bend(58, 45), OUTLINE).line(bend(50, 45), bend(62, 36), OUTLINE).line(bend(46, 38), bend(52, 34), VAN[0]);
+  for (const [x, y, r] of [[18, 42, 4], [110, 40, 3.5], [72, 46, 3]] as const) {
+    const [cx, cy] = bend(x, y);
+    P.fill(P.mask().ellipse(cx, cy, r, r * 0.7).intersect(body), TIRE[1], { sep: 'none', flat: true });
+  }
+  // 後ろがつぶれてしわ
+  P.line(bend(8, 20), bend(14, 26), OUTLINE).line(bend(8, 34), bend(15, 40), OUTLINE).line(bend(9, 27), bend(15, 32), VAN[0]);
+  // ライトは割れる
+  const hl = bend(120, 34);
+  P.rect(hl[0], hl[1], 4, 4, DARK).px(hl[0] + 1, hl[1] + 1, HEAD);
+  // 後ろのバンパーは落ちて斜め、前のバンパーは地面に垂れる
+  P.fill(P.mask().poly([[1, 55], [10, 50], [12, 53], [3, 58]]), METAL, { sep: 'outline', hi: 0.4, lo: 0.8 });
+  P.fill(P.mask().poly([[114, 55], [124, 57], [125, 61], [113, 60]]), METAL, { sep: 'outline', hi: 0.4, lo: 0.8 });
+  // 車輪のまわりの切り欠き
+  for (const cx of [26, 101]) {
+    const [wx, wy] = bend(cx, 53);
+    P.fill(P.mask().ellipse(wx, wy, 11.5, 10.5).intersect(P.mask().rect(0, wy - 13, 128, 14)), DARK, { sep: 'none', flat: true });
+  }
+  wheel(P, 26, 54, 9, 0.4, false, METAL);
+  // 前のタイヤはパンクしてつぶれ、少し外れる
+  wheel(P, 103, 55, 9, 1.1, true, METAL);
+  P.outline();
+  return P.g;
+}
+
+const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 
 // ---------------------------------------------------------------------
 // 女ボスの高級車 128×56(基準:下の真ん中)。真珠色の車体に金の線、紫のスモーク

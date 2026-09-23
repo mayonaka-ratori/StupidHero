@@ -9,6 +9,7 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey } from '../art/sheets';
+import { purgeAccessorySheets } from '../art/recolor';
 import { randomSeed, say, stageSelectInfo, type StageId } from '../logic';
 import { startRun } from '../run';
 import { px } from '../hires';
@@ -38,6 +39,8 @@ export class StageSelectScene extends Phaser.Scene {
     this.busy = false;
     this.bgT = 0;
     this.hand = undefined;
+    // ステージ2で人ごとに塗り替えた絵を捨てる(このあとカードの絵の分だけ作り直す)
+    purgeAccessorySheets(this);
     unlockOnTap(this);
     audio.playBgm('title');
 
@@ -256,7 +259,7 @@ export class StageSelectScene extends Phaser.Scene {
     const { W, H } = layout;
     const g = this.add.graphics().setDepth(1);
     const lines = Array.from({ length: 7 }, () => ({ y: Phaser.Math.Between(HEADER_H, H), x: Phaser.Math.Between(-W, W), v: Phaser.Math.Between(3, 7), len: Phaser.Math.Between(12, 40) }));
-    this.events.on(Phaser.Scenes.Events.UPDATE, () => {
+    const draw = (): void => {
       g.clear();
       for (const l of lines) {
         l.x += l.v;
@@ -264,6 +267,9 @@ export class StageSelectScene extends Phaser.Scene {
         g.fillStyle(0x2a2464, 1).fillRect(Math.round(l.x), l.y, l.len, 1);
         g.fillStyle(0x6a60c0, 1).fillRect(Math.round(l.x) + l.len - 4, l.y, 4, 1);
       }
-    });
+    };
+    // シーンを出るときに外す(行き来するたびに毎フレームの処理が増えないように)
+    this.events.on(Phaser.Scenes.Events.UPDATE, draw);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.UPDATE, draw));
   }
 }

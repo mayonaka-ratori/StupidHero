@@ -117,11 +117,21 @@ export class ResultScene extends Phaser.Scene {
       { label: '逃がした', target: s.escaped, format: (n) => `${n}人`, color: s.escaped > 0 ? UI.danger : UI.gold, ms: 300 },
       { label: '被害額', target: s.damage, format: (n) => formatYen(n), color: UI.gold, record: 'highestDamage', ms: 800 }
     ];
-    const rowH = 17;
     const boxY = top + 4;
+    // ボタンの位置(下から)。低い画面(iPhone SE など)でステージ2の1行が足りないときは、ボタンと行を少し詰める
+    const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
+    const btn = (smallH: number, shareH: number, gap: number) => ({ smallH, shareH, gap, shareY: bottom - smallH - gap - shareH });
+    let bl = btn(26, 30, 5);
+    let rowH = 17;
     // ステージ2は、組ごと撃破した人数と車で逃げられた組の数を小さな字で1行足す
-    const gangRowH = def.hasGangs ? 14 : 0;
-    const boxH = 8 + rowH * (rows.length + 1) + gangRowH;
+    let gangRowH = def.hasGangs ? 14 : 0;
+    const boxHFor = (): number => 8 + rowH * (rows.length + 1) + gangRowH;
+    if (boxY + boxHFor() > bl.shareY - 3) {
+      bl = btn(24, 26, 4);
+      rowH = 16;
+      if (gangRowH) gangRowH = 13;
+    }
+    const boxH = boxHFor();
     new WindowFrame(this, 4, boxY, W - 8, boxH, 'win');
     const rowY = (i: number): number => boxY + 5 + i * rowH;
     const values = rows.map((r, i) => {
@@ -153,10 +163,8 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // ─── ボタン ───
-    const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
-    const smallH = 26, shareH = 30, gap = 5;
+    const { smallH, shareH, shareY } = bl;
     const rowBtnY = bottom - smallH;
-    const shareY = rowBtnY - gap - shareH;
     // 共有の画像(File)ができるまでは押せない
     const shareBtn = new Button(this, 6, shareY, W - 12, shareH, 'じゅんびちゅう', { color: 'stop' }).setEnabled(false);
     const againBtn = new Button(this, 6, rowBtnY, 99, smallH, 'もう一回', { color: 'civ' });

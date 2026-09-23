@@ -13,9 +13,13 @@ import { STAND, civRows, idleFrames, walkFrames, withFace } from '../world/poses
 
 const KEY = KEY_ACCESSORY;
 const R = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
+/** スマホの本体(どの人のシートにもある暗い色) */
+const PHONE = md(1, 1, 2);
+/** スマホの画面の字の線 */
+const PHONE_LINE = md(5, 5, 6);
 
 /** 手の動きの印(ポーズに持たせる) */
-type Gesture = 'v' | 'thumb' | 'tap' | 'beckon0' | 'beckon1' | 'whistle';
+type Gesture = 'v' | 'thumb' | 'tap' | 'beckon0' | 'beckon1' | 'whistle' | 'phone0' | 'phone1';
 export interface P2 extends Pose {
   gest?: Gesture;
   /** 口:あくび、口笛 */
@@ -66,6 +70,17 @@ function drawGesture(Pn: Painter, pose: P2): void {
     case 'beckon1': // 人差し指を曲げて手まねき
       drawFingers(Pn, h, [[[hx + 2, hy - 1], [hx + 3, hy - 2], [hx + 3, hy - 3], [hx + 2, hy - 4]]]);
       break;
+    case 'phone0': // スマホを持って画面を見る(黒い本体と白く光る画面)
+    case 'phone1': { // 親指で画面をなぞる
+      const x0 = hx - 1, y0 = hy - 6;
+      for (let y = y0 - 1; y <= y0 + 5; y++) for (let x = x0 - 1; x <= x0 + 3; x++) Pn.px(x, y, OUTLINE);
+      for (let y = y0; y <= y0 + 4; y++) for (let x = x0; x <= x0 + 2; x++) Pn.px(x, y, WHITE[0]);
+      Pn.px(x0, y0 + 4, PHONE).px(x0 + 1, y0 + 4, PHONE).px(x0 + 2, y0 + 4, PHONE);
+      Pn.px(x0, y0 + (g === 'phone1' ? 1 : 2), PHONE_LINE).px(x0 + 1, y0 + (g === 'phone1' ? 1 : 2), PHONE_LINE);
+      // 親指(手の上に出す)
+      Pn.px(x0 + (g === 'phone1' ? 2 : 3), y0 + 3, SKIN[0]);
+      break;
+    }
     case 'whistle': // 指を口に当てる(人差し指と親指で輪)
       drawFingers(Pn, h, [[[hx + 1, hy - 2], [hx + 2, hy - 2]], [[hx + 2, hy], [hx + 3, hy]]]);
       break;
@@ -107,7 +122,10 @@ function finish(Pn: Painter, pose: Pose): void {
 // 小物(KEY_ACCESSORY の1色)
 // ---------------------------------------------------------------------
 
-/** 腕章:手前の腕の、肩から少し下 */
+/**
+ * 腕章:手前の腕の、肩から少し下。水色の制服に溶けないように、袖より少し太く長くして、
+ * まわりに塗り替えない暗いふち(紺)をつける
+ */
 function drawArmband(Pn: Painter, pose: Pose, look: Look): void {
   const k = look.build.scale ?? 1;
   const { sF } = shoulders(pose, k);
@@ -117,21 +135,26 @@ function drawArmband(Pn: Painter, pose: Pose, look: Look): void {
   const tops = new Set<string>(look.top);
   const r = look.build.arm + 0.4;
   const m = Pn.mask();
-  const a0 = Math.min(1.6, L * 0.25);
-  for (let y = Math.floor(Math.min(sF[1], e[1]) - 4); y <= Math.max(sF[1], e[1]) + 4; y++)
-    for (let x = Math.floor(Math.min(sF[0], e[0]) - 4); x <= Math.max(sF[0], e[0]) + 4; x++) {
+  const rim = Pn.mask();
+  const a0 = Math.min(1.2, L * 0.2);
+  const len = Math.min(5, Math.max(3, L * 0.6));
+  for (let y = Math.floor(Math.min(sF[1], e[1]) - 5); y <= Math.max(sF[1], e[1]) + 5; y++)
+    for (let x = Math.floor(Math.min(sF[0], e[0]) - 5); x <= Math.max(sF[0], e[0]) + 5; x++) {
       const along = (x - sF[0]) * ux + (y - sF[1]) * uy;
       const perp = -(x - sF[0]) * uy + (y - sF[1]) * ux;
-      if (along < a0 - 1 || along > a0 + 4.6 || Math.abs(perp) > r) continue;
       const c = Pn.g.get(x, y);
-      if (!c || !tops.has(c)) continue;
-      if (along >= a0 && along <= a0 + 3.6) m.set(x, y);
+      if (c && !tops.has(c) && c !== OUTLINE) continue;
+      // 袖の上か、袖のすぐ外(少しふくらませる)
+      const onSleeve = !!c && tops.has(c);
+      if (along >= a0 && along <= a0 + len && Math.abs(perp) <= r + (onSleeve ? 0 : 0.9)) m.set(x, y);
+      else if (along >= a0 - 1.2 && along <= a0 + len + 1.2 && Math.abs(perp) <= r + 1.9) rim.set(x, y);
     }
-  // 腕章の両はしに、袖の暗い色で線
+  // ふち:腕章のまわりを紺で囲む(塗り替えない色)
   m.each((x, y) => {
     for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const c = Pn.g.get(x + ddx, y + ddy);
-      if (c && tops.has(c) && !m.has(x + ddx, y + ddy)) Pn.px(x + ddx, y + ddy, look.top[2]);
+      const X = x + ddx, Y = y + ddy;
+      if (m.has(X, Y) || !rim.has(X, Y)) continue;
+      Pn.px(X, Y, NAVY[2]);
     }
   });
   Pn.fill(m, KEY, { sep: 'none', flat: true });
@@ -439,13 +462,13 @@ function clubLook(extra: Partial<Look> = {}): Look {
 function clubSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][] } {
   const look = clubLook();
   const base = STAND;
-  // 市民:頭の後ろをかく(ヘアバンドより下)
-  const scratch = (p: Pose, d: number): Pose => armTo(p, [p.head[0] - 3 + d, p.head[1] - 5 - d], [p.neck[0] - 6, p.neck[1] + 1]);
+  // 市民:うつむいてスマホを見る(手は胸の前。ギャングの「頭の横で指をトントン」とは形がまったく違う)
+  const phone = (p: Pose, d: number): Pose => armTo(p, [p.neck[0] + 8, p.neck[1] + 8 - d], [p.neck[0] + 2, p.neck[1] + 12]);
   const civSort: Pose[] = [
-    scratch(withFace(base, 'worried'), 0),
-    scratch(withFace(base, 'grin'), 1),
-    scratch(withFace(moveUpper(base, 0, 1), 'worried'), 0),
-    scratch(withFace(base, 'grin'), 1)
+    tag(phone(withFace(base, 'normal', { down: true }), 0), { gest: 'phone0' }),
+    tag(phone(withFace(base, 'normal', { down: true }), 0), { gest: 'phone1' }),
+    tag(phone(withFace(moveUpper(base, 0, 1), 'grin', { down: true }), 1), { gest: 'phone0' }),
+    tag(phone(withFace(base, 'grin', { down: true }), 0), { gest: 'phone1' })
   ];
   // ギャング:人差し指でヘアバンドをトントン(おそろいだろ)
   const tap = (p: Pose, d: number): Pose => armTo(p, [p.head[0] + 10, p.head[1] - 3 + d], [p.neck[0] + 5, p.neck[1] + 6]);

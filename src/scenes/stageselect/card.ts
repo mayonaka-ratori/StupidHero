@@ -208,7 +208,8 @@ export class StageCard {
       return;
     }
     const total = titlesFor(e.id).length;
-    add(new PixelText(sc, w - 8, y0 + 3, `称号{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/14」は全部のステージを合わせた数)
+    add(new PixelText(sc, w - 8, y0 + 3, `このステージの称号{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
     // 下に余裕があれば「タップで出発」
     if (this.box.h - (thumbH + 9 + 20 + 30) >= 16) {
       const go = add(new PixelText(sc, w - 8, this.box.h - 19, 'タップで出発▶', { size: FS.body, color: UI.gold, outline: true }).setOrigin(1, 0));

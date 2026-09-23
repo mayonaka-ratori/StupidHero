@@ -941,11 +941,21 @@ export class StreetScene extends Phaser.Scene {
     else if (v.standing) v.pose('surprised');
 
     // 行けの合図
-    this.showMark(a, 'go');
-    this.goAlarm.start();
     this.opSay(mischiefLine(look, this.rng), true);
     h.pose('oops', 1);
     this.heroSay(this.line('mischiefHero', this.rng), 1300);
+    await this.chaseOrEscape(a);
+    if (v.standing) v.play('idle');
+  }
+
+  /**
+   * 見逃したワルの頭の上に行けの合図。3秒以内に行けで追い打ち(撃破)、押さなければ走って逃げる(逃がした)。
+   * ステージ1の悪さのあとと、ステージ2で口笛を吹いても仲間が誰も来なかったときに使う
+   */
+  private async chaseOrEscape(a: Actor): Promise<void> {
+    const h = this.hero;
+    this.showMark(a, 'go');
+    this.goAlarm.start();
     const res = await new Promise<'go' | 'timeout'>((resolve) => {
       const timer = this.time.delayedCall(MARK.escapeSec * 1000, () => { this.goHandler = null; resolve('timeout'); });
       this.goHandler = () => { timer.remove(); this.goHandler = null; resolve('go'); };
@@ -962,7 +972,6 @@ export class StreetScene extends Phaser.Scene {
       this.heroSay(shout(k, this.rng), 900);
       await this.attack(a, k, 'go');
       await this.afterAttack(k);
-      if (v.standing) v.play('idle');
       return;
     }
     // 逃げられた
@@ -973,7 +982,21 @@ export class StreetScene extends Phaser.Scene {
     this.opSay(this.line('escaped', this.rng));
     h.play('idle');
     await this.wait(500);
-    if (v.standing) v.play('idle');
+  }
+
+  /** 口笛を吹いたが、仲間が誰も来ない:きょろきょろして、1人のワルとして行けの合図(ステージ1の見逃したワルと同じ) */
+  private async aloneWhistle(a: Actor): Promise<void> {
+    a.faceLeft(false).play('idle');
+    // きょろきょろ(左右を見る)
+    for (let i = 0; i < 3; i++) {
+      this.time.delayedCall(i * 170, () => { if (a.standing) a.faceLeft(i % 2 === 0); });
+    }
+    this.opSay(this.line('alone', this.rng), true);
+    this.heroSay(this.line('aloneHero', this.rng), 1300);
+    await this.wait(420);
+    a.faceLeft(true);
+    this.hero.play('idle');
+    await this.chaseOrEscape(a);
   }
 
   // ─── ステージ2:ギャングの組 ─────────────────────
@@ -993,7 +1016,8 @@ export class StreetScene extends Phaser.Scene {
 
   /** 集まったときの並び。口笛を吹いた人がいちばん前(ヒーローの側) */
   private gatherSlots(spot: GatherSpot, n: number): { x: number; y: number }[] {
-    const all = [{ x: -14, y: 2 }, { x: 10, y: -10 }, { x: 32, y: 8 }, { x: 44, y: -8 }];
+    // 札(市民/ワル)が重ならないように、横に28ドットずつあける
+    const all = [{ x: -18, y: 2 }, { x: 10, y: -10 }, { x: 38, y: 8 }, { x: 52, y: -8 }];
     return all.slice(0, n).map((o) => ({ x: spot.x + o.x, y: spot.y + o.y }));
   }
 
@@ -1056,12 +1080,14 @@ export class StreetScene extends Phaser.Scene {
     const mates = ids.filter((id) => id !== person.id).map((id) => this.actorOf(id)).filter((m): m is Actor => !!m);
     const members = [a, ...mates];
     for (const m of members) m.called = true;
+    // 仲間がもう倒されている(または待てで止めた)ときは、口笛を吹いても誰も来ない。組にはならない
+    const alone = members.length < GANG.groupSize.min;
     const slots = this.gatherSlots(spot, members.length);
     h.play('idle');
-    // カメラ:ヒーローと、集まる場所と、ワゴンが1つの画面に入るように
+    // カメラ:ヒーローと、集まる場所と、ワゴンが1つの画面に入るように(1人のときはワゴンに乗らないので、ヒーローについて行く)
     const half = layout.W / 2;
     const vanRight = van.x + 64;
-    this.camFocus = Phaser.Math.Clamp((h.x + vanRight) / 2 - 8, vanRight + 6 - half, h.x - 24 + half);
+    if (!alone) this.camFocus = Phaser.Math.Clamp((h.x + vanRight) / 2 - 8, vanRight + 6 - half, h.x - 24 + half);
 
     // 前へ出て、口笛
     a.showTag(true);
@@ -1075,6 +1101,7 @@ export class StreetScene extends Phaser.Scene {
     h.pose('oops', 1);
     this.heroSay(this.line('mischiefHero', this.rng), 1300);
     await this.wait(GANG.whistleSec * 1000);
+    if (alone) { await this.aloneWhistle(a); return; }
 
     // 仲間が通りのどこからでも走ってくる(時間は GangCall が数える)
     const call = new GangCall(members.map((m) => m.person!.id));
@@ -1137,6 +1164,9 @@ export class StreetScene extends Phaser.Scene {
       const cx = g.slots.reduce((s, p) => s + p.x, 0) / g.slots.length;
       const top = Math.min(...g.slots.map((p) => p.y)) - HEAD - 50;
       g.mark = this.bigMark(cx, top, 4);
+      // ヒーローの吹き出しが大きな合図と札に重ならないように消す
+      this.heroBubble?.destroy();
+      this.heroBubble = undefined;
       this.hero.play('idle');
       g.count = new PixelText(this, Math.round(cx) + 42, Math.round(top) + 4, String(GANG.escapeSec), { size: FS.big, color: UI.gold, outline: true })
         .setOrigin(0.5, 0.5).setDepth(1200);
@@ -1148,7 +1178,13 @@ export class StreetScene extends Phaser.Scene {
       g.count?.destroy(); g.count = undefined;
       g.mark?.destroy();
       g.mark = this.bigMark(van.x, van.y - 64 - 22, 3);
+      // 乗りこむ(0.5秒)と走り出すのセリフが上書きされて読めないので、つなげて出す:
+      // 「乗りこんだ」を出し終えて少し読ませてから、まだ走っていれば「走り出した!今なら行け!」
       this.opSay(this.line('board', this.rng), true);
+      const seq = this.opSeq;
+      this.time.delayedCall(1100, () => {
+        if (this.gang === g && g.call.phase === 'drive' && this.opSeq === seq) this.opSay(this.line('drive', this.rng), true);
+      });
       const doorX = van.x - 22;
       g.members.forEach((m, i) => {
         this.tweens.killTweensOf(m);
@@ -1169,7 +1205,6 @@ export class StreetScene extends Phaser.Scene {
       audio.sfx('skid');
       shake(this, 2, 200);
       for (let i = 0; i < 3; i++) this.fx('fx_dust', van.x - 60 + i * 6, van.y - 4 - i * 4, { depth: van.y + 1, scale: 1.5 });
-      this.opSay(this.line('drive', this.rng), true);
     } else if (e === 'escaped') {
       // 逃げきられた
       this.goHandler = null;
@@ -1250,7 +1285,8 @@ export class StreetScene extends Phaser.Scene {
       this.knock(m, 30 + i * 22, 64 + i * 18, dir);
     });
     this.stats.groupWiped(ms.length);
-    this.pop(cx, cy - 76, `${ms.length}人撃破!`, true);
+    // 「N人撃破!」は、吹き飛んだ人が落ちてから出す(飛んでいる人や、物が壊れた金額と重ならないように)
+    this.time.delayedCall(560, () => this.pop(cx, cy - 70, `${ms.length}人撃破!`, true));
     const props = rollGroupWipeProps(this.visibleProps(), cx, this.rng).sort((p, q) => Math.abs(p.x - cx) - Math.abs(q.x - cx));
     props.forEach((p, i) => this.time.delayedCall(80 + i * 90, () => this.breakProp(p)));
     await this.wait(750);

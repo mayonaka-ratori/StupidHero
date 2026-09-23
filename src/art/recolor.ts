@@ -10,7 +10,9 @@ import type Phaser from 'phaser';
 import { animKey, sheetByKey } from './sheets';
 
 const KEY_R = 255, KEY_G = 0, KEY_B = 255;
-/** 小物の影(明るさを落とした色)を作るかどうかは、今は作らず1色で塗る */
+/** 女ボスの金(logic の ACCESSORY_COLORS.gold)と、その光と影 */
+const GOLD = 0xdbb624, GOLD_HI = 0xffff92, GOLD_LO = 0x926d00;
+/** 塗り替えたことのある元のシート → 小物があったか */
 const hasKey = new Map<string, boolean>();
 
 export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: number): string {
@@ -26,13 +28,26 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;
-  const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255;
-  let found = false;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] > 0 && d[i] === KEY_R && d[i + 1] === KEY_G && d[i + 2] === KEY_B) {
-      d[i] = r; d[i + 1] = g; d[i + 2] = b;
-      found = true;
-    }
+  const isKey = new Uint8Array(w * h);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    if (d[i + 3] > 0 && d[i] === KEY_R && d[i + 1] === KEY_G && d[i + 2] === KEY_B) isKey[j] = 1;
+  }
+  const found = isKey.some((v) => v === 1);
+  // 金(女ボスの小物)は1色だとオレンジに見えるので、上のふちを明るく、下のふちを暗くして金属の光り方にする
+  const shiny = color === GOLD;
+  const put = (j: number, c: number): void => {
+    const i = j * 4;
+    d[i] = (c >> 16) & 255; d[i + 1] = (c >> 8) & 255; d[i + 2] = c & 255;
+  };
+  for (let j = 0; j < isKey.length; j++) {
+    if (!isKey[j]) continue;
+    if (!shiny) { put(j, color); continue; }
+    const x = j % w, y = (j - x) / w;
+    const up = y > 0 && isKey[j - w] === 1;
+    const down = y < h - 1 && isKey[j + w] === 1;
+    if (!up) put(j, (x + y) % 5 === 0 ? 0xffffff : GOLD_HI);
+    else if (!down) put(j, GOLD_LO);
+    else put(j, color);
   }
   hasKey.set(sheetKey, found);
   if (!found) return sheetKey;
@@ -56,3 +71,21 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
 
 /** そのシートに塗り替える小物があるか(一度 accessorySheet を呼んだあとで分かる) */
 export const sheetHasAccessory = (sheetKey: string): boolean => hasKey.get(sheetKey) ?? false;
+
+/**
+ * 塗り替えたシート(キーに # がつくもの)とそのアニメを全部消す。ステージ2を離れたとき
+ * (タイトルやステージを選ぶ画面に来たとき)に呼び、遊ぶたびに絵がたまり続けないようにする。
+ * 呼ぶのは、塗り替えたシートを使うシーンが止まったあと(次のシーンの create の最初)にすること
+ */
+export function purgeAccessorySheets(scene: Phaser.Scene): number {
+  const keys = scene.textures.getTextureKeys().filter((k) => k.includes('#') && hasKey.has(k.split('#')[0]));
+  for (const key of keys) {
+    const def = sheetByKey(key.split('#')[0]);
+    for (const row of def.rows) {
+      const k = animKey(key, row.name);
+      if (scene.anims.exists(k)) scene.anims.remove(k);
+    }
+    scene.textures.remove(key);
+  }
+  return keys.length;
+}
