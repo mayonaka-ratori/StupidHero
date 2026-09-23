@@ -166,3 +166,14 @@ export const frameIndex = (d: SheetDef, animName: string, i = 0): number => {
 
 /** 立っているキャラの足の裏は、コマの下から何ドット上か */
 export const FEET_OFFSET = 4;
+
+/**
+ * スプライトの原点(setOrigin に渡す値)。position を足の裏や下の真ん中に置けるようにする。
+ * 例: this.add.sprite(x, feetY, 'hero').setOrigin(...originFor('hero'))
+ */
+export const originFor = (key: string): [number, number] => {
+  const d = sheetByKey(key);
+  if (d.anchor === 'feet') return [0.5, (d.frameH - FEET_OFFSET) / d.frameH];
+  if (d.anchor === 'bottom') return [0.5, 1];
+  return [0.5, 0.5];
+};

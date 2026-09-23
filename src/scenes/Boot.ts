@@ -6,6 +6,7 @@ import { layout } from '../layout';
 import { allTexts, NAMES } from '../logic/content';
 import { TITLES } from '../logic/titles';
 import { preloadFont } from '../ui/text';
+import { setSort, startRun } from '../run';
 
 /** 画面の部品やボタンに出る字。ひらがな、カタカナ、数字、英字は全部入れておく */
 const range = (a: number, b: number): string => Array.from({ length: b - a + 1 }, (_, i) => String.fromCharCode(a + i)).join('');
@@ -43,9 +44,35 @@ export class BootScene extends Phaser.Scene {
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       fontReady.then(() => {
         generateArt(this, skip);
-        this.scene.start(SCENES.title);
+        this.scene.start(debugJump(this) ?? SCENES.title);
       });
     });
     this.load.start();
   }
+}
+
+/**
+ * 開発用:URLで途中のシーンから始める。
+ *   ?scene=Sort&wave=2&seed=123
+ *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
+ *   ?scene=Boss   ?scene=Result
+ * 始める波より前の波と、Street以降なら始める波の仕分けも sorts の決め方で埋める。
+ */
+function debugJump(scene: Phaser.Scene): string | null {
+  const q = new URLSearchParams(location.search);
+  const target = q.get('scene');
+  if (!target || !(Object.values(SCENES) as string[]).includes(target) || target === SCENES.boot) return null;
+  const run = startRun(scene, Number(q.get('seed') ?? 12345), true);
+  const wave = Math.min(3, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? 3 : 1))));
+  run.waveIndex = wave - 1;
+  const mode = q.get('sorts') ?? 'random';
+  const lastFilled = target === SCENES.sort || target === SCENES.intro || target === SCENES.title ? wave - 1 : wave;
+  for (const w of run.stage.waves.slice(0, lastFilled)) {
+    for (const p of w.people) {
+      const truthChoice = p.truth === 'civ' ? 'civ' : 'bad';
+      const choice = mode === 'truth' ? truthChoice : mode === 'bad' ? 'bad' : mode === 'civ' ? 'civ' : (run.rng.chance(0.5) ? 'bad' : 'civ');
+      setSort(run, p, choice);
+    }
+  }
+  return target;
 }

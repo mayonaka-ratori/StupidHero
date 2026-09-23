@@ -6,6 +6,7 @@ import { TitleScene } from './scenes/Title';
 import { IntroScene } from './scenes/Intro';
 import { SortScene } from './scenes/Sort';
 import { StreetScene } from './scenes/Street';
+import { BossScene } from './scenes/Boss';
 import { ResultScene } from './scenes/Result';
 
 const L = computeLayout();
@@ -24,7 +25,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   audio: { noAudio: true },
   banner: false,
-  scene: [BootScene, TitleScene, IntroScene, SortScene, StreetScene, ResultScene]
+  scene: [BootScene, TitleScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene]
 });
 
 const refit = (): void => {

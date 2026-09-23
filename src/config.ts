@@ -17,6 +17,7 @@ export const SCENES = {
   intro: 'Intro',
   sort: 'Sort',
   street: 'Street',
+  boss: 'Boss',
   result: 'Result'
 } as const;
 
