@@ -12,10 +12,11 @@
 | `src/main.ts` | 入口。Phaserを起動して、場面(シーン)を並べる |
 | `src/config.ts` | 画面の大きさ、字のフォント、UIの色、シーンの名前 |
 | `src/layout.ts`、`src/hires.ts` | 画面の大きさの決め方と、字を細かく描く仕組み |
-| `src/run.ts` | 1回のプレイの状態。シーンの間はこれで受け渡す |
+| `src/run.ts` | 1回のプレイの状態。シーンの間はこれで受け渡す。波のあとの行き先(`nextAfterStreet`、`nextAfterReview`)もここ |
+| `src/settings.ts` | 一時停止のメニューで切りかえる設定(光と揺れを弱くする、ゆっくりモード)。そのスマホの中に覚える |
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
 | `src/scenes/` | 場面ごとの画面。大きい場面は同じ名前のフォルダに部品を分けている |
-| `src/ui/` | ボタン、吹き出し、カットイン、字などの画面の部品 |
+| `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、光と揺れ(`fx.ts`)などの画面の部品 |
 | `src/art/` | 絵。いまは全部コードで描いている。`world/`がステージ1、`world2/`がステージ2 |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
 | `src/dev/`、`dev/` | 開発用のページ(絵、音、UI、文字の一覧)。公開するゲームには入らない |
@@ -26,10 +27,17 @@
 ## 場面の流れ
 
 ```
-Boot → Title → StageSelect → Intro
-  → Sort(波1)→ Street(波1)→ Sort(波2)→ Street(波2)→ Sort(波3)→ Street(波3)
-  → Boss → Result →(もう一回なら Intro、タイトルへなら Title)
+Boot→Title→StageSelect→Intro
+  →Sort(波1)→Street(波1)→WaveReview(波1)
+  →Sort(波2)→Street(波2)→WaveReview(波2)
+  →Sort(波3)→Street(波3)→Boss→WaveReview(波3)
+  →Result→(もう一回ならIntro、タイトルへならTitle)
 ```
+
+- まだどのステージも遊んでいない人は、`Title`から`StageSelect`をとばして路地裏の`Intro`へ行く
+- `Intro`は、そのステージの掛け合いを見たか一度遊んだことがあれば、何も出さずにすぐ`Sort`へ行く(`src/scenes/Intro.ts`の`entrySceneFor`。見たかどうかは記録の`introSeen`)
+- `Street`のあとの行き先は`nextAfterStreet`(波1と波2は`WaveReview`、波3は`Boss`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
+- `Result`から`TitleList`を開くと、`Result`は眠らせておき、もどると元のまま起こす
 
 | シーン | 画面 |
 |---|---|
@@ -40,7 +48,11 @@ Boot → Title → StageSelect → Intro
 | Sort | 仕分け |
 | Street | 結果発表(ヒーローが仕分け通りに動く) |
 | Boss | ボス戦 |
+| WaveReview | 波ごとの答え合わせ |
 | Result | 結果画面と共有 |
+| TitleList | 称号の一覧(結果画面から開く) |
+
+一時停止のメニューは、掛け合い、仕分け、結果発表、ボス戦の上に重ねて出す`UiPause`というシーンです(`src/ui/pause.ts`)。
 
 画面の担当は、数字や文章を自分で書かずに`src/logic/`から読みます。
 
@@ -48,6 +60,9 @@ Boot → Title → StageSelect → Intro
 - 文章:`content.ts`(ステージ2の文は`garageContent.ts`)
 - 称号:`titles.ts`
 - 数え方:`stats.ts`
+- 答え合わせの決め手:`reasons.ts`
+- 共有の文:`share.ts`
+- 記録:`records.ts`
 
 呼ぶ順番の例は`src/logic/index.ts`の先頭にあります。
 
@@ -57,7 +72,7 @@ Boot → Title → StageSelect → Intro
 
 | 書き方 | 意味 |
 |---|---|
-| `?scene=Sort` | 始める場面。`Intro`、`Sort`、`Street`、`Boss`、`Result`など |
+| `?scene=Sort` | 始める場面。`Intro`、`Sort`、`Street`、`Boss`、`WaveReview`、`Result`、`TitleList`など。`Intro`は見たことがあっても毎回出る |
 | `&stage=garage` | ステージ2で始める(鍵が開いていなくてもよい)。書かなければ路地裏 |
 | `&wave=2` | 始める波(1〜3)。書かなければ1、`Boss`と`Result`のときは3 |
 | `&seed=123` | 人の並びを決める種。同じ種なら毎回同じ並びになる |
@@ -67,6 +82,7 @@ Boot → Title → StageSelect → Intro
 
 - `http://localhost:5173/?scene=Street&wave=3&sorts=civ`(ボスを市民にした波3の結果発表)
 - `http://localhost:5173/?scene=Boss&stage=garage`(女ボスとのボス戦)
+- `http://localhost:5173/?scene=WaveReview&wave=2&sorts=random`(波2の答え合わせ)
 
 結果画面には見本の数字があります(`src/scenes/result/sample.ts`)。
 
@@ -82,7 +98,9 @@ Boot → Title → StageSelect → Intro
 
 路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。
 
-開発用のサーバーでは、ブラウザの開発ツールから`window.__game`でゲームの中身を見られます。
+開発用のサーバーでは、ブラウザの開発ツールから`window.__game`でゲームの中身を見られます。一時停止のメニューのボタンは`window.pauseDev`、答え合わせは`window.reviewDev`、称号の一覧は`window.titleListDev`からさわれます(`tools/`のスクリプトが使う)。
+
+設定はlocalStorageの`stupidhero.settings.v1`、記録は`stupidhero.records.v2`に入っています。初めての人の流れ(ステージ選びをとばす、掛け合いを出す)を見直すときは、記録を消してから開きます(古い`stupidhero.records.v1`が残っていれば、それも消す。あると読みこんで遊んだことになる)。
 
 ## 開発用のページ
 
@@ -98,13 +116,13 @@ Boot → Title → StageSelect → Intro
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは19ファイル、179件)
 npm run typecheck   # tsc
 ```
 
 pushするたびに、GitHub Actions(`.github/workflows/test.yml`)で同じ2つが動きます。
 
-`src/logic/published.test.ts`は、公開した版とステージ1の中身が変わっていないかを比べるテストです。答えは`src/logic/fixtures/`のJSONに入っています。このJSONは作り直さないでください。ステージ1の中身をわざと変えたときだけ、理由を書いて作り直します。
+`src/logic/published.test.ts`は、公開した版とステージ1の中身が変わっていないかを比べるテストです。答えは`src/logic/fixtures/`のJSONに入っています。このJSONは作り直さないでください。ステージ1の中身をわざと変えたときだけ、理由を書いて作り直します。仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えたので、JSONは作り直さずに、それらを比べる項目から外してあります。
 
 ## ブラウザで確かめるスクリプト(tools/)
 
@@ -119,11 +137,11 @@ NGが1つでもあると、終了コード1で終わります。ブラウザの�
 
 | スクリプト | すること |
 |---|---|
-| `playthrough.mjs` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る |
+| `playthrough.mjs` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、波1〜3の3回とも通ったかも見る |
 | `sort_drive.mjs` | 手順を並べて指で動かし、撮ったり式を調べたりする |
-| `street_tap.mjs` | 結果発表で、中断、待て、行けが効くか試す |
-| `boss_test.mjs` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるかも見る |
-| `result_sharetest.mjs` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、失敗したとき) |
+| `street_tap.mjs` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す |
+| `boss_test.mjs` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る |
+| `result_sharetest.mjs` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、キャンセルされたとき、失敗したとき、パソコン)。共有の文が見出し、#StupidHero、URLの3行か、「画像を保存」でPNGを保存できるかも見る |
 | `result_shot.mjs` | 結果画面と共有カードの画像を書き出す |
 | `result_og.mjs` | 共有用の画像`public/og.png`をゲームの絵で作り直す |
 | `textcheck.mjs` | ゲームの全部の文を折り返して、禁則のまちがいがないか見る |

@@ -81,7 +81,7 @@ export function canStop(e: Encounter): boolean {
   return e === 'hitBad' || e === 'hitCiv';
 }
 
-/** 待て/行けのマークの決まり(SPEC「待て と 行け」) */
+/** 待て/行けのマークの決まり(SPEC「待てと行け」) */
 export const MARK = {
   /** ヒーローが相手の何ドット手前に来たらマークを出すか */
   showDistance: 48,
