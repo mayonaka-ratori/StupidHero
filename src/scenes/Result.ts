@@ -106,10 +106,10 @@ export class ResultScene extends Phaser.Scene {
     addPanel(this);
     const top = actionH;
     const rows: StatRow[] = [
-      { label: '悪党撃破', target: s.defeated, format: (n) => `${n}人`, color: UI.gold, record: 'mostDefeated', ms: 500 },
-      { label: '市民負傷', target: s.civHurt, format: (n) => `${n}人`, color: s.civHurt > 0 ? UI.danger : UI.gold, record: 'fewestHurt', ms: 500 },
-      { label: '逃がした', target: s.escaped, format: (n) => `${n}人`, color: s.escaped > 0 ? UI.danger : UI.gold, ms: 400 },
-      { label: '被害額', target: s.damage, format: (n) => formatYen(n), color: UI.gold, record: 'highestDamage', ms: 1000 }
+      { label: '悪党撃破', target: s.defeated, format: (n) => `${n}人`, color: UI.gold, record: 'mostDefeated', ms: 350 },
+      { label: '市民負傷', target: s.civHurt, format: (n) => `${n}人`, color: s.civHurt > 0 ? UI.danger : UI.gold, record: 'fewestHurt', ms: 350 },
+      { label: '逃がした', target: s.escaped, format: (n) => `${n}人`, color: s.escaped > 0 ? UI.danger : UI.gold, ms: 300 },
+      { label: '被害額', target: s.damage, format: (n) => formatYen(n), color: UI.gold, record: 'highestDamage', ms: 800 }
     ];
     const rowH = 17;
     const boxY = top + 4;
@@ -136,6 +136,7 @@ export class ResultScene extends Phaser.Scene {
     const shareBtn = new Button(this, 6, shareY, W - 12, shareH, '共有する', { color: 'stop' });
     const againBtn = new Button(this, 6, rowBtnY, 99, smallH, 'もう一回', { color: 'civ' });
     const titleBtn = new Button(this, W - 105, rowBtnY, 99, smallH, 'タイトルへ', { color: 0x4a3f78 });
+    dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn };
     againBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       startRun(this);
@@ -150,6 +151,11 @@ export class ResultScene extends Phaser.Scene {
     const thumbTop = boxY + boxH + 5;
     const thumbRoom = shareY - 5 - thumbTop;
     const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX);
+    // Street が撮った画像がまだ読みこみ中なら、読めてから描き直す
+    const pending = shot instanceof HTMLImageElement && !shot.complete ? shot : null;
+    const shotReady = pending
+      ? pending.decode().catch(() => undefined).then(() => { redrawShot(baseShot, pending); })
+      : Promise.resolve();
     const thumbParts: Phaser.GameObjects.GameObject[] = [];
     if (thumbRoom >= 50) {
       const th = Math.min(56, thumbRoom - 4);
@@ -169,13 +175,18 @@ export class ResultScene extends Phaser.Scene {
       thumbParts.push(g, img, lab, cap);
       for (const o of thumbParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
       img.setInteractive().on('pointerdown', () => { audio.sfx('button'); this.share?.showOverlay(); });
+      void shotReady.then(() => {
+        if (!this.textures.exists(THUMB_KEY)) return;
+        tc.ctx.drawImage(baseShot, 0, 212 - th * 2, 216, th * 2, 0, 0, 108, th);
+        (this.textures.get(THUMB_KEY) as Phaser.Textures.CanvasTexture).refresh();
+      });
     }
 
     // ─── 流れ ───
     const quiet = { v: false };
     const sfx = (name: Parameters<typeof audio.sfx>[0], opt?: Parameters<typeof audio.sfx>[1]): void => { if (!quiet.v) audio.sfx(name, opt); };
     this.tl
-      .wait(900)
+      .wait(750)
       .step(150, {
         start: () => { titleText.setVisible(true).setScale(3); },
         update: (p) => titleText.setScale(p < 0.34 ? 3 : p < 0.67 ? 2 : 1),
@@ -191,7 +202,7 @@ export class ResultScene extends Phaser.Scene {
       .step(0, { end: () => { void cut.say(t.comment.text, t.comment.face, { who: t.comment.who }); if (quiet.v) cut.skip(); } });
     rows.forEach((r, i) => {
       let last = -1;
-      this.tl.wait(i === 0 ? 150 : 120).step(r.target === 0 ? 200 : r.ms, {
+      this.tl.wait(i === 0 ? 100 : 90).step(r.target === 0 ? 200 : r.ms, {
         start: () => values[i].setText(r.format(0)),
         update: (p) => {
           const v = Math.round(r.target * (1 - Math.pow(1 - p, 2)));
@@ -262,7 +273,7 @@ export class ResultScene extends Phaser.Scene {
 
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX };
     const texts = [...cardTexts(cardIn), ...rows.map((r) => r.label), 'ワーストシーン', 'NEW'];
-    preloadFont(texts, [10, 12, 16]).then(() => {
+    Promise.all([preloadFont(texts, [10, 12, 16]), shotReady]).then(() => {
       if (!this.sys.isActive() && !this.sys.isPaused()) return;
       this.card = buildCard(this, cardIn);
       dev.card = this.card;
@@ -319,7 +330,7 @@ export class ResultScene extends Phaser.Scene {
       }
     };
     const first: [number, number, number, number][] = [
-      [60, 0, -4, 2], [260, -54, 6, 1], [440, 56, 2, 1], [680, -20, -18, 1], [820, 30, -24, 1]
+      [60, 0, 0, 2], [300, -40, -20, 1], [480, 42, -26, 1], [700, -8, -52, 1], [900, 30, 0, 2]
     ];
     first.forEach(([ms, dx, dy, sc]) => this.time.delayedCall(ms, () => {
       boom(dx, dy, sc, true);
@@ -333,8 +344,8 @@ export class ResultScene extends Phaser.Scene {
     this.time.delayedCall(1100, kiran);
     this.time.addEvent({
       delay: 2600, startAt: 0, loop: true, callback: () => {
-        const dx = Phaser.Math.Between(-70, 70);
-        boom(dx, Phaser.Math.Between(-24, 0), 1, false);
+        const dx = Phaser.Math.Between(-50, 50);
+        boom(dx, Phaser.Math.Between(-50, -10), 1, false);
         if (Math.random() < 0.5) this.time.delayedCall(300, kiran);
       }
     });
@@ -343,11 +354,17 @@ export class ResultScene extends Phaser.Scene {
 
 /** 場面の写真を 216×214 のキャンバスにそろえる */
 function normalizeShot(src: CanvasImageSource): HTMLCanvasElement {
-  const { canvas, ctx } = makeCanvas(216, 214);
+  const { canvas } = makeCanvas(216, 214);
+  redrawShot(canvas, src);
+  return canvas;
+}
+
+function redrawShot(canvas: HTMLCanvasElement, src: CanvasImageSource): void {
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
   const w = (src as HTMLImageElement).naturalWidth || (src as HTMLCanvasElement).width || 216;
   const h = (src as HTMLImageElement).naturalHeight || (src as HTMLCanvasElement).height || 214;
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 216, 214);
   try { ctx.drawImage(src, 0, 0, w, h, 0, 0, 216, 214); } catch { /* 読めなければ黒のまま */ }
-  return canvas;
 }

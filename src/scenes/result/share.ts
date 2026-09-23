@@ -122,23 +122,23 @@ export class ShareFlow {
 
     const row = document.createElement('div');
     Object.assign(row.style, { display: 'flex', gap: '12px' });
-    const btn = (label: string, bg: string, fg: string): HTMLButtonElement => {
+    const btn = (label: string, bg: string, fg: string, shade: string): HTMLButtonElement => {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = label;
       Object.assign(b.style, {
         fontFamily: font, fontSize: '20px', padding: '10px 18px', minWidth: '132px', color: fg, background: bg,
-        border: '2px solid #ffffff', outline: '2px solid #000000', borderRadius: '0', boxShadow: 'inset 0 -4px 0 rgba(0,0,0,0.3)',
+        border: '2px solid #ffffff', outline: '2px solid #000000', borderRadius: '0', boxShadow: `inset 0 -4px 0 ${shade}`,
         touchAction: 'manipulation', cursor: 'pointer'
       } as Partial<CSSStyleDeclaration>);
       return b;
     };
-    const x = btn('Xに投稿', '#111111', '#ffffff');
+    const x = btn('Xに投稿', '#1d1d1d', '#ffffff', '#000000');
     x.addEventListener('click', () => {
       this.opt.log?.('x');
       window.open(xPostUrl(this.opt.text), '_blank', 'noopener');
     });
-    const close = btn('とじる', '#3a3354', '#ffffff');
+    const close = btn('とじる', '#4a3f78', '#ffffff', '#2e2750');
     close.addEventListener('click', () => this.closeOverlay());
     row.append(x, close);
 
@@ -148,7 +148,7 @@ export class ShareFlow {
 
     o.append(img, hint, row, note);
     // ゲームにタップが届かないように
-    for (const t of ['pointerdown', 'touchstart', 'mousedown']) o.addEventListener(t, (e) => e.stopPropagation());
+    for (const t of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup']) o.addEventListener(t, (e) => e.stopPropagation());
     document.body.appendChild(o);
     this.overlay = o;
     this.opt.onOpen?.();

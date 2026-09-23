@@ -11,7 +11,7 @@ import type Phaser from 'phaser';
 import { UI } from '../../config';
 import { damageAnalogy, formatYen, type SaveOutcome, type StageStats, type TitleDef, type WorstScene } from '../../logic';
 import { NAMES } from '../../ui/theme';
-import { drawAlley, drawBox, drawSprite, drawText, fill, frameOf, makeCanvas, upscale } from './draw';
+import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas, upscale } from './draw';
 
 export const CARD_W = 216;
 export const CARD_H = 270;
@@ -82,12 +82,12 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const hx = 46;
     const feet = i.title.pose === 'win_fist' ? 84 : 90;
     // 背中で爆発(大きさの違う2つ)
-    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 3), hx + 20, 50, { anchor: 'center' });
-    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 2), hx - 16, 60, { anchor: 'center' });
-    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 1), hx + 4, 74, { anchor: 'center' });
+    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 4), hx - 30, 50, { anchor: 'center' });
+    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 3), hx + 34, 46, { anchor: 'center' });
+    drawSprite(ctx, scene, 'fx_explosion', frameOf('fx_explosion', 'play', 2), hx - 6, 30, { anchor: 'center' });
     if (i.title.pose === 'win_fist') drawSprite(ctx, scene, 'fx_rubble', 0, hx, 96, { anchor: 'bottom' });
     drawSprite(ctx, scene, 'hero', frameOf('hero', i.title.pose, 0), hx, feet, { anchor: 'feet' });
-    drawSprite(ctx, scene, 'fx_kiran', frameOf('fx_kiran', 'play', 2), hx + 18, feet - 50, { anchor: 'center' });
+    drawSprite(ctx, scene, 'fx_kiran', frameOf('fx_kiran', 'play', 1), hx + 16, feet - 44, { anchor: 'center' });
 
     // 称号の帯
     fill(ctx, 0x000000, [0, 0, W, 24]);
@@ -116,11 +116,11 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
 
   // ─── 真ん中:いちばんひどかった場面 ───
   const MID = TOP + 2;
-  const MID_H = 84;
+  const MID_H = 80;
   {
     const shot = i.shot ?? makeFallbackShot(scene, s, i.scrollX);
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
-    ctx.drawImage(shot, 0, 112, W, MID_H, 0, MID, W, MID_H);
+    ctx.drawImage(shot, 0, 116, W, MID_H, 0, MID, W, MID_H);
     // 見出し
     const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'ワーストシーン', { size: 12 });
     fill(ctx, 0x000000, [0, MID, lab.w + 8, lab.h + 5]);
@@ -132,14 +132,22 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
 
   // ─── 下:数字 ───
   {
-    const y0 = MID + MID_H + 4;
-    const rowH = 18;
-    const hurt = s.civHurt > 0 ? '{red}' : '{gold}';
-    drawText(ctx, scene, 6, y0, `悪党撃破{gold}${s.defeated}{/}人`, { size: 16, outline: true });
-    drawText(ctx, scene, W - 6, y0, `市民負傷${hurt}${s.civHurt}{/}人`, { size: 16, outline: true }, [1, 0]);
-    drawText(ctx, scene, 6, y0 + rowH, `被害額{gold}${formatYen(s.damage)}{/}`, { size: 16, outline: true });
-    drawText(ctx, scene, W - 6, y0 + rowH, `逃がした${s.escaped > 0 ? '{red}' : '{gold}'}${s.escaped}{/}人`, { size: 16, outline: true }, [1, 0]);
-    drawText(ctx, scene, 6, y0 + rowH * 2 + 1, `(${damageAnalogy(s.damage).text})`, { size: 12, color: UI.gold, outline: true });
+    const y0 = MID + MID_H + 3;
+    const rowH = 17;
+    const st = { size: 16, outline: true } as const;
+    /** 見出しと数字を少しあけて並べる。right=true なら右端を x にそろえる */
+    const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
+      const tmp = makeCanvas(W, 24);
+      const a = drawText(tmp.ctx, scene, 0, 0, label, st);
+      const b = drawText(tmp.ctx, scene, a.w + 2, 0, value, { ...st, color });
+      const w = a.w + 2 + b.w;
+      ctx.drawImage(tmp.canvas, 0, 0, w, a.h, right ? x - w : x, y, w, a.h);
+    };
+    pair(6, y0, '悪党撃破', `${s.defeated}人`, UI.gold);
+    pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
+    pair(6, y0 + rowH, '被害額', formatYen(s.damage), UI.gold);
+    drawText(ctx, scene, 6, y0 + rowH * 2, `(${damageAnalogy(s.damage).text})`, { size: 16, color: UI.gold, outline: true });
+    pair(W - 6, y0 + rowH * 2, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold, true);
   }
 
   // ─── いちばん下:ロゴと称号の数 ───
@@ -179,4 +187,4 @@ function drawBoxEdge(ctx: CanvasRenderingContext2D): void {
   fill(ctx, 0x000000, [0, 0, CARD_W, 1], [0, CARD_H - 1, CARD_W, 1], [0, 0, 1, CARD_H], [CARD_W - 1, 0, 1, CARD_H]);
 }
 
-export { drawBox };
+

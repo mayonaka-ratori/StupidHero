@@ -40,7 +40,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
       n(7, () => stats.defeatBad('sort'));
       stats.defeatBoss(4.8);
       stats.hurtCiv('collateral', 'suit');
-      n(6, () => stats.breakProp('car'));
+      n(14, () => stats.breakProp('car'));
       n(12, () => stats.breakProp('vending'));
       n(3, () => stats.breakProp('sign'));
       stats.bossRampage();
