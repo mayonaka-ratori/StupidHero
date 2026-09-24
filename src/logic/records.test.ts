@@ -28,7 +28,7 @@ const stats = (over: Partial<StageStats> = {}): StageStats => ({
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
   defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null,
   escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
-  grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
+  grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
   sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [],
   ...over

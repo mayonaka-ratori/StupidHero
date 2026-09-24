@@ -1,20 +1,22 @@
 // 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)と、
 // ステージ3だけで取れる3つ(STAGE3「称号」)を足した17個。
 // 上から順に調べ、最初に当てはまったものを出す。ステージ2の2つは
-// 「ボスの親友」のすぐあとに「ギャングの運転手」、「追い打ちの鬼」のすぐ前に「一網打尽」。
-// ステージ3の3つは「ギャングの運転手」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
+// 「ボスの親友」のすぐあとに「ギャングの見送り係」、「追い打ちの鬼」のすぐ前に「一網打尽」。
+// ステージ3の3つは「ギャングの見送り係」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
 // 「タイムセールの守り神」、「待ての達人」のすぐあとに「UFOハンター」。
 // 条件の数字は遊びながら直すので、ここの TITLE_THRESHOLDS にまとめておく。
 //
 // 市民のけがの数え方は称号ごとに分ける(けがの理由は StageStats の civHurtByHero / ByCollateral / ByVillain)。
 // - 完全無欠、街のほんものヒーロー:なぐった + ワルにやられた + さらわれた。巻きぞえは数えない
 //   (巻きぞえは技の当たり方で運で起きる。仕分けが全部正しくても運で取れなくなるのを防ぐ)。
-//   ただし巻きぞえでもおばあさんに当たったら完全無欠にはしない(おばあちゃんの敵のほうが先に出る)。
+//   ただし巻きぞえでもおばあさんに当たったら完全無欠にはしない(街のほんものヒーローにはなれる)。
 //   ボスを市民に仕分けたときも完全無欠にはしない(ふつうは暴れた分の被害額で入らないが、念のため)。
 //   巻きぞえが3人以上(暴走機関車の数)なら完全無欠にはせず、暴走機関車のほうを出す
 //   (ほんものヒーローは暴走機関車より後に調べるので、同じことになる)
 // - 市民の天敵、正義の暴走機関車:なぐった + 巻きぞえ(ヒーローの攻撃が当たった人。暴れっぷりの称号なので巻きぞえも入れる)
-// - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)
+// - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)。
+//   逃がした数は、走って逃げたワルと待てで止めたワルだけ。車で逃げた組とUFOで去った宇宙人は、見のがしたのではないので入れない
+// - おばあちゃんの敵:おばあさんを直接なぐったときだけ。巻きぞえは運なので入れない
 // UFOにさらわれた買い物客(ステージ3)は「ワルにやられた」と同じに扱う(完全無欠と街のほんものヒーローが取れなくなり、
 // 市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
 // タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない
@@ -38,11 +40,11 @@ const TITLE_THRESHOLDS = {
   stopMasterSaved: 3,
   /** 追い打ちの鬼:行けで倒したワルがこれ以上 */
   chaseDemonGo: 3,
-  /** やさしすぎるヒーロー:逃がした数がこれ以上 */
+  /** やさしすぎるヒーロー:見のがしたワル(車やUFOで逃げた分は除く)がこれ以上 */
   tooKindEscaped: 3,
   /** 一網打尽:まとめて吹き飛ばした組がこれ以上 */
   roundUpGroups: 2,
-  /** ギャングの運転手:車で逃げられた組がこれ以上 */
+  /** ギャングの見送り係:車で逃げられた組がこれ以上 */
   gangDriverGroups: 2,
   /** 宇宙人の案内係:UFOに連れ去られた買い物客がこれ以上 */
   ufoGuideAbducted: 2,
@@ -56,6 +58,8 @@ const T = TITLE_THRESHOLDS;
 const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollateral;
 /** 仕分けのまちがいでけがをした市民の数(殴った、ワルに襲われた、UFOにさらわれた)。運で起きる巻きぞえは入れない */
 const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction;
+/** 見のがしたワルの数(走って逃げた、待てで止めた)。車で逃げた組とUFOで去った宇宙人は入れない */
+const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.escapedByUfo;
 /** タイムセールラッシュで、市民を全員守り、宇宙人を全員倒したか */
 const perfectRush = (s: StageStats): boolean =>
   s.rush !== null && s.rush.aliens + s.rush.civs > 0
@@ -89,7 +93,7 @@ export const TITLES: readonly TitleDef[] = [
     test: (s) => s.bossSortedCiv
   },
   {
-    id: 'gangDriver', name: 'ギャングの運転手', pose: 'win_shy',
+    id: 'gangDriver', name: 'ギャングの見送り係', pose: 'win_shy',
     condition: 'ギャングの組を2組以上、車で逃がした',
     hint: '地下駐車場で車に2回逃げられる',
     stages: ['garage'],
@@ -104,11 +108,11 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'grannyFoe', name: 'おばあちゃんの敵', pose: 'win_shy',
-    condition: 'おばあさんをなぐった(まきぞえも)',
+    condition: 'おばあさんをワルに仕分けてなぐった',
     hint: 'おばあさんを…',
     // 地下駐車場とショッピングモールにはおばあさんが出ないので、路地裏だけ
     stages: ['alley'],
-    test: (s) => s.grannyHit
+    test: (s) => s.grannyPunched
   },
   {
     id: 'runawayTrain', name: '正義の暴走機関車', pose: 'win_arms',
@@ -163,9 +167,9 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'tooKind', name: 'やさしすぎるヒーロー', pose: 'win_pose',
-    condition: '市民を一度もなぐらず、ワルを3人以上逃がした',
-    hint: 'だれもなぐらず3人逃がす',
-    test: (s) => s.civHurtByHero === 0 && s.escaped >= T.tooKindEscaped
+    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOで逃げた分は数えない)',
+    hint: '市民をなぐらず3人逃がす',
+    test: (s) => s.civHurtByHero === 0 && sparedBad(s) >= T.tooKindEscaped
   },
   {
     id: 'soSo', name: 'まあまあヒーロー', pose: 'win_arms',
@@ -178,7 +182,7 @@ export const TITLES: readonly TitleDef[] = [
 /**
  * 称号の全体の数(全部のステージを合わせて17)。
  * 路地裏で取れるのは12(ステージ2と3だけの5つを除く)、地下駐車場は13(おばあちゃんの敵とステージ3だけの3つを除く)、
- * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの運転手を除く)
+ * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの見送り係を除く)
  */
 export const TITLE_COUNT = TITLES.length;
 
