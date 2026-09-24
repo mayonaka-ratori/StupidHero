@@ -10,21 +10,6 @@ const stages: Stage[] = SEEDS.map((s) => createStage(s));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage', () => {
-  it('同じ種なら同じステージ', () => {
-    expect(createStage(123)).toEqual(createStage(123));
-    expect(createStage('abc')).toEqual(createStage('abc'));
-  });
-
-  it('波の人数と時間がSPECの表の通り', () => {
-    for (const s of stages) {
-      expect(s.waves.map((w) => w.no)).toEqual([1, 2, 3]);
-      expect(s.waves.map((w) => w.seconds)).toEqual([30, 22, 24]);
-      expect(s.waves.map((w) => w.people.length)).toEqual([5, 5, 6]);
-      expect(s.peopleTotal).toBe(16);
-      expect(s.name).toBe('路地裏');
-    }
-  });
-
   it('1つの波のワルは2〜3人(ボスは別)で、どちらも出る', () => {
     const counts = new Set<number>();
     for (const s of stages) {

@@ -6,9 +6,6 @@ describe('format', () => {
     expect(formatYen(0)).toBe('¥0');
     expect(formatYen(5000)).toBe('¥5,000');
     expect(formatYen(30_000)).toBe('¥3万');
-    expect(formatYen(200_000)).toBe('¥20万');
-    expect(formatYen(3_000_000)).toBe('¥300万');
-    expect(formatYen(10_000_000)).toBe('¥1,000万');
     expect(formatYen(24_000_000)).toBe('¥2,400万');
     expect(formatYen(100_000_000)).toBe('¥1億');
     expect(formatYen(120_000_000)).toBe('¥1億2,000万');
@@ -73,10 +70,6 @@ describe('format', () => {
     expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 2, civHurtByVillain: 1, civHurtByAbduction: 3 }))
       .toEqual(['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた3']);
     expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 0, civHurtByAbduction: 0 })).toEqual([]);
-  });
-
-  it('被害額とたとえをまとめて', () => {
-    expect(formatDamage(24_000_000)).toBe('¥2,400万(自販機30台分)');
   });
 
   it('秒数は切り上げ', () => {

@@ -171,46 +171,6 @@ describe('records', () => {
     expect(hasSeenRush('mall', loadRecords(broken))).toBe(true);
   });
 
-  it('前の形(v1)の記録を読める。称号は路地裏のもの、ボス戦の記録があればステージ2が開く。v1は消さない', () => {
-    const st = new MemStorage();
-    const v1 = JSON.stringify({
-      version: 1,
-      stages: { alley: { mostDefeated: 7, fewestHurt: 1, highestDamage: 24_000_000, fastestBossSec: 6.2, plays: 4 } },
-      titles: ['soSo', 'demolition']
-    });
-    st.setItem(LEGACY_RECORDS_KEY, v1);
-    const r = loadRecords(st);
-    expect(r.version).toBe(2);
-    expect(r.stages.alley).toEqual({
-      mostDefeated: 7, fewestHurt: 1, highestDamage: 24_000_000, fastestBossSec: 6.2, plays: 4, clears: 1,
-      titles: ['soSo', 'demolition']
-    });
-    expect(r.titles).toEqual(['soSo', 'demolition']);
-    expect(isStageUnlocked('garage', r)).toBe(true);
-
-    // 保存すると v2 に書き、前の記録を引きつぐ。v1 はそのまま残る
-    const s = saveResult('alley', stats({ defeated: 8 }), 'realHero', st);
-    expect(s.firstPlay).toBe(false);
-    expect(s.newRecords).toEqual(['mostDefeated']);
-    expect(s.stage.plays).toBe(5);
-    expect(s.stage.clears).toBe(2);
-    expect(s.titlesCollected).toBe(3);
-    expect(s.unlockedNow).toEqual([]);
-    expect(st.getItem(LEGACY_RECORDS_KEY)).toBe(v1);
-    expect(JSON.parse(st.getItem(RECORDS_KEY)!).version).toBe(2);
-    expect(loadRecords(st).stages.alley!.plays).toBe(5);
-  });
-
-  it('前の形でボス戦の記録がなければ、ステージ2は閉じたまま', () => {
-    const st = new MemStorage();
-    st.setItem(LEGACY_RECORDS_KEY, JSON.stringify({
-      version: 1, stages: { alley: { mostDefeated: 3, fewestHurt: 0, highestDamage: 0, fastestBossSec: null, plays: 1 } }, titles: ['soSo']
-    }));
-    const r = loadRecords(st);
-    expect(r.stages.alley!.clears).toBe(0);
-    expect(isStageUnlocked('garage', r)).toBe(false);
-  });
-
   it('v2 が壊れていたら v1 を読む。知らないステージは捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{broken');

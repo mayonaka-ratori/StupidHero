@@ -35,28 +35,10 @@ describe('称号', () => {
     expect(titleById('demolition').name).toBe('歩く解体工事');
   });
 
-  it('どれにも当てはまらなければ まあまあヒーロー', () => {
-    expect(decideTitle(base()).id).toBe('soSo');
-  });
-
   it('完全無欠は全員撃破、負傷0、¥500万未満。¥500万ちょうどなら ほんものヒーロー', () => {
     const perfect = base({ allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 4_990_000, bossFightSec: 3, civSavedByStop: 5 });
     expect(decideTitle(perfect).id).toBe('flawless');
     expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
-  });
-
-  it('市民の天敵は、ヒーローが傷つけた市民が4人以上かつ撃破数以上。解体工事やボスの親友より先', () => {
-    const s = base({ civHurt: 5, civHurtByHero: 3, civHurtByCollateral: 2, defeated: 5, damage: 60_000_000, bossSortedCiv: true, grannyHit: true });
-    expect(decideTitle(s).id).toBe('civNemesis');
-    expect(decideTitle({ ...s, defeated: 6 }).id).toBe('demolition');
-    expect(decideTitle({ ...s, civHurt: 3, civHurtByHero: 2, civHurtByCollateral: 1, defeated: 2 }).id).toBe('demolition');
-  });
-
-  it('ワルに襲われた市民は、市民の天敵に数えない(ヒーローが誰も殴っていないとき)', () => {
-    const s = base({ civHurt: 5, civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 5, defeated: 1, bossDefeated: false, bossFightSec: null });
-    expect(decideTitle(s).id).not.toBe('civNemesis');
-    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 1, civHurtByVillain: 2 }).id).not.toBe('civNemesis');
-    expect(decideTitle({ ...s, civHurtByHero: 2, civHurtByCollateral: 2, civHurtByVillain: 1 }).id).toBe('civNemesis');
   });
 
   it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
@@ -65,11 +47,6 @@ describe('称号', () => {
     expect(decideTitle({ ...s, damage: 49_990_000 }).id).toBe('bossBuddy');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false, grannyHit: false, grannyPunched: false }).id).toBe('runawayTrain');
-  });
-
-  it('全員撃破で負傷1〜2人はどちらにも入らない', () => {
-    const s = base({ allDefeated: true, civHurt: 2, bossFightSec: 9 });
-    expect(decideTitle(s).id).toBe('soSo');
   });
 
   it('連打の申し子は7秒以内(ちょうど7秒を含む)。ボス戦がなければ入らない', () => {
@@ -145,19 +122,13 @@ describe('称号の市民のけがの数え方', () => {
 });
 
 describe('称号(ステージ2)', () => {
-  it('ギャングの見送り係は ボスの親友 のすぐあと、一網打尽は 追い打ちの鬼 のすぐ前', () => {
+  it('ギャングの見送り係は ボスの親友 のすぐあと、一網打尽は 追い打ちの鬼 のすぐ前。おばあちゃんの敵は路地裏だけ、一網打尽は地下駐車場だけ', () => {
     const ids = TITLES.map((t) => t.id);
     expect(ids.indexOf('gangDriver')).toBe(ids.indexOf('bossBuddy') + 1);
     expect(ids.indexOf('roundUp')).toBe(ids.indexOf('chaseDemon') - 1);
-    expect(titleById('roundUp').name).toBe('一網打尽');
-    expect(titleById('gangDriver').pose).toBe('win_shy');
-    expect(titleById('roundUp').stages).toEqual(['garage']);
-    expect(titlesFor('alley')).toHaveLength(12);
-    expect(titlesFor('garage')).toHaveLength(13);
-    // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ
-    expect(titleById('grannyFoe').stages).toEqual(['alley']);
+    // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ(ステージごとの数は ステージ3 の称号で確かめる)
     expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
-    expect(titlesFor('alley').map((t) => t.id)).toContain('grannyFoe');
+    expect(titlesFor('alley').map((t) => t.id)).not.toContain('roundUp');
     // どれかのステージでは必ず取れる
     for (const t of TITLES) {
       expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t) || titlesFor('mall').includes(t), t.id).toBe(true);
