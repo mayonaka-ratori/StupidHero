@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { damageAnalogy, formatDamage, formatSeconds, formatYen, withCommas } from './format';
+import { damageAnalogy, formatDamage, formatSeconds, formatYen, hurtBreakdown, withCommas } from './format';
 
 describe('format', () => {
   it('金額', () => {
@@ -48,6 +48,28 @@ describe('format', () => {
     // 路地裏(省略したとき)は今まで通り
     expect(damageAnalogy(24_000_000, 'alley').text).toBe('自販機30台分');
     expect(formatDamage(24_000_000)).toBe('¥2,400万(自販機30台分)');
+  });
+
+  it('ショッピングモールのたとえはガチャガチャ、噴水、エスカレーター(ほかのステージの物は出さない)', () => {
+    expect(damageAnalogy(50_000, 'mall').text).toBe('ガチャガチャ1台分');
+    expect(damageAnalogy(490_000, 'mall').unit).toBe('gacha');
+    expect(damageAnalogy(500_000, 'mall').unit).toBe('fountain');
+    expect(damageAnalogy(1_500_000, 'mall').text).toBe('噴水1基分');
+    expect(damageAnalogy(30_000_000, 'mall').text).toBe('噴水20基分');
+    expect(damageAnalogy(199_000_000, 'mall').unit).toBe('fountain');
+    expect(damageAnalogy(200_000_000, 'mall').text).toBe('エスカレーター25基分');
+    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
+      expect(damageAnalogy(yen, 'mall').text).not.toMatch(/ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車/);
+      expect(damageAnalogy(yen, 'mall').count).toBeGreaterThan(0);
+    }
+    expect(formatDamage(4_500_000, 'mall')).toBe('¥450万(噴水3基分)');
+  });
+
+  it('市民のけがの内わけ(0は書かない。さらわれたは4つ目)', () => {
+    expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 2 })).toEqual(['なぐった1', 'ワルにやられた2']);
+    expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 2, civHurtByVillain: 1, civHurtByAbduction: 3 }))
+      .toEqual(['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた3']);
+    expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 0, civHurtByAbduction: 0 })).toEqual([]);
   });
 
   it('秒数は切り上げ', () => {

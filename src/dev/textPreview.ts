@@ -130,11 +130,17 @@ class CharsScene extends Phaser.Scene {
 }
 
 const CHECK_WRAPS = [88, 117, 152, 160, 186];
+/**
+ * 記号だけの書き方(例:sort/remark.ts の間を置く字の一覧「、。…!?！？」)は画面に出す文ではないので、禁則は見ない。
+ * かな、カナ、漢字、英数字が1字でもあれば文として見る
+ */
+const isSymbolsOnly = (s: string): boolean => !/[ぁ-ゖァ-ヺ一-鿿A-Za-z0-9０-９Ａ-Ｚａ-ｚ]/.test(stripMarkup(s));
 let checked = 0;
 class CheckScene extends Phaser.Scene {
   constructor() { super('check'); }
   create(): void {
     for (const s of [10, 12, 16]) for (const w of CHECK_WRAPS) for (const t of texts) {
+      if (isSymbolsOnly(t.text)) continue;
       const p = new PixelText(this, 0, 0, t.text, { size: s, wrap: w });
       const before = problems.length;
       check(p, t.text);

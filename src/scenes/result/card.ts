@@ -11,21 +11,22 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  STAGES, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
-  type TitleDef, type WorstScene
+  ABDUCTED_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome,
+  type StageDef, type StageId, type StageStats, type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
-import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
+import { paintStageBg, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
-export const CARD_W = 216;
-export const CARD_H = 270;
-export const CARD_SCALE = 5;
+const CARD_W = 216;
+const CARD_H = 270;
+const CARD_SCALE = 5;
 
 /** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
-export const WORST_CAPTION: Record<WorstScene, string> = {
+const WORST_CAPTION: Record<WorstScene, string> = {
   grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
+  abducted: ABDUCTED_CAPTION,
   bigPropBroken: '街がこわれた!',
   bossDefeated: 'ボスを倒した!'
 };
@@ -46,12 +47,10 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
   }
 };
 
-/** ステージごとに言い方を変える見出し(地下駐車場は「街」ではない) */
-const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = {
-  garage: { bigPropBroken: '駐車場ボロボロ!' }
-};
+/** ステージごとに言い方を変える見出し(地下駐車場とショッピングモールは「街」ではない。logic/share.ts) */
+const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = STAGE_WORST_CAPTIONS;
 
-/** ワーストシーンの説明の文 */
+/** いちばんひどい場面の説明の文 */
 export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {
   if (!s.worstScene) return 'ひどいことはなかった!';
   const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
@@ -78,10 +77,13 @@ export interface CardInput {
 }
 
 /** 共有カードに使うステージの中身 */
-export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name'>;
+export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name' | 'shortName'>;
 
-/** カードに出すステージの名前(「地下駐車場ステージ」) */
-const stageLabel = (st: CardStage): string => `${st.name}ステージ`;
+/**
+ * カードに出すステージの名前(「地下駐車場」)。
+ * 「ステージ」はつけない(左の「いちばんひどい場面」と並べると、「地下駐車場ステージ」では幅が足りない)
+ */
+const stageLabel = (st: CardStage): string => st.shortName;
 
 export interface Card {
   /** 216×270 */
@@ -101,8 +103,8 @@ const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCom
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, commentOf(i).text, NAMES.operator, 'ワーストシーン', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
-    'ひどいことはなかった!', '悪党撃破', '市民負傷', '逃がした', '被害額', '人', '称号', '#StupidHero',
+    i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
+    'ひどいことはなかった!', '悪党を倒した', '市民のけが', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億'
   ];
 }
@@ -110,7 +112,7 @@ export function cardTexts(i: CardInput): string[] {
 /** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている(背景とボスはそのステージの絵) */
 export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number, stage: CardStage = STAGES[stats.stageId ?? 'alley']): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, scrollX, 216, stage.bg);
+  paintStageBg(ctx, scene, 0, 0, scrollX, 216, stage.bg);
   const feet = 194;
   if (stats.bossDefeated) {
     const boss = stage.bossSheet;
@@ -133,7 +135,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   const TOP = 96;
   {
     const bg = makeCanvas(W, 214);
-    drawAlley(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
+    paintStageBg(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
     ctx.drawImage(bg.canvas, 0, 100, W, TOP, 0, 0, W, TOP);
     const hx = 46;
     const feet = i.title.pose === 'win_fist' ? 84 : 90;
@@ -180,18 +182,20 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
     ctx.drawImage(shot, 0, 196 - MID_H, W, MID_H, 0, MID, W, MID_H);
     // 見出し
-    const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'ワーストシーン', { size: 12 });
+    const lab = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'いちばんひどい場面', { size: 12 });
     fill(ctx, 0x000000, [0, MID, lab.w + 8, lab.h + 5]);
     fill(ctx, UI.bad, [0, MID, lab.w + 7, lab.h + 4]);
-    drawText(ctx, scene, 4, MID + 2, 'ワーストシーン', { size: 12, color: 0xffffff });
+    drawText(ctx, scene, 4, MID + 2, 'いちばんひどい場面', { size: 12, color: 0xffffff });
     // ステージの名前(右上)
     const sl = stageLabel(stage);
     const sz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, sl, { size: 12 });
     fill(ctx, 0x000000, [W - sz.w - 8, MID, sz.w + 8, sz.h + 4]);
     fill(ctx, UI.gold, [W - sz.w - 8, MID + sz.h + 3, sz.w + 8, 1]);
     drawText(ctx, scene, W - 4, MID + 2, sl, { size: 12, color: UI.gold }, [1, 0]);
+    // 説明の字は右下。さらわれた場面は写真の真ん中から右にUFOと浮いた買い物客がいるので、左下に置く
     const cap = worstCaption(s);
-    drawText(ctx, scene, W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [1, 1]);
+    const capLeft = s.worstScene === 'abducted';
+    drawText(ctx, scene, capLeft ? 4 : W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [capLeft ? 0 : 1, 1]);
   }
 
   // ─── 下:数字 ───
@@ -199,19 +203,21 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const y0 = MID + MID_H + 2;
     const rowH = 16;
     const st = { size: 16, outline: true } as const;
+    // 見出しは12ドット、数字は16ドット(見出しが長くなったので、16だと1行に2つ入らない)。字の下をそろえる
+    const lst = { size: 12, outline: true } as const;
     /** 見出しと数字を少しあけて並べる。right=true なら右端を x にそろえる */
     const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
       const m = makeCanvas(1, 1).ctx;
-      const a = drawText(m, scene, 0, 0, label, st);
+      const a = drawText(m, scene, 0, 0, label, lst);
       const b = drawText(m, scene, 0, 0, value, { ...st, color });
       const left = right ? x - (a.w + 2 + b.w) : x;
-      drawText(ctx, scene, left, y, label, st);
+      drawText(ctx, scene, left, y + 4, label, lst);
       drawText(ctx, scene, left + a.w + 2, y, value, { ...st, color });
     };
     // 並び:1行目に撃破と負傷、2行目に逃がした、3行目に被害額、4行目にたとえ(右寄せ)。
     // 金額やたとえの桁が増えても(¥1億2,000万、一軒家40軒分)、ほかの字とぶつからない
-    pair(6, y0, '悪党撃破', `${s.defeated}人`, UI.gold);
-    pair(W - 6, y0, '市民負傷', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
+    pair(6, y0, '悪党を倒した', `${s.defeated}人`, UI.gold);
+    pair(W - 6, y0, '市民のけが', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
     pair(6, y0 + rowH, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
     pair(6, y0 + rowH * 2, '被害額', formatYen(s.damage), UI.gold);
     drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage, stageIdOf(i)).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);

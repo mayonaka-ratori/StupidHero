@@ -28,7 +28,7 @@ export interface ButtonOptions {
 const colorOf = (c: ButtonColor): number => (typeof c === 'number' ? c : UI[c]);
 
 export class Button extends Phaser.GameObjects.Container {
-  readonly w: number;
+  override readonly w: number;
   readonly h: number;
   readonly hit: Phaser.GameObjects.Zone;
   private bg: Phaser.GameObjects.Graphics;

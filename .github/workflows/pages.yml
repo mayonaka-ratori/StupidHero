@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1とステージ2)
-        default: 2da88df3207f1db5df24d64b66bb41fb30126716
+        # いま公開している版(ステージ1からステージ3。コードの見直し、起動を速くする、共有用の画像の作り直しまで)
+        default: 31c4005a0d1e84e899d45c176dcd9a8da1ff6ffe
 
 permissions:
   contents: read
@@ -25,18 +25,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run
+      - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
 

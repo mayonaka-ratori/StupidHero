@@ -1,6 +1,6 @@
 // 地下駐車場(ステージ2)の3つの波を作る(createStage(seed, 'garage') から呼ぶ)。決まりは docs/STAGE2.md。
 //
-// - 波の人数と時間は GARAGE_WAVES(5人20秒、6人18秒、6人と女ボス20秒)
+// - 波の人数と時間は GARAGE_WAVES(5人30秒、6人26秒、6人と女ボス28秒)
 // - ワルは全員ギャングの組。組は2〜3人で、波1は2人の組が1つ、波2と波3は1〜2組(1つの波に4人まで)
 // - 見た目は4種類(警備員、整備士、派手な若者、会社員の女性)。ギャングと同じ見た目の市民をなるべく同じ波に出す
 // - 小物の色:組の仲間は同じ色、組ごとに違う色(ステージの中で重ならない)。
@@ -18,12 +18,12 @@ import type {
   Accessory, AccessoryColorId, GangGroup, GangLook, GarageDisguise, Person, Wave
 } from './types';
 
-export const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
+const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
 /** 女ボスの化けた姿 */
-export const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
+const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
 
 /** 小物を作る(色と、見た目と正体で決まる小物の名前) */
-export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
+function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
   const c = ACCESSORY_COLORS[colorId];
   return { id: colorId, name: c.name, color: c.color, item: ACCESSORY_ITEM[look][isGang ? 'bad' : 'civ'] };
 }
@@ -55,7 +55,8 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
 
   return def.waves.map((plan) => {
     // 組の数と人数
-    const [gMin, gMax] = plan.gangGroups ?? [1, 1];
+    if (!plan.gangGroups) throw new Error(`garage の波${plan.no}に gangGroups がない`);
+    const [gMin, gMax] = plan.gangGroups;
     const groupCount = gMax > gMin && rng.chance(GANG.twoGroupChance) ? gMax : gMin;
     const sizes = groupSizes(rng, groupCount, plan.gangPairOnly ?? false);
     const gangTotal = sizes.reduce((a, b) => a + b, 0);
@@ -138,7 +139,7 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
  * 前の人とのつながりの文を決める(並び順が決まってから)。
  * ギャング:同じ組の前の仲間がいれば、GANG.gangLinkRate でその人(いちばん近い仲間)とのつながり。
  * 市民:波の2人目から、GANG.civLinkRate で前の誰か(ギャングのこともある)とのどちらとも取れるつながり。
- * 「おそろいの色」の文は、本当に色が同じときだけ使う。女ボスにはつけない(女ボスの一言はおかしいところを指す)
+ * 相手は波の何人目かで呼ぶ(「1人目と…」)。「同じ色の小物」の文は、本当に色が同じときだけ使う。女ボスにはつけない(女ボスの一言はおかしいところを指す)
  */
 function addLinks(rng: Rng, used: UsedTexts, people: Person[]): void {
   people.forEach((p, i) => {
@@ -154,12 +155,10 @@ function addLinks(rng: Rng, used: UsedTexts, people: Person[]): void {
     const to = target;
     const where = rng.chance(GANG.linkInProfileRate) ? 'profile' : 'hint';
     const sameColor = p.accessory?.id === to.accessory?.id;
-    const want = p.truth === 'bad' ? 'bad' : 'civ';
-    const list = (where === 'profile' ? LINK_PROFILES : LINK_HINTS).filter(
-      (t: LinkTemplate) => (t.for === want || t.for === 'both') && (!t.sameColor || sameColor)
-    );
-    const tpl = pickFresh(rng, list, used.texts, (t) => linkText(t.text, to.look as GangLook));
-    const text = linkText(tpl.text, to.look as GangLook);
+    const list = (where === 'profile' ? LINK_PROFILES : LINK_HINTS).filter((t: LinkTemplate) => !t.sameColor || sameColor);
+    const look = p.look as GangLook;
+    const tpl = pickFresh(rng, list, used.texts, (t) => linkText(t.text, to.index, look));
+    const text = linkText(tpl.text, to.index, look);
     if (where === 'profile') p.profile = { ...p.profile, line: text };
     else p.hint = { face: tpl.face, text };
     p.link = { toId: to.id, where };

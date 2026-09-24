@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from './rng';
 import {
-  ATTACKS, canStop, civHitChanceAt, isAttacked, pickMarkTarget, propBreakChanceAt, resolveEncounter, rollPropsBroken
+  ATTACKS, canStop, civHitChanceAt, isAttacked, propBreakChanceAt, resolveEncounter, rollPropsBroken
 } from './rules';
 
 describe('rules', () => {
@@ -40,10 +40,5 @@ describe('rules', () => {
     expect(canStop('bossFight')).toBe(false);
     expect(canStop('hitCiv')).toBe(true);
     expect(isAttacked('passCiv')).toBe(false);
-  });
-
-  it('マークが2人に出ているときはヒーローに近い方', () => {
-    expect(pickMarkTarget([{ x: 150, id: 'a' }, { x: 90, id: 'b' }], 60)?.id).toBe('b');
-    expect(pickMarkTarget([], 60)).toBeNull();
   });
 });

@@ -2,29 +2,38 @@
 // 決まり:1行は全角12文字まで、1つのセリフは2行まで(改行は \n)。半角スペースとエムダッシュは使わない。
 // 2人の名前はまだ決まっていないので、文の中で名前を呼ばない。
 // ヒーローは元気で大げさで自信満々、オペレーターはため口でツッコむ幼なじみ。
-// ステージ2(地下駐車場)の文は garageContent.ts にあり、ここの一覧と関数にまとめて入れている。
+// ステージ2(地下駐車場)の文は garageContent.ts、ステージ3(ショッピングモール)の文は mallContent.ts にあり、
+// ここの一覧と関数にまとめて入れている。
 //
 // 使い方(ステージの id を渡すと、そのステージの文が出る):
-//   introFor(stage.id, run.playCount > 1)   // ステージ前の掛け合い
+//   introFor(stage.id)                       // ステージ前の掛け合い(そのステージで1回だけ。見たか遊んだら出さない)
 //   waveIntroFor(stage.id, wave.no)          // 波の始まりの一言
-//   say('bossReveal', rng, stage.id)         // 結果発表とボス戦。地下駐車場だけの種類('gathered' など)もこれで出す
-//   mischiefLine(person.look, rng)           // 悪さを始めた一言(ギャングは口笛で仲間を呼ぶ一言)
+//   say('bossReveal', rng, stage.id)         // 結果発表とボス戦。地下駐車場だけの種類('gathered' など)、
+//                                            // ショッピングモールだけの種類('ufoBeam' など)もこれで出す
+//   mischiefLine(person.look, rng)           // 悪さを始めた一言(ギャングは口笛で仲間を呼ぶ一言、宇宙人は空へ合図する一言)
+//   streetTextsFor(stage.id)                 // 結果発表の帯と本性ちらりの文(宇宙人は「ピピッ…」)
+//   rushIntroFor(seen) / rushEndLine(tally)  // タイムセールラッシュの説明と終わりの一言(ステージ3)
 
 import {
-  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_INTRO, GARAGE_INTRO_REPLAY, GARAGE_NAMES,
+  BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_JUDGE_LINES, GARAGE_INTRO, GARAGE_NAMES,
   GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS, GARAGE_TITLE_COMMENTS,
   GARAGE_TITLE_COMMENT_OVERRIDES, GARAGE_WAVE_INTRO, allLinkTexts, type GarageReactionKey
 } from './garageContent';
+import {
+  BOSS3_HINTS, BOSS3_PROFILE_LINES, MALL_AGES, MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_JUDGE_LINES, MALL_NAMES,
+  MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS, MALL_STREET_TEXTS, MALL_TITLE_COMMENTS,
+  MALL_TITLE_COMMENT_OVERRIDES, MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST, type MallReactionKey
+} from './mallContent';
 import { ANALOGY_UNITS } from './format';
-import { ACCESSORY_COLORS, ACCESSORY_ITEM } from './rules';
+import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
+import { STAGES } from './stages';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, Speech, StageId, TitleId, WaveNo
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, Look, OperatorHint, RushTally, Speech, StageId,
+  TitleId, WaveNo
 } from './types';
+import { hero, hint, op } from './speech';
 
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
-const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
 
 // ─── プロフィール ─────────────────────────────────
 
@@ -35,7 +44,8 @@ export const NAMES: Readonly<Record<Look, readonly string[]>> = {
   shopper: ['松本由美', '井上恵子', '佐々木陽子', '山口直美', '岡田久美', '長谷川幸', '藤田真理', '後藤明美', '村田京子', '原田里香'],
   mohawk: ['鬼塚リュウジ', '権田ゴウ', '黒岩ダン', '毒島ケン', '赤城トオル', '牙野ジン'],
   granny: ['梅田ハナ', '松井トメ', '竹内キヨ', '菊池フミ', '小川ウメ', '杉山チヨ', '野口タマ', '村上シズ', '大野スエ', '今井キク'],
-  ...GARAGE_NAMES
+  ...GARAGE_NAMES,
+  ...MALL_NAMES
 };
 
 /** 見た目ごとの年齢の幅(両端を含む)。市民とワルで同じ */
@@ -45,12 +55,36 @@ export const AGES: Readonly<Record<Look, readonly [number, number]>> = {
   shopper: [32, 61],
   mohawk: [19, 27],
   granny: [71, 89],
-  ...GARAGE_AGES
+  ...GARAGE_AGES,
+  ...MALL_AGES
+};
+
+/**
+ * 市民にもワルにも出るプロフィールの一文(どちらにも本当のこと)。
+ * これが出た人は、文だけでは決められない。見た目、動き、一言、「持ち物」の窓と合わせて決める
+ */
+export const BOTH_PROFILE_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper', readonly string[]>> = {
+  hoodie: [
+    '路地裏は\nよく通る',
+    'ポケットに\n手を入れるくせがある',
+    'パーカーは\n三枚持っている'
+  ],
+  suit: [
+    'スーツは\n毎日同じ',
+    '今日は\n忙しい一日だった',
+    'この辺の道は\nよく知っている'
+  ],
+  shopper: [
+    '袋はいつも\nぱんぱん',
+    '商店街には\n毎日来る',
+    '重い袋にも\nもう慣れた'
+  ]
 };
 
 /**
  * プロフィールの一文。嘘は書かないが、どちらとも取れる。
  * 市民とワルで似た言い回しを並べ、どちらの一覧にも見た目や動きの手がかりに合う言葉を混ぜる。
+ * 組の見た目(パーカー、スーツ、買い物袋)には、どちらにも出る文(BOTH_PROFILE_LINES)も入れる
  */
 export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad?: readonly string[] }>> = {
   hoodie: {
@@ -59,9 +93,10 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       'ポケットの中身は\n今月の全財産',
       '人を待っている。\n相手はまだ来ない',
       '夜の散歩が好き。\n路地裏は近道',
-      '手ぶらに見えるが\n持つ物は持っている',
+      '手ぶらに見えるが\n必要な物は持っている',
       '最近、財布を\n新しくした',
-      'バイト帰り。\n今日は給料日'
+      'バイト帰り。\n今日は給料日',
+      ...BOTH_PROFILE_LINES.hoodie
     ],
     // ワル:ポケットからナイフの柄。ポケットを押さえてキョロキョロ
     bad: [
@@ -70,7 +105,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '夜の路地裏に\nくわしい',
       '手ぶらに見えるが\nそうでもない',
       '最近、よく\n後ろをふり返る',
-      '今日は\n稼ぎどきらしい'
+      '今日は\n稼ぎどきらしい',
+      ...BOTH_PROFILE_LINES.hoodie
     ]
   },
   suit: {
@@ -81,7 +117,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '大事な物を\n届けるところ',
       '今日は朝から\n走りっぱなし',
       '家族には\n頭が上がらない',
-      '路地裏は近道。\n急いでいる'
+      '路地裏は近道。\n急いでいる',
+      ...BOTH_PROFILE_LINES.suit
     ],
     // ワル:女物のバッグを抱えている。バッグを抱え直して後ろを気にする
     bad: [
@@ -90,7 +127,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '大事な物を\n運んでいるところ',
       '今日は朝から\n走りっぱなし',
       '赤い物が好き。\n最近手に入れた',
-      '荷物が多いのは\n慣れている'
+      '荷物が多いのは\n慣れている',
+      ...BOTH_PROFILE_LINES.suit
     ]
   },
   shopper: {
@@ -101,7 +139,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '重い物を持つのは\n得意',
       'この辺の店は\nだいたい知ってる',
       '買い物は\n早い者勝ち',
-      '袋は二重にする派'
+      '袋は二重にする派',
+      ...BOTH_PROFILE_LINES.shopper
     ],
     // ワル:袋から財布や腕時計がのぞく。袋の口を手でふさぐ
     bad: [
@@ -110,7 +149,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       'キラキラした物が\n好き',
       'この辺の人は\nだいたい知ってる',
       '財布はいくつ\nあっても困らない',
-      '人ごみが好き。\n用事はすぐ済む'
+      '人ごみが好き。\n用事はすぐ済む',
+      ...BOTH_PROFILE_LINES.shopper
     ]
   },
   mohawk: {
@@ -136,7 +176,9 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
     ]
   },
   // ステージ2(garageContent.ts)
-  ...GARAGE_PROFILE_LINES
+  ...GARAGE_PROFILE_LINES,
+  // ステージ3(mallContent.ts)
+  ...MALL_PROFILE_LINES
 };
 
 /**
@@ -167,7 +209,8 @@ const ALLEY_BOSS_PROFILE_LINES: Readonly<Record<AlleyDisguise, readonly string[]
 /** ボスの化けた姿のプロフィール(全部のステージ) */
 export const BOSS_PROFILE_LINES: Readonly<Record<DisguiseLook, readonly string[]>> = {
   ...ALLEY_BOSS_PROFILE_LINES,
-  ...BOSS2_PROFILE_LINES
+  ...BOSS2_PROFILE_LINES,
+  ...BOSS3_PROFILE_LINES
 };
 
 // ─── オペレーターの一言(仕分け中) ────────────────
@@ -175,6 +218,8 @@ export const BOSS_PROFILE_LINES: Readonly<Record<DisguiseLook, readonly string[]
 /**
  * オペレーターの一言。嘘はつかないが、どちらとも取れる言い方にする。
  * SPECの表の一言(「ポケットがふくらんでる…」など)は市民にもワルにも入れる。
+ * 顔は文だけで決める(同じ文はいつも同じ顔)。組の見た目は、市民とワルで顔の数をそろえる
+ * (あわてた顔が出たらワル、のように顔だけで分からないように)
  */
 export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint[]; bad?: readonly OperatorHint[] }>> = {
   hoodie: {
@@ -183,14 +228,16 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', 'ずっと手を\nポケットに入れてる'),
       hint('normal', '誰かを\n待ってるみたい'),
       hint('deadpan', '落ち着いてる…\nように見える'),
-      hint('normal', '茶色い物が\nちらっと見えた')
+      hint('normal', '茶色い物が\nちらっと見えた'),
+      hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ],
     bad: [
       hint('normal', 'ポケットが\nふくらんでる…'),
       hint('normal', 'ポケットを\n押さえてるね'),
-      hint('panic', 'さっきから\nキョロキョロしてる'),
+      hint('normal', 'さっきから\nキョロキョロしてる'),
       hint('deadpan', '落ち着きが\nないような…'),
-      hint('normal', '黄色い物が\nちらっと見えた')
+      hint('normal', '黄色い物が\nちらっと見えた'),
+      hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ]
   },
   suit: {
@@ -215,14 +262,16 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '袋を何度も\n持ち直してる'),
       hint('normal', '白い物が\nのぞいてる'),
       hint('normal', '買い物帰り\nかな？'),
-      hint('deadpan', '袋、\nはち切れそう')
+      hint('deadpan', '袋、\nはち切れそう'),
+      hint('panic', '袋から何か\n落ちそう！')
     ],
     bad: [
       hint('normal', '袋がやけに\n重そう'),
       hint('normal', '袋の口を\n押さえてるね'),
       hint('normal', '金色の物が\nのぞいてる'),
-      hint('deadpan', '買い物帰り…\nなのかな？'),
-      hint('panic', '袋、\nはち切れそう')
+      hint('normal', '買い物帰り…\nなのかな？'),
+      hint('deadpan', '袋、\nはち切れそう'),
+      hint('panic', '袋から何か\n落ちそう！')
     ]
   },
   mohawk: {
@@ -243,7 +292,9 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
     ]
   },
   // ステージ2(garageContent.ts)
-  ...GARAGE_OPERATOR_HINTS
+  ...GARAGE_OPERATOR_HINTS,
+  // ステージ3(mallContent.ts)
+  ...MALL_OPERATOR_HINTS
 };
 
 /** ボスの化けた姿の一言。どれも「どこか1か所おかしい」ところを指す */
@@ -271,40 +322,24 @@ const ALLEY_BOSS_HINTS: Readonly<Record<AlleyDisguise, readonly OperatorHint[]>>
 /** ボスの化けた姿の一言(全部のステージ) */
 export const BOSS_HINTS: Readonly<Record<DisguiseLook, readonly OperatorHint[]>> = {
   ...ALLEY_BOSS_HINTS,
-  ...BOSS2_HINTS
+  ...BOSS2_HINTS,
+  ...BOSS3_HINTS
 };
 
 // ─── ステージ前の掛け合い ─────────────────────────
 
-/** 最初に遊ぶときの掛け合い。遊び方もここで伝える。上から順に出す */
+/**
+ * そのステージを初めて遊ぶときの掛け合い。仕分けのやり方だけを短く伝える。上から順に出す。
+ * 待てと行けは、結果発表で初めてマークが出たときに教える(ここでは言わない)
+ */
 export const INTRO: readonly Speech[] = [
-  hero('smug', '今日も街の平和は\nこのヒーローが守る！'),
-  op('deadpan', 'ワルと市民の区別も\nつかないくせに'),
-  hero('smile', 'そこは相棒の出番！\n頼りにしてるよ！'),
-  op('normal', 'はいはい。\nじゃあいつものやつ'),
-  op('normal', '左にスワイプでワル\n右にスワイプで市民'),
-  op('normal', '下のボタンでも\n仕分けできるよ'),
-  op('normal', '見た目と動きと\nプロフィールを見て'),
-  op('hype', 'あと私の一言も\nヒントにしてね'),
-  op('normal', '時間切れだと\nこの子が勝手に決める'),
-  hero('smug', '半々で当たる！\nたぶん！'),
-  op('deadpan', 'それ、ただの運'),
-  op('normal', '結果発表で、殴る前に\n待てで止められる'),
-  op('normal', '逃げるワルには\n行けで追い打ち！'),
-  hero('smug', '任せて！\n全員ぶっ飛ばす！'),
-  op('panic', '全員は\nぶっ飛ばさないで！')
-];
-
-/** 2回目からの短い掛け合い(もう一回のとき) */
-export const INTRO_REPLAY: readonly Speech[] = [
-  hero('smug', 'もう一回！\n今度こそ完ぺき！'),
-  op('deadpan', '左がワル、\n右が市民だからね'),
-  op('normal', '待てと行けも\n忘れないで'),
-  hero('smile', '任せて！')
+  op('normal', '1人ずつ来るよ。ワルは左\n市民は右にスワイプ！'),
+  op('normal', '手がかりは見た目、動き\nプロフィール、私の一言'),
+  hero('smug', '見分けるのは相棒！\n殴るのは任せて！')
 ];
 
 /** 波の始まりの一言。上から順に出す */
-export const WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+const WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', '一目で分かる\nワルもいるからね')
@@ -349,12 +384,16 @@ export const ATTACK_SHOUTS: Readonly<Record<AttackKind, readonly Speech[]>> = {
 export type ReactionKey =
   | 'sortHurry'      // 残り5秒(オペレーター)
   | 'timeUp'         // 時間切れ(ヒーロー)
-  | 'timeUpOp'       // 時間切れへのツッコミ(オペレーター)
   | 'sortDone'       // 仕分けが終わって結果発表へ(ヒーロー)
-  | 'streetWatch'    // 結果発表の始まりの一言のあと、少ししてから(オペレーター)
+  | 'teachStop'      // その回で初めて待ての合図が出た:待ての使い方(オペレーター)
+  | 'teachGo'        // その回で初めてワルが悪さを始めた:行けの使い方(オペレーター)
+  | 'judge'          // ワルにした人に向かうときの決めつけ。見た目の一覧がないとき(ヒーロー。見た目ごとは JUDGE_LINES)
+  | 'judgeRight'     // ワルにした人が本当にワルだった:最初から分かってた顔(ヒーロー)
+  | 'stubborn'       // ワルにした人が市民だった:謝らずに言いはる(ヒーロー)
+  | 'ownFault'       // 言いはるヒーローを見て、仕分けた自分に気づく(オペレーター)
   | 'hitBad'         // ワルを倒した(オペレーター)
-  | 'hitBadHero'     // ワルを倒した(ヒーロー)
-  | 'oops'           // 市民を殴ってしまった:やっちまったー(ヒーロー)
+  | 'hitBadHero'     // 行けで追いかけたワルを倒した(ヒーロー)
+  | 'oops'           // 巻きぞえで市民に当ててしまった:やっちまったー(ヒーロー)
   | 'okay'           // 立ち直る:まあいいか(ヒーロー)
   | 'tsukkomi'       // まあいいか、へのツッコミ。そのステージで1回目(オペレーター)
   | 'tsukkomiShort'  // 同じステージの2回目から(オペレーター)
@@ -364,6 +403,7 @@ export type ReactionKey =
   | 'specialOnCiv'   // 必殺技が市民に当たった(オペレーター)
   | 'stop'           // 待てで止まった:了解(ヒーロー)
   | 'stopOp'         // 待てで止まったあと(オペレーター)
+  | 'stopBad'        // 待てで止めた人が本当はワルだった(オペレーター)
   | 'stopFailBoss'   // ボスに待てを押しても止まらない(ヒーロー)
   | 'go'             // 行けで追いかける(ヒーロー)
   | 'goOp'           // 行けを押したとき(オペレーター)
@@ -385,15 +425,35 @@ export type ReactionKey =
 export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   sortHurry: [op('panic', 'あと5秒！\n急いで！'), op('panic', '時間ないよ！')],
   timeUp: [hero('smug', '時間切れ！\nあとは勘で行く！'), hero('smug', '残りは\n気分で決める！')],
-  timeUpOp: [op('panic', '勘はやめて！'), op('deadpan', 'せめて考えて')],
   sortDone: [hero('smug', '仕分け完了！\n行ってくる！'), hero('smug', 'よーし、\n出動！')],
-  streetWatch: [op('normal', '殴る前なら\n待てで止められる'), op('normal', '悪さをされたら\n行けで追いかけて')],
+  teachStop: [op('normal', 'ワルにした人だよ。\nちがうと思ったら待て！')],
+  teachGo: [op('panic', '悪さを始めた！\n行けで追いかけて！')],
+  judge: [
+    hero('smug', '目つきが悪い！\nワルで間違いない！'),
+    hero('smug', 'オーラが黒い！\nワルで間違いない！'),
+    hero('smug', 'ピンときた！\nワルで間違いない！')
+  ],
+  judgeRight: [
+    hero('smug', 'ほらね！\n顔に書いてあった！'),
+    hero('smug', 'やっぱり！\n思ったとおり！'),
+    hero('smug', 'ほらね！\nひと目で分かった！')
+  ],
+  stubborn: [
+    hero('smug', '目つきは\n悪かった！'),
+    hero('smug', 'でも怪しかった！'),
+    hero('smug', '顔がワルっぽかった！')
+  ],
+  ownFault: [
+    op('deadpan', '…ワルにしたの、\n私だけど'),
+    op('deadpan', '…仕分けたの、\n私だった'),
+    op('deadpan', '…ワルの札、\n私がつけたんだった')
+  ],
   hitBad: [op('hype', 'ナイス！'), op('hype', 'いいね！\nその調子！'), op('hype', 'よし、\n1人片付いた！')],
   hitBadHero: [hero('smug', '正義の勝利！'), hero('smug', '悪は許さない！')],
   oops: [
     hero('oops', 'やっちまったー！'),
     hero('oops', 'あっ…\nやっちまったー！'),
-    hero('oops', 'しまったーっ！\n市民だった！')
+    hero('oops', 'しまったーっ！\n巻きこんだ！')
   ],
   okay: [
     hero('smile', 'まあいいか！'),
@@ -413,14 +473,15 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   ],
   collateral: [
     op('panic', '後ろの人にも\n当たってる！'),
-    op('panic', '巻きぞえ！\n関係ない人！'),
+    op('panic', '巻きぞえ！\n関係ない人まで！'),
     op('panic', '今の、奥の人に\n当たったよ！')
   ],
   grannyHit: [op('panic', 'おばあちゃん\nだったのに！'), op('panic', 'よりによって\nおばあちゃん！')],
   specialOnCiv: [op('panic', '必殺技を市民に\n当てないで！'), op('panic', '光線が市民に！\n何してんの！')],
   stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まります！'), hero('smile', 'おっと、了解！')],
-  stopOp: [op('normal', '了解、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先へ！')],
-  stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'こいつは\n止まれない！')],
+  stopOp: [op('normal', 'オッケー、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先に進もう！')],
+  stopBad: [op('deadpan', 'あ、ワルだったかも…'), op('deadpan', 'あれ？今の人、\nワルだったかも…')],
+  stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'ボスだけは\n待てないよ！')],
   go: [hero('smug', '行ってくる！'), hero('smug', '逃がすかーっ！'), hero('smug', '待てーっ！\n悪党ーっ！')],
   goOp: [op('hype', '行け！'), op('hype', '追いかけて！')],
   pass: [
@@ -432,7 +493,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   mischiefHero: [hero('oops', 'あれっ！？\nいい人だと思ったのに！'), hero('oops', 'えっ、\nワルだったの！？')],
   escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n逃げてった'), op('deadpan', '逃がしたね…')],
   bossReveal: [op('panic', '正体を現した！\nこいつがボスだ！'), op('panic', '出た！\n路地裏のボス！')],
-  bossRevealHero: [hero('smug', 'やっぱりね！\n最初から分かってた！'), hero('smug', '見破ったり！')],
+  bossRevealHero: [hero('smug', 'やっぱりね！\n最初から分かってた！'), hero('smug', 'お見通しだよ！')],
   bossRevealOp2: [op('deadpan', '絶対うそでしょ'), op('deadpan', '今気づいたよね')],
   bossRampage: [op('panic', 'ボスだったの！？\n街が壊れてく！'), op('panic', '素通りした人が\nボスだった！')],
   bossRampageHero: [hero('oops', 'えっ、ボス！？\n手を振っちゃった！'), hero('oops', 'いい人そう\nだったのに！')],
@@ -443,6 +504,55 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   bossDefeated: [hero('smug', '正義は勝つ！'), hero('smug', '見たか！\nこれがヒーロー！')],
   bossDefeatedOp: [op('hype', 'やったー！\nボスを倒した！'), op('hype', '路地裏、\n平和になった！')]
 };
+
+/**
+ * ワルにした人に向かうときのヒーローの決めつけ。見た目ごと(ステージ2の見た目は garageContent.ts)。
+ * 本当に市民かワルかでは変えない(文で分かってしまわないように)。どれも札に合わせた、あと付けの理由
+ */
+const ALLEY_JUDGE_LINES: Readonly<Record<AlleyLook, readonly Speech[]>> = {
+  hoodie: [
+    hero('smug', 'ポケットがふくらんでる！\nワルで間違いない！'),
+    hero('smug', 'フードがあやしい！\nワルで間違いない！'),
+    hero('smug', '手をポケットに入れてる！\nワルで間違いない！')
+  ],
+  suit: [
+    hero('smug', 'すごくあせってる！\nワルで間違いない！'),
+    hero('smug', 'ネクタイが曲がってる！\nワルで間違いない！'),
+    hero('smug', '走り方があやしい！\nワルで間違いない！')
+  ],
+  shopper: [
+    hero('smug', '袋がパンパン！\nワルで間違いない！'),
+    hero('smug', '袋の中身があやしい！\nワルで間違いない！'),
+    hero('smug', '買い物しすぎ！\nワルで間違いない！')
+  ],
+  mohawk: [
+    hero('smug', 'トゲトゲ頭！\nワルで間違いない！'),
+    hero('smug', 'どう見ても悪そう！\nワルで間違いない！'),
+    hero('smug', '髪型がとがってる！\nワルで間違いない！')
+  ],
+  granny: [
+    hero('smug', '杖が武器っぽい！\nワルで間違いない！'),
+    hero('smug', '腰のたたき方があやしい！\nワルで間違いない！'),
+    hero('smug', 'にこにこしすぎ！\nワルで間違いない！')
+  ]
+};
+
+/** ワルにした人に向かうときの決めつけ(全部のステージの見た目) */
+export const JUDGE_LINES: Readonly<Record<Look, readonly Speech[]>> = {
+  ...ALLEY_JUDGE_LINES,
+  ...GARAGE_JUDGE_LINES,
+  ...MALL_JUDGE_LINES
+};
+
+/** 結果発表の画面に出る短い文(始まりの帯と、本性ちらりの小さな吹き出し) */
+export const STREET_TEXTS = {
+  /** 結果発表の始まりの帯 */
+  band: '出動！待て・行けの出番',
+  /** ワルにした人に向かったとき、本当はワル(ボスも)なら、何かをさっと隠す */
+  peekBad: 'サッ…',
+  /** 本当は市民なら、小さくおじぎ */
+  peekCiv: 'ぺこり'
+} as const;
 
 /** ワルが悪さを始めたときの一言(オペレーター)。見た目ごと */
 export const MISCHIEF_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper' | 'mohawk', readonly Speech[]>> = {
@@ -466,46 +576,84 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   chaseDemon: op('normal', '逃げても逃げても\n追いかけてたね'),
   tooKind: op('deadpan', 'やさしいのはいいけど\nワルは逃げたよ'),
   soSo: op('normal', 'まあまあ…\nだったかな'),
-  ...GARAGE_TITLE_COMMENTS
+  ...GARAGE_TITLE_COMMENTS,
+  ...MALL_TITLE_COMMENTS
 };
 
-const GARAGE_TITLE_COMMENT_LIST: Readonly<Partial<Record<TitleId, Speech>>> = GARAGE_TITLE_COMMENT_OVERRIDES;
+// ─── ステージごとの文 ─────────────────────────────
+
+/**
+ * 結果発表とボス戦のセリフの種類(全部のステージ)。
+ * GarageReactionKey は地下駐車場で足した種類、MallReactionKey はショッピングモールで足した種類
+ */
+export type AnyReactionKey = ReactionKey | GarageReactionKey | MallReactionKey;
+export type { GarageReactionKey, MallReactionKey };
+
+/** ステージごとに、路地裏と違う文(stageTexts で引く) */
+export interface StageTextSet {
+  /** ステージ前の掛け合い */
+  intro: readonly Speech[];
+  /** 波の始まりの一言 */
+  waveIntro: Readonly<Record<WaveNo, readonly Speech[]>>;
+  /** そのステージで足したセリフの種類と、言い方を変えた種類(ReactionKey)。ないものは路地裏の文 */
+  reactions: Readonly<Partial<Record<AnyReactionKey, readonly Speech[]>>>;
+  /** 言い方を変えた称号のひとこと。ないものは TITLE_COMMENTS */
+  titleComments: Readonly<Partial<Record<TitleId, Speech>>>;
+}
+
+const GARAGE_TEXTS: StageTextSet = {
+  intro: GARAGE_INTRO,
+  waveIntro: GARAGE_WAVE_INTRO,
+  reactions: { ...GARAGE_REACTIONS, ...GARAGE_OVERRIDES },
+  titleComments: GARAGE_TITLE_COMMENT_OVERRIDES
+};
+
+const MALL_TEXTS: StageTextSet = {
+  intro: MALL_INTRO,
+  waveIntro: MALL_WAVE_INTRO,
+  // 母艦は女ボスの車と同じ種類(bossCar など)で、言い方だけ変える
+  reactions: { ...MALL_REACTIONS, ...MALL_OVERRIDES, ...MALL_GARAGE_OVERRIDES },
+  titleComments: MALL_TITLE_COMMENT_OVERRIDES
+};
+
+/** ステージごとの文の表 */
+const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
+  alley: { intro: INTRO, waveIntro: WAVE_INTRO, reactions: {}, titleComments: {} },
+  garage: GARAGE_TEXTS,
+  mall: MALL_TEXTS
+};
 
 /**
  * 称号のひとことを、ステージに合った言い方で返す(結果画面と共有カード用)。
  * 例:titleCommentFor('demolition', 'garage') は「駐車場の修理代、誰が払うの…」。
- * 言い方を変えていない称号は title.comment(TITLE_COMMENTS)と同じ
+ * 言い方を変えていない称号は TITLE_COMMENTS と同じ
  */
 export function titleCommentFor(id: TitleId, stageId: StageId = 'alley'): Speech {
-  if (stageId === 'garage') {
-    const o = GARAGE_TITLE_COMMENT_LIST[id];
-    if (o) return o;
-  }
-  return TITLE_COMMENTS[id];
+  return STAGE_TEXTS[stageId].titleComments[id] ?? TITLE_COMMENTS[id];
 }
 
 // ─── 選ぶための関数 ───────────────────────────────
 
 /** 一覧から1つ選ぶ。rng を渡さなければ Math.random で選ぶ */
-export function pickSpeech(list: readonly Speech[], rng?: Rng): Speech {
+function pickSpeech(list: readonly Speech[], rng?: Rng): Speech {
   if (list.length === 0) throw new Error('pickSpeech: 空の一覧');
   return rng ? rng.pick(list) : list[Math.floor(Math.random() * list.length)];
 }
 
-/** 結果発表とボス戦のセリフの種類(全部のステージ)。GarageReactionKey は地下駐車場だけで使う */
-export type AnyReactionKey = ReactionKey | GarageReactionKey;
-export type { GarageReactionKey };
-
-const GARAGE_OVERRIDE_LISTS: Readonly<Partial<Record<ReactionKey, readonly Speech[]>>> = GARAGE_OVERRIDES;
-
-/** そのステージで使うセリフの一覧 */
+/**
+ * そのステージで使うセリフの一覧。
+ * そのステージの文 → 路地裏の文 → ほかのステージで足した種類(例:路地裏の結果画面で出す 'unlocked')の順に探す
+ */
 export function reactionList(key: AnyReactionKey, stageId: StageId = 'alley'): readonly Speech[] {
-  if (key in GARAGE_REACTIONS) return GARAGE_REACTIONS[key as GarageReactionKey];
-  if (stageId === 'garage') {
-    const o = GARAGE_OVERRIDE_LISTS[key as ReactionKey];
-    if (o) return o;
+  const own = STAGE_TEXTS[stageId].reactions[key];
+  if (own) return own;
+  const base = (REACTIONS as Partial<Record<AnyReactionKey, readonly Speech[]>>)[key];
+  if (base) return base;
+  for (const id of Object.keys(STAGE_TEXTS) as StageId[]) {
+    const other = STAGE_TEXTS[id].reactions[key];
+    if (other) return other;
   }
-  return REACTIONS[key as ReactionKey];
+  throw new Error(`reactionList: 文がない ${key}`);
 }
 
 /**
@@ -516,15 +664,14 @@ export function say(key: AnyReactionKey, rng?: Rng, stageId: StageId = 'alley'):
   return pickSpeech(reactionList(key, stageId), rng);
 }
 
-/** ステージ前の掛け合い。replay が true なら2回目からの短い版 */
-export function introFor(stageId: StageId, replay = false): readonly Speech[] {
-  if (stageId === 'garage') return replay ? GARAGE_INTRO_REPLAY : GARAGE_INTRO;
-  return replay ? INTRO_REPLAY : INTRO;
+/** ステージ前の掛け合い */
+export function introFor(stageId: StageId): readonly Speech[] {
+  return STAGE_TEXTS[stageId].intro;
 }
 
 /** 波の始まりの一言 */
 export function waveIntroFor(stageId: StageId, no: WaveNo): readonly Speech[] {
-  return (stageId === 'garage' ? GARAGE_WAVE_INTRO : WAVE_INTRO)[no];
+  return STAGE_TEXTS[stageId].waveIntro[no];
 }
 
 /** 攻撃の叫びを1つ選ぶ */
@@ -540,13 +687,43 @@ export function tsukkomi(nth: number, rng?: Rng): Speech {
   return say(nth <= 1 ? 'tsukkomi' : 'tsukkomiShort', rng);
 }
 
-/** ワルが悪さを始めたときの一言。ステージ2のギャングは口笛で仲間を呼ぶ一言 */
+/** ワルにした人に向かうときのヒーローの決めつけ。見た目が分からなければ say('judge') と同じ */
+export function judgeLine(look: Look | undefined, rng?: Rng): Speech {
+  const list = look ? JUDGE_LINES[look] : undefined;
+  return list && list.length > 0 ? pickSpeech(list, rng) : say('judge', rng);
+}
+
+/**
+ * ワルが悪さを始めたときの一言。ステージ2のギャングは口笛で仲間を呼ぶ一言、
+ * ステージ3の宇宙人は空へ合図を送る一言
+ */
 export function mischiefLine(look: Look, rng?: Rng): Speech {
-  if (look === 'guard' || look === 'mechanic' || look === 'clubber' || look === 'officelady') {
-    return pickSpeech(GARAGE_REACTIONS.whistle, rng);
-  }
-  const key = look === 'granny' ? 'hoodie' : look;
+  const kind = MISCHIEF_BY_LOOK[look];
+  if (kind === 'whistle') return pickSpeech(GARAGE_REACTIONS.whistle, rng);
+  if (kind === 'signal') return pickSpeech(MALL_REACTIONS.ufoSignal, rng);
+  const key = look in MISCHIEF_LINES ? (look as keyof typeof MISCHIEF_LINES) : 'hoodie';
   return pickSpeech(MISCHIEF_LINES[key], rng);
+}
+
+/**
+ * 結果発表の画面に出る短い文(始まりの帯と、本性ちらり)。宇宙人のステージ(仕組みが 'ufo'。ショッピングモール)は
+ * 宇宙人のちらりが「ピピッ…」
+ */
+export function streetTextsFor(stageId: StageId): { band: string; peekBad: string; peekCiv: string } {
+  return STAGES[stageId].mechanic === 'ufo' ? MALL_STREET_TEXTS : STREET_TEXTS;
+}
+
+/**
+ * タイムセールラッシュの始まりの説明(オペレーターのカットイン)。
+ * seen はこれまでにラッシュを見たことがあるか(records.ts の hasSeenRush)。初めては2つ、見たことがあれば1つ
+ */
+export function rushIntroFor(seen: boolean): readonly Speech[] {
+  return seen ? RUSH_INTRO_AGAIN : RUSH_INTRO_FIRST;
+}
+
+/** タイムセールラッシュが終わったときの一言。市民を全員守れたら「ばっちり!」 */
+export function rushEndLine(t: Pick<RushTally, 'civs' | 'civsSaved'>, rng?: Rng): Speech {
+  return pickSpeech(t.civsSaved >= t.civs ? MALL_REACTIONS.rushEndGood : MALL_REACTIONS.rushEndBad, rng);
 }
 
 /** content.ts のすべてのセリフと一言の文(文字数の確かめ用) */
@@ -563,20 +740,32 @@ export function allTexts(): string[] {
     addList(BOSS_HINTS[d]);
   }
   addList(INTRO);
-  addList(INTRO_REPLAY);
   for (const w of [1, 2, 3] as WaveNo[]) addList(WAVE_INTRO[w]);
   for (const k of Object.keys(ATTACK_SHOUTS) as AttackKind[]) addList(ATTACK_SHOUTS[k]);
   for (const k of Object.keys(REACTIONS) as ReactionKey[]) addList(REACTIONS[k]);
   for (const k of Object.keys(MISCHIEF_LINES) as (keyof typeof MISCHIEF_LINES)[]) addList(MISCHIEF_LINES[k]);
+  for (const k of Object.keys(JUDGE_LINES) as Look[]) addList(JUDGE_LINES[k]);
+  out.push(...Object.values(STREET_TEXTS));
   addList(Object.values(TITLE_COMMENTS));
   // ステージ2
   addList(GARAGE_INTRO);
-  addList(GARAGE_INTRO_REPLAY);
   for (const w of [1, 2, 3] as WaveNo[]) addList(GARAGE_WAVE_INTRO[w]);
   for (const k of Object.keys(GARAGE_REACTIONS) as GarageReactionKey[]) addList(GARAGE_REACTIONS[k]);
-  for (const l of Object.values(GARAGE_OVERRIDE_LISTS)) if (l) addList(l);
+  for (const l of Object.values(GARAGE_OVERRIDES)) addList(l);
   out.push(...allLinkTexts());
   addList(Object.values(GARAGE_TITLE_COMMENT_OVERRIDES));
+  // ステージ3
+  addList(MALL_INTRO);
+  for (const w of [1, 2, 3] as WaveNo[]) addList(MALL_WAVE_INTRO[w]);
+  for (const k of Object.keys(MALL_REACTIONS) as MallReactionKey[]) addList(MALL_REACTIONS[k]);
+  for (const l of Object.values(MALL_OVERRIDES)) addList(l);
+  for (const l of Object.values(MALL_GARAGE_OVERRIDES)) addList(l);
+  addList(Object.values(MALL_TITLE_COMMENT_OVERRIDES));
+  out.push(...Object.values(MALL_STREET_TEXTS), RUSH_BAND);
+  addList(RUSH_INTRO_FIRST);
+  addList(RUSH_INTRO_AGAIN);
+  // ラッシュのまとめ(rushSummary)と、市民のけがの内わけ(hurtBreakdown)の字(数字は別に読みこむ)
+  out.push('セール：撃破・守った', 'さらわれた');
   // 被害額のたとえの物の名前(フォントの読みこみ用。数字は別に読みこむ)
   for (const u of Object.values(ANALOGY_UNITS)) out.push(`${u.name}${u.counter}分`);
   // 小物の色と名前(プロフィールの横などに出すとき用)

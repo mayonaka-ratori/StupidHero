@@ -1,5 +1,5 @@
 // ステージを選ぶ画面の、ステージ1つぶんのカード。
-//   const card = new StageCard(this, entry, { x, y, w, h, thumbH });
+//   const card = new StageCard(this, entry, { x, y, w, h, thumbH });   // thumbH が0なら絵のない、名前と記録だけのカード
 //   card.update(dt)          毎フレーム(背景を少しずつ流す、NEW の札の点滅)
 //   card.contains(x, y)      タップがカードの上か
 //   card.pressed()           選んだときの演出(ふちが光って、ヒーローが走り出す)
@@ -7,6 +7,9 @@
 //   await card.unlock()      鍵がこわれて開く演出
 // 上に背景の絵を小さく切り出して、そのステージの人とボスを立たせる。下にステージの名前と記録。
 // 開いていないカードは、絵を暗くして人を黒い影にし、鍵のマークと def.lockedText を出す。
+// 絵が細いとき(ステージが3つで画面が低いとき)は、人の胸から上が見えるように足もとを絵の下の外に出し、
+// STAGE の札を絵の左下に移す(左上のままだとヒーローの顔が隠れる)。称号の数も「称号2/14」と短くする。
+// 絵を出さないカード(thumbH が0)は、上に STAGE の番号、名前、記録を並べ、鍵は名前の右に出す。
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
@@ -19,6 +22,10 @@ export interface CardBox { x: number; y: number; w: number; h: number; thumbH: n
 
 /** 絵の中で人が立つ高さ(背景の絵の座標)。壁の下の方と地面が見える */
 const FEET_SCENE = 172;
+/** 絵の中で人の足もとを置く高さの下限(絵が細くても、顔と胸は見えるように) */
+const FEET_MIN = 54;
+/** 絵のないカードの、名前の行と記録の行の高さ */
+const TEXT_NAME_Y = 19;
 
 /** 鍵のマーク(1:金、2:黒のふち、3:影、4:穴) */
 const LOCK = [
@@ -37,7 +44,7 @@ const LOCK = [
   '..22222222..'
 ];
 
-export function drawLock(g: Phaser.GameObjects.Graphics, cx: number, cy: number, scale = 1): void {
+function drawLock(g: Phaser.GameObjects.Graphics, cx: number, cy: number, scale = 1): void {
   const colors: Record<string, number> = { 1: UI.gold, 2: 0x000000, 3: 0xa8781c, 4: 0x3a2a08 };
   const w = LOCK[0].length, h = LOCK.length;
   const x0 = Math.round(cx - (w * scale) / 2), y0 = Math.round(cy - (h * scale) / 2);
@@ -51,7 +58,16 @@ interface ActorDef { key: string; x: number; anim: string; flip?: boolean; color
 
 /** カードの絵に立たせる人と物。x は絵の幅に対する割合(0〜1)、または右端からのドット(負の数) */
 function actorsFor(entry: StageSelectEntry): ActorDef[] {
-  if (entry.id === 'garage') {
+  if (entry.def.mechanic === 'ufo') {
+    return [
+      { key: 'prop_gacha', x: 0.34, anim: '', frame: 0 },
+      { key: 'hero', x: 0.14, anim: 'idle', hero: true },
+      { key: 'mascot_bad', x: 0.46, anim: 'sortIdle', flip: true },
+      { key: 'dancer_bad', x: 0.62, anim: 'sortIdle', flip: true },
+      { key: entry.def.bossSheet, x: -30, anim: 'idle', flip: true }
+    ];
+  }
+  if (entry.def.mechanic === 'gang') {
     const red = ACCESSORY_COLORS.red.color;
     return [
       { key: 'prop_van', x: -62, anim: '', frame: 0 },
@@ -84,24 +100,51 @@ export class StageCard {
   private info: Phaser.GameObjects.Container;
   private badge?: Phaser.GameObjects.Container;
   private blinkers: PixelText[] = [];
+  /** 絵のないカードで、上の行の右に出した称号の数の幅(NEW の札はその左に出す) */
+  private countW = 0;
   private scroll = 0;
   private t = 0;
   private flashUntil = 0;
   private readonly tw: number;
   private readonly cropTop: number;
+  /** 絵が細い(人の足もとが絵の下の外に出る) */
+  private readonly thin: boolean;
 
   constructor(private scene: Phaser.Scene, readonly entry: StageSelectEntry, box: CardBox) {
     this.box = box;
     this.locked = !entry.unlocked;
     const { w, thumbH } = box;
     this.tw = w - 10;
-    this.cropTop = Math.max(0, Math.min(124, FEET_SCENE - (thumbH - 7)));
+    // 人の足もと(絵の中の高さ)。絵が細いときは絵の下の外に出して、胸から上を見せる
+    const feet = Math.max(thumbH - 7, FEET_MIN);
+    this.thin = thumbH > 0 && thumbH - 7 < FEET_MIN;
+    this.cropTop = Math.max(0, Math.min(124, FEET_SCENE - feet));
     this.root = scene.add.container(box.x, box.y).setDepth(100);
     this.glow = scene.add.graphics();
     this.frame = scene.add.graphics();
     this.root.add([this.frame, this.glow]);
+    this.actors = scene.add.container(5, 5);
+    this.maskG = scene.make.graphics({}, false);
+    if (thumbH > 0) this.buildPhoto(feet);
 
-    // ─── 絵(背景を切り出して、人を立たせる)───
+    // 鍵(絵の真ん中に大きく。絵のないカードは名前の右)
+    this.lockG = scene.add.graphics();
+    this.root.add(this.lockG);
+
+    // ─── 下:名前と記録 ───
+    this.info = scene.add.container(0, 0);
+    this.root.add(this.info);
+    this.applyLocked();
+  }
+
+  /** 絵があるカードか */
+  private get photo(): boolean { return this.box.thumbH > 0; }
+
+  /** 上の絵(背景を切り出して、人を立たせる)と STAGE の札。feet は人の足もとの高さ */
+  private buildPhoto(feet: number): void {
+    const scene = this.scene;
+    const entry = this.entry;
+    const { thumbH } = this.box;
     const tx = 5, ty = 5, tw = this.tw;
     const bg = entry.def.bg;
     const far = scene.add.tileSprite(tx, ty, tw, thumbH, bg.far).setOrigin(0);
@@ -114,8 +157,6 @@ export class StageCard {
     this.layers = [far, wall, ground];
     this.root.add(this.layers);
 
-    this.actors = scene.add.container(tx, ty);
-    const feet = thumbH - 7;
     for (const a of actorsFor(entry)) {
       const x = a.x < 0 ? tw + a.x : Math.round(tw * a.x);
       const key = a.color !== undefined ? accessorySheet(scene, a.key, a.color) : a.key;
@@ -126,27 +167,23 @@ export class StageCard {
     }
     this.root.add(this.actors);
     // 絵の外にはみ出さない(ボスの頭など)
-    this.maskG = scene.make.graphics({}, false);
     this.drawMask();
     this.actors.setMask(this.maskG.createGeometryMask());
 
-    // 絵の上の札:STAGE1
-    const tag = scene.add.container(tx + 2, ty + 2);
+    // 絵の上の札:STAGE1(細い絵では左下)
+    const tag = scene.add.container(tx + 2, this.thin ? ty + thumbH - 16 : ty + 2);
     const tagText = new PixelText(scene, 4, 2, `STAGE${entry.def.no}`, { size: FS.body, color: UI.gold });
     const tg = scene.add.graphics();
     tg.fillStyle(0x000000, 1).fillRect(0, 0, Math.ceil(tagText.width) + 8, 16);
     tg.fillStyle(UI.bad, 1).fillRect(0, 15, Math.ceil(tagText.width) + 8, 1);
     tag.add([tg, tagText]);
     this.root.add(tag);
+  }
 
-    // 鍵(絵の真ん中に大きく)
-    this.lockG = scene.add.graphics();
-    this.root.add(this.lockG);
-
-    // ─── 下:名前と記録 ───
-    this.info = scene.add.container(0, 0);
-    this.root.add(this.info);
-    this.applyLocked();
+  /** 鍵の大きなマークの真ん中(カードの中の座標)と大きさ */
+  private lockSpot(): { x: number; y: number; scale: number } {
+    if (this.photo) return { x: 5 + Math.floor(this.tw / 2), y: 5 + Math.floor(this.box.thumbH / 2) - 4, scale: 3 };
+    return { x: this.box.w - 22, y: TEXT_NAME_Y + 8, scale: 2 };
   }
 
   /** 開いているか(見た目も合わせる) */
@@ -161,11 +198,12 @@ export class StageCard {
       if (locked) s.setTintFill(0x07060e); else s.clearTint();
     }
     this.lockG.clear();
-    if (locked) drawLock(this.lockG, 5 + Math.floor(this.tw / 2), 5 + Math.floor(this.box.thumbH / 2) - 4, 3);
+    if (locked) { const k = this.lockSpot(); drawLock(this.lockG, k.x, k.y, k.scale); }
     this.buildInfo();
   }
 
   private drawMask(): void {
+    if (!this.photo) return;
     const g = this.maskG;
     g.clear();
     g.fillStyle(0xffffff, 1).fillRect(this.root.x + 5, this.root.y + 5, this.tw, this.box.thumbH);
@@ -184,10 +222,10 @@ export class StageCard {
     g.fillStyle(inner, 1).fillRect(2, 2, w - 4, h - 4);
     g.fillStyle(body, 1).fillRect(3, 3, w - 6, h - 6);
     // 絵のまわりの黒い線
-    g.fillStyle(0x000000, 1).fillRect(4, 4, this.tw + 2, thumbH + 2);
+    if (this.photo) g.fillStyle(0x000000, 1).fillRect(4, 4, this.tw + 2, thumbH + 2);
     // 情報の欄の横線(走査線ふう)
     g.fillStyle(this.locked ? 0x16142a : 0x121c56, 1);
-    for (let y = thumbH + 8; y < h - 4; y += 3) g.fillRect(4, y, w - 8, 1);
+    for (let y = this.photo ? thumbH + 8 : 5; y < h - 4; y += 3) g.fillRect(4, y, w - 8, 1);
   }
 
   private buildInfo(): void {
@@ -196,22 +234,29 @@ export class StageCard {
     this.blinkers = [];
     const { w, thumbH } = this.box;
     const e = this.entry;
-    const y0 = thumbH + 9;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.info.add(o); return o; };
+    // 絵のないカードは、名前の上に STAGE の番号を小さく出す
+    if (!this.photo) add(new PixelText(sc, 8, 5, `STAGE${e.def.no}`, { size: FS.small, color: this.locked ? 0x8a84a0 : UI.gold }));
+    const y0 = this.photo ? thumbH + 9 : TEXT_NAME_Y;
     const nameText = add(new PixelText(sc, 8, y0, e.def.name, { size: FS.big, color: this.locked ? 0x8a84a0 : UI.gold, outline: true }));
     const r1 = y0 + 20, r2 = r1 + 15;
     if (this.locked) {
       const g = add(sc.add.graphics());
       drawLock(g, 14, r1 + 6, 1);
-      add(new PixelText(sc, 24, r1, e.def.lockedText ?? '', { size: FS.body, color: UI.text }));
-      add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].name : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim }));
+      // 長い名前のステージ(地下駐車場をクリアすると…)は、はみ出さないように小さな字にする
+      const fit = (t: PixelText): PixelText => (t.width > w - 8 - t.x ? t.setStyle({ size: FS.small }) : t);
+      fit(add(new PixelText(sc, 24, r1, e.def.lockedText ?? '', { size: FS.body, color: UI.text })));
+      fit(add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].name : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim })));
       return;
     }
     const total = titlesFor(e.id).length;
-    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/14」は全部のステージを合わせた数)
-    const cnt = add(new PixelText(sc, w - 8, y0 + 3, `このステージの称号{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/17」は全部のステージを合わせた数)
+    const label = this.photo && !this.thin ? 'このステージの称号' : '称号';
+    const cnt = add(new PixelText(sc, w - 8, y0 + 3, `${label}{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    // 絵のないカードは、STAGE の番号と同じ行(名前の上)に短く出す
+    if (!this.photo) { cnt.setPosition(w - 8, 4); this.countW = Math.ceil(cnt.width); }
     // ステージの名前とぶつかるときは、絵の右下に黒い帯をしいて出す
-    if (8 + nameText.width + 6 > w - 8 - cnt.width) {
+    else if (8 + nameText.width + 6 > w - 8 - cnt.width) {
       const bx = 5 + this.tw - Math.ceil(cnt.width) - 6, by = 5 + thumbH - 15;
       const bg = add(sc.add.graphics());
       bg.fillStyle(0x000000, 1).fillRect(bx, by, Math.ceil(cnt.width) + 6, 15);
@@ -220,7 +265,7 @@ export class StageCard {
       this.info.bringToTop(cnt);
     }
     // 下に余裕があれば「タップで出発」
-    if (this.box.h - (thumbH + 9 + 20 + 30) >= 16) {
+    if (this.box.h - (y0 + 20 + 30) >= 16) {
       const go = add(new PixelText(sc, w - 8, this.box.h - 19, 'タップで出発▶', { size: FS.body, color: UI.gold, outline: true }).setOrigin(1, 0));
       this.blinkers.push(go);
     }
@@ -258,7 +303,9 @@ export class StageCard {
     };
     draw(true);
     c.add([g, t]);
-    c.setPosition(this.box.w - bw - 8, 7);
+    // 絵のないカードは、上の行の称号の数の左
+    if (this.photo) c.setPosition(this.box.w - bw - 8, 7);
+    else c.setPosition(this.box.w - 8 - this.countW - 6 - bw, 2);
     c.setData('draw', draw);
     this.root.add(c);
     this.badge = c;
@@ -273,10 +320,12 @@ export class StageCard {
     // 背景を少しずつ流す(遠くはゆっくり)。整数で動かして、ドットがにじまないように
     if (!this.locked) this.scroll += dt * 0.012;
     const sx = Math.floor(this.scroll);
-    this.layers[0].tilePositionX = Math.floor(sx / 4);
-    this.layers[1].tilePositionX = sx;
-    this.layers[2].tilePositionX = sx;
-    this.drawMask();
+    if (this.photo) {
+      this.layers[0].tilePositionX = Math.floor(sx / 4);
+      this.layers[1].tilePositionX = sx;
+      this.layers[2].tilePositionX = sx;
+      this.drawMask();
+    }
     for (const b of this.blinkers) b.setVisible(Math.floor(this.t / 400) % 2 === 0);
     if (this.badge) {
       const on = Math.floor(this.t / 250) % 3 !== 2;
@@ -345,7 +394,8 @@ export class StageCard {
           this.locked = false;
           this.applyLocked();
           this.flashUntil = this.scene.time.now + 300;
-          onBreak(this.root.x + 5 + Math.floor(this.tw / 2), this.root.y + 5 + Math.floor(this.box.thumbH / 2));
+          const k = this.lockSpot();
+          onBreak(this.root.x + k.x, this.root.y + k.y + 4);
           resolve();
         }
       });

@@ -1,9 +1,11 @@
-// 結果発表の通りの並べ方(planStreet と planGarage)。画面には頼らない計算だけを確かめる。
+// 結果発表の通りの並べ方(planStreet、planGarage、planMall)。画面には頼らない計算だけを確かめる。
 // Phaser は読みこまない(読みこんだら失敗にする)。
 
 import { describe, expect, it, vi } from 'vitest';
 import { createRng, createStage, STAGES, type Person, type Stage, type StageId } from '../../logic';
-import { FIRST_X, GAP, GATHER_ROOM, VAN_Y, planGarage, planStreet, type StreetPlan } from './plan';
+import {
+  FIRST_X, GAP, GATHER_ROOM, RUSH_DX, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y, planGarage, planMall, planStreet, type StreetPlan
+} from './plan';
 
 vi.mock('phaser', () => {
   throw new Error('plan.ts のテストで Phaser を読みこんだ');
@@ -24,14 +26,16 @@ function cases(stageId: StageId, n: number): Case[] {
       const passBad = new Set(w.people.filter((p) => p.truth === 'bad' && rng.chance(0.5)).map((p) => p.id));
       const plan = stageId === 'garage'
         ? planGarage(w.people, passBad, STAGES.garage.props, rng)
-        : planStreet(w.people, passBad, rng);
+        : stageId === 'mall'
+          ? planMall(w.people, passBad, STAGES.mall.props, rng, w.no === 2)
+          : planStreet(w.people, passBad, rng);
       out.push({ stage, people: w.people, passBad, plan });
     }
   }
   return out;
 }
 
-/** 両方のステージで同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
+/** どのステージでも同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
 function commonRules({ stage, people, plan }: Case): string[] {
   const bad: string[] = [];
   const at = `seed ${stage.seed} 波${people[0].wave}`;
@@ -139,5 +143,83 @@ describe('planGarage(地下駐車場)', () => {
     expect(passers.length).toBeGreaterThan(0);
     expect([...new Set(passers.map((p) => p.look))].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
     expect(passers.filter((p) => p.key !== `${p.look}_civ` || typeof p.color !== 'number')).toEqual([]);
+  });
+});
+
+describe('planMall(ショッピングモール)', () => {
+  const all = cases('mall', 60);
+
+  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
+    expect(all.flatMap(commonRules)).toEqual([]);
+  });
+
+  it('物はモールの物だけで、奥の列の物は重ならない。エスカレーターは必ずある', () => {
+    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
+    expect([...kinds].filter((k) => !STAGES.mall.props.includes(k))).toEqual([]);
+    const half: Record<string, number> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
+    const bad: string[] = [];
+    for (const { plan, stage } of all) {
+      const back = plan.props.filter((p) => p.y < 200).sort((a, b) => a.x - b.x);
+      for (let i = 1; i < back.length; i++) {
+        const a = back[i - 1];
+        const b = back[i];
+        if (b.x - half[b.kind] < a.x + half[a.kind]) bad.push(`seed ${stage.seed}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
+      }
+      if (!plan.props.some((p) => p.kind === 'escalator')) bad.push(`seed ${stage.seed}: エスカレーターがない`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('ラッシュのある波(波2)だけ、ヒーローが立つ所の後ろにエスカレーター', () => {
+    for (const { plan, people } of all) {
+      const last = plan.people[plan.people.length - 1];
+      if (people[0].wave !== 2) { expect(plan.rushX).toBeUndefined(); continue; }
+      expect(plan.rushX).toBe(last.x + RUSH_DX);
+      expect(plan.props.some((p) => p.kind === 'escalator' && Math.abs(p.x - plan.rushX!) <= 12)).toBe(true);
+    }
+  });
+
+  it('UFOが下りてくる所(見逃した宇宙人の先)には、通りがかりの市民を置かない', () => {
+    for (const { plan, passBad } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        expect(plan.passers.some((p) => Math.abs(p.x - (s.x + UFO_DX)) < 20), s.person.id).toBe(false);
+      }
+    }
+  });
+
+  it('UFOの落ちる真下に置く物は、UFO_DX の所(UFOの幅の中)に置く', () => {
+    // 画面(Street.ts)は見逃した宇宙人の x + UFO_DX にUFOを下ろし、UFOの幅の中の UFO_UNDER_KINDS の物を壊す。
+    // 並べ方が同じ所に物を置いていれば、見逃した宇宙人の多く(7割)で真下に物がある
+    let ufos = 0, under = 0;
+    for (const { plan, passBad } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        ufos++;
+        if (plan.props.some((p) => UFO_UNDER_KINDS.includes(p.kind) && p.y < 200 && Math.abs(p.x - (s.x + UFO_DX)) < UFO_HALF)) under++;
+      }
+    }
+    expect(ufos).toBeGreaterThan(50);
+    expect(under / ufos).toBeGreaterThan(0.6);
+  });
+
+  it('UFOの落ちる真下に、エスカレーターと噴水は来ない(ラッシュのエスカレーターは壊れる物に入らない)', () => {
+    expect(UFO_UNDER_KINDS).not.toContain('escalator');
+    expect(UFO_UNDER_KINDS).not.toContain('fountain');
+    const half: Record<string, number> = { fountain: 32, escalator: 48 };
+    const bad: string[] = [];
+    for (const { plan, passBad, stage } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        const ux = s.x + UFO_DX;
+        for (const p of plan.props) {
+          if (!(p.kind in half) || Math.abs(p.x - ux) >= UFO_HALF + half[p.kind]) continue;
+          // ラッシュのエスカレーター(ヒーローが立つ所の後ろ)は動かせないので、画面が壊さない
+          if (p.kind === 'escalator' && plan.rushX !== undefined && Math.abs(p.x - plan.rushX) <= 12) continue;
+          bad.push(`seed ${stage.seed}: UFO ${ux} の下に ${p.kind} ${p.x}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
   });
 });

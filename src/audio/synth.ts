@@ -13,7 +13,7 @@ export interface Env { a: number; d: number; s: number; r: number }
  * AudioParam に ADSR を書きこむ。gate 秒たったら離す。消え終わる時刻を返す。
  * 減衰は setTargetAtTime(指数カーブ)で、離す瞬間の値は計算で出してつなぐ。
  */
-export function adsr(p: AudioParam, t: number, peak: number, e: Env, gate: number): number {
+function adsr(p: AudioParam, t: number, peak: number, e: Env, gate: number): number {
   const a = Math.max(0.001, e.a);
   const r = Math.max(0.005, e.r);
   const gEnd = t + Math.max(0.002, gate);
@@ -164,7 +164,7 @@ export function tone(ctx: Ctx, out: AudioNode, t: number, o: ToneOpts): number {
 const noiseCache = new WeakMap<Ctx, AudioBuffer>();
 
 /** 1秒ぶんの白いノイズ。毎回同じ中身(確かめるときに結果がぶれないように) */
-export function noiseBuffer(ctx: Ctx): AudioBuffer {
+function noiseBuffer(ctx: Ctx): AudioBuffer {
   let b = noiseCache.get(ctx);
   if (!b) {
     const len = Math.floor(ctx.sampleRate);

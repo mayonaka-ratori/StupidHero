@@ -92,7 +92,7 @@ export interface Look {
   sweat?: string | null;
 }
 
-export const dark = (r: Ramp): Ramp => [r[1], r[2], r[2]];
+const dark = (r: Ramp): Ramp => [r[1], r[2], r[2]];
 
 // ---------- 頭 ----------
 
@@ -221,7 +221,7 @@ function paintTemplate(g: PixelGrid, rows: string[], oy: number, skin: Ramp, hai
 }
 
 /** 右向きの頭を描いた格子と、首がつながる点 */
-export function drawHead(look: Look, pose: Pose): { g: PixelGrid; nx: number; ny: number } {
+function drawHead(look: Look, pose: Pose): { g: PixelGrid; nx: number; ny: number } {
   const hs = look.hairStyle;
   const top = hs.top;
   const g = new PixelGrid(14, HEAD_ROWS + top + 1);
@@ -303,7 +303,7 @@ function drawShoe(P: Painter, look: Look, leg: Leg, far: boolean): void {
   }
 }
 
-export function legMask(P: Painter, b: Build, hipJ: Pt, leg: Leg): Mask {
+function legMask(P: Painter, b: Build, hipJ: Pt, leg: Leg): Mask {
   const m = P.mask();
   m.capsule(hipJ, leg.k, b.thigh, b.thigh * 0.9);
   m.capsule(leg.k, add(leg.a, 0, -1), b.shin, b.shin * 0.8);
@@ -361,12 +361,12 @@ export function shoulders(pose: Pose, k = 1): { sB: Pt; sF: Pt } {
   return { sF: [n[0] - 1 * k, n[1] + 2.5 * k], sB: [n[0] + 4 * k, n[1] + 2.5 * k] };
 }
 
-export function hips(pose: Pose, k = 1): { hB: Pt; hF: Pt } {
+function hips(pose: Pose, k = 1): { hB: Pt; hF: Pt } {
   const p = pose.hip;
   return { hF: [p[0] - 2 * k, p[1] - 0.5], hB: [p[0] + 2 * k, p[1] - 0.5] };
 }
 
-export function torsoMask(P: Painter, b: Build, pose: Pose, hemDy = b.hem): Mask {
+function torsoMask(P: Painter, b: Build, pose: Pose, hemDy = b.hem): Mask {
   const n = pose.neck, p = pose.hip;
   const mid = mix(n, p, 0.45);
   const hemY = p[1] + hemDy;
@@ -380,7 +380,7 @@ export function torsoMask(P: Painter, b: Build, pose: Pose, hemDy = b.hem): Mask
   ]);
 }
 
-export function pelvisMask(P: Painter, b: Build, pose: Pose): Mask {
+function pelvisMask(P: Painter, b: Build, pose: Pose): Mask {
   const p = pose.hip;
   const k = b.scale ?? 1;
   return P.mask().poly([[p[0] - b.wa, p[1] - 5 * k], [p[0] + b.wa, p[1] - 5 * k], [p[0] + b.wa, p[1] + 1.5 * k], [p[0] - b.wa + 1, p[1] + 2 * k]]);

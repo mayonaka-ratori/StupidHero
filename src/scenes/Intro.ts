@@ -1,22 +1,28 @@
 // ステージ前の掛け合い。ヒーローとオペレーターが下のカットインで順に話す。
-// そのステージの初回は introFor(stage.id)(遊び方の説明つき)、同じステージの2回目からは短い版。
-// タップで次へ(文字送りの途中なら全部出す)。右上の「とばす」で仕分けへ。
+// そのステージを初めて遊ぶときだけ introFor(stage.id)(仕分けのやり方を3〜5枚で)を見せる。
+// 見たこと(records の introSeen)か、そのステージを遊んだことがあれば、このシーンはとばしてすぐ仕分けへ。
+// ステージを選ぶ画面とタイトルは entrySceneFor(stage.id) で行き先を決める。結果画面の「もう一回」でここへ来たときも、
+// 見たことがあれば create ですぐ仕分けへ行く。開発用に途中から始めたとき(run.debug)は毎回見せる。
+// タップで次へ(文字送りの途中なら全部出す)。下の「とばす」で仕分けへ(片手で届くように「次へ」の横)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { introFor, type Speech, type StageId } from '../logic';
+import { introFor, markIntroSeen, needsIntro, type Speech, type StageId } from '../logic';
 import { getRun } from '../run';
-import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect } from '../ui';
+import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
 import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
 const HERO_X = 60;
-/** このページで掛け合いを見たステージ(registry に入れる) */
-const INTRO_SEEN = 'introSeen';
 const FEET_Y = 204;
+
+/** そのステージを始めるときの最初のシーン。掛け合いを見たか遊んだことがあれば、すぐ仕分け */
+export function entrySceneFor(stageId: StageId): string {
+  return needsIntro(stageId) ? SCENES.intro : SCENES.sort;
+}
 
 export class IntroScene extends Phaser.Scene {
   private lines: readonly Speech[] = [];
@@ -27,25 +33,33 @@ export class IntroScene extends Phaser.Scene {
   private nextMark!: PixelText;
   private counter!: PixelText;
   private leaving = false;
+  /** 見たことがあって、すぐ仕分けへ行ったとき(何も作っていない) */
+  private skipped = false;
 
   constructor() { super(SCENES.intro); }
 
   create(): void {
     const { W } = layout;
     const run = getRun(this);
-    // このページを開いてから、同じステージの掛け合いを見たことがあれば短い版にする
-    // (路地裏を遊んでから地下駐車場に行ったときは、地下駐車場の遊び方をはじめから教える)
-    const seen = (this.registry.get(INTRO_SEEN) as StageId[] | undefined) ?? [];
-    this.lines = introFor(run.stage.id, seen.includes(run.stage.id));
-    if (!seen.includes(run.stage.id)) this.registry.set(INTRO_SEEN, [...seen, run.stage.id]);
     this.index = -1;
     this.leaving = false;
+    this.skipped = false;
+    // もう見たステージなら、何も出さずに仕分けへ(ワイプで隠れている間に切り替わる)
+    if (!run.debug && !needsIntro(run.stage.id)) {
+      this.leaving = true;
+      this.skipped = true;
+      this.scene.start(SCENES.sort);
+      return;
+    }
+    this.lines = introFor(run.stage.id);
+    // 見せ始めたら「見た」にする(途中でとばしても、閉じても、次からは出さない)
+    markIntroSeen(run.stage.id);
     unlockOnTap(this);
     // 「もう一回」から来たときに結果画面の曲が残らないように(タイトルから来たときは同じ曲なので何もしない)
     audio.playBgm('title');
 
     // 上:ステージの背景とヒーロー
-    drawStageBg(this, run.stage.def);
+    drawStageBg(this, run.stage.def.bg);
     const pool = this.add.graphics().setDepth(Z.ground + 1);
     drawLightPool(pool, HERO_X, FEET_Y + 1, 34, 5);
     const aura = this.add.sprite(HERO_X, FEET_Y - 44, 'fx_aura').setScale(2).setDepth(Z.aura);
@@ -54,13 +68,12 @@ export class IntroScene extends Phaser.Scene {
     this.hero = this.add.sprite(HERO_X, FEET_Y, 'hero').setOrigin(...originFor('hero')).setScale(2).setDepth(Z.actor);
     this.hero.play(animKey('hero', 'idle'));
     this.hero.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.hero.play(animKey('hero', 'idle')));
-    this.demo = new IntroDemo(this, 116, 34, 96, 122);
+    // お手本の人は、そのステージの人にする(路地裏と地下駐車場はパーカーの男のまま)
+    this.demo = new IntroDemo(this, 116, 34, 96, 122, run.stage.def.mechanic === 'ufo' ? 'uncle_bad' : undefined);
 
-    // 右上:とばす と 音
-    const skip = new Button(this, W - 58, 5, 54, 22, 'とばす▶▶', { color: 0x3a3354, size: FS.small, onPress: () => this.leave() });
-    const mute = addMute(this, W - 74, 16);
-    const pause = new PauseControl(this);
-    void pause;
+    // 右上:音
+    const mute = addMute(this, W - 13, 13);
+    new PauseControl(this);
 
     // 下:セリフ
     addPanel(this);
@@ -69,9 +82,10 @@ export class IntroScene extends Phaser.Scene {
     const tall = r.h >= 150;
     const wide = panelRect(4);
     const ch = tall ? 80 : 56;
-    // 下に「次へ」の大きなボタン(親指が届くところ)。画面のどこをタップしても進む
+    // 下に「次へ」の大きなボタンと、左に小さな「とばす」(どちらも親指が届くところ)。画面のどこをタップしても進む
     const btnH = Phaser.Math.Clamp(r.h - ch - 24, 30, 60);
     const btnY = r.bottom - btnH;
+    const skipW = 60;
     // カットインはボタンとの間に少し寄せて、空きが上下に分かれるようにする
     const cutY = r.y + Math.max(0, Math.floor((btnY - 24 - ch - r.y) / 3));
     const cx = tall ? wide.x : r.x, cw = tall ? wide.w : r.w;
@@ -82,7 +96,8 @@ export class IntroScene extends Phaser.Scene {
     this.nextMark = new PixelText(this, cx + cw - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
     this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = markY + (this.nextMark.y === markY ? 1 : 0); } });
     this.counter = new PixelText(this, cx + 2, cutY + ch + 5, '', { size: FS.small, color: UI.textDim });
-    const nextBtn = new Button(this, r.x, btnY, r.w, btnH, '次へ▶', { color: 0x3a3354, onPress: () => this.advance() });
+    const skip = new Button(this, r.x, btnY, skipW, btnH, 'とばす▶▶', { color: 0x2a2540, size: FS.small, textColor: UI.textDim, onPress: () => this.leave() });
+    const nextBtn = new Button(this, r.x + skipW + 6, btnY, r.w - skipW - 6, btnH, '次へ▶', { color: 0x3a3354, onPress: () => this.advance() });
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.some((o) => o.parentContainer === skip || o.parentContainer === mute || o.parentContainer === nextBtn)) return;
@@ -96,7 +111,8 @@ export class IntroScene extends Phaser.Scene {
     this.time.delayedCall(260, () => this.next());
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
+    if (this.skipped) return;
     this.demo.update(dt);
     this.nextMark.setVisible(!this.cut.isTyping && this.index >= 0);
   }
@@ -128,9 +144,7 @@ export class IntroScene extends Phaser.Scene {
     if (face === 'smile') { this.hero.play(animKey('hero', 'okay')); return; }
     // ドヤ顔:キラーンと光る
     this.hero.play(animKey('hero', 'idle'));
-    const k = this.add.sprite(HERO_X + 14, FEET_Y - 94, 'fx_kiran').setScale(2).setDepth(Z.actorFront);
-    k.play(animKey('fx_kiran', 'play'));
-    k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+    spawnFx(this, 'fx_kiran', HERO_X + 14, FEET_Y - 94, { scale: 2, depth: Z.actorFront });
   }
 
   private leave(): void {

@@ -12,7 +12,7 @@
 import Phaser from 'phaser';
 import { frameIndex, sheetByKey } from '../art/sheets';
 import { FRAME_PAD, WindowFrame } from './frame';
-import { PixelText } from './text';
+import { PixelText, countLines, stripMarkup } from './text';
 import { DEPTH, FS, NAMES, UIX } from './theme';
 
 export type Speaker = 'operator' | 'hero';
@@ -48,7 +48,7 @@ const FACE = 32;
 const PAUSE_AFTER = new Set(Array.from('、。…!?!?'));
 
 export class CutIn extends Phaser.GameObjects.Container {
-  readonly w: number;
+  override readonly w: number;
   readonly h: number;
   who: Speaker;
   private frameG: WindowFrame;
@@ -58,6 +58,8 @@ export class CutIn extends Phaser.GameObjects.Container {
   private line: PixelText;
   private hit: Phaser.GameObjects.Zone;
   private speed: number;
+  /** いま出しているセリフの速さ(say で指定されたもの) */
+  private curSpeed = 30;
   private pageMs: number;
   private timer?: Phaser.Time.TimerEvent;
   private shakeTimer?: Phaser.Time.TimerEvent;
@@ -122,12 +124,6 @@ export class CutIn extends Phaser.GameObjects.Container {
     return this;
   }
 
-  /** 名前の表示を変える(2人以外が話すときなど) */
-  setName(name: string): this {
-    this.nameText.setText(name);
-    return this;
-  }
-
   /** 表情を変える。talking=true で口を動かす */
   setExpression(expr: string, talking: boolean): this {
     this.expr = expr;
@@ -149,12 +145,12 @@ export class CutIn extends Phaser.GameObjects.Container {
     if (opt.alarm) this.shake();
     if (!this.visible) this.show();
     this.onChar = opt.onChar;
-    const speed = opt.speed ?? this.speed;
+    this.curSpeed = opt.speed ?? this.speed;
     this.pages = this.paginate(text);
     this.setExpression(expr, true);
     return new Promise<void>((resolve) => {
       this.resolveSay = resolve;
-      this.typePage(speed);
+      this.typePage(this.curSpeed);
     });
   }
 
@@ -166,12 +162,12 @@ export class CutIn extends Phaser.GameObjects.Container {
       this.line.setVisibleChars(-1);
       this.typing = false;
       if (!this.pages.length) this.finish();
-      else this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(this.speed));
+      else this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(this.curSpeed));
       return;
     }
     // ページの待ち時間中なら次のページへ
     this.timer?.remove();
-    this.typePage(this.speed);
+    this.typePage(this.curSpeed);
   }
 
   show(): this {
@@ -210,7 +206,7 @@ export class CutIn extends Phaser.GameObjects.Container {
     this.line.setVisibleChars(0);
     this.setExpression(this.expr, true);
     this.typing = true;
-    const plain = Array.from(page.replace(/\{(\/|#[0-9a-fA-F]{6}|[a-z]+)\}/g, '').replace(/\n/g, ''));
+    const plain = Array.from(stripMarkup(page).replace(/\n/g, ''));
     let n = 0;
     let wait = 0;
     const tick = 1000 / speed;
@@ -237,16 +233,14 @@ export class CutIn extends Phaser.GameObjects.Container {
   /** 箱に入る行数ごとにページに分ける */
   private paginate(text: string): string[] {
     const max = this.maxLines;
-    const probe = this.line;
-    probe.setText(text);
-    if (probe.lineCount <= max) return [text];
+    const lines = (t: string): number => countLines(t, this.line.style);
+    if (lines(text) <= max) return [text];
     // 1文字ずつ足していき、行があふれたところで切る(色の書き方はページをまたがない前提)
     const chars = Array.from(text);
     const pages: string[] = [];
     let cur = '';
     for (const ch of chars) {
-      probe.setText(cur + ch);
-      if (probe.lineCount > max && cur) { pages.push(cur); cur = ch === '\n' ? '' : ch; } else cur += ch;
+      if (lines(cur + ch) > max && cur) { pages.push(cur); cur = ch === '\n' ? '' : ch; } else cur += ch;
     }
     if (cur) pages.push(cur);
     return pages;

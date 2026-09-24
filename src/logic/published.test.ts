@@ -2,12 +2,15 @@
 // fixtures/ の JSON は、公開版の src/logic をそのまま動かして作った「固定の答え」。作り直さないこと
 // (ステージ1の中身をわざと変えたときだけ、理由を書いて作り直す)。
 // 公開版からある項目だけを比べる。ステージ2で増えた項目(groups、accessory、link など)は比べない。
+// 仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えた(下の asPublished を見る)。
+// fixture は作り直さず、比べる項目からそれらを外した。
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import alleyV1 from './fixtures/alley-v1.json';
 import recordsV1 from './fixtures/records-v1.json';
 import {
-  ATTACK_SHOUTS, INTRO, INTRO_REPLAY, MISCHIEF_LINES, introFor, reactionList, titleCommentFor, waveIntroFor,
+  ATTACK_SHOUTS, BOSS_HINTS, BOSS_PROFILE_LINES, MISCHIEF_LINES, OPERATOR_HINTS, PROFILE_LINES,
+  reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
 import { clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
@@ -23,49 +26,124 @@ function pick<T extends object>(obj: T, keys: readonly (keyof T)[]): Partial<T> 
   return out;
 }
 
-/** 公開版の Person にある項目だけ */
-const PERSON_KEYS = ['id', 'index', 'wave', 'look', 'truth', 'sheetKey', 'profile', 'hint', 'disguise', 'mischief'] as const;
+/**
+ * 公開版の Person にある項目だけ。
+ * わざと変えたもの(波の時間 seconds、プロフィールの一文 profile.line、オペレーターの一言 hint)は比べない。
+ * 時間は長くし(rules.ts の WAVES)、文と一言はどちらとも取れるものを足して顔をそろえた(content.ts)。
+ * 文の一覧が長くなっても、選ぶときの乱数を引く回数は変わらない(pickFresh は1回だけ引く)ので、
+ * 誰がどの順で出るか、名前、年齢などはこれまでと同じになる。それをここで確かめる
+ */
+const PERSON_KEYS = ['id', 'index', 'wave', 'look', 'truth', 'sheetKey', 'disguise', 'mischief'] as const;
 const asPublished = (s: Stage) => ({
   ...pick(s, ['id', 'name', 'seed', 'villainTotal', 'peopleTotal']),
   waves: s.waves.map((w) => ({
-    ...pick(w, ['no', 'seconds', 'badCount', 'hasBoss']),
+    ...pick(w, ['no', 'badCount', 'hasBoss']),
     people: w.people.map((p: Person) => ({
       ...pick(p, PERSON_KEYS),
-      profile: pick(p.profile, ['name', 'age', 'line']),
-      hint: pick(p.hint, ['text', 'face'])
+      profile: pick(p.profile, ['name', 'age'])
     }))
   }))
 });
 
+/**
+ * 結果発表の作り直しで、わざと変えたセリフ(比べない)。
+ * streetWatch:待てと行けの使い方は、初めて合図が出たときに言う(teachStop、teachGo)ので、なくした。
+ * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
+ * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
+ * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
+ * timeUpOp:どこからも使っていなかったので消した
+ */
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp']);
+
+/** fixture の答えから、わざと変えた項目を取りのぞく */
+type FixtureStage = (typeof alleyV1.stages)[number]['stage'];
+const withoutChanged = (s: FixtureStage) => ({
+  ...s,
+  waves: s.waves.map(({ seconds: _s, people, ...w }) => ({
+    ...w,
+    people: people.map(({ hint: _h, profile: { line: _l, ...profile }, ...p }) => ({ ...p, profile }))
+  }))
+});
+
+/**
+ * 称号の条件をわざと変えたので、公開版と答えがちがう記録(fixtures の titles の番号)。
+ * - 連打の申し子:5秒以内 → 7秒以内
+ * - 完全無欠、街のほんものヒーロー:巻きぞえの市民は数えない(運で取れなくなるのを防ぐ)
+ * - 正義の暴走機関車:ワルに襲われた市民は数えない(ヒーローが傷つけた市民だけ)
+ * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
+ * - おばあちゃんの敵:おばあさんを直接なぐったときだけ(巻きぞえは数えない)
+ */
+const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
+  13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
+  19: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  20: { was: 'soSo', now: 'tooKind', why: 'なぐった市民0、ワルに襲われた市民は数えない' },
+  23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  46: { was: 'grannyFoe', now: 'soSo', why: 'ヒーローがなぐった市民がいないので、おばあさんはなぐっていない' },
+  48: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  63: { was: 'grannyFoe', now: 'stopMaster', why: 'おばあさんに当たったのは巻きぞえだけ' },
+  66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
+  70: { was: 'runawayTrain', now: 'tapProdigy', why: 'ヒーローが傷つけたのは巻きぞえ1人だけ' },
+  72: { was: 'grannyFoe', now: 'chaseDemon', why: 'おばあさんに当たったのは巻きぞえだけ' },
+  75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' }
+};
+
 describe('ステージ1は公開版(876e008)と同じ', () => {
-  it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種)`, () => {
+  it(`createStage(seed) の中身が同じ(${alleyV1.stages.length}個の種。時間、文、一言はわざと変えたので比べない)`, () => {
     for (const { seed, stage } of alleyV1.stages) {
-      expect(asPublished(createStage(seed)), `seed ${seed}`).toEqual(stage);
+      expect(asPublished(createStage(seed)), `seed ${seed}`).toEqual(withoutChanged(stage));
     }
   });
 
-  it('掛け合い、セリフ、称号のひとことが同じ', () => {
+  it('わざと変えたもの:時間は長くなり、文と一言はその人の見た目と正体の一覧から選ばれる', () => {
+    for (const { seed, stage } of alleyV1.stages) {
+      const now = createStage(seed);
+      now.waves.forEach((w, i) => {
+        expect(w.seconds).toBeGreaterThan(stage.waves[i].seconds);
+        for (const p of w.people) {
+          const d = p.disguise;
+          const lines = d ? BOSS_PROFILE_LINES[d] : PROFILE_LINES[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
+          const hints = d ? BOSS_HINTS[d] : OPERATOR_HINTS[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
+          expect(lines, `seed ${seed} ${p.id}`).toContain(p.profile.line);
+          expect(hints, `seed ${seed} ${p.id}`).toContainEqual(p.hint);
+        }
+      });
+    }
+  });
+
+  // ステージ前の掛け合い(INTRO)は、初めての1分を短くするためにわざと変えたので比べない
+  it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
-    expect(INTRO).toEqual(sp.INTRO);
-    expect(INTRO_REPLAY).toEqual(sp.INTRO_REPLAY);
-    expect(introFor('alley')).toEqual(sp.INTRO);
-    expect(introFor('alley', true)).toEqual(sp.INTRO_REPLAY);
     for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no]);
-    for (const [k, list] of Object.entries(sp.REACTIONS)) expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
+    for (const [k, list] of Object.entries(sp.REACTIONS)) {
+      if (REDESIGNED_REACTIONS.has(k)) continue;
+      expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
+    }
     expect(ATTACK_SHOUTS).toEqual(sp.ATTACK_SHOUTS);
     for (const [k, list] of Object.entries(sp.MISCHIEF_LINES)) expect(MISCHIEF_LINES[k as keyof typeof MISCHIEF_LINES], k).toEqual(list);
     for (const [id, c] of Object.entries(sp.TITLE_COMMENTS)) expect(titleCommentFor(id as TitleId, 'alley'), id).toEqual(c);
   });
 
-  it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録)`, () => {
+  it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録。わざと変えた条件の分は除く)`, () => {
     expect(titlesFor('alley').map((t) => ({ id: t.id, name: t.name, pose: t.pose }))).toEqual(alleyV1.titleDefs);
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
-    for (const { stats, title, name } of alleyV1.titles) {
-      const s = { ...zero, ...stats, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
+    alleyV1.titles.forEach(({ stats, title, name }, i) => {
+      // 公開版の記録には、おばあさんを直接なぐったか巻きぞえかの区別がない。
+      // ヒーローがなぐった市民がいれば、なぐったのはおばあさんだったことにする
+      const grannyPunched = stats.grannyHit && stats.civHurtByHero > 0;
+      const s = { ...zero, ...stats, grannyPunched, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
       const t = decideTitle(s);
+      const changed = CHANGED_TITLES[i];
+      if (changed) {
+        // わざと変えた分:公開版の答えとちがい、新しい条件の答えになる
+        expect(title, `#${i} 公開版の答え`).toBe(changed.was);
+        expect(t.id, `#${i} ${changed.why}`).toBe(changed.now);
+        return;
+      }
       expect({ id: t.id, name: t.name }, JSON.stringify(stats)).toEqual({ id: title, name });
-    }
+    });
   });
 });
 
@@ -73,7 +151,6 @@ class MemStorage implements RecordStorage {
   data = new Map<string, string>();
   getItem(k: string) { return this.data.get(k) ?? null; }
   setItem(k: string, v: string) { this.data.set(k, String(v)); }
-  removeItem(k: string) { this.data.delete(k); }
 }
 
 describe('公開版が保存した記録を今の版で読める', () => {

@@ -1,11 +1,10 @@
 // 仕分けに出てくる1人を作る部品(stage.ts と garage.ts で使う。index.ts からは書き出さない)。
 
 import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
-import { BOSS2_AGES } from './garageContent';
 import { pickFresh } from './pick';
 import type { Rng } from './rng';
 import { MISCHIEF_BY_LOOK } from './rules';
-import { sheetKeyFor } from './stages';
+import { STAGES, sheetKeyFor } from './stages';
 import type { DisguiseLook, Look, OperatorHint, Person, StageId, Truth, WaveNo } from './types';
 
 /** 名前と文の使い回しを避けるための記録(ステージ全体で1つ) */
@@ -27,11 +26,12 @@ function ageOverlap(a: readonly [number, number], b: readonly [number, number]):
 export function makePerson(
   rng: Rng, used: UsedTexts, stageId: StageId, wave: WaveNo, look: Look, truth: Truth, disguise?: DisguiseLook
 ): PersonDraft {
-  // 地下駐車場の女ボスは、化けた姿の市民と同じ名前の一覧から偽名を選ぶ(名前で分からないように)。
-  // 年齢は女ボスの幅と化けた姿の幅の重なりから(化けた姿の市民の幅からはみ出さないように)
-  const boss2 = truth === 'boss' && stageId === 'garage';
+  // ボスは、化けた姿の市民と同じ名前の一覧から偽名を選ぶ(名前で分からないように)。
+  // ボスの年齢の幅があるステージ(地下駐車場の女ボス)は、その幅と化けた姿の幅の重なりから
+  // (化けた姿の市民の幅からはみ出さないように)
+  const bossAges = truth === 'boss' ? STAGES[stageId].bossAges : null;
   const name = pickFresh(rng, NAMES[look], used.names, (n) => n);
-  const [minAge, maxAge] = boss2 ? ageOverlap(BOSS2_AGES, AGES[look]) : AGES[look];
+  const [minAge, maxAge] = bossAges ? ageOverlap(bossAges, AGES[look]) : AGES[look];
   const age = rng.int(minAge, maxAge);
   let lines: readonly string[];
   let hints: readonly OperatorHint[];

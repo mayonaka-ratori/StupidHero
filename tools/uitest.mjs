@@ -1,37 +1,18 @@
 // UIの部品をタッチで試す(dev/ui.html 用)。指の操作はCDPのタッチイベントで送る(2本指も試せる)。
-// 使い方: npx vite --port 5104 --strictPort を動かしてから
-//   node tools/uitest.mjs [出力フォルダ]     (途中のスクリーンショットをそこに置く)
-import { chromium } from 'playwright-core';
+// 使い方: npm run dev を動かしてから
+//   node tools/uitest.mjs [出力フォルダ] [サーバー]   (途中のスクリーンショットを出力フォルダに置く)
+// 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const BASE = 'http://localhost:5104/dev/ui.html';
-const outDir = process.argv[2] ?? '.';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
-await page.routeWebSocket(/.*/, () => {});
-page.on('pageerror', (e) => console.error('pageerror:', e.message));
-const cdp = await page.context().newCDPSession(page);
-
-let failed = 0;
-const check = (name, ok, extra = '') => { console.log(`${ok ? 'OK ' : 'NG '} ${name} ${extra}`); if (!ok) failed++; };
+const outDir = shotsDir(process.argv[2]);
+const BASE = `${serverUrl(process.argv[3])}dev/ui.html`;
+const browser = await openBrowser();
+const page = await openPage(browser);
+const { touch, css, tap } = await touchPad(page);
+const { check, done } = checker();
 const wait = (ms) => page.waitForTimeout(ms);
 const log = () => page.evaluate(() => window.uiDev.log.slice());
 const clearLog = () => page.evaluate(() => { window.uiDev.log.length = 0; });
-
-/** 論理座標をCSSの座標に */
-async function css(lx, ly) {
-  return page.evaluate(([x, y]) => {
-    const r = window.uiDev.game.canvas.getBoundingClientRect();
-    return { x: r.left + (x * r.width) / 216, y: r.top + (y * r.height) / window.uiDev.game.scale.height };
-  }, [lx, ly]);
-}
-const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
-async function tap(lx, ly) {
-  const p = await css(lx, ly);
-  await touch('touchStart', [{ x: p.x, y: p.y, id: 1 }]);
-  await wait(40);
-  await touch('touchEnd', []);
-  await wait(40);
-}
 async function drag(fromCss, dxCss, steps, stepMs, id = 1) {
   await touch('touchStart', [{ x: fromCss.x, y: fromCss.y, id }]);
   for (let i = 1; i <= steps; i++) {
@@ -98,44 +79,62 @@ await wait(100);
 check('最後まで飛ばすと say の Promise が解決する', await page.evaluate(() => window.uiDev.done));
 await page.screenshot({ path: `${outDir}/test-cut-skip.png` });
 
-// 5. 中断ボタン → 「タップで再開」 → 再開
+// 5. 中断ボタン → 一時停止のメニュー → 「つづける」で再開
+/** 一時停止のメニューのボタン(window.pauseDev の 'resume' か 'title')の真ん中を押す。メニューがなければ何もしない */
+async function tapPauseBtn(name) {
+  const c = await page.evaluate((n) => { const b = window.pauseDev?.[n]; return b && { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }, name);
+  if (c) await tap(c.x, c.y);
+}
+const pauseState = () => page.evaluate(() => ({ paused: window.uiDev.scene.scene.isPaused(), overlay: window.uiDev.game.scene.isActive('UiPause') }));
 await clearLog();
+await page.evaluate(() => { window.pauseDev = undefined; });
 await tap(216 - 34, 12);
 await wait(100);
-st = await page.evaluate(() => ({ paused: window.uiDev.scene.scene.isPaused(), overlay: window.uiDev.game.scene.isActive('UiPause') }));
+st = await pauseState();
 check('中断ボタンで止まる', (await log()).includes('pause:button') && st.paused && st.overlay, JSON.stringify(st));
+check('一時停止のメニューが出る', await page.evaluate(() => !!window.pauseDev));
 await page.screenshot({ path: `${outDir}/test-pause.png` });
 await wait(350);
-await tap(108, 300);
+// メニューの外(上の暗いところ)を押しても再開しない
+await tap(108, 40);
 await wait(100);
-st = await page.evaluate(() => ({ paused: window.uiDev.scene.scene.isPaused(), overlay: window.uiDev.game.scene.isActive('UiPause') }));
-check('タップで再開', (await log()).includes('resume') && !st.paused && !st.overlay, JSON.stringify(st));
+st = await pauseState();
+check('メニューの外をタップしても止まったまま', !(await log()).includes('resume') && st.paused && st.overlay, JSON.stringify(st));
+await tapPauseBtn('resume');
+await wait(100);
+st = await pauseState();
+check('「つづける」で再開', (await log()).includes('resume') && !st.paused && !st.overlay, JSON.stringify(st));
 
-// 6. 画面が隠れたら止まる
+// 6. 画面が隠れたら止まる → 戻るとメニューが出ている → 「つづける」で再開
 await clearLog();
 await page.evaluate(() => {
+  window.pauseDev = undefined;
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
   document.dispatchEvent(new Event('visibilitychange'));
 });
 await wait(100);
-check('画面が隠れたら止まる', (await log()).includes('pause:hidden'));
+st = await pauseState();
+check('画面が隠れたら止まる', (await log()).includes('pause:hidden') && st.paused, JSON.stringify(st));
 await page.evaluate(() => {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
   document.dispatchEvent(new Event('visibilitychange'));
 });
 await wait(400);
-check('戻っても止まったまま(タップ待ち)', await page.evaluate(() => window.uiDev.scene.scene.isPaused()));
-await tap(108, 300);
+st = await pauseState();
+check('戻っても止まったまま(メニューが出ている)', st.paused && st.overlay && (await page.evaluate(() => !!window.pauseDev)), JSON.stringify(st));
+await tapPauseBtn('resume');
 await wait(100);
-check('タップで再開(隠れたあと)', !(await page.evaluate(() => window.uiDev.scene.scene.isPaused())));
+st = await pauseState();
+check('「つづける」で再開(隠れたあと)', (await log()).includes('resume') && !st.paused && !st.overlay, JSON.stringify(st));
 
 // 7. 音のボタン
 await clearLog();
 await tap(216 - 56, 12);
-check('音のボタンで toggle が呼ばれる', (await log()).includes('muted:true'));
+check('音のボタンで toggle が呼ばれる', (await log()).includes('muted:true'), JSON.stringify(await log()));
 await wait(200);
 await page.screenshot({ path: `${outDir}/test-muted.png`, clip: { x: 200, y: 0, width: 190, height: 60 } });
 await tap(216 - 56, 12);
+check('もう一度押すと元に戻る', (await log()).includes('muted:false'), JSON.stringify(await log()));
 
 // 8. スワイプ
 await open('swipe');
@@ -198,5 +197,4 @@ const active = await page.evaluate(() => window.uiDev.game.scene.getScenes(true)
 check('ワイプで次のシーンへ', active.includes('text') && !active.includes('swipe') && !active.includes('UiWipe'), JSON.stringify(active));
 
 await browser.close();
-console.log(failed ? `${failed} NG` : 'all OK');
-process.exit(failed ? 1 : 0);
+done();

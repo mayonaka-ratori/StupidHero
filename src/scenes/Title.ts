@@ -1,6 +1,8 @@
 // タイトル画面。夜の路地裏で、サーチライトの光の中にヒーローが立つ。
 // 「タップしてスタート」のタップで音を鳴らし始め、ステージを選ぶ画面(StageSelect)へ。
-// 称号の数は全部のステージを合わせた数(称号5/14)。
+// まだどのステージも遊んだことがない人は、ステージを選ぶ画面をとばして、すぐ路地裏の掛け合い(Intro)へ。
+// ロゴの下に、遊び方をひとことで言う帯(タグライン)を出す。
+// 称号の数は全部のステージを合わせた数(称号5/17)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -8,9 +10,11 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { purgeAccessorySheets } from '../art/recolor';
-import { loadRecords, TITLE_COUNT } from '../logic';
-import { FS, PixelText, flash, gotoWhenFree, shake } from '../ui';
-import { Z, addMute, devHook, drawAlley, drawLightPool, flicker } from './sort/common';
+import { hasAnyRecord, loadRecords, randomSeed, TITLE_COUNT } from '../logic';
+import { startRun } from '../run';
+import { FS, PixelText, ditherTexture, flash, gotoWhenFree, shake, spawnFx } from '../ui';
+import { Z, addMute, devHook, drawStageBg, drawLightPool, flicker } from './sort/common';
+import { entrySceneFor } from './Intro';
 
 const HERO_X = 108;
 /** 下の「タップしてスタート」の部分の高さ */
@@ -40,7 +44,7 @@ export class TitleScene extends Phaser.Scene {
     // 背景:夜空(足りないぶん) → 遠くのビル → サーチライト → 壁と地面
     this.add.rectangle(0, 0, W, this.top + 1, 0x000024).setOrigin(0).setDepth(Z.far);
     this.stars();
-    drawAlley(this, 0, this.top);
+    drawStageBg(this, undefined, 0, { y: this.top });
     this.beams = this.add.graphics().setDepth(Z.sky);
     flicker(this, this.beams);
 
@@ -68,15 +72,16 @@ export class TitleScene extends Phaser.Scene {
       onUpdate: () => { logo.y = Math.round(logo.y); },
       onComplete: () => {
         shake(this, 3, 180);
+        tagline.setVisible(true);
         this.tweens.add({ targets: logo, y: logoY + 3, duration: 70, yoyo: true, ease: 'Quad.easeOut', onUpdate: () => { logo.y = Math.round(logo.y); } });
       }
     });
+    // ロゴの下の帯:何をするゲームかをひとことで。ロゴが止まったら出す
+    const tagline = this.tagline(logoY + 36).setVisible(false);
     // ロゴのふちを時々光らせる
     this.time.addEvent({
       delay: 1800, loop: true, startAt: 900, callback: () => {
-        const glint = this.add.sprite(logo.x + Phaser.Math.Between(-80, 80), logo.y + Phaser.Math.Between(-18, 10), 'fx_kiran').setDepth(Z.stamp + 1);
-        glint.play(animKey('fx_kiran', 'play'));
-        glint.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => glint.destroy());
+        spawnFx(this, 'fx_kiran', logo.x + Phaser.Math.Between(-80, 80), logo.y + Phaser.Math.Between(-18, 10), { depth: Z.stamp + 1 });
       }
     });
 
@@ -120,7 +125,23 @@ export class TitleScene extends Phaser.Scene {
     devHook(this, { begin: () => this.begin() });
   }
 
-  update(_t: number, dt: number): void {
+  /** ロゴの下の帯(上下に金の線、暗くした帯に2行) */
+  private tagline(y: number): Phaser.GameObjects.Container {
+    const { W } = layout;
+    const h = 34;
+    const c = this.add.container(0, y).setDepth(Z.stamp);
+    const dim = this.add.tileSprite(0, 0, W, h, ditherTexture(this)).setOrigin(0);
+    const g = this.add.graphics();
+    // 字の後ろは黒くして読みやすく(金の線のすぐ内側だけ市松もようで透けて見える)
+    g.fillStyle(UI.black, 1).fillRect(0, 3, W, h - 6);
+    g.fillStyle(UI.gold, 1).fillRect(0, 0, W, 1).fillRect(0, h - 1, W, 1);
+    const l1 = new PixelText(this, Math.round(W / 2), 4, '敵と味方の区別がつかないヒーローに', { size: FS.body, color: UI.text }).setOrigin(0.5, 0);
+    const l2 = new PixelText(this, Math.round(W / 2), 18, 'ワルと市民を教えて、街を守れ！', { size: FS.body, color: UI.gold }).setOrigin(0.5, 0);
+    c.add([dim, g, l1, l2]);
+    return c;
+  }
+
+  override update(_t: number, dt: number): void {
     this.beamT += dt;
     this.drawBeams();
   }
@@ -173,18 +194,14 @@ export class TitleScene extends Phaser.Scene {
     const FEET_Y = this.feetY;
     const x = HERO_X + Phaser.Math.Between(-40, 40);
     const y = FEET_Y - Phaser.Math.Between(10, 100);
-    const s = this.add.sprite(x, y, 'fx_sparkle').setDepth(Z.actorFront);
-    s.play(animKey('fx_sparkle', 'play'));
-    s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+    spawnFx(this, 'fx_sparkle', x, y, { depth: Z.actorFront });
   }
 
   private kiran(): void {
-    const k = this.add.sprite(HERO_X + 14, this.feetY - 92, 'fx_kiran').setScale(2).setDepth(Z.actorFront);
-    k.play(animKey('fx_kiran', 'play'));
-    k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+    spawnFx(this, 'fx_kiran', HERO_X + 14, this.feetY - 92, { scale: 2, depth: Z.actorFront });
   }
 
-  /** スタート:音を鳴らし始め、ステージを選ぶ画面へ */
+  /** スタート:音を鳴らし始め、ステージを選ぶ画面へ(初めての人は路地裏へ) */
   private begin(): void {
     if (this.started) return;
     this.started = true;
@@ -194,6 +211,15 @@ export class TitleScene extends Phaser.Scene {
     flash(this, 0xffffff, 2);
     this.hero.play(animKey('hero', 'okay'));
     this.kiran();
-    this.time.delayedCall(320, () => gotoWhenFree(this, SCENES.stageSelect, undefined, { kind: 'wipe' }));
+    // 初めての人は、開いているステージが路地裏だけなので、選ぶ画面を出さずに始める
+    const first = !hasAnyRecord();
+    this.time.delayedCall(320, () => {
+      if (first) {
+        // 新しいプレイは、切り替えを受け付けてから作る(StageSelect と同じ)
+        gotoWhenFree(this, entrySceneFor('alley'), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, 'alley') });
+      } else {
+        gotoWhenFree(this, SCENES.stageSelect, undefined, { kind: 'wipe' });
+      }
+    });
   }
 }

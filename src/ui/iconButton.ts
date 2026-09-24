@@ -12,7 +12,7 @@ import Phaser from 'phaser';
 import { UI } from '../config';
 import { DEPTH, darker } from './theme';
 
-export type IconName = 'pause' | 'soundOn' | 'soundOff' | 'play' | 'close';
+export type IconName = 'pause' | 'soundOn' | 'soundOff' | 'play' | 'close' | 'fast';
 
 const D = 16; // 直径
 const HIT = 28;
@@ -28,7 +28,7 @@ function fillCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, d: n
 }
 
 /** アイコンを描く(真ん中が 0,0) */
-export function drawIcon(g: Phaser.GameObjects.Graphics, name: IconName, color: number): void {
+function drawIcon(g: Phaser.GameObjects.Graphics, name: IconName, color: number): void {
   g.fillStyle(color, 1);
   switch (name) {
     case 'pause':
@@ -36,6 +36,10 @@ export function drawIcon(g: Phaser.GameObjects.Graphics, name: IconName, color: 
       break;
     case 'play':
       for (let i = 0; i < 4; i++) g.fillRect(-2 + i, -4 + i, 1, 8 - i * 2);
+      break;
+    case 'fast':
+      // 早送り(▶▶)
+      for (let i = 0; i < 4; i++) g.fillRect(-4 + i, -4 + i, 1, 8 - i * 2).fillRect(1 + i, -4 + i, 1, 8 - i * 2);
       break;
     case 'close':
       for (let i = -3; i <= 3; i++) { g.fillRect(i - 1, i, 2, 1); g.fillRect(-i - 1, i, 2, 1); }

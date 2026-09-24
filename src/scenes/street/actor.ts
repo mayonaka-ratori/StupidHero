@@ -29,7 +29,6 @@ export class Actor {
   civ = false;
   tag?: Tag;
   mark?: Phaser.GameObjects.Sprite;
-  markKind?: 'stop' | 'go';
   stars?: Phaser.GameObjects.Sprite;
   /** 奥行きの順を少しずらす(ヒーローを同じ列の人より手前に) */
   depthBias = 0;

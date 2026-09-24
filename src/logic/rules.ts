@@ -1,12 +1,18 @@
 // ゲームのルールと数字の表。SPECにある数字はそのまま、SPECにない数字はここで決めて理由を書く。
 // 画面の担当は、数字を自分で書かずにここから読む。
 // ステージごとの違い(波の表、ボスの額など)は stages.ts の STAGES にまとめてある。ここはその部品。
-// ステージ2(docs/STAGE2.md)の数字は「ステージ2」の見出しの下。
+// ステージ2(docs/STAGE2.md)の数字は「ステージ2」、ステージ3(docs/STAGE3.md)の数字は「ステージ3」の見出しの下。
 
 import type { Rng } from './rng';
 import type {
   AccessoryColorId, AttackKind, Encounter, GangLook, Look, MischiefKind, PropKind, SortChoice, Truth, WaveNo
 } from './types';
+
+/** 物の大きさ(ドット)。絵の担当と画面の担当が、置く場所と当たりを決めるのに使う */
+export interface PropSize {
+  w: number;
+  h: number;
+}
 
 // ─── 仕分け ───────────────────────────────────────
 
@@ -25,20 +31,41 @@ export interface WavePlan {
   gangGroups?: readonly [number, number];
   /** ステージ2だけ:組が1つのときの人数を2人に決めるか(波1の練習) */
   gangPairOnly?: boolean;
+  /** ステージ3だけ:宇宙人の数 [最小, 最大] */
+  aliens?: readonly [number, number];
+  /** ステージ3だけ:くずれが早く出る練習用の宇宙人を1人入れるか(波1) */
+  practiceAlien?: boolean;
 }
 
-/** 波の表(SPEC「仕分け」)。ステージ1 */
+/**
+ * 波の表(SPEC「仕分け」)。ステージ1。
+ * 時間は、プロフィールと一言を読み、「持ち物」の窓も見て決められるように、はじめの版(20、15、18秒)より長くした。
+ * 文字送りの間は時計が止まる(Sort.ts)。ゆっくりモードではさらに1.5倍(settings.timeScale)
+ */
 export const WAVES: readonly WavePlan[] = [
-  { no: 1, people: 5, seconds: 20, mohawk: true, boss: false },
-  { no: 2, people: 5, seconds: 15, mohawk: false, boss: false },
-  { no: 3, people: 5, seconds: 18, mohawk: false, boss: true }
+  { no: 1, people: 5, seconds: 30, mohawk: true, boss: false },
+  { no: 2, people: 5, seconds: 22, mohawk: false, boss: false },
+  { no: 3, people: 5, seconds: 24, mohawk: false, boss: true }
 ];
 
-/** 波の表(STAGE2「波と人数」)。ステージ2。ワルは全員ギャングの組 */
+/**
+ * 波の表(STAGE2「波と人数」)。ステージ2。ワルは全員ギャングの組。
+ * 時間はステージ1と同じ理由で、はじめの版(20、18、20秒)より長くした
+ */
 export const GARAGE_WAVES: readonly WavePlan[] = [
-  { no: 1, people: 5, seconds: 20, mohawk: false, boss: false, gangGroups: [1, 1], gangPairOnly: true },
-  { no: 2, people: 6, seconds: 18, mohawk: false, boss: false, gangGroups: [1, 2] },
-  { no: 3, people: 6, seconds: 20, mohawk: false, boss: true, gangGroups: [1, 2] }
+  { no: 1, people: 5, seconds: 30, mohawk: false, boss: false, gangGroups: [1, 1], gangPairOnly: true },
+  { no: 2, people: 6, seconds: 26, mohawk: false, boss: false, gangGroups: [1, 2] },
+  { no: 3, people: 6, seconds: 28, mohawk: false, boss: true, gangGroups: [1, 2] }
+];
+
+/**
+ * 波の表(STAGE3「波と人数」)。ステージ3。1つの波の宇宙人は2〜3人。
+ * 全員のくずれを待つと時間が足りない長さにしてある(STAGE3「時間の見積もり」。波1だけは全員待てる)
+ */
+export const MALL_WAVES: readonly WavePlan[] = [
+  { no: 1, people: 5, seconds: 30, mohawk: false, boss: false, aliens: [2, 3], practiceAlien: true },
+  { no: 2, people: 6, seconds: 28, mohawk: false, boss: false, aliens: [2, 3] },
+  { no: 3, people: 6, seconds: 30, mohawk: false, boss: true, aliens: [2, 3] }
 ];
 
 /** 1つの波のワルの数(ボスは含まない。ステージ1) */
@@ -48,7 +75,7 @@ export const BAD_PER_WAVE = { min: 2, max: 3 } as const;
 export const HURRY_AT_SEC = 5;
 
 /** 時間切れで仕分けていない人を、ヒーローがワルにする確率(半々) */
-export const TIMEOUT_BAD_CHANCE = 0.5;
+const TIMEOUT_BAD_CHANCE = 0.5;
 
 /** 時間切れの人の仕分けを、ヒーローが気まぐれで決める */
 export function decideUnsorted(rng: Rng): SortChoice {
@@ -74,29 +101,15 @@ export function canStop(e: Encounter): boolean {
   return e === 'hitBad' || e === 'hitCiv';
 }
 
-/** 待て/行けのマークの決まり(SPEC「待て と 行け」) */
+/** 待て/行けのマークの決まり(SPEC「待てと行け」) */
 export const MARK = {
   /** ヒーローが相手の何ドット手前に来たらマークを出すか */
   showDistance: 48,
   /** マークが出ている間の動きの速さ(ゆっくりにする) */
   slowmo: 0.6,
-  /** マークが出てから殴るまでのおおよその秒数(ゆっくりの時間を含む)。画面の歩く速さはこれに合わせる */
-  windowSec: 1.5,
   /** 悪さを始めたワルが、行けを押されなければ画面の右から逃げるまでの秒数 */
   escapeSec: 3
 } as const;
-
-/**
- * マークが2人に出ているときの対象を決める。ヒーローに近い方(x が小さい方ではなく、距離が近い方)。
- * 候補がなければ null(押しても何も起きない)。
- */
-export function pickMarkTarget<T extends { x: number }>(candidates: readonly T[], heroX: number): T | null {
-  let best: T | null = null;
-  for (const c of candidates) {
-    if (!best || Math.abs(c.x - heroX) < Math.abs(best.x - heroX)) best = c;
-  }
-  return best;
-}
 
 // ─── ワルの悪さ ───────────────────────────────────
 
@@ -110,7 +123,12 @@ export const MISCHIEF_BY_LOOK: Readonly<Partial<Record<Look, MischiefKind>>> = {
   guard: 'whistle',
   mechanic: 'whistle',
   clubber: 'whistle',
-  officelady: 'whistle'
+  officelady: 'whistle',
+  // ステージ3の宇宙人は悪さの代わりに空へ合図を送ってUFOを呼ぶ
+  mascot: 'signal',
+  clerk: 'signal',
+  dancer: 'signal',
+  uncle: 'signal'
 };
 
 /**
@@ -123,7 +141,8 @@ export const MISCHIEF_HURTS_CIV: Readonly<Record<MischiefKind, boolean>> = {
   snatch: true,
   pickpocket: false,
   threaten: false,
-  whistle: false
+  whistle: false,
+  signal: false
 };
 
 // ─── お金 ─────────────────────────────────────────
@@ -138,6 +157,10 @@ export const MISCHIEF_HURTS_CIV: Readonly<Record<MischiefKind, boolean>> = {
  * - barrier(料金所のバー)¥30万:機械ごと壊れる。看板(¥15万)の倍
  * - cone(三角コーン)¥1万:いちばん安い。数が多く、よく壊れるので小さい額が何度も飛ぶ
  * - extinguisher(消火器の箱)¥5万:ゴミ箱と窓の間
+ * ステージ3(STAGE3「店が壊れる」の表):ガチャガチャ¥5万、マネキン¥10万、ショーケース¥30万、噴水¥150万、エスカレーター¥800万。
+ * - ufo(UFO)¥300万:STAGE3の通り。行けで殴り落としたとき(stats.ufoDowned)に足す
+ * - mothership(母艦)¥1億:ボス戦だけに出る。倒したときの爆発は数えない(高級車と同じ理由)。
+ *   倒したときは噴水に落ちるので、噴水の¥150万を足す(STAGES.mall.bossDefeatProp)
  */
 export const PROP_COST: Readonly<Record<PropKind, number>> = {
   trash: 30_000,
@@ -150,11 +173,21 @@ export const PROP_COST: Readonly<Record<PropKind, number>> = {
   pillar: 2_000_000,
   barrier: 300_000,
   cone: 10_000,
-  extinguisher: 50_000
+  extinguisher: 50_000,
+  gacha: 50_000,
+  mannequin: 100_000,
+  showcase: 300_000,
+  fountain: 1_500_000,
+  escalator: 8_000_000,
+  ufo: 3_000_000,
+  mothership: 100_000_000
 };
 
-/** 「車や自販機が壊れた瞬間」に数える大きな物(柱は車より少し安いが、見た目が大きいので入れる) */
-export const BIG_PROPS: readonly PropKind[] = ['vending', 'car', 'van', 'bosscar', 'pillar'];
+/**
+ * 「車や自販機が壊れた瞬間」に数える大きな物(柱は車より少し安いが、見た目が大きいので入れる)。
+ * ステージ3は噴水とエスカレーター(「モールがこわれた!」)。落ちたUFOは店の物ではないので入れない
+ */
+export const BIG_PROPS: readonly PropKind[] = ['vending', 'car', 'van', 'bosscar', 'pillar', 'fountain', 'escalator'];
 export const isBigProp = (p: PropKind): boolean => BIG_PROPS.includes(p);
 
 /** ワルの悪さ1回の被害額 */
@@ -166,6 +199,8 @@ export const MISCHIEF_COST = 200_000;
 export const BOSS_RAMPAGE_COST = 10_000_000;
 /** ステージ2:女ボスを市民に仕分けたとき、手下の車をけしかける被害額 */
 export const BOSS2_RAMPAGE_COST = 15_000_000;
+/** ステージ3:親玉を市民に仕分けたとき、正体を現したあと母艦の光線でモールを焼く被害額 */
+export const BOSS3_RAMPAGE_COST = 20_000_000;
 
 // ─── 攻撃 ─────────────────────────────────────────
 
@@ -203,6 +238,10 @@ export interface AttackDef {
  * - ワゴンと高級車は仕掛け(逃げる車、ボス戦の車)に使うので、ふつうの攻撃では壊れない(0)。
  *   ワゴンは行けで止めたときだけ、高級車はボス戦の中だけで壊れる
  * - 柱は丈夫なので低め、コーンと消火器の箱は軽いのでほぼ壊れる、料金所のバーはその間
+ * ステージ3の物:
+ * - ガチャガチャは軽いのでゴミ箱と同じ、マネキンは看板くらい、ショーケースはガラスなので窓と同じ
+ * - 噴水は石なので柱くらい、エスカレーターはいちばん丈夫で低め(壊れると¥800万なので、めったに壊れない)
+ * - UFOと母艦は仕掛け(行けで落とす、ボス戦)に使うので、ふつうの攻撃では壊れない(0)
  */
 export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
   charge: {
@@ -211,7 +250,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     civHitChance: 0,
     propBreakChance: {
       trash: 1, window: 0.6, sign: 0.6, vending: 0.5, car: 0.3,
-      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.7, cone: 1, extinguisher: 1
+      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.7, cone: 1, extinguisher: 1,
+      gacha: 1, mannequin: 0.6, showcase: 0.6, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0
     },
     firstPropOnly: false
   },
@@ -221,7 +261,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     civHitChance: 0.35,
     propBreakChance: {
       trash: 1, window: 1, sign: 1, vending: 0.8, car: 0.6,
-      van: 0, bosscar: 0, pillar: 0.5, barrier: 1, cone: 1, extinguisher: 1
+      van: 0, bosscar: 0, pillar: 0.5, barrier: 1, cone: 1, extinguisher: 1,
+      gacha: 1, mannequin: 1, showcase: 1, fountain: 0.5, escalator: 0.3, ufo: 0, mothership: 0
     },
     firstPropOnly: true
   },
@@ -231,7 +272,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     civHitChance: 0.5,
     propBreakChance: {
       trash: 1, window: 0.7, sign: 0.5, vending: 0.6, car: 0.4,
-      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.6, cone: 1, extinguisher: 0.8
+      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.6, cone: 1, extinguisher: 0.8,
+      gacha: 1, mannequin: 0.5, showcase: 0.7, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0
     },
     firstPropOnly: false
   },
@@ -241,7 +283,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     civHitChance: 0.8,
     propBreakChance: {
       trash: 1, window: 1, sign: 1, vending: 1, car: 1,
-      van: 0, bosscar: 0, pillar: 1, barrier: 1, cone: 1, extinguisher: 1
+      van: 0, bosscar: 0, pillar: 1, barrier: 1, cone: 1, extinguisher: 1,
+      gacha: 1, mannequin: 1, showcase: 1, fountain: 1, escalator: 1, ufo: 0, mothership: 0
     },
     firstPropOnly: false
   }
@@ -260,7 +303,7 @@ export function pickAttack(rng: Rng): AttackKind {
 }
 
 /** dx が攻撃の届く範囲に入っているか */
-export function inReach(kind: AttackKind, dx: number): boolean {
+function inReach(kind: AttackKind, dx: number): boolean {
   const { from, to } = ATTACKS[kind].reach;
   return dx >= from && dx <= to;
 }
@@ -284,7 +327,7 @@ export function rollCivHit(kind: AttackKind, dx: number, rng: Rng): boolean {
 }
 
 /** 物が壊れるかの判定(壊れれば true) */
-export function rollPropBreak(kind: AttackKind, prop: PropKind, dx: number, rng: Rng): boolean {
+function rollPropBreak(kind: AttackKind, prop: PropKind, dx: number, rng: Rng): boolean {
   const p = propBreakChanceAt(kind, prop, dx);
   return p > 0 && rng.chance(p);
 }
@@ -345,6 +388,24 @@ export const BOSS2 = {
   carMinSec: 1.5
 } as const;
 
+/**
+ * ステージ3の宇宙人の親玉(STAGE3「ボス戦」)。体力、最長の秒数、止まったとみなす時間はステージ1と同じ。
+ * 仕組みはステージ2の女ボスの車と同じ形(BossFight の car の設定)で、車の代わりに母艦を呼んで乗りこむ。
+ * 体力が半分を切ると母艦に乗りこみ、そのあと手が止まっている間は1秒ごとに¥150万(母艦の光線が床を焼く)。
+ * 乗りこむ前はステージ1と同じ¥50万。carHoldSec と carMinSec はステージ2と同じにした
+ * (母艦が天井を破って下りてきて、親玉が乗りこむまでの画面の動きを1.3秒に収める)
+ */
+export const BOSS3 = {
+  /** 体力の割合がこれを下回ると母艦を呼んで乗りこむ */
+  carAtHpRatio: 0.5,
+  /** 母艦に乗ったあと、手が止まっている間に1秒ごとに増える被害額 */
+  carIdleCostPerSec: 1_500_000,
+  /** 母艦に乗ってから体力を減らさない秒数(母艦が下りてきて乗りこむ間) */
+  carHoldSec: 1.3,
+  /** そのあと倒れるまでの最短の秒数 */
+  carMinSec: 1.5
+} as const;
+
 // ─── ステージ2:ギャング ───────────────────────────
 
 /**
@@ -352,7 +413,7 @@ export const BOSS2 = {
  * - maxPerWave 4:波2と波3は6人なので、ギャングが5人以上だと市民が1人になってしまう。
  *   市民を2人以上残す(組の色とまぎれる市民を出せるように)。組が2つのときは2人ずつになる
  * - twoGroupChance 0.5:波2と波3で組が2つになる確率。ステージ全体で組は3〜5組。
- *   「一網打尽(2組以上)」も「ギャングの運転手(2組以上)」も、1回のプレイで十分ねらえる
+ *   「一網打尽(2組以上)」も「ギャングの見送り係(2組以上)」も、1回のプレイで十分ねらえる
  * - civSameColorRate 0.3:たまたまギャングの組と同じ色の小物をつけている市民の割合(STAGE2の「3割くらい」)
  * - gangLinkRate 0.8:組の2人目、3人目に「前の仲間とのつながり」の文を出す確率(毎回だと文だけで分かってしまう)
  * - civLinkRate 0.35:市民(波の2人目から)に、どちらとも取れるつながりの文を出す確率。
@@ -413,7 +474,9 @@ export const GROUP_WIPE = {
   reach: { from: -40, to: 40 },
   propBreakChance: {
     trash: 1, window: 0.7, sign: 0.6, vending: 0.6, car: 0.5,
-    van: 0, bosscar: 0, pillar: 0.4, barrier: 0.8, cone: 1, extinguisher: 1
+    van: 0, bosscar: 0, pillar: 0.4, barrier: 0.8, cone: 1, extinguisher: 1,
+    // ステージ3にはギャングの組が出ないので使わないが、表はすべての物で埋めておく
+    gacha: 1, mannequin: 0.7, showcase: 0.7, fountain: 0.4, escalator: 0.3, ufo: 0, mothership: 0
   } as Readonly<Record<PropKind, number>>
 } as const;
 
@@ -428,3 +491,87 @@ export function rollGroupWipeProps<T extends { kind: PropKind; x: number }>(
     return chance > 0 && rng.chance(chance);
   });
 }
+
+// ─── ステージ3:宇宙人 ─────────────────────────────
+
+/**
+ * 宇宙人の動きのくずれ(STAGE3「動きのくずれ」)。数えるのは仕分けの時計だけ。
+ * 初めてくずれるまでは firstSec の min〜max を step きざみで人ごとに選ぶ。そのあとは everySec ごとに showSec の間。
+ * 波1の練習用の宇宙人は practice の数字(早く、長く出る)。親玉はくずれない
+ */
+export const GLITCH = {
+  firstSec: { min: 3, max: 6, step: 0.5 },
+  everySec: 3,
+  showSec: 0.2,
+  practice: { firstSec: 1.5, everySec: 2, showSec: 0.3 }
+} as const;
+
+/**
+ * UFOの時間と被害額(STAGE3「UFOで連れ去る」の表)。
+ * 合図0.8秒 → 下りてくる1秒 → 吸い上げる3秒(行けのマークが出る。この間の行けで殴り落とす)→ 去る1秒
+ */
+export const UFO = {
+  /** 宇宙人が空へ合図を送る(bad のシートの 'mischief' の動き) */
+  signalSec: 0.8,
+  /** UFOが下りてくる */
+  descendSec: 1,
+  /** 買い物客を光で吸い上げる。UFOの上に行けのマーク */
+  beamSec: 3,
+  /** 行けを押さなかったら、買い物客と宇宙人を乗せて去る */
+  leaveSec: 1
+} as const;
+
+/** ステージ3の店の物の大きさ(STAGE3「店が壊れる」の表)と、UFOと母艦の絵の大きさ */
+export const MALL_PROP_SIZE: Readonly<Record<'gacha' | 'mannequin' | 'showcase' | 'fountain' | 'escalator' | 'ufo' | 'mothership', PropSize>> = {
+  gacha: { w: 24, h: 32 },
+  mannequin: { w: 24, h: 56 },
+  showcase: { w: 32, h: 32 },
+  fountain: { w: 64, h: 40 },
+  escalator: { w: 96, h: 64 },
+  ufo: { w: 64, h: 32 },
+  mothership: { w: 160, h: 64 }
+};
+
+/**
+ * タイムセールラッシュ(STAGE3「タイムセールラッシュ」)。波2の結果発表のあと、答え合わせの前に1回だけ。
+ * - 8人のうち宇宙人は3人か4人(半々)。最初の2人は市民1人と宇宙人1人(どちらが先かはランダム)
+ * - 次の人が来るまで:最初の2人のあとは2秒、そのあとは1.7秒。ゆっくりモードでは1.5倍
+ * - 待てのマークは、人がヒーローの48ドット手前に来たときに出て、殴る瞬間に消える(約1秒)
+ * - 宇宙人はセールに夢中で、0.3秒に1回くずれる(町の画面では fx_glitch を体全体に重ねる)
+ * - 始めるタップは、帯を出して止めてから0.3秒は受けつけない(一時停止のメニューと同じ)
+ * 全体は8人で約16秒(最後の人が出るのが12.5秒、走ってマークまで2.2秒、マーク1秒、終わるまで0.6秒で16.3秒)
+ */
+export const RUSH = {
+  /** どの波の結果発表のあとに起きるか(波2の答え合わせの前) */
+  afterWave: 2,
+  /** 走ってくる人数 */
+  people: 8,
+  /** 宇宙人の数(半々でどちらか) */
+  aliens: [3, 4] as const,
+  /** 最初の何人を「市民1人と宇宙人1人」にするか */
+  openingPair: 2,
+  /** 最初の2人の、次の人が来るまでの秒数 */
+  firstGapSec: 2.0,
+  /** 3人目からの、次の人が来るまでの秒数(マークの長さと急ブレーキのポーズを足した長さより長くする) */
+  gapSec: 1.7,
+  /** ゆっくりモードで間隔にかける倍率 */
+  slowGapScale: 1.5,
+  /** 人の走る速さ(1秒に何ドット) */
+  runSpeed: 60,
+  /** 人がヒーローの何ドット手前に来たら待てのマークを出すか */
+  markDistance: 48,
+  /** マークが出ている長さのめやす(秒)。殴る瞬間に消える */
+  markSec: 1,
+  /** 待てで止めたとき、急ブレーキのポーズを出しておく秒数(このあと構えを解く) */
+  brakeSec: 0.6,
+  /** 最後の人を殴るか通してから、ラッシュを終えるまでの秒数(のびた人が落ちきり、通した人がヒーローの後ろへ抜けるくらい) */
+  settleSec: 0.6,
+  /** 殴った人が、のびてから煙になって消えるまでの秒数(殴った瞬間から) */
+  goneSec: 1.3,
+  /** 宇宙人がくずれる間隔(秒) */
+  glitchEverySec: 0.3,
+  /** 1回のくずれの長さ(秒)。ここで決めた(間隔の半分。ノイズがちらつく程度) */
+  glitchShowSec: 0.15,
+  /** 帯を出して止めてから、始めるタップを受けつけない秒数 */
+  tapLockSec: 0.3
+} as const;

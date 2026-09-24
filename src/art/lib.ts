@@ -2,7 +2,7 @@
 // 絵の担当はこのファイルを使ってよいが、変えない(変えたいときはディレクターに相談)。
 
 import type Phaser from 'phaser';
-import { type ImageDef, type SheetDef, sheetSize } from './sheets';
+import { IMAGES, type ImageDef, type SheetDef, animKey, sheetByKey, sheetSize } from './sheets';
 
 /** R、G、Bそれぞれの8段階(ART_SPECの「使える色」) */
 export const LEVELS = [0, 36, 73, 109, 146, 182, 219, 255] as const;
@@ -75,20 +75,81 @@ export class PixelGrid {
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) g.cells[y][this.w - 1 - x] = this.cells[y][x];
     return g;
   }
-  /** キャンバスの (ox, oy) に書き写す */
+  /**
+   * キャンバスの (ox, oy) に書き写す(null のところは元の絵のまま)。
+   * 1ドットずつ fillRect すると遅いので、その範囲の画素をまとめて読んで書きかえ、まとめて戻す
+   */
   drawTo(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
-      const c = this.cells[y][x];
-      if (!c) continue;
-      ctx.fillStyle = c;
-      ctx.fillRect(ox + x, oy + y, 1, 1);
+    const x0 = Math.max(0, ox), y0 = Math.max(0, oy);
+    const x1 = Math.min(ctx.canvas.width, ox + this.w), y1 = Math.min(ctx.canvas.height, oy + this.h);
+    if (x1 <= x0 || y1 <= y0) return;
+    const w = x1 - x0;
+    const img = ctx.getImageData(x0, y0, w, y1 - y0);
+    const d = img.data;
+    for (let y = y0; y < y1; y++) {
+      const row = this.cells[y - oy];
+      for (let x = x0; x < x1; x++) {
+        const c = row[x - ox];
+        if (!c) continue;
+        const [r, g, b, a] = colorBytes(c);
+        const i = ((y - y0) * w + (x - x0)) * 4;
+        if (a === 255) { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255; continue; }
+        // 半透明の色は、今までの fillRect と同じように上に重ねる
+        const k = a / 255, rest = (d[i + 3] / 255) * (1 - k), out = k + rest;
+        if (out <= 0) continue;
+        d[i] = Math.round((r * k + d[i] * rest) / out);
+        d[i + 1] = Math.round((g * k + d[i + 1] * rest) / out);
+        d[i + 2] = Math.round((b * k + d[i + 2] * rest) / out);
+        d[i + 3] = Math.round(out * 255);
+      }
     }
+    ctx.putImageData(img, x0, y0);
   }
+}
+
+/** 色の文字列 → [R, G, B, A](0〜255)。同じ色は1回だけ調べる */
+const colorCache = new Map<string, readonly [number, number, number, number]>();
+let colorProbe: CanvasRenderingContext2D | null = null;
+function colorBytes(c: string): readonly [number, number, number, number] {
+  let v = colorCache.get(c);
+  if (v) return v;
+  const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(c);
+  if (m) v = [Number(m[1]), Number(m[2]), Number(m[3]), 255];
+  else {
+    // md() 以外の書き方の色は、1ドットのキャンバスに塗って読む
+    colorProbe ??= createCanvas(1, 1).ctx;
+    colorProbe.clearRect(0, 0, 1, 1);
+    colorProbe.fillStyle = c;
+    colorProbe.fillRect(0, 0, 1, 1);
+    const p = colorProbe.getImageData(0, 0, 1, 1).data;
+    v = [p[0], p[1], p[2], p[3]];
+  }
+  colorCache.set(c, v);
+  return v;
 }
 
 /** シートの中の、row行目 i番目のコマの左上 */
 export const cellOrigin = (def: SheetDef, row: number, i: number): { x: number; y: number } =>
   ({ x: i * def.frameW, y: row * def.frameH });
+
+/** シートの表の通りに、テクスチャにコマ(番号は 行×列の数+列)を切る */
+export function addSheetFrames(tex: Phaser.Textures.Texture, def: SheetDef): void {
+  for (let row = 0; row < def.rows.length; row++) {
+    for (let i = 0; i < def.cols; i++) {
+      tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
+    }
+  }
+}
+
+/** シートの表の行ごとのアニメを登録する。key はテクスチャのキー(塗り替えたシートは元の def と別のキー) */
+export function createSheetAnims(scene: Phaser.Scene, def: SheetDef, key = def.key): void {
+  def.rows.forEach((row, r) => {
+    const k = animKey(key, row.name);
+    if (scene.anims.exists(k)) return;
+    const frames = Array.from({ length: row.frames }, (_, i) => ({ key, frame: r * def.cols + i }));
+    scene.anims.create({ key: k, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
+  });
+}
 
 export interface ArtContext {
   scene: Phaser.Scene;
@@ -110,12 +171,7 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
       if (canvas.width !== w || canvas.height !== h) {
         throw new Error(`${def.key}: シートの大きさが ${canvas.width}x${canvas.height} で、決まりの ${w}x${h} と違う`);
       }
-      const tex = scene.textures.addCanvas(def.key, canvas)!;
-      for (let row = 0; row < def.rows.length; row++) {
-        for (let i = 0; i < def.cols; i++) {
-          tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
-        }
-      }
+      addSheetFrames(scene.textures.addCanvas(def.key, canvas)!, def);
     },
     addImage(def, canvas) {
       if (skip.has(def.key) || scene.textures.exists(def.key)) return;
@@ -125,4 +181,37 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
       scene.textures.addCanvas(def.key, canvas);
     }
   };
+}
+
+/** rows[行][コマ] の順にコマを並べて、シートのキャンバスにする */
+export function buildSheet(def: SheetDef, rows: PixelGrid[][]): HTMLCanvasElement {
+  const { canvas, ctx } = createSheetCanvas(def);
+  rows.forEach((frames, r) => {
+    if (r >= def.rows.length) return;
+    frames.slice(0, def.rows[r].frames).forEach((g, i) => {
+      const o = cellOrigin(def, r, i);
+      g.drawTo(ctx, o.x, o.y);
+    });
+  });
+  return canvas;
+}
+
+/** シートのキー → 行ごとのコマ、を並べて登録する(PNGがあるキーは飛ばす) */
+export function addGridSheets(ctx: ArtContext, sheets: Record<string, PixelGrid[][]>): void {
+  for (const [key, rows] of Object.entries(sheets)) {
+    if (ctx.skip.has(key)) continue;
+    const def = sheetByKey(key);
+    ctx.addSheet(def, buildSheet(def, rows));
+  }
+}
+
+/** 1枚絵のキー → 描く関数、を描いて登録する(PNGがあるキーは描かない) */
+export function addGridImages(ctx: ArtContext, images: Record<string, () => PixelGrid>): void {
+  for (const [key, draw] of Object.entries(images)) {
+    if (ctx.skip.has(key)) continue;
+    const def = IMAGES.find((d) => d.key === key)!;
+    const { canvas, ctx: c } = createCanvas(def.w, def.h);
+    draw().drawTo(c, 0, 0);
+    ctx.addImage(def, canvas);
+  }
 }

@@ -1,8 +1,9 @@
 // 共有の流れ。
 // 1. 共有メニューが使えるとき(navigator.canShare({ files }) が true):navigator.share({ files, text }) を
 //    タップの処理の中ですぐ呼ぶ。キャンセルされたら何もしない
-// 2. 使えないとき、失敗したとき:ゲームの上にHTMLで重ねて、画像を大きく出し「長押しで写真に保存」。
-//    その下に「Xに投稿」と「とじる」
+// 2. 使えないとき(パソコンなど)、失敗したとき:ゲームの上にHTMLで重ねて、画像を大きく出す。
+//    指で使う端末では「長押しで写真に保存」、それ以外は「右クリックか長押しで保存」。
+//    その下に「画像を保存」(PNG をダウンロード)、「Xに投稿」、「とじる」
 //
 // iPhoneのSafariでは、指が離れたとき(touchend)でないと共有メニューが開かない。
 // そこで、ゲームのボタンは指が触れた瞬間に「共有するつもり」を覚えておき(arm)、
@@ -117,30 +118,38 @@ export class ShareFlow {
     img.style.setProperty('-webkit-user-select', 'auto');
 
     const hint = document.createElement('div');
-    hint.textContent = '長押しで写真に保存';
+    hint.textContent = saveHint();
     Object.assign(hint.style, { fontSize: '20px', color: '#ffd35a', letterSpacing: '1px' });
 
     const row = document.createElement('div');
-    Object.assign(row.style, { display: 'flex', gap: '12px' });
+    Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' });
     const btn = (label: string, bg: string, fg: string, shade: string): HTMLButtonElement => {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = label;
       Object.assign(b.style, {
-        fontFamily: font, fontSize: '20px', padding: '10px 18px', minWidth: '132px', color: fg, background: bg,
+        fontFamily: font, fontSize: '18px', padding: '10px 10px', minWidth: '96px', color: fg, background: bg,
         border: '2px solid #ffffff', outline: '2px solid #000000', borderRadius: '0', boxShadow: `inset 0 -4px 0 ${shade}`,
         touchAction: 'manipulation', cursor: 'pointer'
       } as Partial<CSSStyleDeclaration>);
       return b;
     };
+    const save = btn('画像を保存', '#d8312d', '#ffffff', '#7a1a18');
+    save.id = 'share-save';
+    save.addEventListener('click', () => {
+      this.opt.log?.('save');
+      downloadImage(this.opt.getDataUrl(), 'stupid-hero.png');
+    });
     const x = btn('Xに投稿', '#1d1d1d', '#ffffff', '#000000');
+    x.id = 'share-x';
     x.addEventListener('click', () => {
       this.opt.log?.('x');
       window.open(xPostUrl(this.opt.text), '_blank', 'noopener');
     });
     const close = btn('とじる', '#4a3f78', '#ffffff', '#2e2750');
+    close.id = 'share-close';
     close.addEventListener('click', () => this.closeOverlay());
-    row.append(x, close);
+    row.append(save, x, close);
 
     const note = document.createElement('div');
     note.textContent = 'ホーム画面に追加すると記録が消えにくいよ';
@@ -168,4 +177,26 @@ export class ShareFlow {
     window.removeEventListener('pointerup', this.onUpPointer, true);
     if (this.overlay) { this.overlay.remove(); this.overlay = null; }
   }
+}
+
+/** 指で使う端末か(長押しの保存メニューが出る)。分からなければ false */
+function isTouchDevice(): boolean {
+  try { return window.matchMedia('(pointer: coarse)').matches; } catch { return false; }
+}
+
+/** 画像の下に出す、保存のしかたの一言 */
+function saveHint(touch = isTouchDevice()): string {
+  return touch ? '長押しで写真に保存' : '右クリックか長押しで保存';
+}
+
+/** 画像(data URL)をファイルとしてダウンロードする */
+function downloadImage(dataUrl: string, name: string): void {
+  if (!dataUrl) return;
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = name;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }

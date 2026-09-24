@@ -1,26 +1,45 @@
-// ステージを選ぶ画面。タイトルでタップしたあとに出る(docs/STAGE2.md「ステージを選ぶ画面」)。
-// ステージ1「路地裏」とステージ2「地下駐車場」を、背景の絵を小さく見せたカードで縦に並べる。
+// ステージを選ぶ画面。タイトルでタップしたあとに出る(docs/STAGE2.md、docs/STAGE3.md「ステージを選ぶ画面」)。
+// ステージ1「路地裏」、ステージ2「地下駐車場」、ステージ3「ショッピングモール」を、背景の絵を小さく見せたカードで縦に並べる。
+// カードの高さは画面の高さで決める。3枚だと絵を細くし、それでも細くなりすぎる低い画面(高さ384など)では、
+// 絵を出さずに名前と記録だけのカードにする(cardLayout)。
 // 開いていないステージは暗くして鍵のマークと def.lockedText。記録と称号の数は stageSelectInfo() から。
-// カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。「◀タイトルへ」でタイトルへ。
+// カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。掛け合いを見たか遊んだことが
+// あるステージは、すぐ仕分け(Sort)へ(entrySceneFor)。「◀タイトルへ」でタイトルへ。
 // 結果画面でステージが開いたとき(stageselect/state.ts の印)は、鍵がこわれて開く演出をする。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { animKey } from '../art/sheets';
 import { purgeAccessorySheets } from '../art/recolor';
 import { randomSeed, say, stageSelectInfo, type StageId } from '../logic';
 import { startRun } from '../run';
 import { px } from '../hires';
-import { Button, CutIn, FS, PixelText, banner, flash, goto, shake } from '../ui';
-import { addMute, devHook, unlockOnTap } from './sort/common';
+import { Button, CutIn, FS, PixelText, banner, flash, shake, spawnFx, waitMs } from '../ui';
+import { addMute, devHook, gotoSafe, unlockOnTap } from './sort/common';
 import { drawHand } from './sort/introDemo';
+import { entrySceneFor } from './Intro';
 import { StageCard } from './stageselect/card';
 import { takeJustUnlocked } from './stageselect/state';
 
 const HEADER_H = 38;
 const STRIPES = 'ss_stripes';
+/** カードの名前と記録の欄の高さ(絵の下)。縦に余裕があるときは「タップで出発」の行も足す */
+const INFO_H = 64;
+const INFO_H_TALL = 80;
+/** 絵をこれより細くしない(人の顔と胸が見える高さ)。これより細くなるなら絵を出さない */
+const THUMB_MIN = 44;
+const THUMB_MAX = 118;
+
+/**
+ * n 枚のカードを高さ room に並べるときの、1枚の高さと絵の高さ(0なら絵なし)。
+ * 絵のないカードは STAGE の番号、名前、記録の2行で、高さ60あれば入る
+ */
+function cardLayout(room: number, n: number, gap: number): { cardH: number; thumbH: number } {
+  const cardH = Math.min(186, Math.floor((room - gap * (n - 1)) / n));
+  const thumbH = Math.min(THUMB_MAX, cardH - (cardH >= 176 ? INFO_H_TALL : INFO_H));
+  return { cardH, thumbH: thumbH >= THUMB_MIN ? thumbH : 0 };
+}
 
 export class StageSelectScene extends Phaser.Scene {
   private cards: StageCard[] = [];
@@ -64,9 +83,7 @@ export class StageSelectScene extends Phaser.Scene {
     // 見出しの字がときどきキラーンと光る
     this.time.addEvent({
       delay: 1900, loop: true, startAt: 1200, callback: () => {
-        const k = this.add.sprite(Math.round(W / 2) + Phaser.Math.Between(-44, 44), 10, 'fx_kiran').setDepth(510);
-        k.play(animKey('fx_kiran', 'play'));
-        k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+        spawnFx(this, 'fx_kiran', Math.round(W / 2) + Phaser.Math.Between(-44, 44), 10, { depth: 510 });
       }
     });
     // 選べるカードの上に、ときどきキラキラ
@@ -75,9 +92,7 @@ export class StageSelectScene extends Phaser.Scene {
         const open = this.cards.filter((c) => !c.locked);
         if (!open.length || this.leaving) return;
         const c = Phaser.Utils.Array.GetRandom(open);
-        const sp = this.add.sprite(c.root.x + Phaser.Math.Between(10, c.box.w - 10), c.root.y + Phaser.Math.Between(8, c.box.thumbH), 'fx_sparkle').setDepth(300);
-        sp.play(animKey('fx_sparkle', 'play'));
-        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sp.destroy());
+        spawnFx(this, 'fx_sparkle', c.root.x + Phaser.Math.Between(10, c.box.w - 10), c.root.y + Phaser.Math.Between(8, c.box.thumbH || c.box.h - 8), { depth: 300 });
       }
     });
 
@@ -93,9 +108,8 @@ export class StageSelectScene extends Phaser.Scene {
     const room = bottom - backH - 8 - top;
     const gap = 8;
     const n = entries.length;
-    const cardH = Math.min(186, Math.floor((room - gap * (n - 1)) / n));
     // 縦に余裕があれば、下に「タップで出発」の行をあける
-    const thumbH = Phaser.Math.Clamp(cardH - (cardH >= 176 ? 80 : 64), 60, 118);
+    const { cardH, thumbH } = cardLayout(room, n, gap);
     const spare = room - cardH * n - gap * (n - 1);
     const y0 = top + Math.floor(spare / 2);
     entries.forEach((e, i) => {
@@ -138,16 +152,19 @@ export class StageSelectScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.back());
     this.input.keyboard?.on('keydown-ONE', () => this.cards[0] && this.choose(this.cards[0]));
     this.input.keyboard?.on('keydown-TWO', () => this.cards[1] && this.choose(this.cards[1]));
+    this.input.keyboard?.on('keydown-THREE', () => this.cards[2] && this.choose(this.cards[2]));
     this.input.keyboard?.on('keydown-ENTER', () => this.cards[0] && this.choose(this.cards[0]));
 
     devHook(this, {
       select: (id: StageId) => { const c = this.cards.find((k) => k.entry.id === id); if (c) this.choose(c); },
       back: () => this.back(),
-      cards: () => this.cards.map((c) => ({ id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2 }))
+      cards: () => this.cards.map((c) => ({
+        id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2, top: c.box.y, h: c.box.h, thumbH: c.box.thumbH
+      }))
     });
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     this.bgT += dt;
     const step = Math.floor(this.bgT / 40);
     this.bgTile.tilePositionX = -step;
@@ -180,10 +197,9 @@ export class StageSelectScene extends Phaser.Scene {
     this.hand?.setVisible(false);
     // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
     this.time.delayedCall(360, () => {
-      window.setTimeout(() => {
-        const ok = goto(this, SCENES.intro, undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) });
+      gotoSafe(this, entrySceneFor(id), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) }, (ok) => {
         if (!ok) this.leaving = false;
-      }, 0);
+      });
     });
   }
 
@@ -192,14 +208,14 @@ export class StageSelectScene extends Phaser.Scene {
     this.leaving = true;
     audio.unlock();
     audio.sfx('button');
-    window.setTimeout(() => { if (!goto(this, SCENES.title)) this.leaving = false; }, 0);
+    gotoSafe(this, SCENES.title, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
   }
 
   // ─── ステージが開く ─────────────────────────────
 
   private async playUnlock(cards: StageCard[]): Promise<void> {
     this.busy = true;
-    await this.wait(750);
+    await waitMs(this, 750);
     for (const card of cards) {
       audio.sfx('tick');
       await card.unlock((x, y) => {
@@ -207,29 +223,22 @@ export class StageSelectScene extends Phaser.Scene {
         audio.sfx('fanfare', { volume: 0.6 });
         flash(this, 0xfff0c0, 2);
         shake(this, 6, 300);
-        const e = this.add.sprite(x, y, 'fx_explosion', 0).setDepth(800);
-        e.play(animKey('fx_explosion', 'play'));
-        e.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => e.destroy());
+        spawnFx(this, 'fx_explosion', x, y, { depth: 800 });
         for (let i = 0; i < 6; i++) {
-          const s = this.add.sprite(x + Phaser.Math.Between(-80, 80), y + Phaser.Math.Between(-30, 30), 'fx_sparkle').setDepth(801);
-          s.play({ key: animKey('fx_sparkle', 'play'), delay: i * 60 });
-          s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+          spawnFx(this, 'fx_sparkle', x + Phaser.Math.Between(-80, 80), y + Phaser.Math.Between(-30, 30), { depth: 801, delay: i * 60 });
         }
       });
       card.setBadge('NEW!');
       void banner(this, `${card.entry.def.name}が開いた!`, { y: card.root.y + card.box.h / 2, hold: 900 });
-      // オペレーターのひとこと(下のボタンの上)
+      // オペレーターのひとこと。開いたカードを隠さないように、カードが下の方なら見出しの下、上の方なら下のボタンの上
       const { W, H } = layout;
-      const cut = new CutIn(this, 4, H - Math.max(6, layout.safeBottom + 4) - 26 - 8 - 50, W - 8, 46).setDepth(900);
+      const low = card.root.y + card.box.h / 2 > H / 2;
+      const cut = new CutIn(this, 4, low ? HEADER_H + 4 : H - Math.max(6, layout.safeBottom + 4) - 26 - 8 - 50, W - 8, 46).setDepth(900);
       const s = say('unlocked', undefined, card.entry.id);
       void cut.say(s.text, s.face, { who: s.who });
       this.time.delayedCall(2600, () => cut.destroy());
     }
     this.busy = false;
-  }
-
-  private wait(ms: number): Promise<void> {
-    return new Promise((r) => this.time.delayedCall(ms, r));
   }
 
   // ─── 背景 ───────────────────────────────────────

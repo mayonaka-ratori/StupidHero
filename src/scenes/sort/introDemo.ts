@@ -1,5 +1,5 @@
 // ステージ前の掛け合いで、遊び方のセリフに合わせて右側の小さな画面で見せるお手本。
-//   const demo = new IntroDemo(this, 118, 34, 94, 118);
+//   const demo = new IntroDemo(this, 118, 34, 94, 118);   // 6つ目に人の絵のキーを渡すと、ふつうのお手本の人がその人になる
 //   demo.show(demoKindFor(line.text));   // セリフの言葉から、何を見せるか決める(なければ隠す)
 //   demo.update(delta);                  // シーンの update から毎フレーム呼ぶ
 import Phaser from 'phaser';
@@ -11,11 +11,16 @@ import { Button, FS, PixelText, TimeBar, WindowFrame } from '../../ui';
 import { makeStamp } from './stamp';
 
 export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go'
-  | 'match' | 'signal' | 'whistle' | 'van';
+  | 'match' | 'signal' | 'whistle' | 'van' | 'glitch' | 'awkward' | 'ufo';
 
 /** セリフの言葉から、お手本の種類を決める */
 export function demoKindFor(text: string): DemoKind | null {
   const t = text.replace(/\n/g, '');
+  // ステージ3(ショッピングモール)の、動きのくずれ、ぎこちない市民、UFO。「待てない」で待てのお手本を出さないように先に見る
+  if (/くずれ/.test(t)) return 'glitch';
+  if (/ぎこちない/.test(t)) return 'awkward';
+  if (/UFO/.test(t)) return 'ufo';
+  if (/手がかり/.test(t)) return 'clues';
   // ステージ2(地下駐車場)の手がかりと、仲間を呼ぶ、車で逃げる
   if (/おそろい|同じ色|前の人と似/.test(t)) return 'match';
   if (/合図/.test(t)) return 'signal';
@@ -70,17 +75,23 @@ export class IntroDemo {
   private mask!: Phaser.Display.Masks.GeometryMask;
   private van?: Phaser.GameObjects.Sprite;
   private bar?: TimeBar;
+  /** くずれを見せる宇宙人(glitch、awkward) */
+  private alien?: Phaser.GameObjects.Sprite;
+  /** UFO と光と、吸い上げられる市民(ufo) */
+  private ufo?: { ship: Phaser.GameObjects.Sprite; beam: Phaser.GameObjects.Sprite; civ: Phaser.GameObjects.Sprite };
   private kind: DemoKind | null = null;
   private t = 0;
   private readonly cx: number;
   private readonly feetY: number;
 
-  constructor(private scene: Phaser.Scene, x: number, y: number, private w: number, private h: number) {
+  constructor(
+    private scene: Phaser.Scene, x: number, y: number, private w: number, private h: number, private baseKey = 'hoodie_bad'
+  ) {
     this.root = scene.add.container(Math.round(x), Math.round(y)).setDepth(950);
     this.frame = new WindowFrame(scene, 0, 0, w, h, 'win');
     this.cx = Math.floor(w / 2);
     this.feetY = h - 18;
-    this.person = scene.add.sprite(this.cx, this.feetY, 'hoodie_bad').setOrigin(...originFor('hoodie_bad'));
+    this.person = scene.add.sprite(this.cx, this.feetY, baseKey).setOrigin(...originFor(baseKey));
     this.hand = scene.add.graphics();
     drawHand(this.hand);
     this.stampBad = makeStamp(scene, 'bad', FS.body);
@@ -99,8 +110,6 @@ export class IntroDemo {
     this.root.setVisible(false);
   }
 
-  get visible(): boolean { return this.root.visible; }
-
   show(kind: DemoKind | null): void {
     if (kind === this.kind) return;
     this.kind = kind;
@@ -109,6 +118,8 @@ export class IntroDemo {
     this.extras = [];
     this.bar = undefined;
     this.van = undefined;
+    this.alien = undefined;
+    this.ufo = undefined;
     if (!kind) { this.root.setVisible(false); return; }
     this.root.setVisible(true);
     // 開くときに縦に広がる(3コマ)
@@ -117,8 +128,8 @@ export class IntroDemo {
     this.root.setScale(1, steps[0]);
     this.scene.time.addEvent({ delay: 33, repeat: 2, callback: () => this.root.setScale(1, steps[++i] ?? 1) });
 
-    this.person.setVisible(true).setPosition(this.cx, this.feetY).setAngle(0).setTexture('hoodie_bad');
-    this.person.play(animKey('hoodie_bad', 'sortIdle'));
+    this.person.setVisible(true).setPosition(this.cx, this.feetY).setAngle(0).setTexture(this.baseKey).setOrigin(...originFor(this.baseKey));
+    this.person.play(animKey(this.baseKey, 'sortIdle'));
     this.hand.setVisible(false);
     this.stampBad.setVisible(false);
     this.stampCiv.setVisible(false);
@@ -166,6 +177,40 @@ export class IntroDemo {
         const b = add(new Button(sc, 8, this.h - 34, bw, 26, '行け!', { color: 'go', size: FS.body }));
         b.hit.disableInteractive();
         this.hand.setVisible(true);
+        break;
+      }
+      case 'glitch': {
+        // 宇宙人がときどきくずれる(着ぐるみの首が回る)
+        this.person.setTexture('mascot_bad').setOrigin(...originFor('mascot_bad'));
+        this.person.play(animKey('mascot_bad', 'sortIdle'));
+        this.alien = this.person;
+        break;
+      }
+      case 'awkward': {
+        // 同じ見た目の市民と宇宙人。どちらもふらつくが、くずれるのは宇宙人だけ
+        this.person.setVisible(false);
+        const sp = (key: string, x: number): Phaser.GameObjects.Sprite => {
+          const p = add(sc.add.sprite(x, this.feetY, key).setOrigin(...originFor(key)));
+          p.setMask(this.mask);
+          p.play(animKey(key, 'sortIdle'));
+          return p;
+        };
+        sp('clerk_civ', this.cx - 20);
+        this.alien = sp('clerk_bad', this.cx + 20).setFlipX(true);
+        this.caption.setText('どっち？');
+        break;
+      }
+      case 'ufo': {
+        // UFOが光で市民を吸い上げる
+        this.person.setVisible(false);
+        const beam = add(sc.add.sprite(this.cx, 36, 'fx_ufobeam').setOrigin(...originFor('fx_ufobeam')));
+        beam.play(animKey('fx_ufobeam', 'play'));
+        const civ = add(sc.add.sprite(this.cx, this.feetY, 'uncle_civ', 0).setOrigin(...originFor('uncle_civ')));
+        civ.play(animKey('uncle_civ', 'surprised'));
+        const ship = add(sc.add.sprite(this.cx, 42, 'prop_ufo', 2).setOrigin(...originFor('prop_ufo')));
+        for (const o of [beam, civ, ship]) o.setMask(this.mask);
+        this.ufo = { ship, beam, civ };
+        this.caption.setText('たすけて！');
         break;
       }
       case 'swipe':
@@ -232,6 +277,9 @@ export class IntroDemo {
       case 'signal':
       case 'whistle': this.cluesStep(); break;
       case 'van': this.vanStep(); break;
+      case 'glitch':
+      case 'awkward': this.glitchStep(); break;
+      case 'ufo': this.ufoStep(); break;
       default: break;
     }
   }
@@ -318,13 +366,38 @@ export class IntroDemo {
     }
   }
 
+  /** 1.6秒ごとに宇宙人がくずれる(ゲームの0.2秒では見落とすので、お手本は少しゆっくり)。くずれている間は「!?」 */
+  private glitchStep(): void {
+    const a = this.alien;
+    if (!a) return;
+    const cycle = 1600;
+    const k = this.t % cycle;
+    const on = k >= 1000 && k < 1400;
+    const glitching = a.anims.currentAnim?.key === animKey(a.texture.key, 'glitch');
+    if (on && !glitching) a.play({ key: animKey(a.texture.key, 'glitch'), frameRate: 10 });
+    if (!on && glitching) a.play(animKey(a.texture.key, 'sortIdle'));
+    const cap = on ? 'くずれた!?' : '';
+    if (this.kind === 'glitch' && this.caption.text !== cap) this.caption.setText(cap);
+  }
+
+  /** 市民が光の中を浮き上がって、UFOに吸いこまれる。光は1コマおきに点滅させる */
+  private ufoStep(): void {
+    const u = this.ufo;
+    if (!u) return;
+    const cycle = 2400;
+    const k = this.t % cycle;
+    u.ship.y = 42 + (Math.floor(this.t / 300) % 2);
+    u.beam.setVisible(k < 2000 && Math.floor(this.t / 33) % 2 === 0);
+    // UFOの下まで浮いたら、1コマおきに点滅して消える(吸いこまれた)
+    const lift = Phaser.Math.Clamp((k - 300) / 1400, 0, 1);
+    u.civ.y = Math.round(this.feetY - lift * (this.feetY - 72));
+    u.civ.setVisible(lift < 0.8 || (lift < 1 && Math.floor(this.t / 50) % 2 === 0));
+    this.cluesStep();
+  }
+
   /** ボタンをトントンと押す */
   private tapStep(): void {
     const k = this.t % 700;
     this.hand.setPosition(this.cx + 10, this.h - 24 + (k < 120 ? 2 : 0));
-  }
-
-  destroy(): void {
-    this.root.destroy();
   }
 }

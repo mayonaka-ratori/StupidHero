@@ -9,7 +9,9 @@ import { IntroScene } from './scenes/Intro';
 import { SortScene } from './scenes/Sort';
 import { StreetScene } from './scenes/Street';
 import { BossScene } from './scenes/Boss';
+import { WaveReviewScene } from './scenes/WaveReview';
 import { ResultScene } from './scenes/Result';
+import { TitleListScene } from './scenes/TitleList';
 import { WipeScene } from './ui/transition';
 import { PauseOverlay, watchOrientation } from './ui/pause';
 
@@ -30,7 +32,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   audio: { noAudio: true },
   banner: false,
-  scene: [BootScene, TitleScene, StageSelectScene, IntroScene, SortScene, StreetScene, BossScene, ResultScene, PauseOverlay, WipeScene]
+  scene: [BootScene, TitleScene, StageSelectScene, IntroScene, SortScene, StreetScene, BossScene, WaveReviewScene, ResultScene, TitleListScene, PauseOverlay, WipeScene]
 });
 
 const refit = (): void => {

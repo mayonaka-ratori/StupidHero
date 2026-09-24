@@ -14,7 +14,7 @@ import { DEPTH, FS, darker } from './theme';
 export type TagKind = 'bad' | 'civ';
 
 /** 札の文字の大きさ */
-export const TAG_SIZE = FS.small;
+const TAG_SIZE = FS.small;
 
 const LABEL: Record<TagKind, string> = { bad: 'ワル', civ: '市民' };
 

@@ -19,7 +19,11 @@ export const SCENES = {
   sort: 'Sort',
   street: 'Street',
   boss: 'Boss',
-  result: 'Result'
+  /** 答え合わせ(波1と波2は Street のあと、波3は Boss のあと) */
+  waveReview: 'WaveReview',
+  result: 'Result',
+  /** 称号の一覧(結果画面から開く) */
+  titleList: 'TitleList'
 } as const;
 
 /** UIの色。絵の色とは別。 */
@@ -43,4 +47,3 @@ export const UI = {
   danger: 0xff7a70
 } as const;
 
-export const css = (c: number): string => '#' + c.toString(16).padStart(6, '0');

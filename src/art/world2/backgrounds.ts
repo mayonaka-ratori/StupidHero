@@ -1,6 +1,7 @@
 // 夜の地下駐車場の背景3枚。どれも左右の端がつながる(x は幅で折り返して描く)。
 // 背景だけはディザ(市松模様)を使ってよい。3枚合わせて45色まで。文字は描かない。
 import { md, OUTLINE, PixelGrid } from '../lib';
+import { Wrap, dith, hash } from '../world/wrap';
 
 // ---------- 色(3枚で共通) ----------
 /** コンクリート:明るい → 暗い */
@@ -14,48 +15,6 @@ const RED = md(7, 1, 1), RED_D = md(5, 1, 1);
 const EXIT = md(1, 6, 3);
 const PIPE = [md(5, 5, 6), md(4, 4, 5), md(3, 3, 4)];
 const DOOR = [md(4, 4, 5), md(3, 3, 4), md(2, 2, 3)];
-
-/** 決まった乱数(同じ入力で同じ値) */
-const hash = (x: number, y: number, s = 0): number => {
-  let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
-const dith = (x: number, y: number) => (x + y) % 2 === 0;
-
-/** 横が折り返す格子 */
-class Wrap {
-  readonly g: PixelGrid;
-  constructor(readonly w: number, readonly h: number) { this.g = new PixelGrid(w, h); }
-  px(x: number, y: number, c: string | null): this {
-    x = ((Math.round(x) % this.w) + this.w) % this.w;
-    this.g.px(x, Math.round(y), c);
-    return this;
-  }
-  get(x: number, y: number): string | null { return this.g.get(((Math.round(x) % this.w) + this.w) % this.w, Math.round(y)); }
-  rect(x: number, y: number, w: number, h: number, c: string | null): this {
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c);
-    return this;
-  }
-  dither(x: number, y: number, w: number, h: number, a: string, b: string): this {
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, dith(x + i, y + j) ? a : b);
-    return this;
-  }
-  line(x0: number, y0: number, x1: number, y1: number, c: string): this {
-    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
-    for (let i = 0; i <= n; i++) this.px(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, c);
-    return this;
-  }
-  outlineRect(x: number, y: number, w: number, h: number, c = OUTLINE): this {
-    this.rect(x - 1, y - 1, w + 2, 1, c).rect(x - 1, y + h, w + 2, 1, c).rect(x - 1, y, 1, h, c).rect(x + w, y, 1, h, c);
-    return this;
-  }
-  /** すでに塗った色 from だけを to に変える */
-  swap(x: number, y: number, w: number, h: number, from: string, to: string, pattern: (x: number, y: number) => boolean = () => true): this {
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (this.get(x + i, y + j) === from && pattern(x + i, y + j)) this.px(x + i, y + j, to);
-    return this;
-  }
-}
 
 /** 右向きの矢印(塗り) */
 function arrow(G: Wrap, x: number, y: number, len: number, t: number, c: string, dark: string): void {

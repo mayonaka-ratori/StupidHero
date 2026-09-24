@@ -6,7 +6,7 @@ const E = (a: number, d: number, s: number, r: number) => ({ a, d, s, r });
 // ---------------------------------------------------------------- FMの音色
 
 /** スラップ気味のFMベース(3オペレーターの直列) */
-export const BASS: FmPatch = {
+const BASS: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.5, env: E(0.002, 0.35, 0.55, 0.04) },
     { ratio: 1, lvl: 2.4, env: E(0.001, 0.12, 0.3, 0.04) },
@@ -17,7 +17,7 @@ export const BASS: FmPatch = {
 };
 
 /** ブラス(2組の2オペレーターを少しずらして重ねる=アルゴリズム4の形) */
-export const BRASS: FmPatch = {
+const BRASS: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.22, env: E(0.02, 0.3, 0.75, 0.07) },
     { ratio: 1, lvl: 1.7, env: E(0.05, 0.3, 0.55, 0.07) },
@@ -30,7 +30,7 @@ export const BRASS: FmPatch = {
 };
 
 /** 硬いリード(ボス用。変調を強めて持続させ、ノコギリ波っぽく) */
-export const HARD: FmPatch = {
+const HARD: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.22, env: E(0.004, 0.25, 0.8, 0.05) },
     { ratio: 1, lvl: 2.6, env: E(0.004, 0.2, 0.7, 0.05) },
@@ -43,7 +43,7 @@ export const HARD: FmPatch = {
 };
 
 /** はじくようなリード(仕分け用。偶数倍の変調でうつろな音) */
-export const PLUCK: FmPatch = {
+const PLUCK: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.34, env: E(0.002, 0.25, 0.35, 0.05) },
     { ratio: 2, lvl: 1.5, env: E(0.002, 0.12, 0.25, 0.05) },
@@ -54,7 +54,7 @@ export const PLUCK: FmPatch = {
 };
 
 /** クラビっぽい音(結果発表のドタバタ用) */
-export const CLAV: FmPatch = {
+const CLAV: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.3, env: E(0.002, 0.2, 0.3, 0.04) },
     { ratio: 3, lvl: 1.4, env: E(0.001, 0.08, 0.2, 0.04) },
@@ -66,7 +66,7 @@ export const CLAV: FmPatch = {
 };
 
 /** エレピ/ベル(結果画面の落ち着いたループ) */
-export const BELL: FmPatch = {
+const BELL: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.24, env: E(0.002, 1.2, 0.0, 0.25) },
     { ratio: 1, lvl: 0.9, env: E(0.002, 0.6, 0.15, 0.25) },
@@ -78,7 +78,7 @@ export const BELL: FmPatch = {
 };
 
 /** やわらかいパッド */
-export const PAD: FmPatch = {
+const PAD: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.13, env: E(0.25, 0.6, 0.8, 0.35) },
     { ratio: 2, lvl: 0.5, env: E(0.3, 0.6, 0.6, 0.35) },
@@ -90,7 +90,7 @@ export const PAD: FmPatch = {
 };
 
 /** オケヒット風の和音のスタブ(1オクターブと5度をキャリアで重ねる) */
-export const STAB: FmPatch = {
+const STAB: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.22, env: E(0.002, 0.3, 0.0, 0.05) },
     { ratio: 0.5, lvl: 3.0, env: E(0.001, 0.2, 0.1, 0.05) },
@@ -102,7 +102,7 @@ export const STAB: FmPatch = {
 };
 
 /** 低く太いベース(ステージ2用。のびが長く、半分の周波数の変調で少しうなる) */
-export const DEEP: FmPatch = {
+const DEEP: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.5, env: E(0.003, 0.7, 0.45, 0.08) },
     { ratio: 1, lvl: 1.8, env: E(0.002, 0.2, 0.3, 0.08) },
@@ -113,7 +113,7 @@ export const DEEP: FmPatch = {
 };
 
 /** 木琴/ビブラフォン風のマレット(地下駐車場の少し不気味なリード。エコーと合わせる) */
-export const MALLET: FmPatch = {
+const MALLET: FmPatch = {
   ops: [
     { ratio: 1, lvl: 0.28, env: E(0.002, 0.45, 0.08, 0.12) },
     { ratio: 4, lvl: 1.1, env: E(0.001, 0.12, 0.0, 0.08) },
@@ -123,6 +123,18 @@ export const MALLET: FmPatch = {
   mods: [[1, 0], [3, 2]],
   out: [0, 2],
   vib: [5, 9, 0.12]
+};
+
+/** 宇宙っぽいふわふわしたパッド(ステージ3用。ゆっくり立ち上がり、ずらした2つの音がゆれる) */
+const SPACE: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.11, env: E(0.35, 0.8, 0.8, 0.45) },
+    { ratio: 3, det: 7, lvl: 0.45, env: E(0.5, 1.0, 0.5, 0.45) },
+    { ratio: 2, det: -10, lvl: 0.06, env: E(0.45, 0.8, 0.8, 0.45) }
+  ],
+  mods: [[1, 0], [1, 2]],
+  out: [0, 2],
+  vib: [5, 22, 0.15]
 };
 
 // ---------------------------------------------------------------- 楽器
@@ -144,13 +156,14 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   stab: fmInst(STAB),
   deep: fmInst(DEEP),
   mallet: fmInst(MALLET),
+  space: fmInst(SPACE),
   /** PSGの短い矩形波(アルペジオ用) */
   sq: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate: Math.min(gate, 0.09), env: E(0.001, 0.08, 0.4, 0.03), vol: 0.1 * vol });
   },
-  /** PSGののばす矩形波(ビブラートつき) */
-  sqlong: (ctx, out, t, midi, gate, vol) => {
-    tone(ctx, out, t, { f: hz(midi), gate, env: E(0.004, 0.3, 0.7, 0.06), vol: 0.09 * vol, vib: [5.5, 10] });
+  /** テルミン風(ステージ3用)。半音下からすくい上げ、ゆっくりふくらむ三角波に深いビブラート */
+  theremin: (ctx, out, t, midi, gate, vol) => {
+    tone(ctx, out, t, { f: hz(midi - 1), f2: hz(midi), slide: 0.1, gate, env: E(0.07, 0.4, 0.8, 0.14), vol: 0.14 * vol, wave: 'triangle', vib: [5.5, 32] });
   }
 };
 

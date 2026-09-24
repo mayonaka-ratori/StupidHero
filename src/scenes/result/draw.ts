@@ -1,7 +1,7 @@
 // Phaser の外(ふつうのキャンバス)にゲームの絵と文字を描くための小さな道具。
 // 共有カードと、共有用の画像(og.png)で使う。
 //   const c = makeCanvas(216, 270, 5);                            // 論理ドットで描くと、5倍の細かさの画像になる
-//   drawAlley(c.ctx, scene, 0, 0, run.scrollX);                  // 夜の路地裏(216×214)
+//   paintStageBg(c.ctx, scene, 0, 0, run.scrollX);                  // 夜の路地裏(216×214)
 //   drawSprite(c.ctx, scene, 'hero', frameIndex(def, 'win_fist', 0), 108, 200, { scale: 2, anchor: 'feet' });
 //   drawText(c.ctx, scene, 8, 8, '称号', { size: 16, color: UI.gold, outline: true });
 //   c.canvas は 1080×1350。絵はぼかさずに5倍、字はその細かさでくっきり描かれる
@@ -28,21 +28,13 @@ export function makeCanvas(w: number, h: number, scale = 1): Canvas2D {
   return { canvas, ctx };
 }
 
-export const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
-
-/** ぼかさずに整数倍に拡大する */
-export function upscale(src: HTMLCanvasElement, k: number): HTMLCanvasElement {
-  const { canvas, ctx } = makeCanvas(src.width * k, src.height * k);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-  return canvas;
-}
+const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
 export interface SpriteOpt {
   scale?: number;
   flipX?: boolean;
-  /** x, y の意味。'feet' は足の裏(下から4ドット上の真ん中)、'bottom' は下の真ん中、'center' は真ん中、'topleft' は左上 */
-  anchor?: 'feet' | 'bottom' | 'center' | 'topleft';
+  /** x, y の意味。'feet' は足の裏(下から4ドット上の真ん中)、'bottom' は下の真ん中、'center' は真ん中、'top' は上の真ん中、'topleft' は左上 */
+  anchor?: 'feet' | 'bottom' | 'center' | 'top' | 'topleft';
 }
 
 /** テクスチャの1コマを描く。コマは番号(シート全体での番号)か、画像なら '__BASE' */
@@ -61,6 +53,7 @@ export function drawSprite(
     case 'feet': dx = x - w / 2; dy = y - (f.cutHeight - FEET_OFFSET) * k; break;
     case 'bottom': dx = x - w / 2; dy = y - h; break;
     case 'center': dx = x - w / 2; dy = y - h / 2; break;
+    case 'top': dx = x - w / 2; break;
     default: break;
   }
   dx = Math.round(dx); dy = Math.round(dy);
@@ -100,7 +93,7 @@ function drawWrapped(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, key: st
  * 夜の路地裏の背景(高さ214)。w は幅(216より広くてもよい)、scrollX は壁と地面のずらし量。
  * bg を渡すとそのステージの背景(stage.def.bg)
  */
-export function drawAlley(
+export function paintStageBg(
   ctx: CanvasRenderingContext2D, scene: Phaser.Scene, x: number, y: number, scrollX = 0, w = 216, bg: BgKeys = ALLEY_BG
 ): void {
   ctx.save();

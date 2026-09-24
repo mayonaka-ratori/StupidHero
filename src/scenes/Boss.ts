@@ -1,17 +1,21 @@
-// ボス戦。結果発表(Street)で波3のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、Result へ。
-// 決まりは docs/SPEC.md の「ボス」「ボス戦」と docs/STAGE2.md の「ボス戦」。連打の計算は logic の BossFight。
+// ボス戦。結果発表(Street)で波3のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、波3の答え合わせ(WaveReview)へ。
+// 決まりは docs/SPEC.md の「ボス」「ボス戦」、docs/STAGE2.md と docs/STAGE3.md の「ボス戦」。連打の計算は logic の BossFight。
 //
 // 流れ:ボス出現!の帯 → 2人のセリフ → 「連打!」 → 連打(手が止まるとボスが暴れて被害額が増える)
-//   → 撃破(いちばんひどい場面なら撮る)→ 爆発と勝利ポーズ → Result
+//   → 撃破(いちばんひどい場面なら撮る)→ 爆発と勝利ポーズ → WaveReview
 // ステージ2(地下駐車場)の女ボスは、体力が半分を切ると奥に止めてある高級車に飛び乗る(BossFight の boardedCar)。
 //   そのあとは車ごと殴る。手が止まると車が暴れて柱や止めてある車にぶつかる。倒すと車がひっくり返って爆発する。
+// ステージ3(ショッピングモール)の宇宙人の親玉は、体力が半分を切ると天井を破って母艦を呼び、乗りこむ(女ボスの車と同じ作り)。
+//   そのあとは母艦ごと殴る。手が止まると母艦が光線で床を焼く(1秒ごとに shipBeam)。
+//   倒すと母艦が噴水に落ちて爆発し(噴水は stats.breakProp(def.bossDefeatProp))、親玉が目を回して出てくる。
+//   親玉を市民に仕分けていたときは、始まりに空から母艦の光線が落ちてモールを焼く(被害額は Street の bossRampage で数え済み)。
 // 背景、曲、ボスの絵、置く物は stage.def から。
 // 一時停止中はシーンごと止まるので update が呼ばれず、BossFight の時計も止まる。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
-import { animKey, originFor } from '../art/sheets';
+import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
 import { audio } from '../audio';
 import {
   BOSS, BossFight, findBoss, formatSeconds, formatYen, say,
@@ -19,18 +23,18 @@ import {
 } from '../logic';
 import { getRun, type GameRun } from '../run';
 import {
-  Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText,
-  addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash
+  Button, CurlSmoke, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
+  SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
 } from '../ui';
-import { BossCar } from './boss/car';
+import { addMute, drawStageBg } from './sort/common';
+import { BossCar, MOTHERSHIP_LOOK } from './boss/car';
 import { DEPTH_OF } from './boss/depth';
 import { flyPunch, spawnFx, SpeedLines, throwDebris } from './boss/effects';
 import { BossHud, RushMeter } from './boss/hud';
 import { BossProps } from './boss/props';
+import { breakCeiling, ScorchMarks, skyBeam, splash } from './boss/mothership';
 import { px, snapshotLogical } from '../hires';
 
-/** 背景の奥の層が手前に対してどれだけ動くか(Street と合わせる) */
-const FAR_PARALLAX = 0.25;
 /** 足の裏の高さ */
 const FEET_Y = 194;
 const HERO_X = 82;
@@ -40,6 +44,12 @@ const HIT_X = BOSS_X - 12;
 const HIT_Y = FEET_Y - 52;
 /** 最後の連打からこの時間がたったら、ラッシュの動きをやめる(ms) */
 const RUSH_HOLD_MS = 380;
+/** 連打で出す技の順番(くり返す)。10連打ごとは飛び蹴りをはさむ */
+const RUSH_MOVES = ['punch', 'punch', 'kick', 'punch', 'uppercut', 'punch', 'kick'] as const;
+type RushMove = (typeof RUSH_MOVES)[number] | 'flykick';
+const RUSH_MOVE_KEYS = new Set<string>([...RUSH_MOVES, 'flykick'].map((m) => animKey('hero', m)));
+/** 技ごとの当たる高さのずれ(蹴りは低め、アッパーは高め) */
+const MOVE_HIT_DY: Record<RushMove, number> = { punch: 0, kick: 14, uppercut: -10, flykick: 6 };
 
 // ─── ステージ2:女ボスの高級車 ───
 /** 奥の列に止めてある場所(下の真ん中) */
@@ -55,15 +65,27 @@ const CAR_BACK_MAX = 22;
 /** 車の屋根から上だけ見せる(女ボスの絵の上から何ドットまで見せるか) */
 const RIDER_CROP_H = 66;
 
+// ─── ステージ3:親玉の母艦 ───
+/** 母艦の真ん中の x(下の真ん中)。円盤の左のふちがヒーローの拳に届くところ */
+const SHIP_X = 172;
+/** 最初は天井の上(画面の外)で待つ */
+const SHIP_WAIT_Y = -6;
+/** 天井を破って下りてきて、浮き上がった親玉を乗せるところ */
+const SHIP_HIGH_Y = 134;
+/** 親玉を乗せて、ヒーローの前まで下りてくるところ(光線のコマの光線がちょうど床に届く) */
+const SHIP_Y = FEET_Y;
+/** 母艦の塔から上だけ見せる(親玉の絵の上から何ドットまで見せるか) */
+const SHIP_RIDER_CROP_H = 56;
+
 type Phase = 'intro' | 'fight' | 'end';
-/** 女ボスが車に乗るまで(foot)、飛び乗って出てくるところ(boarding)、車の中(car) */
+/** 女ボスが車に乗るまで(foot)、飛び乗って出てくるところ(boarding)、車の中(car)。親玉の母艦も同じ */
 type CarMode = 'foot' | 'boarding' | 'car';
 
 export class BossScene extends Phaser.Scene {
   private run!: GameRun;
   private def!: StageDef;
   private stageId: StageId = 'alley';
-  /** ボスの絵のキー(路地裏は boss、地下駐車場は boss2) */
+  /** ボスの絵のキー(路地裏は boss、地下駐車場は boss2、モールは boss3) */
   private bossKey = 'boss';
   private fight!: BossFight;
   private phase: Phase = 'intro';
@@ -95,8 +117,10 @@ export class BossScene extends Phaser.Scene {
   private lastRushLineAt = -1e9;
   private shownTime = '';
   private punchSide = 0;
+  /** 次に出す技(RUSH_MOVES の何番目か) */
+  private moveIdx = 0;
   private fightStartAt = 0;
-  // ─── ステージ2の車 ───
+  // ─── ステージ2の車(ステージ3は母艦) ───
   private car: BossCar | null = null;
   private carMode: CarMode = 'foot';
   /** 女ボスが車の屋根から顔を出していて、車について動くか */
@@ -105,7 +129,17 @@ export class BossScene extends Phaser.Scene {
   private carRampages = 0;
   private boardAt = 0;
   private lastHoodSmokeAt = -1e9;
+  /** 体力が少ないときにボンネットから上る細かい煙(渦を巻いて流れる) */
+  private hoodSmoke: CurlSmoke | null = null;
   private boardTweens: Phaser.Tweens.Tween[] = [];
+  // ─── ステージ3の母艦 ───
+  /** 光線で焼けた床のあと(母艦のステージだけ) */
+  private scorch: ScorchMarks | null = null;
+  /** 床に落ちる母艦の影 */
+  private shipShadow: Phaser.GameObjects.Sprite | null = null;
+  /** 暴れた1秒ごとの光線を、この時刻まで出す */
+  private fireUntil = 0;
+  private lastFloorSparkAt = -1e9;
   /** セリフを出した回数(あとから続きを言うとき、間にほかのセリフがあったかを見る) */
   private speakSeq = 0;
   /** 手が止まったのに「車が暴れてる!」をまだ言えていない(飛び乗っている間やほかのセリフの途中だった) */
@@ -134,7 +168,12 @@ export class BossScene extends Phaser.Scene {
     this.riding = false;
     this.carTaps = this.carRampages = this.boardAt = 0;
     this.lastHoodSmokeAt = -1e9;
+    this.hoodSmoke = null;
     this.boardTweens = [];
+    this.scorch = null;
+    this.shipShadow = null;
+    this.fireUntil = 0;
+    this.lastFloorSparkAt = -1e9;
     this.speakSeq = 0;
     this.idleLinePending = false;
     this.lastNoEffectAt = -1e9;
@@ -145,15 +184,27 @@ export class BossScene extends Phaser.Scene {
     this.props = new BossProps(this, this.stageId, this.def.props);
     // 女ボスの高級車は、最初は奥に止めてある
     if (this.def.bossProp === 'bosscar') this.car = new BossCar(this, CAR_PARK_X, CAR_PARK_Y);
+    // 親玉の母艦は、最初は天井の上(画面の外)で待っている
+    if (this.def.bossProp === 'mothership') {
+      this.car = new BossCar(this, SHIP_X, SHIP_WAIT_Y, MOTHERSHIP_LOOK).setDepth(DEPTH_OF.car).setVisible(false);
+      this.scorch = new ScorchMarks(this);
+    }
     this.lines = new SpeedLines(this, 40, actionH - 12, W);
 
     // ヒーローとボスが向かい合う
     this.add.sprite(HERO_X, FEET_Y + 1, 'fx_shadow').setDepth(DEPTH_OF.shadow);
     this.bossShadow = this.add.sprite(BOSS_X, FEET_Y + 1, 'fx_shadow').setDepth(DEPTH_OF.shadow).setScale(2, 1);
+    if (this.car?.flies) this.shipShadow = this.add.sprite(SHIP_X, FEET_Y + 1, 'fx_shadow').setDepth(DEPTH_OF.shadow).setScale(4, 1).setVisible(false);
     this.aura = this.add.sprite(HERO_X, FEET_Y, 'fx_aura', 0).setOrigin(...originFor('hero')).setDepth(DEPTH_OF.aura).setVisible(false);
     this.playAnim(this.aura, 'fx_aura', 'play');
     this.hero = this.add.sprite(HERO_X, FEET_Y, 'hero', 0).setOrigin(...originFor('hero')).setDepth(DEPTH_OF.hero);
     this.playAnim(this.hero, 'hero', 'idle');
+    // 連打の技が1つ終わったとき、まだ連打していれば次の技へつなぐ。止まっていれば待機にもどる
+    this.hero.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim: Phaser.Animations.Animation) => {
+      if (this.phase !== 'fight' || !RUSH_MOVE_KEYS.has(anim.key)) return;
+      if (this.time.now - this.lastTapAt < RUSH_HOLD_MS) this.startMove();
+      else { this.hero.anims.timeScale = 1; this.playAnim(this.hero, 'hero', 'idle'); }
+    });
     this.boss = this.add.sprite(BOSS_X, FEET_Y, this.bossKey, 0).setOrigin(...originFor(this.bossKey)).setDepth(DEPTH_OF.boss).setFlipX(true);
     this.playAnim(this.boss, this.bossKey, 'idle');
 
@@ -168,7 +219,7 @@ export class BossScene extends Phaser.Scene {
 
     this.pause = new PauseControl(this);
     this.icons.push(new IconButton(this, W - 12, 12, 'pause', () => this.pause.pause()));
-    this.icons.push(new MuteButton(this, W - 34, 12, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }));
+    this.icons.push(addMute(this, W - 34, 12));
 
     // 下:撃破、負傷、被害額、カットイン、大きな行け!ボタン
     addPanel(this);
@@ -199,13 +250,7 @@ export class BossScene extends Phaser.Scene {
   // ─── 背景 ───
 
   private drawBackground(): void {
-    const { W, actionH } = layout;
-    const sx = Math.round(this.run.scrollX);
-    const bg = this.def.bg;
-    this.add.tileSprite(0, 0, W, actionH, bg.far).setOrigin(0).setDepth(DEPTH_OF.far)
-      .setTilePosition(Math.round(sx * FAR_PARALLAX), 0);
-    this.add.tileSprite(0, 0, W, 130, bg.wall).setOrigin(0).setDepth(DEPTH_OF.wall).setTilePosition(sx, 0);
-    this.add.tileSprite(0, 124, W, 90, bg.ground).setOrigin(0).setDepth(DEPTH_OF.ground).setTilePosition(sx, 0);
+    drawStageBg(this, this.def.bg, Math.round(this.run.scrollX), { depth: DEPTH_OF });
   }
 
   private playAnim(s: Phaser.GameObjects.Sprite, sheet: string, anim: string, ignoreIfPlaying = true): void {
@@ -218,15 +263,19 @@ export class BossScene extends Phaser.Scene {
     return say(key, rng, this.stageId);
   }
 
-  /** 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする */
+  /**
+   * 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする。
+   * 撃破したあと(爆発、車や母艦が壊れる、ボスが出てくる)は揺れが続くので、さらに半分にする
+   */
   private quake(px: number, ms: number): void {
-    shake(this, Math.max(1, Math.round(px / 2)), ms);
+    const div = this.phase === 'end' ? 4 : 2;
+    shake(this, Math.max(1, Math.round(px / div)), ms);
   }
 
   // ─── 始まり ───
 
   private async intro(): Promise<void> {
-    await this.wait(250);
+    await waitMs(this, 250);
     audio.sfx('reveal');
     this.quake(3, 300);
     spawnFx(this, 'fx_dust', BOSS_X - 20, FEET_Y - 8);
@@ -235,10 +284,12 @@ export class BossScene extends Phaser.Scene {
     const boss = findBoss(this.run.stage);
     const sortedCiv = boss ? this.run.sorts[boss.id] === 'civ' : false;
     const rng = this.run.rng;
+    // 母艦のあるステージで親玉を見逃していたら、空から母艦の光線が落ちてモールを焼く
+    if (sortedCiv && this.car?.flies) await this.beamFromSky();
     await this.speak(this.line(sortedCiv ? 'bossRampageHero' : 'bossStartHero', rng));
-    await this.wait(250);
+    await waitMs(this, 250);
     await this.speak(this.line('bossStart', rng));
-    await this.wait(200);
+    await waitMs(this, 200);
     this.startFight();
   }
 
@@ -249,10 +300,6 @@ export class BossScene extends Phaser.Scene {
   }
 
   /** シーンの時計で待つ(一時停止中は止まる) */
-  private wait(ms: number): Promise<void> {
-    return new Promise((resolve) => this.time.delayedCall(ms, resolve));
-  }
-
   private startFight(): void {
     if (this.phase !== 'intro') return;
     this.phase = 'fight';
@@ -281,13 +328,12 @@ export class BossScene extends Phaser.Scene {
     this.combo++;
     this.lastTapAt = this.time.now;
 
-    // ヒーローのラッシュ:押すほど速く、前へ出る
-    if (this.hero.anims.currentAnim?.key !== animKey('hero', 'punch')) {
-      const key = animKey('hero', 'punch');
-      if (this.anims.exists(key)) this.hero.play({ key, repeat: -1 });
-    }
+    // ヒーローのラッシュ:パンチ、蹴り、アッパーを順に出す。押すほど速く、前へ出る。10連打ごとに飛び蹴り
+    if (this.combo % 10 === 0) this.startMove('flykick');
+    else if (!this.currentMove()) this.startMove();
     this.hero.anims.timeScale = 1.2 + power * 3.3;
-    this.heroPush = Math.min(12, this.heroPush + 3);
+    const move = this.currentMove() ?? 'punch';
+    this.heroPush = Math.min(move === 'flykick' ? 20 : 12, this.heroPush + (move === 'flykick' ? 8 : 3));
     // 車に飛び乗っている途中は、跳ぶ動きを続ける
     if (this.carMode !== 'boarding' || this.riding) this.playAnim(this.boss, this.bossKey, 'hit');
     this.whiteFrames = 2;
@@ -303,24 +349,32 @@ export class BossScene extends Phaser.Scene {
         if (this.carTaps % 2 === 0) car.addDent();
       }
       this.punchSide ^= 1;
-      fy = CAR_HIT_Y + (this.punchSide ? -8 : 5) + Phaser.Math.Between(-3, 3);
+      fy = this.vehicleHitY() + (this.punchSide ? -8 : 5) + Math.round(MOVE_HIT_DY[move] / 2) + Phaser.Math.Between(-3, 3);
       hx = car.frontX;
       flyPunch(this, this.hero.x + 24, hx - 6, fy, 50);
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-4, 8), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
-      if (tps >= 5) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(0, 40), CAR_HIT_Y + Phaser.Math.Between(-14, 10), { depth: DEPTH_OF.fxTop });
+      if (tps >= 5) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(0, 40), this.vehicleHitY() + Phaser.Math.Between(-14, 10), { depth: DEPTH_OF.fxTop });
       if (tps >= 8 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(-30, 30), Phaser.Math.Between(0, 30), 360);
       if (this.combo % 4 === 0) audio.sfx('crash', { volume: 0.35 + power * 0.3, pitch: 1.1 + Math.random() * 0.3 });
     } else {
-      this.bossPush = Math.min(8, this.bossPush + 2);
+      this.bossPush = Math.min(move === 'punch' ? 8 : 12, this.bossPush + (move === 'punch' ? 2 : 4));
       // 光の拳と火花
       this.punchSide ^= 1;
-      fy = HIT_Y + (this.punchSide ? -8 : 6) + Phaser.Math.Between(-3, 3);
+      fy = HIT_Y + (this.punchSide ? -8 : 6) + MOVE_HIT_DY[move] + Phaser.Math.Between(-3, 3);
       hx = HIT_X + this.bossPush;
       if (this.carMode === 'boarding') hx = this.boss.x - 12;
+      // 母艦へ浮き上がっている親玉は、体の高さに当てる
+      if (this.carMode === 'boarding' && this.car?.flies) fy = this.boss.y - 52 + (this.punchSide ? -8 : 6);
       flyPunch(this, this.hero.x + 24, hx - 6, fy, 50);
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-6, 6), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
       if (tps >= 6) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-18, 14), HIT_Y + Phaser.Math.Between(-24, 22), { depth: DEPTH_OF.fxTop });
       if (tps >= 9 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(20, 50), Phaser.Math.Between(10, 40), 360);
+    }
+    // 蹴りとアッパーは、火花を1つ多く出す。アッパーは破片を上へ、飛び蹴りは砂ぼこりも
+    if (move !== 'punch') {
+      spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-4, 10), fy + (move === 'uppercut' ? -10 : 4), { depth: DEPTH_OF.fxTop });
+      if (move === 'uppercut') throwDebris(this, hx, fy, Phaser.Math.Between(0, 30), Phaser.Math.Between(-10, 10), 420);
+      if (move === 'flykick') spawnFx(this, 'fx_dust', this.hero.x, FEET_Y - 8, { depth: DEPTH_OF.fx });
     }
 
     // 音と揺れ
@@ -341,7 +395,7 @@ export class BossScene extends Phaser.Scene {
       audio.sfx('bigHit');
       flash(this, 0xffffff, 1);
       hitStop(this, 40);
-      popText(this, hx, (this.carMode === 'car' ? CAR_HIT_Y : HIT_Y) - 30, `${this.combo}連打!`, { color: UI.gold, size: FS.big });
+      popText(this, hx, (this.carMode === 'car' ? this.vehicleHitY() : HIT_Y) - 30, `${this.combo}連打!`, { color: UI.gold, size: FS.big });
     }
 
     // 暴れていたのを止めた
@@ -356,7 +410,7 @@ export class BossScene extends Phaser.Scene {
     if (res.defeated) this.onDefeated();
   }
 
-  update(_time: number, delta: number): void {
+  override update(_time: number, delta: number): void {
     this.frame++;
     if (this.phase !== 'fight') {
       if (this.phase === 'end') this.lines.update(0);
@@ -383,7 +437,6 @@ export class BossScene extends Phaser.Scene {
     this.flushIdleLine();
 
     // ヒーロー
-    if (!rushing && !idle && this.hero.anims.currentAnim?.key === animKey('hero', 'punch')) this.playAnim(this.hero, 'hero', 'idle');
     if (!rushing) this.heroPush = Math.max(0, this.heroPush - 0.6);
     else this.heroPush = Math.max(0, this.heroPush - 0.35);
     // 連打中は前後に細かく揺れて、止まって見えないようにする
@@ -419,7 +472,12 @@ export class BossScene extends Phaser.Scene {
     if (t !== this.shownTime) { this.shownTime = t; this.timeText.setText(t); }
   }
 
-  // ─── ステージ2:車 ───
+  // ─── ステージ2:車(ステージ3の母艦も同じ作り) ───
+
+  /** 車(母艦)ごと殴るところの高さ */
+  private vehicleHitY(): number {
+    return this.car?.flies ? this.car.hitY : CAR_HIT_Y;
+  }
 
   /** 毎フレーム:車を動かし、屋根から顔を出す女ボスを車に合わせる */
   private updateCar(rushing: boolean, idle: boolean, jit: number): void {
@@ -427,39 +485,64 @@ export class BossScene extends Phaser.Scene {
     car.push = Math.max(0, car.push - 0.5);
     // 手が止まると、車はじりじりと前へ出てくる(逃げようとする)
     if (idle && this.carMode === 'car') car.back = Math.max(0, car.back - 0.12);
+    // 母艦:手が止まっている間と、暴れた1秒ごとの少しの間は光線を出す
+    if (car.flies) car.firing = (idle && this.carMode === 'car') || this.time.now < this.fireUntil;
     car.update(this.time.now, this.carMode === 'car' ? jit : 0,
-      (hard) => audio.sfx('engine', { pitch: hard ? 1.15 : 1, volume: hard ? 0.8 : 0.55 }), idle || rushing);
+      car.flies ? undefined : (hard) => audio.sfx('engine', { pitch: hard ? 1.15 : 1, volume: hard ? 0.8 : 0.55 }), idle || rushing);
     if (this.riding) {
       this.boss.x = car.riderX;
       this.boss.y = car.riderY;
     }
-    // 体力が少ないと、ボンネットから煙が出る
+    if (car.flies) this.updateShip();
+    // 体力が少ないと、ボンネットから煙が出る(母艦は円盤から)
     if (this.carMode === 'car' && this.fight.hpRatio < 0.3 && this.time.now - this.lastHoodSmokeAt > 220) {
       this.lastHoodSmokeAt = this.time.now;
-      spawnFx(this, 'fx_dust', car.frontX + Phaser.Math.Between(4, 24), car.y - 36, { depth: DEPTH_OF.car + 0.5 });
+      spawnFx(this, 'fx_dust', car.frontX + Phaser.Math.Between(4, 24), car.smokeY, { depth: DEPTH_OF.car + 0.5 });
+      // 砂ぼこりの絵のすき間から、細かい煙が渦を巻いて上る(車が動いてもついて行く)。
+      // ボンネットの先(母艦は円盤のふち)から出して、風で左へ流す。屋根から顔を出すボスより奥に置き、
+      // 渦で右へ流れた粒がボスの顔にかからないようにする
+      this.hoodSmoke ??= new CurlSmoke(this, {
+        x: () => car.frontX + 6, y: () => car.smokeY, depth: DEPTH_OF.bossInCar - 0.1,
+        colors: this.smokeColors(), spread: 4, rate: 35, wind: -16
+      });
     }
   }
 
-  /** 体力が半分を切った:女ボスが奥の高級車に飛び乗り、エンジンをふかして手前へ出てくる */
+  /** 毎フレーム(母艦):床の影を合わせ、光線が床に当たっている所から火花を出す */
+  private updateShip(): void {
+    const ship = this.car!;
+    const low = ship.sprite.visible && ship.y > FEET_Y - 60;
+    this.shipShadow?.setVisible(low).setX(ship.x);
+    if (!ship.firing || ship.y < FEET_Y - 4 || this.time.now - this.lastFloorSparkAt < 150) return;
+    this.lastFloorSparkAt = this.time.now;
+    spawnFx(this, 'fx_hit', ship.x + Phaser.Math.Between(-5, 5), FEET_Y - 4, { depth: DEPTH_OF.car + 0.5 });
+  }
+
+  /** 体力が半分を切った:女ボスが奥の高級車に飛び乗り、エンジンをふかして手前へ出てくる(親玉は母艦を呼ぶ) */
   private boardCar(): void {
     if (!this.car || this.carMode !== 'foot' || this.phase !== 'fight') return;
     this.carMode = 'boarding';
     this.boardAt = this.time.now;
-    void this.boardSequence();
+    void (this.car.flies ? this.boardShipSequence() : this.boardSequence());
+  }
+
+  /** 車に乗ったあとのセリフ:オペレーター → ヒーロー */
+  private boardLines(): void {
+    const rng = this.run.rng;
+    void (async () => {
+      await this.speak(this.line('bossCar', rng), true);
+      // 間にほかのセリフ(「車が暴れてる!」など)が出ていたら、ヒーローのセリフで上書きしない
+      const seq = this.speakSeq;
+      await waitMs(this, 350);
+      if (this.phase === 'fight' && this.speakSeq === seq && !this.wasIdle) await this.speak(this.line('bossCarHero', rng));
+    })();
   }
 
   private async boardSequence(): Promise<void> {
     const car = this.car!;
     const boss = this.boss;
-    const rng = this.run.rng;
     // セリフ:オペレーター → ヒーロー
-    void (async () => {
-      await this.speak(this.line('bossCar', rng), true);
-      // 間にほかのセリフ(「車が暴れてる!」など)が出ていたら、ヒーローのセリフで上書きしない
-      const seq = this.speakSeq;
-      await this.wait(350);
-      if (this.phase === 'fight' && this.speakSeq === seq && !this.wasIdle) await this.speak(this.line('bossCarHero', rng));
-    })();
+    this.boardLines();
 
     // 飛び乗る:高く跳んで、奥の車の屋根へ
     this.bossShadow.setVisible(false);
@@ -485,7 +568,7 @@ export class BossScene extends Phaser.Scene {
         }
       }
     }));
-    await this.wait(520);
+    await waitMs(this, 520);
     if (this.phase !== 'fight') return;
     this.riding = true;
     this.playAnim(boss, this.bossKey, 'idle');
@@ -497,7 +580,7 @@ export class BossScene extends Phaser.Scene {
     // エンジンをふかす
     car.revving = true;
     audio.sfx('engine', { pitch: 1.2 });
-    await this.wait(420);
+    await waitMs(this, 420);
     if (this.phase !== 'fight') return;
 
     // タイヤをきしませて手前へ出てくる
@@ -519,7 +602,7 @@ export class BossScene extends Phaser.Scene {
         if (this.frame % 3 === 0) spawnFx(this, 'fx_dust', car.exhaustX, car.y - 6, { depth: DEPTH_OF.car + 0.5 });
       }
     }));
-    await this.wait(360);
+    await waitMs(this, 360);
     if (this.phase !== 'fight') return;
     // 急ブレーキ:火花、砂ぼこり、クラクション
     car.baseX = CAR_X; car.baseY = CAR_Y;
@@ -532,9 +615,113 @@ export class BossScene extends Phaser.Scene {
       spawnFx(this, 'fx_dust', wx + 8, FEET_Y - 8, { depth: DEPTH_OF.car + 0.5 });
     }
     this.boardTweens.push(this.tweens.add({ targets: car.lunge, x: -6, duration: 70, yoyo: true, ease: 'Quad.easeOut' }));
+    this.finishBoarding();
+  }
+
+  /** 乗り物がヒーローの前に着いた:ここから車ごと殴れる */
+  private finishBoarding(): void {
     this.carMode = 'car';
     this.boardAt = this.time.now;
-    if (this.fight.isIdle) this.playAnim(boss, this.bossKey, 'rampage');
+    if (this.fight.isIdle) this.playAnim(this.boss, this.bossKey, 'rampage');
+  }
+
+  /** 親玉の「母艦に乗りこむ」動きの i コマ目(0〜3)を出す */
+  private boardFrame(i: number): void {
+    const def = sheetByKey(this.bossKey);
+    if (!def.rows.some((r) => r.name === 'board')) return;
+    this.boss.anims.stop();
+    this.boss.setFrame(frameIndex(def, 'board', i));
+  }
+
+  /**
+   * ステージ3:親玉が天をさして母艦を呼ぶ。母艦が天井を破って下りてきて、親玉は浮き上がって塔に乗りこむ。
+   * そのまま母艦がヒーローの前まで下りてくる。全部で1.25秒(logic の carHoldSec 1.3秒の間に収める)
+   */
+  private async boardShipSequence(): Promise<void> {
+    const ship = this.car!;
+    const boss = this.boss;
+    this.boardLines();
+
+    // 天をさす
+    this.bossPush = 0;
+    this.boardFrame(0);
+    audio.sfx('reveal', { pitch: 1.2 });
+    await waitMs(this, 150);
+    if (this.phase !== 'fight') return;
+
+    // 天井を破って、母艦が下りてくる
+    breakCeiling(this, SHIP_X);
+    audio.sfx('crash', { pitch: 0.8 });
+    audio.sfx('break');
+    audio.sfx('ufoDown');
+    this.quake(4, 220);
+    ship.setVisible(true);
+    this.boardTweens.push(this.tweens.add({ targets: ship, baseY: SHIP_HIGH_Y, duration: 450, ease: 'Quad.easeOut' }));
+    await waitMs(this, 150);
+    if (this.phase !== 'fight') return;
+    // しゃがむ
+    this.boardFrame(1);
+    await waitMs(this, 300);
+    if (this.phase !== 'fight') return;
+
+    // 浮き上がって、母艦の塔へ(3〜4コマを交互に。どちらも体の真ん中がそろえてある)
+    this.bossShadow.setVisible(false);
+    spawnFx(this, 'fx_dust', boss.x - 14, FEET_Y - 6);
+    spawnFx(this, 'fx_dust', boss.x + 14, FEET_Y - 6);
+    const x0 = boss.x, y0 = boss.y;
+    let under = false;
+    this.boardTweens.push(this.tweens.addCounter({
+      from: 0, to: 1, duration: 350, ease: 'Sine.easeInOut',
+      onUpdate: (tw) => {
+        const t = tw.getValue() ?? 0;
+        boss.x = Math.round(x0 + (ship.riderX - x0) * t);
+        boss.y = Math.round(y0 + (ship.riderY - y0) * t);
+        this.boardFrame(2 + (Math.floor(t * 4) % 2));
+        // 塔の高さまで来たら母艦の中へ(塔から上だけ見える)
+        if (!under && t > 0.7) {
+          under = true;
+          boss.setDepth(DEPTH_OF.bossInCar).setCrop(0, 0, boss.width, SHIP_RIDER_CROP_H);
+        }
+      }
+    }));
+    await waitMs(this, 350);
+    if (this.phase !== 'fight') return;
+    this.riding = true;
+    this.playAnim(boss, this.bossKey, 'idle');
+    audio.sfx('hit', { pitch: 0.7 });
+    this.boardTweens.push(this.tweens.add({ targets: ship.lunge, y: 3, duration: 60, yoyo: true, ease: 'Quad.easeOut' }));
+
+    // 親玉を乗せて、ヒーローの前まで下りてくる
+    audio.sfx('ufoDown', { pitch: 1.2 });
+    this.boardTweens.push(this.tweens.add({ targets: ship, baseY: SHIP_Y, duration: 300, ease: 'Quad.easeIn' }));
+    await waitMs(this, 300);
+    if (this.phase !== 'fight') return;
+    ship.baseY = SHIP_Y;
+    audio.sfx('hit', { pitch: 0.6 });
+    this.quake(3, 150);
+    for (const dx of [-56, 56]) spawnFx(this, 'fx_dust', ship.x + dx, FEET_Y - 6, { depth: DEPTH_OF.car + 0.5 });
+    this.finishBoarding();
+  }
+
+  // ─── 連打の技 ───
+
+  /** いま出している連打の技(待機などのときは null) */
+  private currentMove(): RushMove | null {
+    const key = this.hero.anims.currentAnim?.key;
+    // 10連打の止め(hitStop)で一瞬止まっている間も、出している途中の技として数える
+    if (!key || !RUSH_MOVE_KEYS.has(key) || !(this.hero.anims.isPlaying || this.hero.anims.isPaused)) return null;
+    return key.slice(key.indexOf('.') + 1) as RushMove;
+  }
+
+  /** 連打の技を1つ流す。move を省くと RUSH_MOVES の次の技 */
+  private startMove(move?: RushMove): void {
+    const m = move ?? RUSH_MOVES[this.moveIdx++ % RUSH_MOVES.length];
+    const key = animKey('hero', m);
+    if (!this.anims.exists(key)) return;
+    const ts = this.hero.anims.timeScale;
+    this.hero.play(key);
+    this.hero.anims.timeScale = ts;
+    if (m === 'flykick') audio.sfx('charge', { volume: 0.6, pitch: 1.2 });
   }
 
   // ─── 手が止まっているとき ───
@@ -543,9 +730,10 @@ export class BossScene extends Phaser.Scene {
     this.wasIdle = true;
     const inCar = this.carMode !== 'foot';
     if (this.carMode !== 'boarding') this.playAnim(this.boss, this.bossKey, 'rampage');
+    this.hero.anims.timeScale = 1;
     this.playAnim(this.hero, 'hero', 'idle');
     this.alarm.start();
-    audio.sfx(inCar ? 'horn' : 'rampage');
+    audio.sfx(inCar ? (this.car?.flies ? 'shipBeam' : 'horn') : 'rampage');
     if (this.time.now - this.lastIdleLineAt > 2500 && this.carMode !== 'boarding') {
       this.lastIdleLineAt = this.time.now;
       void this.speak(inCar ? this.line('bossCarIdle', this.run.rng) : this.line('bossIdle'), true);
@@ -581,7 +769,11 @@ export class BossScene extends Phaser.Scene {
 
   /** 1秒ぶん暴れた:まわりの物を1つ壊し、被害額を飛ばす */
   private rampageTick(yen: number): void {
-    if (this.car && this.carMode !== 'foot') { this.carRampageTick(yen); return; }
+    if (this.car && this.carMode !== 'foot') {
+      if (this.car.flies) this.shipRampageTick(yen);
+      else this.carRampageTick(yen);
+      return;
+    }
     audio.sfx('rampage', { pitch: 0.9 + Math.random() * 0.2 });
     spawnFx(this, 'fx_dust', BOSS_X + Phaser.Math.Between(-24, 24), FEET_Y - 8);
     const prop = this.props.takeNext();
@@ -591,14 +783,11 @@ export class BossScene extends Phaser.Scene {
       // ボスが投げたがれきが飛んでいって当たる
       throwDebris(this, BOSS_X, FEET_Y - 60, c.x - BOSS_X, c.y - (FEET_Y - 60), 180);
       this.time.delayedCall(180, () => {
-        prop.setFrame(1);
-        audio.sfx('break');
+        if (this.phase !== 'fight') return;
         // 画面は揺らさず、壊れた物だけを揺らす
         hitStop(this, 40);
         jolt(prop, 2, 160);
-        spawnFx(this, 'fx_hit', c.x, c.y, { depth: DEPTH_OF.fxTop });
-        for (let i = 0; i < 4; i++) throwDebris(this, c.x, c.y, Phaser.Math.Between(-40, 40), Phaser.Math.Between(10, 50));
-        popText(this, c.x, c.y - 10, label, { color: UI.danger, size: FS.big });
+        this.breakPropFx(prop, c, label, 'fx_hit', 4);
       });
     } else {
       // もう壊す物がないときは地面をたたき割る
@@ -609,6 +798,15 @@ export class BossScene extends Phaser.Scene {
       audio.sfx('break', { pitch: 0.8 });
       popText(this, x, FEET_Y - 30, label, { color: UI.danger, size: FS.big });
     }
+  }
+
+  /** 暴れて物が1つ壊れた:壊れたコマにして、破片と被害額を飛ばす */
+  private breakPropFx(prop: Phaser.GameObjects.Sprite, at: { x: number; y: number }, label: string, fx: string, debris: number): void {
+    prop.setFrame(1);
+    audio.sfx('break');
+    spawnFx(this, fx, at.x, at.y, { depth: DEPTH_OF.fxTop });
+    for (let i = 0; i < debris; i++) throwDebris(this, at.x, at.y, Phaser.Math.Between(-40, 40), Phaser.Math.Between(10, 50));
+    popText(this, Phaser.Math.Clamp(at.x, 30, 186), at.y - 10, label, { color: UI.danger, size: FS.big });
   }
 
   /**
@@ -631,7 +829,7 @@ export class BossScene extends Phaser.Scene {
       this.tweens.add({ targets: car.lunge, x: dir > 0 ? 22 : -14, y: -5, duration: 120, ease: 'Quad.easeIn', yoyo: true, hold: 70 });
     }
     this.time.delayedCall(120, () => {
-      if (this.phase === 'intro') return;
+      if (this.phase !== 'fight') return;
       const hitX = dir > 0 ? Math.min(208, car.x + 58) : car.frontX - 8;
       const hitY = FEET_Y - 26;
       audio.sfx('crash');
@@ -645,17 +843,87 @@ export class BossScene extends Phaser.Scene {
         // 車がぶつかった勢いで、物に破片が飛んでいって壊れる
         throwDebris(this, hitX, hitY, target.x - hitX, target.y - hitY, 160);
         this.time.delayedCall(160, () => {
-          prop.setFrame(1);
-          audio.sfx('break');
-          spawnFx(this, 'fx_hit_big', target.x, target.y, { depth: DEPTH_OF.fxTop });
           spawnFx(this, 'fx_dust', target.x, target.y + 6);
-          for (let i = 0; i < 5; i++) throwDebris(this, target.x, target.y, Phaser.Math.Between(-44, 44), Phaser.Math.Between(10, 50));
-          popText(this, Phaser.Math.Clamp(target.x, 30, 186), target.y - 10, label, { color: UI.danger, size: FS.big });
+          this.breakPropFx(prop, target, label, 'fx_hit_big', 5);
         });
       } else {
         popText(this, Phaser.Math.Clamp(hitX, 30, 186), hitY - 20, label, { color: UI.danger, size: FS.big });
       }
     });
+  }
+
+  /**
+   * 母艦に乗ったあと、1秒ぶん暴れた:母艦が少し横へ動いて光線で床を焼き、焼けた所から飛んだ破片で物が壊れる。
+   * 物は見た目だけ壊す(被害額は BossFight の決まりで数える)
+   */
+  private shipRampageTick(yen: number): void {
+    const ship = this.car!;
+    const prop = this.props.takeNext();
+    const label = formatYen(yen);
+    const target = prop ? BossProps.centerOf(prop) : null;
+    const dir = target ? (target.x >= ship.x ? 1 : -1) : (this.carRampages % 2 === 0 ? -1 : 1);
+    this.carRampages++;
+    audio.sfx('shipBeam');
+    this.fireUntil = this.time.now + 420;
+    // 乗りこむ途中で母艦が高い所にいるときは、砲口から床まで光線をのばす
+    if (ship.y < FEET_Y - 8) skyBeam(this, ship.x, ship.y - 29, FEET_Y, 420);
+    if (this.carMode === 'car') {
+      this.tweens.add({ targets: ship.lunge, x: dir > 0 ? 10 : -12, duration: 140, ease: 'Quad.easeOut', yoyo: true, hold: 160 });
+    }
+    this.time.delayedCall(140, () => {
+      if (this.phase !== 'fight') return;
+      // 光線が当たった床が焼けて、火花と煙
+      const bx = ship.x;
+      const by = FEET_Y - 6;
+      this.scorch?.add(bx, FEET_Y - 1);
+      hitStop(this, 40);
+      spawnFx(this, 'fx_hit_big', bx, by, { depth: DEPTH_OF.car + 0.5 });
+      spawnFx(this, 'fx_dust', bx - dir * 14, by - 2, { depth: DEPTH_OF.car + 0.5 });
+      for (let i = 0; i < 3; i++) throwDebris(this, bx, by, Phaser.Math.Between(-40, 40), Phaser.Math.Between(-10, 10), 360);
+      if (prop && target) {
+        // 焼けた床の破片が飛んでいって、物が壊れる
+        throwDebris(this, bx, by, target.x - bx, target.y - by, 180);
+        this.time.delayedCall(180, () => {
+          jolt(prop, 2, 160);
+          this.breakPropFx(prop, target, label, 'fx_hit_big', 4);
+        });
+      } else {
+        popText(this, Phaser.Math.Clamp(bx, 30, 186), by - 30, label, { color: UI.danger, size: FS.big });
+      }
+    });
+  }
+
+  /**
+   * 親玉を市民に仕分けていたとき(母艦のステージ):正体を現した親玉が空をさし、天窓の上の母艦から光線が落ちて、
+   * モールの物を焼く。被害額(bossRampage)は結果発表(Street)で数え済みなので、ここは見た目だけ
+   */
+  private async beamFromSky(): Promise<void> {
+    this.playAnim(this.boss, this.bossKey, 'rampage');
+    const spots: { x: number; y: number; prop: Phaser.GameObjects.Sprite | null }[] = [];
+    for (let i = 0; i < 2; i++) {
+      const prop = this.props.takeNext();
+      if (prop) spots.push({ x: BossProps.centerOf(prop).x, y: prop.y, prop });
+    }
+    // 物が足りなければ床を焼く
+    while (spots.length < 3) spots.push({ x: Phaser.Math.Between(24, 72), y: FEET_Y - 10, prop: null });
+    spots.forEach((sp, i) => this.time.delayedCall(i * 280, () => {
+      if (!this.sys.isActive()) return;
+      skyBeam(this, sp.x, 2, sp.y, 480);
+      audio.sfx('shipBeam');
+      this.time.delayedCall(120, () => {
+        this.scorch?.add(sp.x, sp.y - 1);
+        spawnFx(this, 'fx_hit_big', sp.x, sp.y - 8, { depth: DEPTH_OF.fxTop });
+        spawnFx(this, 'fx_dust', sp.x + 8, sp.y - 6);
+        for (let k = 0; k < 3; k++) throwDebris(this, sp.x, sp.y - 8, Phaser.Math.Between(-40, 40), Phaser.Math.Between(0, 30));
+        if (sp.prop) {
+          sp.prop.setFrame(1);
+          audio.sfx('break');
+          jolt(sp.prop, 2, 160);
+        }
+      });
+    }));
+    await waitMs(this, spots.length * 280 + 520);
+    this.playAnim(this.boss, this.bossKey, 'idle');
   }
 
   // ─── 倒したとき ───
@@ -695,14 +963,18 @@ export class BossScene extends Phaser.Scene {
   private async finale(): Promise<void> {
     const sec = this.fight.seconds ?? this.fight.elapsedSec;
     audio.stopBgm(300);
-    audio.sfx('bossDown');
+    // 母艦は、まず噴水へ落ちていく音(bossDown は母艦が噴水に落ちたとき)
+    audio.sfx(this.car?.flies ? 'ufoFall' : 'bossDown');
     // impact('huge') と同じ光と止まり方で、揺れだけ小さくする
     flash(this, 0xffffff, 3);
     hitStop(this, 160);
     this.quake(7, 500);
-    this.playAnim(this.hero, 'hero', 'punch', false);
+    // とどめはアッパー
+    this.hero.anims.timeScale = 1;
+    this.playAnim(this.hero, 'hero', 'uppercut', false);
     if (this.car) {
-      this.wreckCar();
+      if (this.car.flies) this.wreckShip();
+      else this.wreckCar();
     } else {
       this.playAnim(this.boss, this.bossKey, 'defeat', false);
       this.tweens.add({ targets: this.boss, x: BOSS_X + 22, duration: 500, ease: 'Cubic.easeOut', onUpdate: () => { this.boss.x = Math.round(this.boss.x); } });
@@ -727,19 +999,19 @@ export class BossScene extends Phaser.Scene {
     const time = new PixelText(this, Math.floor(W / 2), 94, `タイム{white}${formatSeconds(sec)}{/}`, { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0).setDepth(1500);
     title.setVisible(false); time.setVisible(false);
     this.comboText.setVisible(false);
-    await this.wait(350);
+    await waitMs(this, 350);
     title.setVisible(true);
     blink(title, 500);
-    await this.wait(300);
+    await waitMs(this, 300);
     time.setVisible(true);
 
     if (this.car) {
       // 最後の大きな爆発のあと、車が燃えている間に、目を回した女ボスへのひとこと
-      await this.wait(1100);
+      await waitMs(this, 1100);
       await this.speak(this.line('bossWreck', this.run.rng));
-      await this.wait(150);
+      await waitMs(this, 150);
     } else {
-      await this.wait(700);
+      await waitMs(this, 700);
     }
 
     // ヒーローの勝利のポーズ。背中で爆発
@@ -753,10 +1025,23 @@ export class BossScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) this.time.delayedCall(i * 120, () => spawnFx(this, 'fx_sparkle', this.hero.x + Phaser.Math.Between(-24, 24), FEET_Y - Phaser.Math.Between(20, 70), { depth: DEPTH_OF.fxTop }));
 
     await this.speak(this.line('bossDefeated', this.run.rng));
-    await this.wait(400);
+    await waitMs(this, 400);
     await this.speak(this.line('bossDefeatedOp', this.run.rng));
-    await this.wait(900);
-    gotoWhenFree(this, SCENES.result, undefined, { kind: 'wipe' });
+    await waitMs(this, 900);
+    gotoWhenFree(this, SCENES.waveReview, undefined, { kind: 'wipe' });
+  }
+
+  /** 倒したとき:乗り物の動きを止め、乗っていたボスを隠す(このあと壊れた乗り物から出てくる) */
+  private stopVehicle(): void {
+    const v = this.car!;
+    for (const tw of this.boardTweens) tw.stop();
+    this.tweens.killTweensOf(v.lunge);
+    v.frozen = true;
+    v.clearDents();
+    this.hoodSmoke?.stop();
+    this.hoodSmoke = null;
+    this.riding = false;
+    this.boss.setVisible(false).setCrop();
   }
 
   /**
@@ -765,14 +1050,8 @@ export class BossScene extends Phaser.Scene {
    */
   private wreckCar(): void {
     const car = this.car!;
-    const boss = this.boss;
-    for (const tw of this.boardTweens) tw.stop();
-    this.tweens.killTweensOf(car.lunge);
+    this.stopVehicle();
     car.revving = false;
-    car.frozen = true;
-    car.clearDents();
-    this.riding = false;
-    boss.setVisible(false).setCrop();
 
     // 殴られた勢いで、壊れた車が宙に浮いてひっくり返る(回転は45度ずつ、ドット絵らしく)
     const s = car.sprite;
@@ -802,9 +1081,21 @@ export class BossScene extends Phaser.Scene {
       }
     });
 
-    // 爆発を何発も。最後は大きな爆発が3つ重なる
+    this.burnWreck(s, 420);
+
+    // 女ボスが目を回して飛び出してくる
+    this.bossOutOfWreck(s, 640);
+  }
+
+  /** 煙の色。モールは背景が明るいので黒い煙、ほかは背景が暗いので灰色の煙 */
+  private smokeColors(): readonly number[] {
+    return this.stageId === 'mall' ? SMOKE_DARK : SMOKE_LIGHT;
+  }
+
+  /** 壊れた車(母艦)で爆発を何発も。最後は大きな爆発が3つ重なる。startMs は1発目までの時間 */
+  private burnWreck(s: Phaser.GameObjects.Sprite, startMs: number): void {
     for (let i = 0; i < 9; i++) {
-      this.time.delayedCall(420 + i * 110, () => {
+      this.time.delayedCall(startMs + i * 110, () => {
         const x = s.x + Phaser.Math.Between(-52, 52);
         const y = s.y + Phaser.Math.Between(-22, 12);
         spawnFx(this, i % 3 === 2 ? 'fx_hit_big' : 'fx_explosion', x, y, { depth: DEPTH_OF.fxTop });
@@ -814,7 +1105,7 @@ export class BossScene extends Phaser.Scene {
         this.quake(5, 160);
       });
     }
-    this.time.delayedCall(420 + 9 * 110 + 60, () => {
+    this.time.delayedCall(startMs + 9 * 110 + 60, () => {
       for (const [dx, dy, d, big] of [[-40, -6, 0, 1], [36, -2, 90, 1], [0, -16, 170, 2]] as const) {
         this.time.delayedCall(d, () => {
           spawnFx(this, 'fx_explosion', s.x + dx, s.y + dy, { depth: DEPTH_OF.fxTop }).setScale(big);
@@ -825,14 +1116,82 @@ export class BossScene extends Phaser.Scene {
       audio.sfx('bigHit', { pitch: 0.8 });
       this.quake(9, 500);
       hitStop(this, 80);
-      // そのあとも車は燃えている
+      // そのあとも車は燃えている。煙が渦を巻いて上り、火の粉が飛ぶ。
+      // 煙は車より奥から出して、車の上から立ちのぼって見せる(車体にかかると汚れに見える)。
+      // 高く上りすぎると「ボス撃破!」の字にかかるので、早めに消す。
+      // モールは母艦が落ちる噴水が字のすぐ下にあるので、低くして、字のない右へ流す
+      const low = this.stageId === 'mall';
+      new CurlSmoke(this, {
+        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car - 0.1, colors: this.smokeColors(),
+        spread: 12, rate: 90, life: low ? [0.8, 1.3] : [1.0, 1.6], rise: low ? 18 : 30, wind: low ? 14 : 0,
+        swirl: 24, embers: 0.15, max: 220
+      }).stopAfter(4500);
       for (let i = 0; i < 8; i++) {
         this.time.delayedCall(200 + i * 260, () => spawnFx(this, i % 2 ? 'fx_dust' : 'fx_hit', s.x + Phaser.Math.Between(-40, 40), s.y - 22 + Phaser.Math.Between(-4, 6), { depth: DEPTH_OF.car + 0.5 }));
       }
     });
+  }
 
-    // 女ボスが目を回して飛び出してくる
-    this.time.delayedCall(640, () => {
+  /**
+   * ステージ3:殴られた母艦が宙に浮き、噴水(def.bossDefeatProp)に落ちて爆発する。親玉は目を回して出てくる。
+   * 噴水が壊れた分は被害額に足す(stats.breakProp)。母艦そのものは数えない
+   */
+  private wreckShip(): void {
+    const ship = this.car!;
+    this.stopVehicle();
+    this.tweens.killTweensOf(ship);
+    ship.firing = false;
+    this.shipShadow?.setVisible(false);
+
+    // 落ちた母艦のコマにして、真ん中を基準に動かす
+    const s = ship.sprite;
+    stopJolt(s);
+    s.setVisible(true).setFrame(3).setDepth(DEPTH_OF.car);
+    const cx = s.x, cy = s.y - ship.look.h / 2;
+    s.setOrigin(0.5, 0.5).setPosition(cx, cy);
+    const kind = this.def.bossDefeatProp;
+    const fountain = kind ? this.props.spare(kind) : null;
+    // 噴水の水の中に沈んだように、母艦の下の端を噴水の下の端より少し上にする
+    const tx = fountain?.x ?? 150;
+    const ty = (fountain?.y ?? FEET_Y - 40) - 6 - ship.look.h / 2;
+    audio.sfx('crash');
+    spawnFx(this, 'fx_explosion', ship.frontX + 10, s.y - 8, { depth: DEPTH_OF.fxTop });
+    for (let i = 0; i < 6; i++) throwDebris(this, cx, cy, Phaser.Math.Between(-70, 70), Phaser.Math.Between(-10, 40), 500);
+    // ufoFall は鳴らしてから0.5秒で地面に当たる音が入るので、落ちるのも0.5秒
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: 500, ease: 'Linear',
+      onUpdate: (tw) => {
+        const t = tw.getValue() ?? 0;
+        s.x = Math.round(cx + (tx - cx) * t);
+        s.y = Math.round(cy + (ty - cy) * t - 44 * 4 * t * (1 - t));
+      },
+      onComplete: () => {
+        // 噴水に落ちた:噴水のふちを母艦より手前に描いて、水の中に沈んで見せる
+        s.setPosition(tx, ty);
+        audio.sfx('bossDown');
+        audio.sfx('break');
+        this.quake(6, 260);
+        for (const dx of [-50, 0, 50]) spawnFx(this, 'fx_dust', s.x + dx, s.y + 20, { depth: DEPTH_OF.car + 0.5 });
+        if (fountain && kind) {
+          fountain.setFrame(1).setDepth(DEPTH_OF.car + 0.2);
+          splash(this, fountain.x, fountain.y - 24, 16);
+          const cost = this.run.stats.breakProp(kind);
+          this.hud.refresh(this.run.stats);
+          popText(this, Phaser.Math.Clamp(fountain.x, 30, 186), fountain.y - 50, formatYen(cost), { color: UI.danger, size: FS.big });
+        }
+      }
+    });
+
+    this.burnWreck(s, 540);
+
+    // 親玉が目を回して出てくる
+    this.bossOutOfWreck(s, 900);
+  }
+
+  /** ボスが目を回して、壊れた車(母艦)から飛び出してきて、手前でのびる */
+  private bossOutOfWreck(s: Phaser.GameObjects.Sprite, delayMs: number): void {
+    const boss = this.boss;
+    this.time.delayedCall(delayMs, () => {
       // 車の手前に落ちて、のびる
       const x0 = s.x, y0 = s.y - 6;
       const x1 = 142, y1 = FEET_Y + 14;
