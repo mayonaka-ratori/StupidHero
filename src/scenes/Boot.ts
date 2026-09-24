@@ -6,7 +6,8 @@ import { allTexts, NAMES } from '../logic/content';
 import { isStageId, stageTexts } from '../logic/stages';
 import { TITLES } from '../logic/titles';
 import { preloadFont } from '../ui/text';
-import { setSort, startRun } from '../run';
+import { currentFreeWave, setSort, startFreeRun, startRun } from '../run';
+import { settings } from '../settings';
 
 /** 画面の部品やボタンに出る字。ひらがな、カタカナ、数字、英字は全部入れておく */
 const range = (a: number, b: number): string => Array.from({ length: b - a + 1 }, (_, i) => String.fromCharCode(a + i)).join('');
@@ -43,12 +44,24 @@ export class BootScene extends Phaser.Scene {
  *   ?scene=Sort&wave=2&seed=123
  *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
  *   ?scene=Boss   ?scene=Result   (&stage=garage でステージ2、&stage=mall でステージ3)
+ *   ?scene=Street&free=1&wave=3&unlocked=alley,garage,mall   (フリープレイの波3。unlocked は開いているステージ。
+ *     書かなければ路地裏だけ。ゆっくりモードは一時停止のメニューの設定のまま)
  * 始める波より前の波と、Street以降なら始める波の仕分けも sorts の決め方で埋める。
+ * scene の名前は大文字と小文字を区別しない(street でもよい)。
  */
 function debugJump(scene: Phaser.Scene): string | null {
   const q = new URLSearchParams(location.search);
-  const target = q.get('scene');
-  if (!target || !(Object.values(SCENES) as string[]).includes(target) || target === SCENES.boot) return null;
+  const name = (q.get('scene') ?? '').toLowerCase();
+  const target = (Object.values(SCENES) as string[]).find((k) => k.toLowerCase() === name);
+  if (!target || target === SCENES.boot) return null;
+  if (q.get('free') === '1') {
+    // フリープレイ:波の始めの時計は0から(飛ばした波の時間は数えない)
+    const unlocked = (q.get('unlocked') ?? 'alley').split(',').filter(isStageId);
+    const run = startFreeRun(scene, Number(q.get('seed') ?? 12345), { unlocked, slow: settings.slowMode, debug: true });
+    run.waveIndex = Math.min(3, Math.max(1, Number(q.get('wave') ?? 1))) - 1;
+    run.stats.setFreeRule(currentFreeWave(run).rule);
+    return target;
+  }
   const stageParam = q.get('stage');
   const stageId = isStageId(stageParam) ? stageParam : 'alley';
   const run = startRun(scene, Number(q.get('seed') ?? 12345), true, stageId);

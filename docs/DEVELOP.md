@@ -98,6 +98,7 @@ Boot→Title→StageSelect→Intro
 - `http://localhost:5173/?scene=Street&stage=mall&wave=1&sorts=civ`(宇宙人を見逃して、UFOが来るモールの結果発表)
 - `http://localhost:5173/?scene=Street&stage=mall&wave=2&sorts=truth`(波2の結果発表のあとにタイムセールラッシュ)
 - `http://localhost:5173/?scene=Boss&stage=mall`(宇宙人の親玉とのボス戦。体力が半分を切ると母艦に乗りこむ)
+- `http://localhost:5173/?scene=Street&free=1&wave=3&unlocked=alley,garage,mall`(フリープレイの波3から。`unlocked`は開いているステージで、書かなければ路地裏だけ)
 
 結果画面には見本の数字があります(`src/scenes/result/sample.ts`)。
 
