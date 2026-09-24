@@ -8,6 +8,8 @@
 // 止まっている間は、時間の下に「時計ストップ中」の札を出す。
 // 上の右:音と中断のボタン(ほかの画面と同じ位置)。その下(ステージ2だけ)に、その波で見た人の小物の色の札。
 // 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts)。
+// ステージ3の宇宙人(person.glitch がある人)は、その人が出てから進んだ時計の秒数で、ときどき動きがくずれる
+// (glitchShowing。文字送りの間と一時停止の間は時計と一緒に止まる)。「持ち物」の窓も同じコマを映すので、くずれが窓にも出る。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -16,7 +18,7 @@ import { audio } from '../audio';
 import { settings } from '../settings';
 import { animKey, originFor } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
-import { HURRY_AT_SEC, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
+import { HURRY_AT_SEC, glitchCount, glitchShowing, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
@@ -76,6 +78,12 @@ export class SortScene extends Phaser.Scene {
   private skipSeq = -1;
   /** 人が真ん中で仕分けの動きをしている(「持ち物」の窓を同じコマにする) */
   private idle = false;
+  /** いまの人が出てから進んだ仕分けの時計(秒)。くずれを出すかどうかはこれで決める */
+  private personSec = 0;
+  /** いまの人がくずれの行を出している */
+  private glitching = false;
+  /** いまの人のくずれが何回始まったか(コマ落ちしても、1回ぶんのくずれを飛ばさないように数える) */
+  private glitchStarts = 0;
 
   private cards: Phaser.GameObjects.Sprite[] = [];
   private card!: Phaser.GameObjects.Sprite;
@@ -128,6 +136,9 @@ export class SortScene extends Phaser.Scene {
     this.typeSeq = 0;
     this.skipSeq = -1;
     this.idle = false;
+    this.personSec = 0;
+    this.glitching = false;
+    this.glitchStarts = 0;
     // シーンは波ごとに作り直すので、前の波の絵を持ち越さない
     this.cards = [];
     this.strip = undefined;
@@ -160,7 +171,7 @@ export class SortScene extends Phaser.Scene {
       setLeft: (ms: number) => { this.leftMs = ms; },
       state: () => ({
         state: this.state, idx: this.idx, total: this.people.length, leftMs: Math.round(this.leftMs), locked: this.locked,
-        clockStopped: this.clockStopped(), sorts: { ...this.run.sorts }, random: [...this.run.randomSorted], wave: this.run.waveIndex + 1
+        clockStopped: this.clockStopped(), personSec: this.personSec, glitching: this.glitching, sorts: { ...this.run.sorts }, random: [...this.run.randomSorted], wave: this.run.waveIndex + 1
       })
     });
 
@@ -360,6 +371,9 @@ export class SortScene extends Phaser.Scene {
     const s = this.cards.find((c) => c !== this.card) ?? this.cards[0];
     this.card = s;
     this.idle = false;
+    this.personSec = 0;
+    this.glitching = false;
+    this.glitchStarts = 0;
     this.tweens.killTweensOf(s);
     // ステージ2の人は、小物(腕章、首の布など)をその人の色に塗った絵にする
     const key = accessorySheet(this, p.sheetKey, p.accessory?.color);
@@ -482,6 +496,7 @@ export class SortScene extends Phaser.Scene {
     this.hidePreview();
     this.tweens.killTweensOf(s);
     this.idle = false;
+    this.glitching = false;
     this.zoom.clear();
     const stamp = makeStamp(this, choice, FS.big, mark).setDepth(Z.stamp);
     stamp.setPosition(Math.round(s.x), STAMP_Y);
@@ -514,6 +529,8 @@ export class SortScene extends Phaser.Scene {
     // プロフィールと一言を出している間は、時計を進めない
     if (stopped) return;
     this.leftMs -= dt;
+    this.personSec += dt / 1000;
+    this.updateGlitch();
     const sec = Math.ceil(this.leftMs / 1000);
     if (!this.hurried && this.leftMs <= HURRY_AT_SEC * 1000) this.hurry();
     if (this.hurried && sec < this.lastTickSec && sec > 0) {
@@ -522,6 +539,36 @@ export class SortScene extends Phaser.Scene {
     }
     this.updateHud();
     if (this.leftMs <= 0) { this.leftMs = 0; this.updateHud(); void this.timeUp(); }
+  }
+
+  /**
+   * 宇宙人のくずれ。glitchShowing の間はくずれの行(4コマ)を出し、終わったら仕分けの動きに戻す。
+   * くずれの長さ(ふつう0.2秒、練習用は0.3秒)で4コマを出し切るように、コマの速さをその人に合わせる。
+   * 時計が進んだときだけ呼ぶ(止まっている間は、くずれも出始めない)。
+   * 重い端末でコマが落ちて、0.2秒のくずれの間に一度も描かれないことがないように、始まった回数で出し始める
+   */
+  private updateGlitch(): void {
+    const p = this.people[this.idx];
+    if (!p?.glitch) return;
+    const count = glitchCount(p.glitch, this.personSec);
+    const fresh = count > this.glitchStarts;
+    this.glitchStarts = count;
+    // 横から入ってくる途中は出さない
+    if (!this.idle) return;
+    const key = this.card.texture.key;
+    const show = glitchShowing(p.glitch, this.personSec);
+    if (fresh || (show && !this.glitching)) {
+      this.glitching = true;
+      this.card.play({ key: animKey(key, 'glitch'), frameRate: 4 / p.glitch.showSec });
+      audio.sfx('glitch');
+    } else if (this.glitching && !show) {
+      this.glitching = false;
+      this.card.play(animKey(key, 'sortIdle'));
+    } else {
+      return;
+    }
+    // 「持ち物」の窓も、このコマから同じ絵にする(次のコマまで待つと、1コマずれる)
+    this.zoom.sync(this.card, this.idle);
   }
 
   /** 残り5秒:端が赤く点滅し、オペレーターが急かす。少ししたら今の人の一言に戻す */
@@ -555,6 +602,8 @@ export class SortScene extends Phaser.Scene {
     audio.sfx('timeUp');
     flash(this, UI.bad, 2);
     this.tweens.killTweensOf(this.card);
+    // くずれの途中で時間切れになったら、仕分けの動きに戻す
+    if (this.glitching) { this.glitching = false; this.card.play(animKey(this.card.texture.key, 'sortIdle')); }
     this.card.setPosition(CX, FEET_Y).setAngle(0);
     this.shadow.setVisible(true).setX(CX);
     const filled = fillUnsorted(this.run);
