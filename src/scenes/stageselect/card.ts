@@ -250,7 +250,7 @@ export class StageCard {
       return;
     }
     const total = titlesFor(e.id).length;
-    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/14」は全部のステージを合わせた数)
+    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/17」は全部のステージを合わせた数)
     const label = this.photo && !this.thin ? 'このステージの称号' : '称号';
     const cnt = add(new PixelText(sc, w - 8, y0 + 3, `${label}{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
     // 絵のないカードは、STAGE の番号と同じ行(名前の上)に短く出す
