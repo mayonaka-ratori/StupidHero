@@ -8,6 +8,7 @@ import { generateHeroSet } from './heroSet';
 import { generateWorldSet } from './worldSet';
 import { generateWorld2Set } from './world2';
 import { generateWorld3Set } from './world3';
+import { generateFreeSet } from './free';
 
 /** public/art/manifest.json の中身。PNGを用意したキーを並べる */
 export interface ArtManifest { sheets?: string[]; images?: string[] }
@@ -39,6 +40,7 @@ export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
   generateWorldSet(ctx);
   generateWorld2Set(ctx);
   generateWorld3Set(ctx);
+  generateFreeSet(ctx);
   fillPlaceholders(ctx);
   registerAnims(scene);
 }
