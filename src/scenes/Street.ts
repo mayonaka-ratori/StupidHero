@@ -180,7 +180,7 @@ export class StreetScene extends Phaser.Scene {
   queue: Actor[] = [];
   passers: Actor[] = [];
   /** 助けられて立ち去るだけの人(ステージ3の買い物客)。絵は合わせるが、巻きぞえや悪さの相手にはしない */
-  private safeWalkers: Actor[] = [];
+  safeWalkers: Actor[] = [];
   private props: PropObj[] = [];
   private bgs: { s: Phaser.GameObjects.TileSprite; f: number }[] = [];
   private camX = 0;
@@ -195,8 +195,8 @@ export class StreetScene extends Phaser.Scene {
   private goFn: (() => void) | null = null;
   /** 行けの合図が出た時刻(フリープレイで、行けのマークが2つあるときに先に出たほうへ効かせる) */
   goSince = 0;
-  /** この時刻まで、ヒーローは歩くのを止める(フリープレイの空押しの待て) */
-  holdUntil = 0;
+  /** この時間(ミリ秒)だけ、ヒーローは歩くのを止める(フリープレイの空押しの待て)。一時停止の間は減らない */
+  holdMs = 0;
   /** フリープレイのときだけ(run.mode === 'free')。ステージのときは null */
   free: FreeStreet | null = null;
   /** 行けの合図が出ている間の、行けを押したときの動き */
@@ -271,7 +271,7 @@ export class StreetScene extends Phaser.Scene {
     this.def = this.run.stage.def;
     this.stats = this.run.stats;
     this.rng = this.run.rng;
-    this.holdUntil = 0;
+    this.holdMs = 0;
     // フリープレイ:背景と置く物は波ごとの背景のステージ。仕分けはヒーローの決めつけ(FreeStreet が入れる)
     this.free = this.run.mode === 'free' && this.run.free ? new FreeStreet(this) : null;
     if (this.free) this.def = this.free.bgDef;
@@ -442,8 +442,10 @@ export class StreetScene extends Phaser.Scene {
       const dt = ms / 1000;
       this.free?.update(delta);
       this.stepWalker(dt);
-      if (this.gang) this.stepGang(ms);
-      if (this.ufo) this.stepUfo(ms);
+      // フリープレイの言い直しの間は、悪さの時計(ギャング、UFO)も止める
+      const held = this.free?.held ?? false;
+      if (this.gang && !held) this.stepGang(ms);
+      if (this.ufo && !held) this.stepUfo(ms);
       if (this.rushRunning) this.stepRush(ms);
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
@@ -487,7 +489,8 @@ export class StreetScene extends Phaser.Scene {
 
   private stepWalker(dt: number): void {
     const w = this.walker;
-    if (!w || this.time.now < this.holdUntil) return;
+    if (!w) return;
+    if (this.holdMs > 0) { this.holdMs -= dt * 1000; return; }
     const h = this.hero;
     h.x = Math.min(w.toX, h.x + w.speed * this.slow * dt);
     const span = w.toX - w.fromX;
@@ -616,8 +619,17 @@ export class StreetScene extends Phaser.Scene {
         resolve();
         return;
       }
+      // 前の歩きを上書きするときは、前の歩きを待っている流れが止まったままにならないように、終わったことにする
+      const prev = this.walker;
       this.walker = { toX: x, fromX: h.x, fromY: h.y, toY: opt.y ?? h.y, speed: opt.speed ?? RUN, resolve };
+      prev?.resolve();
     });
+  }
+
+  /** 行けの合図の、画面の端の点滅を止める(フリープレイでは、ほかの行けのマークが残っていれば止めない) */
+  private stopGoAlarm(): void {
+    if (this.free?.goTarget()) return;
+    this.goAlarm.stop();
   }
 
   /** 1回だけ流れて消えるエフェクト */
@@ -1613,7 +1625,7 @@ export class StreetScene extends Phaser.Scene {
     } else if (e === 'escaped') {
       // 逃げきられた
       this.goHandler = null;
-      this.goAlarm.stop();
+      this.stopGoAlarm();
       g.mark?.destroy(); g.mark = undefined;
       van.sprite.setVisible(false);
       van.broken = true;
@@ -1633,7 +1645,7 @@ export class StreetScene extends Phaser.Scene {
     const r = g.call.go();
     if (!r) return;
     this.goHandler = null;
-    this.goAlarm.stop();
+    this.stopGoAlarm();
     g.count?.destroy(); g.count = undefined;
     g.mark?.destroy(); g.mark = undefined;
     audio.sfx('go');
@@ -1803,6 +1815,8 @@ export class StreetScene extends Phaser.Scene {
 
   /** 見逃した宇宙人:UFOを呼ぶ。殴り落とすか、連れ去られたあとの動きが終わるまで待つ */
   ufoCall(a: Actor, recovered = false): Promise<void> {
+    // フリープレイ:UFOは1機ずつ(ヒーローが待つ)なので、呼ぶたびに今のゆっくりモードの吸い上げの長さで作り直す
+    if (this.free && this.ufos.idle) this.ufos = new UfoQueue({ beamSec: this.free.timing.ufoBeamSec });
     return new Promise((resolve) => {
       // UFOが下りてくる所は、並べ方(plan.ts の planMall)が真下に物を置く所と同じにする
       // UFOが来ている間は、カメラを寄せてUFOを画面の UFO_SCREEN_X に見せる(終わったら戻す)
@@ -1928,7 +1942,7 @@ export class StreetScene extends Phaser.Scene {
   /** 行けを押さなかった:買い物客と宇宙人をUFOに吸いこんで去る */
   private ufoLeave(u: UfoRun): void {
     this.goHandler = null;
-    this.goAlarm.stop();
+    this.stopGoAlarm();
     u.mark?.destroy(); u.mark = undefined;
     u.beam?.destroy(); u.beam = undefined;
     u.sprite?.setFrame(0);
@@ -1983,7 +1997,7 @@ export class StreetScene extends Phaser.Scene {
     if (!u || !this.ufos.go()) return;
     this.ufo = null;
     this.goHandler = null;
-    this.goAlarm.stop();
+    this.stopGoAlarm();
     u.mark?.destroy(); u.mark = undefined;
     audio.sfx('go');
     void this.ufoDown(u).then(() => u.done());

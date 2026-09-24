@@ -55,7 +55,8 @@ export class BootScene extends Phaser.Scene {
  *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
  *   ?scene=Boss   ?scene=Result   (&stage=garage でステージ2、&stage=mall でステージ3)
  *   ?scene=Street&free=1&wave=3&unlocked=alley,garage,mall   (フリープレイの波3。unlocked は開いているステージ。
- *     書かなければ路地裏だけ。ゆっくりモードは一時停止のメニューの設定のまま)
+ *     書かなければ路地裏だけ。ゆっくりモードは一時停止のメニューの設定のまま。
+ *     &threat=8 でモヒカンが逃げるまでを8秒にのばす。行けのマークが2つ出る場面を作るため。street/free.ts)
  *   ?scene=Result&free=1   フリープレイの結果画面(見本の数字。result/sample.ts)
  * 始める波より前の波と、Street以降なら始める波の仕分けも sorts の決め方で埋める。
  * scene の名前は大文字と小文字を区別しない(street でもよい)。
