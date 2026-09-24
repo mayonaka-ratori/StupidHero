@@ -143,7 +143,7 @@ export function freeWindow(env: WindowEnv, s: StageStats, opt: FreeWindowOptions
   // 被害額
   place.push({ x: 11, right: W - 11, y: cy, small: false });
   cy += fit.rowH;
-  if (fit.analogy) { analogyY = cy - 2; cy += SUB_H; }
+  if (fit.analogy) { analogyY = cy; cy += SUB_H; }
   const accY = cy + 1;
 
   // ─── 字 ───
@@ -177,7 +177,7 @@ export function freeWindow(env: WindowEnv, s: StageStats, opt: FreeWindowOptions
     ? new PixelText(scene, W - 11, hurtSubY, hurtParts.join('・'), { size: FS.small, color: UI.textDim }).setOrigin(1, 0).setVisible(false)
     : null;
   const analogy = fit.analogy
-    ? new PixelText(scene, W - 11, analogyY, `(${opt.analogy})`, { size: FS.body, color: UI.gold, outline: true }).setOrigin(1, 0).setVisible(false)
+    ? new PixelText(scene, W - 11, analogyY, `(${opt.analogy})`, { size: FS.small, color: UI.gold, outline: true }).setOrigin(1, 0).setVisible(false)
     : null;
   const accText = new PixelText(scene, 11, accY, acc, { size: fit.accSize, color: UI.textDim, lineSpacing: 1 }).setVisible(false);
 

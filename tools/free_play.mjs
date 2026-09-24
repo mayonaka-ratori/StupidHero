@@ -1,6 +1,7 @@
 // フリープレイ(docs/FREEPLAY.md)の3つの波を、開発用の入口から通しで遊ぶ。落ちないか、最後に結果画面へ行くか、数が合うかを見る。
-// 使い方: npx vite --port 5151 --strictPort を動かしてから
-//   node tools/free_play.mjs <URL(例 http://localhost:5151/)> <出力フォルダ> [押し方] [種] [開いているステージ]
+// 使い方: npm run dev を動かしてから
+//   node tools/free_play.mjs [サーバーかURL] [出力フォルダ] [押し方] [種] [開いているステージ]
+// サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/free_play.mjs - - good 7 alley)
 // 押し方(書かなければ both):
 //   good  市民への待てのマークと、行けのマーク(悪さのワル、ギャングの組、UFO)だけを、出たらすぐ押す。
 //         波1の始めに1回だけ、マークのないときに待てを押す(空押し。ヒーローが振り向き、空押しに1回数えるか)
@@ -17,14 +18,13 @@
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
 // エラーが出たとき、結果画面まで行けなかったとき、数が合わないときは exit code 1 で終わる。
-import { mkdirSync } from 'node:fs';
-import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const [url, outDir, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
-if (!url || !outDir) { console.error('usage: node tools/free_play.mjs <url> <outDir> [good|none|both] [seed] [unlocked]'); process.exit(2); }
+const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
+const url = serverUrl(urlArg);
+const outDir = shotsDir(outArg);
 const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late', 'two'] : [policyArg];
 if (policies.some((p) => !['good', 'none', 'late', 'two'].includes(p))) { console.error(`押し方は good、none、late、two、both、all のどれか(${policyArg})`); process.exit(2); }
-mkdirSync(outDir, { recursive: true });
 const browser = await openBrowser();
 const { check, done } = checker();
 
@@ -37,7 +37,7 @@ const peek = () => {
   const st = { keys, wave: run?.waveIndex ?? -1, street: null };
   if (!sd || !keys.includes('Street') || !sd.free) return st;
   const f = sd.free;
-  const marked = sd.queue.find((a) => a.markKind === 'stop' && a.standing);
+  const marked = sd.queue.find((a) => a.mark?.texture.key === 'fx_mark_stop' && a.standing);
   const btn = (b) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
   st.street = {
     open: f.inputOpen,
@@ -91,7 +91,7 @@ const lateWatcher = () => {
     const sd = window.streetDev;
     const f = sd?.free;
     if (f && sd.sys.isActive() && sd.stopHandler) {
-      const a = sd.queue.find((q) => q.markKind === 'stop' && q.standing);
+      const a = sd.queue.find((q) => q.mark?.texture.key === 'fx_mark_stop' && q.standing);
       const id = a?.person?.id;
       if (a && !done.has(id)) {
         if (!a.civ && !villain) { villain = true; done.add(id); f.pressStop(); }
@@ -263,7 +263,7 @@ const twoWatcher = (kind) => {
     }
     if (f && sd.sys.isActive() && f.inputOpen && !f.held) {
       const now = sd.time.now;
-      const marked = sd.queue.find((q) => q.markKind === 'stop' && q.standing);
+      const marked = sd.queue.find((q) => q.mark?.texture.key === 'fx_mark_stop' && q.standing);
       const w = f.windupProgress;
       if (marked && marked.civ && w !== null && w >= 0.6 && !stopped.has(marked.person.id)) { stopped.add(marked.person.id); f.pressStop(); }
       const list = targets(sd, f);
@@ -281,7 +281,7 @@ const twoWatcher = (kind) => {
         f.pressGo();
         const probe = (n) => {
           if (n > 0) { requestAnimationFrame(() => probe(n - 1)); return; }
-          r.b = { p0, p1: f.windupProgress, mode: f.heroMode, fist: f.seen.fist - fist0, stillMarked: marked.markKind === 'stop' };
+          r.b = { p0, p1: f.windupProgress, mode: f.heroMode, fist: f.seen.fist - fist0, stillMarked: marked.mark?.texture.key === 'fx_mark_stop' };
         };
         probe(6);
       } else if (list.length >= 1) {

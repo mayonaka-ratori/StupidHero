@@ -61,9 +61,9 @@ function trash(broken: boolean): PixelGrid {
 // ---------------------------------------------------------------------
 // 窓 24×32(基準:真ん中)。背景の壁の窓もこの絵を使う
 // ---------------------------------------------------------------------
-export const WIN_FRAME: Ramp = [md(5, 4, 4), md(4, 3, 3), md(2, 2, 2)];
-export const WIN_LIT: Ramp = [md(7, 7, 5), md(7, 6, 3), md(6, 4, 2)];
-export const WIN_DARK: Ramp = [md(3, 3, 5), md(2, 2, 4), md(1, 1, 3)];
+const WIN_FRAME: Ramp = [md(5, 4, 4), md(4, 3, 3), md(2, 2, 2)];
+const WIN_LIT: Ramp = [md(7, 7, 5), md(7, 6, 3), md(6, 4, 2)];
+const WIN_DARK: Ramp = [md(3, 3, 5), md(2, 2, 4), md(1, 1, 3)];
 const CURTAIN = md(5, 2, 2);
 
 export function windowGrid(state: 'lit' | 'dark' | 'broken', seed = 0): PixelGrid {

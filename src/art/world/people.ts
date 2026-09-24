@@ -3,13 +3,14 @@
 import { md, type PixelGrid } from '../lib';
 import {
   type Build, HAIR_BUN, HAIR_GRANNY, HAIR_MOHAWK, HAIR_SHORT, HAIR_SLICK, type Look, type Pose,
-  clonePose, drawPerson, movePose, moveUpper, stretchPose
+  clonePose, drawPerson, movePose, moveUpper
 } from './figure';
 import {
   BAG_RED, BLADE, GOLD, HAIR, KNIFE_YELLOW, OUTLINE, SKIN, TATTOO, WALLET_BROWN, WHITE
 } from './palette';
 import type { Painter, Pt, Ramp } from './pix';
-import { STAND, civRows, idleFrames, walkFrames, withFace } from './poses';
+import { STAND, civRows, walkFrames, withFace } from './poses';
+import { disguiseRows } from './bossKit';
 
 const pick = (P: Painter, x: number, y: number, c: string) => P.px(Math.round(x), Math.round(y), c);
 const R = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
@@ -601,15 +602,8 @@ function disguiseLook(base: Look): Look {
 }
 
 /** 化けた姿の3行(待機、歩く、sortIdle) */
-function disguiseRows(look: Look, base: Pose, sort: Pose[], walk?: Pose[], sy = 1.1): PixelGrid[][] {
-  const L = disguiseLook(look);
-  const st = (p: Pose) => stretchPose(p, sy, 1.06);
-  return [
-    idleFrames(base).map((p) => drawPerson(L, st(p))),
-    (walk ?? walkFrames(base)).map((p) => drawPerson(L, st(p))),
-    sort.map((p) => drawPerson(L, st(p)))
-  ];
-}
+const disguise = (look: Look, base: Pose, sort: Pose[], walk?: Pose[], sy?: number): PixelGrid[][] =>
+  disguiseRows(disguiseLook(look), base, sort, { sx: 1.06, sy, walk });
 
 // =====================================================================
 
@@ -623,13 +617,13 @@ export function buildPeople(skip: Set<string>): Record<string, PixelGrid[][]> {
   if (need('suit_civ', 'suit_bad', 'boss_disguise_suit')) {
     const s = suitSheets();
     out.suit_civ = s.civ; out.suit_bad = s.bad;
-    out.boss_disguise_suit = disguiseRows(suitLook({ front: drawWatch }), STAND, s.civSort);
+    out.boss_disguise_suit = disguise(suitLook({ front: drawWatch }), STAND, s.civSort);
   }
   if (need('shopper_civ', 'shopper_bad', 'boss_disguise_shopper')) {
     const s = shopperSheets();
     out.shopper_civ = s.civ; out.shopper_bad = s.bad;
     const withBag = (p: Pose): Pose => { const q = clonePose(p); q.aB = { e: [q.neck[0] + 7, q.neck[1] + 9], h: [q.neck[0] + 8, q.neck[1] + 16] }; return q; };
-    out.boss_disguise_shopper = disguiseRows(s.civLook, s.civSort[0], s.civSort, walkFrames(s.civSort[0]).map(withBag));
+    out.boss_disguise_shopper = disguise(s.civLook, s.civSort[0], s.civSort, walkFrames(s.civSort[0]).map(withBag));
   }
   if (need('villain_mohawk')) out.villain_mohawk = mohawkSheets();
   if (need('granny_civ', 'boss_disguise_granny')) {
@@ -637,7 +631,7 @@ export function buildPeople(skip: Set<string>): Record<string, PixelGrid[][]> {
     out.granny_civ = g.civ;
     const base = grannyBase();
     const walk = walkFrames(base, { swing: 0.6, armSwing: 0.4 }).map((q) => { q.aB = { e: [40, 32], h: [43, 37] }; return q; });
-    out.boss_disguise_granny = disguiseRows(g.look, base, g.civSort, walk, 1.15);
+    out.boss_disguise_granny = disguise(g.look, base, g.civSort, walk, 1.15);
   }
   return out;
 }

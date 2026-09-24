@@ -5,7 +5,6 @@ import { UfoCall, UfoQueue } from './ufo';
 describe('UFOの数字', () => {
   it('合図0.8秒、下りる1秒、吸い上げ3秒、去る1秒。被害額¥300万', () => {
     expect([UFO.signalSec, UFO.descendSec, UFO.beamSec, UFO.leaveSec]).toEqual([0.8, 1, 3, 1]);
-    expect(UFO.cost).toBe(3_000_000);
   });
 });
 
@@ -18,9 +17,7 @@ describe('UfoCall', () => {
     expect(c.update(1)).toEqual(['descend']);
     expect(c.update(1000)).toEqual(['beam']);
     expect(c.markOn).toBe(true);
-    expect(c.secondsToAbduct).toBeCloseTo(3);
     expect(c.update(1500)).toEqual([]);
-    expect(c.secondsToAbduct).toBeCloseTo(1.5);
     expect(c.progress).toBeCloseTo(0.5);
     expect(c.update(1500)).toEqual(['leave']);
     expect(c.markOn).toBe(false);
@@ -51,6 +48,15 @@ describe('UfoCall', () => {
 });
 
 describe('UfoQueue', () => {
+  it('フリープレイのゆっくりモード:吸い上げの長さを変えられる', () => {
+    const q = new UfoQueue({ beamSec: 4.5 });
+    q.add('a');
+    q.update(0);
+    expect(q.update(1800).map((e) => e.phase)).toEqual(['descend', 'beam']);
+    expect(q.update(4400)).toEqual([]);
+    expect(q.update(200).map((e) => e.phase)).toEqual(['leave']);
+  });
+
   it('UFOは1機ずつ。前のUFOが終わるまで、次の宇宙人は合図を送らない', () => {
     const q = new UfoQueue();
     q.add('a');

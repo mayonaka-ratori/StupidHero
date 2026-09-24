@@ -2,8 +2,8 @@
 // どの担当も作らなかったキーには、仮の四角を入れておく(ゲームが止まらないように)。
 
 import Phaser from 'phaser';
-import { createCanvas, makeArtContext } from './lib';
-import { IMAGES, SHEETS, animKey, sheetSize } from './sheets';
+import { createCanvas, createSheetAnims, makeArtContext } from './lib';
+import { IMAGES, SHEETS, sheetSize } from './sheets';
 import { generateHeroSet } from './heroSet';
 import { generateWorldSet } from './worldSet';
 import { generateWorld2Set } from './world2';
@@ -35,7 +35,7 @@ export function loadArtPngs(scene: Phaser.Scene, manifest: ArtManifest | undefin
 }
 
 export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
-  const ctx = makeArtContext(scene, skip);
+  const ctx = makeArtContext(scene, usablePngs(scene, skip));
   generateHeroSet(ctx);
   generateWorldSet(ctx);
   generateWorld2Set(ctx);
@@ -43,6 +43,30 @@ export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
   generateFreeSet(ctx);
   fillPlaceholders(ctx);
   registerAnims(scene);
+}
+
+/**
+ * 読めたPNGのキーだけを返す。読めなかったものと大きさが表と合わないものはコードで描く絵にもどす
+ * (大きさが合わないPNGは消しておく。残すとコードの絵を上から登録できない)。
+ */
+function usablePngs(scene: Phaser.Scene, skip: Set<string>): Set<string> {
+  const ok = new Set<string>();
+  for (const key of skip) {
+    if (!scene.textures.exists(key)) {
+      console.warn(`art: ${key}.png が読めないので、コードで描いた絵を使う`);
+      continue;
+    }
+    const sheet = SHEETS.find((d) => d.key === key);
+    const want = sheet ? sheetSize(sheet) : IMAGES.find((d) => d.key === key);
+    const img = scene.textures.get(key).getSourceImage();
+    if (want && (img.width !== want.w || img.height !== want.h)) {
+      console.warn(`art: ${key}.png の大きさが ${img.width}×${img.height}(表では ${want.w}×${want.h})なので、コードで描いた絵を使う`);
+      scene.textures.remove(key);
+      continue;
+    }
+    ok.add(key);
+  }
+  return ok;
 }
 
 function fillPlaceholders(ctx: ReturnType<typeof makeArtContext>): void {
@@ -66,13 +90,6 @@ function fillPlaceholders(ctx: ReturnType<typeof makeArtContext>): void {
 }
 
 /** SHEETS の表から、すべてのアニメーションを登録する */
-export function registerAnims(scene: Phaser.Scene): void {
-  for (const def of SHEETS) {
-    def.rows.forEach((row, r) => {
-      const key = animKey(def.key, row.name);
-      if (scene.anims.exists(key)) return;
-      const frames = Array.from({ length: row.frames }, (_, i) => ({ key: def.key, frame: r * def.cols + i }));
-      scene.anims.create({ key, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
-    });
-  }
+function registerAnims(scene: Phaser.Scene): void {
+  for (const def of SHEETS) createSheetAnims(scene, def);
 }

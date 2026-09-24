@@ -16,7 +16,7 @@ export interface Settings {
 
 const KEY = 'stupidhero.settings.v1';
 /** ゆっくりモードのときの仕分けの時間の倍率 */
-export const SLOW_MODE_SCALE = 1.5;
+const SLOW_MODE_SCALE = 1.5;
 
 function prefersReducedMotion(): boolean {
   try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -48,7 +48,7 @@ export const settings = {
     try { globalThis.localStorage?.setItem(KEY, JSON.stringify(cur)); } catch { /* 覚えられなくても、その場では使える */ }
     for (const fn of listeners) fn(cur);
   },
-  /** 変わったときに呼ばれる。戻り値を呼ぶと止まる */
+  /** 変わったときに呼ばれる(フリープレイの途中でゆっくりモードにしたとき)。戻り値を呼ぶと止まる */
   onChange(fn: (s: Readonly<Settings>) => void): () => void {
     listeners.add(fn);
     return () => listeners.delete(fn);

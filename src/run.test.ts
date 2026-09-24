@@ -21,7 +21,7 @@ function fakeScene(): Phaser.Scene {
 }
 
 describe('startRun と getRun', () => {
-  it('選んだステージで始まり、同じシーンの registry で受け渡す。もう一回で playCount が増える', () => {
+  it('選んだステージで始まり、同じシーンの registry で受け渡す。もう一回で新しいプレイになる', () => {
     const scene = fakeScene();
     expect(() => getRun(scene)).toThrow();
     const a = startRun(scene, 42, false, 'garage');
@@ -29,10 +29,9 @@ describe('startRun と getRun', () => {
     expect(a.stage).toEqual(createStage(42, 'garage'));
     expect(a.stats.stageId).toBe('garage');
     expect(a.stats.villainTotal).toBe(a.stage.villainTotal);
-    expect([a.waveIndex, a.playCount, a.debug]).toEqual([0, 1, false]);
+    expect([a.waveIndex, a.debug]).toEqual([0, false]);
     const b = startRun(scene, 43);
     expect(b.stage.id).toBe('alley');
-    expect(b.playCount).toBe(2);
     expect(b.sorts).toEqual({});
   });
 });
@@ -111,7 +110,6 @@ describe('フリープレイ', () => {
     const run = startFreeRun(scene, 42, { unlocked: ['alley', 'garage'], slow: true });
     expect(getRun(scene)).toBe(run);
     expect(run.mode).toBe('free');
-    expect(run.playCount).toBe(2);
     const plan = createFreePlay(42, ['alley', 'garage']);
     expect(run.stage).toEqual(plan.stage);
     expect(run.free!.plan).toEqual(plan);

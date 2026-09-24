@@ -15,8 +15,8 @@
 | `src/run.ts` | 1回のプレイの状態。シーンの間はこれで受け渡す。波のあとの行き先(`nextAfterStreet`、`nextAfterReview`)もここ。フリープレイを始める`startFreeRun`と、フリープレイの波のあとの行き先`nextAfterFreeStreet`もここ |
 | `src/settings.ts` | 一時停止のメニューで切りかえる設定(光と揺れを弱くする、ゆっくりモード)。そのスマホの中に覚える |
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
-| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`) |
-| `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)などの画面の部品 |
+| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`)。結果発表のギャング、UFO、タイムセールラッシュは`street/gang.ts`、`street/ufo.ts`、`street/rush.ts`、フリープレイの流れは`street/free.ts` |
+| `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)、煙や光の粒(`particles.ts`。動きの計算は`flow.ts`)などの画面の部品 |
 | `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3、`free/`がフリープレイ。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`、ステージ2の小物の塗り替えは`recolor.ts` |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
 | `src/dev/`、`dev/` | 開発用のページ(絵、音、UI、文字の一覧)。公開するゲームには入らない |
@@ -35,7 +35,7 @@
 | `src/scenes/street/free.ts` | 通りの流れ(`FreeStreet`)。決めつけ、待てと行け、空押し、言い直し、悪さ、オペレーターの一言の出し方、時計 |
 | `src/scenes/street/ruleSign.ts` | 左上のルールの札と、クリアまでの時間 |
 | `src/scenes/street/freeItems.ts` | 波3の小物を人に重ねて動かす |
-| `src/scenes/street/consts.ts` | `Street.ts`と`street/free.ts`で共通の数字(走る速さなど) |
+| `src/scenes/street/common.ts`の`ATTACK_GAP`、`JUDGE_RISE` | `Street.ts`と`street/free.ts`で共通の数字(殴りかかる距離、決めつけの吹き出しの高さ)。取り返しの技の当て方`HitMode`の`recover`もここ |
 | `src/scenes/street/plan.ts`の`planFree` | フリープレイの並べ方(悪さの相手、ギャングが集まる場所、置く物) |
 | `src/scenes/stageselect/freeButton.ts` | ステージを選ぶ画面の「フリープレイ▶」のボタン(鍵、NEW!、ベストの時間) |
 | `src/scenes/result/freeStats.ts` | 結果画面の数字の窓(フリープレイ) |
@@ -58,7 +58,7 @@ Boot→Title→StageSelect→Intro
 - まだどのステージも遊んでいない人は、`Title`から`StageSelect`をとばして路地裏へ行く
 - そのステージの掛け合いを見たか、一度遊んだことがあれば、`Intro`はとばしてすぐ`Sort`へ行く。`Title`と`StageSelect`は`src/scenes/Intro.ts`の`entrySceneFor`で行き先を決める。`Result`の「もう一回」は`Intro`へ行き、`Intro`が何も出さずに`Sort`へ進む(見たかどうかは記録の`introSeen`)
 - `Street`のあとの行き先は`nextAfterStreet`(波1と波2は`WaveReview`、波3は`Boss`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
-- ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/Street.ts`の`stepRush`など)
+- ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/street/rush.ts`の`stepRush`など)
 - `Result`から`TitleList`を開くと、`Result`は眠らせておき、もどると元のまま起こす
 
 フリープレイ(`run.mode`が`'free'`)は、`Sort`、`WaveReview`、`Boss`を通りません。
@@ -70,7 +70,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ```
 
 - `StageSelect`は`startFreeRun`をしてから、`src/scenes/Intro.ts`の`freeEntryScene`で行き先を決める(掛け合いを見たかは記録の`freeIntroSeen`)
-- `Street`の流れは`src/scenes/street/free.ts`の`FreeStreet`が受け持つ(`Street.ts`の`free`)。技、吹っ飛び、ギャングの組、UFOは`Street.ts`のものをそのまま使う
+- `Street`の流れは`src/scenes/street/free.ts`の`FreeStreet`が受け持つ(`Street.ts`の`free`)。技と吹っ飛びは`Street.ts`、ギャングの組とUFOは`street/gang.ts`と`street/ufo.ts`の部品を、ステージと同じものを使う
 - `Street`のあとの行き先は`nextAfterFreeStreet`(波1と波2は次の波の`Street`、波3は`Result`。波を進めるのはここ)
 - 波ごとの背景、ルール、言い直しは`currentFreeWave(run)`で読む。クリアまでの時計は`run.free.clockMs`に積み上げる
 
@@ -149,7 +149,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | `?scene=Result&sample=runaway` | 正義の暴走機関車 |
 | `?scene=Result&sample=kind` | やさしすぎるヒーロー |
 | `?scene=Result&sample=roundup&stage=garage` | 一網打尽 |
-| `?scene=Result&sample=driver&stage=garage` | ギャングの運転手 |
+| `?scene=Result&sample=driver&stage=garage` | ギャングの見送り係 |
 | `?scene=Result&sample=guide&stage=mall` | 宇宙人の案内係 |
 | `?scene=Result&sample=sale&stage=mall` | タイムセールの守り神 |
 | `?scene=Result&sample=hunter&stage=mall` | UFOハンター |
@@ -196,7 +196,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは29ファイル、355件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは29ファイル、336件)
 npm run typecheck   # tsc
 ```
 
@@ -212,29 +212,33 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 
 動かし方:
 
-1. 先に開発用のサーバーを立てる(例:`npx vite --port 5205 --strictPort`)。下の表で「ポート」が決まっているスクリプトは、そのポートで立てる。URLを渡すスクリプトは、どのポートでもよい
-2. 別の窓でスクリプトを動かす(例:`node tools/textcheck.mjs http://localhost:5205/`)
+1. 先に開発用のサーバーを立てる(`npm run dev`。ふつうは`http://localhost:5173/`で開く)
+2. 別の窓でスクリプトを動かす(例:`node tools/textcheck.mjs`、`node tools/playthrough.mjs - - 5 mall truth`)
+
+どのスクリプトも、ふつうは`http://localhost:5173/`のサーバーを開き、撮った画像を`shots/`に置きます(`shots/`はgitに入れません)。ほかのポートやほかの場所のサーバーを使うときは、環境変数`DEV_URL`に入れるか、引数で渡します(数字だけならポートとして読む)。画像の置き場所は、環境変数`SHOTS_DIR`か引数で変えられます。引数を省くかわりに`-`と書くと、ふつうの値になります。
 
 使い方の引数は、各ファイルの先頭にくわしく書いてあります。NGが1つでもあると、終了コード1で終わります。
 
-ブラウザの場所は`tools/lib.mjs`の`CHROME`に書いてあります(Claude Codeのクラウドの環境に入っているChromium)。どのスクリプトもここを見るので、ほかの場所で動かすときはここだけを書きかえます。
+ブラウザの場所は`tools/lib.mjs`の`CHROME`で決まります。ふだんはClaude Codeのクラウドの環境に入っているChromiumを使います。ほかの場所で動かすときは、環境変数`CHROME`にブラウザの場所を入れて動かします(例:`CHROME=/usr/bin/chromium node tools/uitest.mjs`)。どちらもなければ、playwright-coreが自分でブラウザを探します。
 
-| スクリプト | ポート | ステージ | すること |
-|---|---|---|---|
-| `playthrough.mjs` | URLを渡す | `alley`、`garage`、`mall` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、波1〜3の3回とも通ったかも見る。仕分けの決め方(`random`、`truth`、宇宙人を見逃してUFOを呼ぶ`ufo`、ボスを市民にする`bossciv`。`ufo+bossciv`のようにつなげられる)を選べる。地下駐車場とモールは、前のステージを倒した記録を入れてからステージを選ぶ画面で選ぶ。結果画面の共有カードと、いちばんひどい場面の写真も書き出す |
-| `sort_drive.mjs` | URLを渡す | URLで決める | 手順を並べて指で動かし、撮ったり式を調べたりする |
-| `street_tap.mjs` | 5202(URLを渡す) | `alley`、`garage`、`mall` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て。エスカレーターが壊れないまま始まるか、長さが約16秒か)も試す |
-| `boss_test.mjs` | 5203(引数で変えられる) | `alley`、`garage`、`mall` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る。地下駐車場とモールは、体力が半分を切ると車(母艦)に乗りこむところと、手が止まったときの被害額(乗る前¥50万、車¥100万、母艦¥150万が1秒ごと)、モールは倒すと噴水の¥150万が足されるかも見る |
-| `free_play.mjs` | URLを渡す | 開いているステージを引数で渡す(書かなければ3つとも) | フリープレイの3つの波を通しで遊び、落ちないか、結果画面まで行くか、数が合うかを見る。場面ごとに画面を撮る。押し方を選べる(`good`マークが出たらすぐ押す、`none`何も押さない、`late`待てをギリギリに押してワルにも1回待てを押す、`two`行けのマークが2つ出る場面と光の拳を試す、`both`は`good`と`none`、`all`は4つとも)。環境変数`SLOW=1`でゆっくりモード、`REDUCE=1`で「光と揺れを弱くする」をオンにして始める |
-| `result_sharetest.mjs` | 5204(引数で変えられる) | `alley`、`garage`、`mall`、`free` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、キャンセルされたとき、失敗したとき、パソコン)。共有の文が見出し、#StupidHero、URLの3行か、「画像を保存」でPNGを保存できるかも見る。`free`はフリープレイの結果画面で、もう一回で掛け合いを出さずに`Street`へ行くかも見る |
-| `result_shot.mjs` | 5204(6つ目の引数か環境変数`PORT`で変えられる) | URLの後ろに`stage=`を書く | 結果画面と共有カードの画像を書き出す |
-| `result_og.mjs` | 5204(引数で変えられる) | | 共有用の画像`public/og.png`をゲームの絵で作り直す |
-| `textcheck.mjs` | 5205(URLを渡す) | | ゲームの全部の文を折り返して、禁則のまちがいがないか見る |
-| `audioCheck.mjs` | 5103(URLを渡せる) | | 曲と効果音の音の大きさを測り、音が割れていないか、無音でないかを見る。フリープレイの曲(`free1`〜`free3`)の切りかえと、決めつけと空押しの音も見る |
-| `uitest.mjs` | 5104 | | UIの部品(`/dev/ui.html`)をタッチで試す |
-| `shot.mjs` | URLを渡す | URLで決める | 1枚だけ画面を撮る |
-| `timeshots.mjs` | URLを渡す | URLで決める | 決めた時間ごとに画面を撮る |
-| `lib.mjs` | | | 上のスクリプトで共通に使う部品 |
+`playwright-core`は1.56に止めています。クラウドの環境に入っているChromiumの版(1194)に合わせているためです。上げるときは、そのブラウザも合わせて変えます。
+
+| スクリプト | ステージ | すること |
+|---|---|---|
+| `playthrough.mjs` | `alley`、`garage`、`mall` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、波1〜3の3回とも通ったかも見る。仕分けの決め方(`random`、`truth`、宇宙人を見逃してUFOを呼ぶ`ufo`、ボスを市民にする`bossciv`。`ufo+bossciv`のようにつなげられる)を選べる。地下駐車場とモールは、前のステージを倒した記録を入れてからステージを選ぶ画面で選ぶ。結果画面の共有カードと、いちばんひどい場面の写真も書き出す |
+| `sort_drive.mjs` | URLで決める | 手順を並べて指で動かし、撮ったり式を調べたりする |
+| `street_tap.mjs` | `alley`、`garage`、`mall` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て。エスカレーターが壊れないまま始まるか、長さが約16秒か)も試す |
+| `boss_test.mjs` | `alley`、`garage`、`mall` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る。地下駐車場とモールは、体力が半分を切ると車(母艦)に乗りこむところと、手が止まったときの被害額(乗る前¥50万、車¥100万、母艦¥150万が1秒ごと)、モールは倒すと噴水の¥150万が足されるかも見る |
+| `free_play.mjs` | 開いているステージを引数で渡す(書かなければ3つとも) | フリープレイの3つの波を通しで遊び、落ちないか、結果画面まで行くか、数が合うかを見る。場面ごとに画面を撮る。押し方を選べる(`good`マークが出たらすぐ押す、`none`何も押さない、`late`待てをギリギリに押してワルにも1回待てを押す、`two`行けのマークが2つ出る場面と光の拳を試す、`both`は`good`と`none`、`all`は4つとも)。環境変数`SLOW=1`でゆっくりモード、`REDUCE=1`で「光と揺れを弱くする」をオンにして始める |
+| `result_sharetest.mjs` | `alley`、`garage`、`mall`、`free` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、キャンセルされたとき、失敗したとき、パソコン)。共有の文が見出し、#StupidHero、URLの3行か、「画像を保存」でPNGを保存できるかも見る。`free`はフリープレイの結果画面で、もう一回で掛け合いを出さずに`Street`へ行くかも見る |
+| `result_shot.mjs` | URLの後ろに`stage=`を書く | 結果画面と共有カードの画像を書き出す |
+| `result_og.mjs` | | 共有用の画像`public/og.png`をゲームの絵で作り直す |
+| `textcheck.mjs` | | ゲームの全部の文を折り返して、禁則のまちがいがないか見る |
+| `audioCheck.mjs` | | 曲と効果音の音の大きさを測り、音が割れていないか、無音でないかを見る。フリープレイの曲(`free1`〜`free3`)の切りかえと、決めつけと空押しの音も見る |
+| `uitest.mjs` | | UIの部品(`/dev/ui.html`)をタッチで試す |
+| `shot.mjs` | URLで決める | 1枚だけ画面を撮る |
+| `timeshots.mjs` | URLで決める | 決めた時間ごとに画面を撮る |
+| `lib.mjs` | | 上のスクリプトで共通に使う部品 |
 
 ## 文章を書くときの決まり
 
@@ -261,7 +265,42 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 
 キーとコマの大きさは`src/art/sheets.ts`の表で決まっています(`SHEETS`と`IMAGES`)。表にないキーは読み込みません。読み込みは`src/scenes/Boot.ts`がします(読み方は`src/art/index.ts`の`loadArtPngs`)。
 
-置いたら、まず`/dev/art.html`で確かめます。差し替わった絵は、キーの横に緑で「PNG」と出ます。PNGの大きさが決まりとちがうときは赤で大きさが出て、読めなかったときは「PNGが読めない」と出ます。コマの区切りの線も出るので、コマがずれていないかも見ます。そのあとゲームの画面でも確かめます(例:`?scene=Sort&stage=mall`や`?scene=Street&wave=1&sorts=civ`)。
+置いたら、まず`/dev/art.html`で確かめます。差し替わった絵は、キーの横に緑で「PNG」と出ます。PNGの大きさが決まりとちがうときは赤で大きさが出て、読めなかったときは「PNGが読めない」と出ます。どちらのときも、ゲームではそのPNGを使わずにコードで描いた絵にもどります(ブラウザのコンソールにも出ます)。コマの区切りの線も出るので、コマがずれていないかも見ます。そのあとゲームの画面でも確かめます(例:`?scene=Sort&stage=mall`や`?scene=Street&wave=1&sorts=civ`)。
+
+## 煙と光の粒を足す、変える
+
+煙、火の粉、UFOの光の粒は、コードで点を打って描いています(`src/ui/particles.ts`)。絵の決まり(色、大きさ、重なりの順)は`docs/ART_SPEC.md`の「コードで描く粒」にあります。
+
+| 部品 | すること | 使っている所 |
+|---|---|---|
+| `CurlSmoke` | 煙。渦を巻く流れに乗せて上らせる。出たばかりはまっすぐ上り、古くなるほどうねる | ボス戦のボンネットと燃える車(母艦)、結果発表の壊れたワゴンと落ちたUFO |
+| `HermiteSparks` | 光の粒。出る所から、横へふくらんでから行き先へ吸いこまれる | UFOの吸い上げる光 |
+
+動きの計算(エルミート曲線、なめらかな乱数、渦の流れ)は`src/ui/flow.ts`にまとめてあります。Phaserを使わないので、`src/ui/flow.test.ts`で確かめています。
+
+```ts
+// 車について行く煙。3秒たったら出すのをやめる(出ている粒は消えるまで流れて、全部消えたら自分で片づく)
+new CurlSmoke(this, {
+  x: () => car.frontX + 6, y: () => car.smokeY, depth: DEPTH_OF.car - 0.1,
+  colors: SMOKE_LIGHT, rate: 35, wind: -16
+}).stopAfter(3000);
+```
+
+- `x`と`y`は、数か、数を返す関数。関数にすると毎コマ読むので、動くものについて行く
+- 濃さは`rate`(1秒に出す粒の数)、高さは`life`(消えるまでの秒)と`rise`(上る速さ)、横の流れは`wind`で変える
+- 煙を出すものより奥(`depth`を小さく)に置くと、後ろから立ちのぼって見える
+- シーンの時計の速さに合わせて動くので、ヒットストップの間は止まり、早送りの間は速くなる。一時停止の間は止まる。シーンが終わると片づく
+- 見た目だけの乱数なので`Math.random`を使う。ゲームの中身の乱数(`rng`)は使わない(遊ぶたびの並びが変わってしまうため)
+
+ブラウザで確かめるときは、開発ツールから場面を早く進められます。
+
+| 見たいもの | 開くURLと、開発ツールですること |
+|---|---|
+| ボンネットの煙 | `?scene=Boss&stage=garage`(母艦は`stage=mall`)。連打が始まったら`bossScene.boardCar()`で車に乗せ、`Object.defineProperty(bossScene.fight, 'hpRatio', { get: () => 0.2 })`で体力を3割より少なく見せる |
+| 燃える車、噴水に落ちた母艦 | 上のあとに`bossScene.onDefeated()`。煙が見えるのは、次の画面に変わるまでの2秒ほど |
+| UFOの光の粒と、落ちたUFOの煙 | `?scene=Street&stage=mall&wave=1&sorts=civ&seed=3`。UFOが光で吸い上げ始めたら`streetDev.goHandler()`で行けを押す |
+
+Playwrightで撮るときは、コンテナの中などで1秒に数コマしか動かないと、粒が少なく、動きもゆっくりに見えます(1コマで進める時間は0.05秒までにしているため)。濃さや動きは、スマホの実機でも見ます。
 
 ## 公開する
 
@@ -269,9 +308,9 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 
 1. GitHubのActionsの画面で「Pages」を選び、「Run workflow」を押す
 2. 「公開する版」に、公開したいコミット(かタグかブランチ)を入れる。最初から入っているのは、いま公開している版
-3. テスト(`npx vitest run`)と組み立て(`npm run build`。型の確かめもする)が通ると公開される
+3. テスト(`npm test`)と組み立て(`npm run build`。型の確かめもする)が通ると公開される
 
-公開したら、`pages.yml`の`default`を公開した版のコミットに書きかえてコミットします(次に動かすときの既定になり、いまどの版を公開しているかも分かる)。いまの`default`は、ステージ1から3と、ドキュメントとセリフの見直しを入れた`5e58998`です。
+公開したら、`pages.yml`の`default`を公開した版のコミットに書きかえてコミットします(次に動かすときの既定になり、いまどの版を公開しているかも分かる)。いまの`default`は、ステージ1から3と、コードの見直し、起動を速くする変更、共有用の画像の作り直しを入れた`31c4005`です。
 
 新しいリポジトリで初めて動かすときだけ、GitHubの Settings → Pages → Source を「GitHub Actions」にしておきます。
 

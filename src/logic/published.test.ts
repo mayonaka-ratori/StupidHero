@@ -13,7 +13,7 @@ import {
   reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
-import { LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
+import { clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
 import { createStage } from './stage';
 import { StatsTracker } from './stats';
 import { decideTitle, titlesFor } from './titles';
@@ -51,8 +51,9 @@ const asPublished = (s: Stage) => ({
  * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
  * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
  * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
+ * timeUpOp:どこからも使っていなかったので消した
  */
-const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero']);
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp']);
 
 /** fixture の答えから、わざと変えた項目を取りのぞく */
 type FixtureStage = (typeof alleyV1.stages)[number]['stage'];
@@ -70,6 +71,7 @@ const withoutChanged = (s: FixtureStage) => ({
  * - 完全無欠、街のほんものヒーロー:巻きぞえの市民は数えない(運で取れなくなるのを防ぐ)
  * - 正義の暴走機関車:ワルに襲われた市民は数えない(ヒーローが傷つけた市民だけ)
  * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
+ * - おばあちゃんの敵:おばあさんを直接なぐったときだけ(巻きぞえは数えない)
  */
 const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
   13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
@@ -78,9 +80,12 @@ const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why:
   23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  46: { was: 'grannyFoe', now: 'soSo', why: 'ヒーローがなぐった市民がいないので、おばあさんはなぐっていない' },
   48: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  63: { was: 'grannyFoe', now: 'stopMaster', why: 'おばあさんに当たったのは巻きぞえだけ' },
   66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
   70: { was: 'runawayTrain', now: 'tapProdigy', why: 'ヒーローが傷つけたのは巻きぞえ1人だけ' },
+  72: { was: 'grannyFoe', now: 'chaseDemon', why: 'おばあさんに当たったのは巻きぞえだけ' },
   75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' }
 };
 
@@ -125,7 +130,10 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
     alleyV1.titles.forEach(({ stats, title, name }, i) => {
-      const s = { ...zero, ...stats, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
+      // 公開版の記録には、おばあさんを直接なぐったか巻きぞえかの区別がない。
+      // ヒーローがなぐった市民がいれば、なぐったのはおばあさんだったことにする
+      const grannyPunched = stats.grannyHit && stats.civHurtByHero > 0;
+      const s = { ...zero, ...stats, grannyPunched, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
       const t = decideTitle(s);
       const changed = CHANGED_TITLES[i];
       if (changed) {
@@ -143,16 +151,10 @@ class MemStorage implements RecordStorage {
   data = new Map<string, string>();
   getItem(k: string) { return this.data.get(k) ?? null; }
   setItem(k: string, v: string) { this.data.set(k, String(v)); }
-  removeItem(k: string) { this.data.delete(k); }
 }
 
 describe('公開版が保存した記録を今の版で読める', () => {
   beforeEach(() => clearRecords(null));
-
-  it('キーは公開版と同じ stupidhero.records.v1 を読む', () => {
-    expect(LEGACY_RECORDS_KEY).toBe(recordsV1.key);
-    expect(RECORDS_KEY).not.toBe(recordsV1.key);
-  });
 
   it('遊んだ回数、記録、称号を引きつぎ、ボスを倒していればステージ2が開く', () => {
     const st = new MemStorage();

@@ -1,22 +1,20 @@
-// 音を数字で確かめる。先に `npx vite --port 5103 --strictPort` を動かしておくこと。
-// 使い方: node tools/audioCheck.mjs [URL]   (URLの省略時は http://localhost:5103/dev/audio.html)
+// 音を数字で確かめる。先に npm run dev を動かしておくこと。
+// 使い方: node tools/audioCheck.mjs [サーバー]   (省くと http://localhost:5173/。その dev/audio.html を開く)
 // 1) 各曲の数秒と各効果音を OfflineAudioContext で描き出し、最大音量が1.0以下で無音でないことを見る
 // 2) unlock 前の呼び出し、画面が隠れたとき/戻ったとき、消音の保存 をブラウザで動かして見る
-import { openBrowser } from './lib.mjs';
+import { checker, openBrowser, openPage, serverUrl } from './lib.mjs';
 
-const url = process.argv[2] ?? 'http://localhost:5103/dev/audio.html';
+const url = `${serverUrl(process.argv[2])}dev/audio.html`;
 const browser = await openBrowser();
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const errors = [];
-page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) errors.push('console: ' + m.text()); });
+const page = await openPage(browser, { errors });
 page.on('response', (r) => { if (r.status() >= 400 && !r.url().endsWith('/favicon.ico')) errors.push(`http ${r.status()}: ${r.url()}`); });
 await page.goto(url);
 await page.waitForFunction(() => typeof window.__audioCheck === 'function');
 
-let fail = 0;
-const ng = (msg) => { fail++; console.log('  NG ' + msg); };
-const ok = (msg) => console.log('  ok ' + msg);
+const { check, done } = checker();
+const ng = (msg) => check(msg, false);
+const ok = (msg) => check(msg, true);
 
 // ---------------------------------------------------------------- 1) 描き出して測る
 console.log('== 描き出して測る(最大=リミッター後, 制限前=コンプとクリップなし)');
@@ -131,5 +129,4 @@ await expect('free3 も stopBgm で止まる', (d) => d.playing === null && d.wa
 
 for (const e of errors) ng(e);
 await browser.close();
-console.log(fail ? `== NG ${fail} 件` : '== すべて ok');
-process.exit(fail ? 1 : 0);
+done();

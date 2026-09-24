@@ -7,8 +7,8 @@
 //     h=844               画面の高さ(既定844。幅は390)
 //     sheet               撮ったものを横に並べた1枚 <出力の頭>.png も作る
 // 撮ったものは <出力の頭>00.png、<出力の頭>01.png …。1枚ごとに、動いているシーンと数字(撃破、負傷、被害額など)を出す。
-// 例: node tools/timeshots.mjs "http://localhost:5202/?scene=Street&wave=1&sorts=random&seed=1" /tmp/s 1000,3000 press=stop dpr=2
-//     node tools/timeshots.mjs "http://localhost:5201/?scene=Sort&stage=garage" /tmp/sort 2500+150x3 sheet
+// 例: node tools/timeshots.mjs "http://localhost:5173/?scene=Street&wave=1&sorts=random&seed=1" /tmp/s 1000,3000 press=stop dpr=2
+//     node tools/timeshots.mjs "http://localhost:5173/?scene=Sort&stage=garage" /tmp/sort 2500+150x3 sheet
 import { contactSheet, openBrowser, openPage, waitForGame } from './lib.mjs';
 
 const [url, prefix, times = '2000', ...rest] = process.argv.slice(2);

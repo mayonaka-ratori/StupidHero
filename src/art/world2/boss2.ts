@@ -2,9 +2,10 @@
 // 白い毛皮のコート、紫のドレス、サングラス、赤い大きな髪、赤いハイヒール。
 // 人の仕組み(figure.ts)を大きな体つきで使い、頭だけ自分で描く。
 import { md, PixelGrid } from '../lib';
-import { type Look, type Pose, clonePose, drawPerson, moveUpper, shoulders } from '../world/figure';
+import { type Look, type Pose, clonePose, moveUpper, shoulders } from '../world/figure';
 import { GOLD, OUTLINE, SKIN } from '../world/palette';
-import { Mask, type Painter, type Pt, type Ramp, bbox, rotateGrid, shadeT } from '../world/pix';
+import { Mask, type Painter, type Pt, type Ramp, rotateGrid, shadeT } from '../world/pix';
+import { P96, type ScrapStyle, alignCenter, alignFeet, drawScraps } from '../world/bossKit';
 
 const HAIR2: Ramp = [md(7, 3, 2), md(6, 1, 1), md(3, 0, 1)];
 const FUR: Ramp = [md(7, 7, 6), md(6, 5, 6), md(4, 3, 5)];
@@ -91,24 +92,6 @@ function bossHead(face: BossFace): { g: PixelGrid; nx: number; ny: number } {
   for (let y = 1; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x] === HAIR2[1] && (x + y * 2) % 9 === 0) g.px(x, y, HAIR2[2]);
   g.px(6 + O, 17, G0);
   return { g, nx: 13 + O, ny: CHIN };
-}
-
-/** 化けていた服の切れはし */
-function drawScraps(Pn: Painter, pose: Pose, step: number): void {
-  const c: Pt = [pose.neck[0], pose.neck[1] + 20];
-  const cols = [FUR[1], COAT[1], COAT[2], FUR[2]];
-  const pieces: [number, number, number][] = [
-    [-2.4, 14, 0], [-0.5, 18, 1], [0.4, 16, 2], [1.4, 17, 1], [2.3, 15, 0], [3.0, 19, 2], [-1.4, 20, 1], [4.2, 16, 2]
-  ];
-  const shapes = [['111.', '.111', '..1.'], ['.11', '111', '1..'], ['11..', '.111', '.11.', '..1.']];
-  pieces.forEach(([ang, d, sh], i) => {
-    const r = d * (0.35 + step * 0.42) + (i % 3);
-    const x = Math.round(c[0] + Math.cos(ang) * r * 1.4), y = Math.round(c[1] + Math.sin(ang) * r - step * 3);
-    if (y > 88 || y < 1 || x < 1 || x > 91) return;
-    const m = Pn.mask();
-    shapes[(sh + step) % shapes.length].forEach((row, j) => { for (let q = 0; q < row.length; q++) if (row[q] === '1') m.set(x + q, y + j); });
-    Pn.fill(m, cols[i % cols.length], { sep: 'outline', flat: true });
-  });
 }
 
 /** 毛皮のふわふわ(形のふちを波打たせ、中に短い毛の線) */
@@ -203,7 +186,7 @@ function bossLook(face: BossFace, scraps = 0): Look {
       // 金の腕輪と指輪
       const w = wristOf(pose.aF, 1.2);
       Pn.px(Math.round(w[0]), Math.round(w[1]), G0);
-      if (scraps) drawScraps(Pn, pose, scraps);
+      if (scraps) drawScraps(Pn, pose, scraps, SCRAPS);
     }
   };
 }
@@ -217,28 +200,8 @@ const STAND: Pose = {
   lF: { k: [44, 73], a: [41, 85], toe: 0.45 }
 };
 
-const P96 = (look: Look, p: Pose) => drawPerson(look, p, 96, 96);
-
-/** 足の裏(y=91)にそろえる。cx で体の真ん中(x=48)にもそろえる */
-function ground(g: PixelGrid, cx = false): PixelGrid {
-  const b = bbox(g);
-  if (!b) return g;
-  const dy = 91 - b.y1;
-  const dx = cx ? 48 - Math.round((b.x0 + b.x1) / 2) : 0;
-  const o = new PixelGrid(g.w, g.h);
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x]) o.px(x + dx, y + dy, g.cells[y][x]);
-  return o;
-}
-
-/** 空中のコマ:体の真ん中を (48, 48) にそろえる */
-function center(g: PixelGrid): PixelGrid {
-  const b = bbox(g);
-  if (!b) return g;
-  const dx = 48 - Math.round((b.x0 + b.x1) / 2), dy = 46 - Math.round((b.y0 + b.y1) / 2);
-  const o = new PixelGrid(g.w, g.h);
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x]) o.px(x + dx, y + dy, g.cells[y][x]);
-  return o;
-}
+/** 化けていた服(毛皮のコート)の切れはし */
+const SCRAPS: ScrapStyle = { dy: 20, spread: 0.42, xMax: 91, yMin: 1, colors: [FUR[1], COAT[1], COAT[2], FUR[2]] };
 
 const pose = (edit: (p: Pose) => void, from: Pose = STAND): Pose => { const p = clonePose(from); edit(p); return p; };
 
@@ -265,14 +228,14 @@ export function buildBoss2(): PixelGrid[][] {
   });
   const reveal = [
     P96(bossLook('smirk', 1), r0), P96(bossLook('shout', 2), r1), P96(bossLook('grin', 3), r2), P96(bossLook('smirk', 4), r3)
-  ].map((g) => ground(g));
+  ].map((g) => alignFeet(g));
 
   // 1 待機:腕を組んで見下ろす
   const i0 = pose((p) => {
     p.aF = { e: [42, 47], h: [56, 45] };
     p.aB = { e: [61, 46], h: [50, 43] };
   });
-  const idle = [ground(P96(bossLook('smirk'), i0)), ground(P96(bossLook('smirk'), moveUpper(i0, 0, 1)))];
+  const idle = [alignFeet(P96(bossLook('smirk'), i0)), alignFeet(P96(bossLook('smirk'), moveUpper(i0, 0, 1)))];
 
   // 2 暴れる:物を投げる、前をさして手下をけしかける、ヒールで踏み鳴らす
   const a0 = pose((p) => {
@@ -293,7 +256,7 @@ export function buildBoss2(): PixelGrid[][] {
     p.lF = { k: [52, 67], a: [51, 79], toe: 0.3 };
   });
   const rampage = [
-    ground(P96(bossLook('shout'), a0)), ground(P96(bossLook('shout'), a1)), ground(P96(bossLook('shout'), a2)), ground(P96(bossLook('grin'), a3))
+    alignFeet(P96(bossLook('shout'), a0)), alignFeet(P96(bossLook('shout'), a1)), alignFeet(P96(bossLook('shout'), a2)), alignFeet(P96(bossLook('grin'), a3))
   ];
 
   // 3 ラッシュを受ける
@@ -307,7 +270,7 @@ export function buildBoss2(): PixelGrid[][] {
     p.aF = { e: [36, 44], h: [34, 54] }; p.aB = { e: [60, 40], h: [70, 38] };
     p.lF = { k: [41, 73], a: [37, 85], toe: 0.45 };
   });
-  const hit = [ground(P96(bossLook('hurt'), h0)), ground(P96(bossLook('hurt'), h1))];
+  const hit = [alignFeet(P96(bossLook('hurt'), h0)), alignFeet(P96(bossLook('hurt'), h1))];
 
   // 4 やられる:よろけて、ひざをつき、目を回して倒れる
   const d0 = pose((p) => {
@@ -329,10 +292,10 @@ export function buildBoss2(): PixelGrid[][] {
     p.lF = { k: [58, 70], a: [50, 84], toe: 0.3 };
   });
   const defeat = [
-    ground(P96(bossLook('hurt'), d0)),
-    ground(P96(bossLook('hurt'), d1)),
+    alignFeet(P96(bossLook('hurt'), d0)),
+    alignFeet(P96(bossLook('hurt'), d1)),
     rotateGrid(P96(bossLook('ko'), d2), -1.0, 48, 52, 48, 58),
-    ground(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48))
+    alignFeet(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48))
   ];
 
   // 5 車に飛び乗る:しゃがむ → 跳ぶ → 空中で脚をたたむ → 屋根に着地
@@ -357,10 +320,10 @@ export function buildBoss2(): PixelGrid[][] {
     p.lF = { k: [54, 74], a: [44, 85], toe: 0.45 }; p.lB = { k: [58, 78], a: [58, 85], toe: 0.45 };
   });
   const jump = [
-    ground(P96(bossLook('smirk'), j0)),
-    center(P96(bossLook('grin'), j1)),
-    center(P96(bossLook('grin'), j2)),
-    ground(P96(bossLook('smirk'), j3))
+    alignFeet(P96(bossLook('smirk'), j0)),
+    alignCenter(P96(bossLook('grin'), j1)),
+    alignCenter(P96(bossLook('grin'), j2)),
+    alignFeet(P96(bossLook('smirk'), j3))
   ];
   return [reveal, idle, rampage, hit, defeat, jump];
 }

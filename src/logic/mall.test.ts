@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
 import {
-  BOSS3_DISGUISES, MALL_LOOKS, buildRush, glitchCount, glitchShowing, nextGlitchAt, rollGlitch, rushGlitchShowing, rushSpawnSec
+  BOSS3_DISGUISES, MALL_LOOKS, buildRush, glitchCount, glitchShowing, rollGlitch, rushGlitchShowing, rushSpawnSec
 } from './mall';
 import { createRng } from './rng';
 import { GLITCH, RUSH } from './rules';
@@ -185,14 +185,10 @@ describe('動きのくずれの時間', () => {
     expect(glitchShowing(undefined, 5)).toBe(false);
   });
 
-  it('何回くずれたかと、次にくずれる時刻', () => {
+  it('何回くずれたか', () => {
     expect(glitchCount(g, 3)).toBe(0);
     expect(glitchCount(g, 4)).toBe(1);
     expect(glitchCount(g, 9.5)).toBe(2);
-    expect(nextGlitchAt(g, 0)).toBe(4);
-    expect(nextGlitchAt(g, 4.1)).toBe(7);
-    expect(nextGlitchAt(g, 7)).toBe(10);
-    expect(nextGlitchAt(undefined, 1)).toBeNull();
   });
 
   it('練習用は1.5秒で初めて出て、2秒おきに0.3秒', () => {

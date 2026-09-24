@@ -55,10 +55,9 @@ export function gatherMembers(memberIds: readonly string[], gone: (id: string) =
  */
 export type GangPhase = 'gather' | 'wait' | 'board' | 'drive' | 'wiped' | 'stopped' | 'escaped';
 
+/** 時間を変えるとき(フリープレイのゆっくりモード)。省くと GANG の秒数 */
 export interface GangCallOptions {
-  gatherSec?: number;
   escapeSec?: number;
-  boardSec?: number;
   driveSec?: number;
 }
 
@@ -71,12 +70,7 @@ export class GangCall {
 
   constructor(memberIds: readonly string[], opts: GangCallOptions = {}) {
     this.members = [...memberIds];
-    this.sec = {
-      gather: opts.gatherSec ?? GANG.gatherSec,
-      wait: opts.escapeSec ?? GANG.escapeSec,
-      board: opts.boardSec ?? GANG.boardSec,
-      drive: opts.driveSec ?? GANG.driveSec
-    };
+    this.sec = { gather: GANG.gatherSec, wait: opts.escapeSec ?? GANG.escapeSec, board: GANG.boardSec, drive: opts.driveSec ?? GANG.driveSec };
   }
 
   /** 組の人数(まとめて吹き飛ばした人数、逃げた人数に使う) */

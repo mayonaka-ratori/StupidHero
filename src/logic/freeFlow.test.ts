@@ -7,6 +7,7 @@ import { FREE_WORST_CAPTION, freeShareCaption, freeShareTexts, heroAccuracyText,
 import { FREE_WORST_SCENE_RANK, StatsTracker, freeWaveScene, sceneForCivHit } from './stats';
 import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
 import type { Person, StageStats } from './types';
+import { titleCommentFor } from './content';
 
 class MemStorage implements RecordStorage {
   data = new Map<string, string>();
@@ -192,9 +193,9 @@ describe('フリープレイの称号', () => {
     expect(titleById('heroSitter')).toMatchObject({ name: 'ヒーローのお守り役', pose: 'win_pose' });
     expect(titleById('heroInterpreter')).toMatchObject({ name: 'ヒーローの通訳', pose: 'win_arms' });
     expect(titleById('letItBe')).toMatchObject({ name: 'なすがまま', pose: 'win_shy' });
-    expect(titleById('heroInterpreter').comment.who).toBe('hero');
-    expect(titleById('heroSitter').comment.text).toBe('おバカ、全部止めたね！');
-    expect(titleById('letItBe').comment.text).toBe('…もう知らない');
+    expect(titleCommentFor('heroInterpreter').who).toBe('hero');
+    expect(titleCommentFor('heroSitter').text).toBe('おバカ、全部止めたね！');
+    expect(titleCommentFor('letItBe').text).toBe('…もう知らない');
   });
 
   it('お守り役:なぐった市民とワルにやられた市民が0で逃がしたワルが0。まきぞえは数えない', () => {

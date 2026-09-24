@@ -66,7 +66,7 @@ export const NAMES = { operator: 'オペレーター', hero: 'ヒーロー' } as
 export const DEPTH = { panel: 900, ui: 1000, cutin: 1100, fx: 1500, flash: 1800 } as const;
 
 /** 2つの色を混ぜる(t=0でa、t=1でb) */
-export function mix(a: number, b: number, t: number): number {
+function mix(a: number, b: number, t: number): number {
   const ch = (s: number): number => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t) << s;
   return ch(16) | ch(8) | ch(0);
 }

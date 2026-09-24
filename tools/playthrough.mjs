@@ -1,6 +1,7 @@
 // タイトルから結果画面まで、自動で通しで遊ぶ。エラーが出ないかと、各場面の見た目を確かめる。
 // 波ごとの答え合わせ(WaveReview)は、行が出そろうのを待って撮り、次へを押す(3回通ったかも確かめる)。
-// 使い方: node tools/playthrough.mjs <URL> <出力フォルダ> [種] [ステージ(alley、garage、mall)] [仕分け]
+// 使い方: npm run dev を動かしてから node tools/playthrough.mjs [サーバーかURL] [出力フォルダ] [種] [ステージ(alley、garage、mall)] [仕分け]
+// サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/playthrough.mjs - - 5 mall truth)
 // garage と mall のときは、前のステージのボスを倒した記録を先に入れておき、タイトルからステージを選ぶ画面を通って遊ぶ
 // 仕分け(書かなければ random):
 //   random  でたらめに仕分け、結果発表でもでたらめに待てと行けを押す(前からの動き)
@@ -8,17 +9,17 @@
 //   ufo     truth と同じだが、波1のワル(宇宙人)を市民に仕分ける。1機目のUFOは行けで落とし、2機目からは押さない(さらわれる)
 //   bossciv truth と同じだが、ボスを市民に仕分ける。ufo+bossciv のように + でつなげる
 // エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { logicalHeight, openBrowser, openPage, touchPad, waitForGame } from './lib.mjs';
+import { writeFileSync } from 'node:fs';
+import { logicalHeight, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
-const [url, outDir, seed = '', stage = 'alley', policy = 'random'] = process.argv.slice(2);
-if (!url || !outDir) { console.error('usage: node tools/playthrough.mjs <url> <outDir> [seed] [alley|garage|mall] [random|truth|ufo|bossciv]'); process.exit(2); }
+const [urlArg, outArg, seed = '', stage = 'alley', policy = 'random'] = process.argv.slice(2);
+const url = serverUrl(urlArg);
+const outDir = shotsDir(outArg);
 const PREV = { alley: [], garage: ['alley'], mall: ['alley', 'garage'] }[stage];
 if (!PREV) { console.error(`ステージは alley、garage、mall のどれか(${stage})`); process.exit(2); }
 const random = policy === 'random';
 const missWave1 = policy.split('+').includes('ufo');
 const bossCiv = policy.split('+').includes('bossciv');
-mkdirSync(outDir, { recursive: true });
 const browser = await openBrowser();
 const errors = [];
 // 途中で Vite がページを読み直さないように、通知は切ってある
@@ -90,10 +91,10 @@ while (Date.now() - t0 < 300000) {
     // 合図を見て押す。UFOは1機目だけ行けで落とす。ラッシュは市民にだけ待て。帯の説明はタップで送る
     const st = await page.evaluate(() => {
       const d = window.streetDev; if (!d) return null;
-      const u = d.ufos.current; const m = d.rushMen.find((x) => x.state === 'mark');
+      const u = d.ufoPart.ufos.current; const m = d.rushPart.rushMen.find((x) => x.state === 'mark');
       const b = (x) => ({ x: x.x + x.w / 2, y: x.y + x.h / 2 });
-      return { ufo: u ? u.alienId + ':' + u.phase : null, beam: u?.phase === 'beam' && !!d.goHandler, rushIntro: d.rushOn && !d.rushRunning,
-        rushCiv: d.rushRunning && !!d.stopHandler && m?.r.truth === 'civ', go: b(d.goBtn), stop: b(d.stopBtn) };
+      return { ufo: u ? u.alienId + ':' + u.phase : null, beam: u?.phase === 'beam' && !!d.goHandler, rushIntro: d.rushPart.rushOn && !d.rushPart.rushRunning,
+        rushCiv: d.rushPart.rushRunning && !!d.stopHandler && m?.r.truth === 'civ', go: b(d.goBtn), stop: b(d.stopBtn) };
     });
     if (st?.ufo && st.ufo.split(':')[0] !== lastUfo) { lastUfo = st.ufo.split(':')[0]; ufoSeen++; }
     if (st?.beam && ufoSeen === 1 && ufoGo === 0) { await page.waitForTimeout(500); await shot('ufo_beam'); await tap(st.go.x, st.go.y); ufoGo++; goTaps++; await page.waitForTimeout(1200); await shot('ufo_down'); }

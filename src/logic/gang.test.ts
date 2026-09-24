@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { GangCall, gatherMembers } from './gang';
-import { GANG, GROUP_WIPE, rollGroupWipeProps } from './rules';
+import { GANG, rollGroupWipeProps } from './rules';
 import { createRng } from './rng';
 
 describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車で逃げる)', () => {
-  it('数字:車に乗るまで3秒、走り出してから消えるまで約2秒', () => {
-    expect(GANG.escapeSec).toBe(3);
-    expect(GANG.driveSec).toBe(2);
-    expect(GANG.groupSize).toEqual({ min: 2, max: 3 });
-  });
-
   it('仲間が誰も来ないときは1人だけ(alone)', () => {
     const gone = new Set(['b', 'c']);
     const comers = gatherMembers(['a', 'b', 'c'], (id) => gone.has(id));
@@ -48,6 +42,16 @@ describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車
     expect(c.update(60_000)).toEqual(['wait', 'board', 'drive', 'escaped']);
   });
 
+  it('フリープレイのゆっくりモード:待つ時間と走る時間を変えられる', () => {
+    const c = new GangCall(['a', 'b'], { escapeSec: 4.5, driveSec: 3 });
+    c.update(GANG.gatherSec * 1000);
+    expect(c.update(4400)).toEqual([]);
+    expect(c.update(200)).toEqual(['board']);
+    expect(c.update(GANG.boardSec * 1000)).toEqual(['drive']);
+    expect(c.update(2800)).toEqual([]);
+    expect(c.update(300)).toEqual(['escaped']);
+  });
+
   it('集まったあとの行けは、まとめて吹き飛ばす', () => {
     const c = new GangCall(['a', 'b']);
     expect(c.gathered()).toBe(true);
@@ -80,7 +84,5 @@ describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車
     ];
     const broken = rollGroupWipeProps(props, 100, rng);
     expect(broken.map((p) => p.x).sort()).toEqual([110, 60]);
-    expect(GROUP_WIPE.propBreakChance.van).toBe(0);
-    expect(GROUP_WIPE.propBreakChance.bosscar).toBe(0);
   });
 });

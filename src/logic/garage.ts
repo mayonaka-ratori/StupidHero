@@ -20,7 +20,7 @@ import type {
 
 export const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
 /** 女ボスの化けた姿 */
-export const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
+const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
 
 /** 小物を作る(色と、見た目と正体で決まる小物の名前) */
 export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
@@ -55,7 +55,8 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
 
   return def.waves.map((plan) => {
     // 組の数と人数
-    const [gMin, gMax] = plan.gangGroups ?? [1, 1];
+    if (!plan.gangGroups) throw new Error(`garage の波${plan.no}に gangGroups がない`);
+    const [gMin, gMax] = plan.gangGroups;
     const groupCount = gMax > gMin && rng.chance(GANG.twoGroupChance) ? gMax : gMin;
     const sizes = groupSizes(rng, groupCount, plan.gangPairOnly ?? false);
     const gangTotal = sizes.reduce((a, b) => a + b, 0);
@@ -154,10 +155,7 @@ function addLinks(rng: Rng, used: UsedTexts, people: Person[]): void {
     const to = target;
     const where = rng.chance(GANG.linkInProfileRate) ? 'profile' : 'hint';
     const sameColor = p.accessory?.id === to.accessory?.id;
-    const want = p.truth === 'bad' ? 'bad' : 'civ';
-    const list = (where === 'profile' ? LINK_PROFILES : LINK_HINTS).filter(
-      (t: LinkTemplate) => (t.for === want || t.for === 'both') && (!t.sameColor || sameColor)
-    );
+    const list = (where === 'profile' ? LINK_PROFILES : LINK_HINTS).filter((t: LinkTemplate) => !t.sameColor || sameColor);
     const look = p.look as GangLook;
     const tpl = pickFresh(rng, list, used.texts, (t) => linkText(t.text, to.index, look));
     const text = linkText(tpl.text, to.index, look);

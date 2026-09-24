@@ -14,7 +14,7 @@ import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { FREE_INTRO, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
 import { getRun } from '../run';
-import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect } from '../ui';
+import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
 import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
@@ -71,7 +71,7 @@ export class IntroScene extends Phaser.Scene {
     audio.playBgm('title');
 
     // 上:ステージの背景とヒーロー
-    drawStageBg(this, run.stage.def);
+    drawStageBg(this, run.stage.def.bg);
     const pool = this.add.graphics().setDepth(Z.ground + 1);
     drawLightPool(pool, HERO_X, FEET_Y + 1, 34, 5);
     const aura = this.add.sprite(HERO_X, FEET_Y - 44, 'fx_aura').setScale(2).setDepth(Z.aura);
@@ -85,8 +85,7 @@ export class IntroScene extends Phaser.Scene {
 
     // 右上:音
     const mute = addMute(this, W - 13, 13);
-    const pause = new PauseControl(this);
-    void pause;
+    new PauseControl(this);
 
     // 下:セリフ
     addPanel(this);
@@ -124,7 +123,7 @@ export class IntroScene extends Phaser.Scene {
     this.time.delayedCall(260, () => this.next());
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     if (this.skipped) return;
     this.demo.update(dt);
     this.nextMark.setVisible(!this.cut.isTyping && this.index >= 0);
@@ -157,9 +156,7 @@ export class IntroScene extends Phaser.Scene {
     if (face === 'smile') { this.hero.play(animKey('hero', 'okay')); return; }
     // ドヤ顔:キラーンと光る
     this.hero.play(animKey('hero', 'idle'));
-    const k = this.add.sprite(HERO_X + 14, FEET_Y - 94, 'fx_kiran').setScale(2).setDepth(Z.actorFront);
-    k.play(animKey('fx_kiran', 'play'));
-    k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+    spawnFx(this, 'fx_kiran', HERO_X + 14, FEET_Y - 94, { scale: 2, depth: Z.actorFront });
   }
 
   private leave(): void {

@@ -1,11 +1,11 @@
 // 禁則のチェック。dev/text.html?set=check を開いて、ゲームの全部の文を、ゲームで使う折り返しの幅と字の大きさで
 // 折り返し、行の頭に来てはいけない字が来ていないか(禁則)を確かめる。まちがいがあれば一覧を出して exit code 1。
-// 使い方: npx vite --port 5205 --strictPort を動かしてから
-//   node tools/textcheck.mjs <URL(例 http://localhost:5205/)> [まちがいを並べた画像PNG]
-import { checker, openBrowser, openPage } from './lib.mjs';
+// 使い方: npm run dev を動かしてから
+//   node tools/textcheck.mjs [サーバー] [まちがいを並べた画像PNG]   (サーバーは、省くか - にすると http://localhost:5173/)
+import { checker, openBrowser, openPage, serverUrl } from './lib.mjs';
 
-const [url, out] = process.argv.slice(2);
-if (!url) { console.error('usage: node tools/textcheck.mjs <url> [out.png]'); process.exit(2); }
+const [server, out] = process.argv.slice(2);
+const url = serverUrl(server);
 const browser = await openBrowser();
 const errors = [];
 const page = await openPage(browser, { width: 800, height: 1000, errors });

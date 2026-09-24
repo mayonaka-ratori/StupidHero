@@ -28,14 +28,14 @@ import {
 } from '../../logic';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
 import { NAMES } from '../../ui/theme';
-import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
+import { paintStageBg, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
-export const CARD_W = 216;
-export const CARD_H = 270;
-export const CARD_SCALE = 5;
+const CARD_W = 216;
+const CARD_H = 270;
+const CARD_SCALE = 5;
 
 /** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
-export const WORST_CAPTION: Record<WorstScene, string> = {
+const WORST_CAPTION: Record<WorstScene, string> = {
   grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
@@ -144,7 +144,7 @@ const FREE_CARD_TEXTS = [FREE_NAME, 'クリアまでの時間', '待てで守っ
 /** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている(背景とボスはそのステージの絵) */
 export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number, stage: CardStage = STAGES[stats.stageId ?? 'alley']): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, scrollX, 216, stage.bg);
+  paintStageBg(ctx, scene, 0, 0, scrollX, 216, stage.bg);
   const feet = 194;
   if (stats.bossDefeated) {
     const boss = stage.bossSheet;
@@ -167,7 +167,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   const TOP = 96;
   {
     const bg = makeCanvas(W, 214);
-    drawAlley(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
+    paintStageBg(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
     ctx.drawImage(bg.canvas, 0, 100, W, TOP, 0, 0, W, TOP);
     const hx = 46;
     const feet = i.title.pose === 'win_fist' ? 84 : 90;

@@ -12,7 +12,7 @@ import { reasonFor, rushSummary } from './reasons';
 import {
   clearRecords, hasSeenRush, isStageUnlocked, loadRecords, markRushSeen, needsIntro, saveResult, type RecordStorage
 } from './records';
-import { UFO, resolveEncounter } from './rules';
+import { PROP_COST, resolveEncounter } from './rules';
 import { ABDUCTED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption } from './share';
 import { createStage } from './stage';
 import { STAGES } from './stages';
@@ -131,7 +131,7 @@ describe('ステージ3を通しで数える', () => {
     expect(s.defeatedByUfo).toBe(n);
     expect(s.ufosDowned).toBe(n);
     expect(s.civHurt).toBe(0);
-    expect(s.damage).toBe(n * UFO.cost + 1_500_000);
+    expect(s.damage).toBe(n * PROP_COST.ufo + 1_500_000);
     expect(formatDamage(s.damage, 'mall')).toContain('噴水');
     // ラッシュは市民を全員守り、宇宙人を全員倒した
     expect(rushSummary(s.rush!)).toBe(`セール：撃破${s.rush!.aliens}/${s.rush!.aliens}・守った${s.rush!.civs}/${s.rush!.civs}`);

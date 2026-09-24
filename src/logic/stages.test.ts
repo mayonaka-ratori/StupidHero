@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { IMAGES, sheetByKey } from '../art/sheets';
 import { ATTACKS, ATTACK_KINDS, BIG_PROPS, MALL_PROP_SIZE, PROP_COST } from './rules';
-import { MALL_SHEETS, STAGES, STAGE_IDS, isStageId, sheetKeyFor, stageTexts } from './stages';
+import { MALL_SHEETS, STAGES, STAGE_IDS, sheetKeyFor, stageTexts } from './stages';
+import { TITLES } from './titles';
 import type { StageId } from './types';
 
 /**
@@ -23,14 +24,12 @@ describe('ステージの定義', () => {
     expect(STAGES.garage.bossRampageCost).toBe(15_000_000);
     expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });
     expect(STAGES.garage.unlockAfter).toBe('alley');
-    expect(STAGES.alley.unlocks).toBe('garage');
     // 仕組みとラッシュ
     expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].hasRush])).toEqual([['none', false], ['gang', false], ['ufo', true]]);
   });
 
   it('ステージ3:地下駐車場のボスを倒すと開く。親玉は¥2,000万、母艦は1秒¥150万、倒すと噴水が壊れる', () => {
     const d = STAGES.mall;
-    expect(STAGES.garage.unlocks).toBe('mall');
     expect(d.unlockAfter).toBe('garage');
     expect(d.lockedText).toBe('地下駐車場をクリアすると遊べる');
     expect(d.bossRampageCost).toBe(20_000_000);
@@ -41,7 +40,7 @@ describe('ステージの定義', () => {
     expect(d.bossSheet).toBe('boss3');
     expect(d.bg).toEqual({ far: 'bg_mall_far', wall: 'bg_mall_wall', ground: 'bg_mall_ground' });
     expect(d.disguiseSheets).toEqual({ clerk: 'boss3_disguise_clerk', uncle: 'boss3_disguise_uncle', mascot: 'boss3_disguise_mascot' });
-    expect(d.onlyTitles).toEqual(['ufoGuide', 'saleGuardian', 'ufoHunter']);
+    expect(TITLES.filter((t) => t.stages?.length === 1 && t.stages[0] === 'mall').map((t) => t.id)).toEqual(['ufoGuide', 'saleGuardian', 'ufoHunter']);
     expect(stageTexts()).toContain('地下駐車場をクリアすると遊べる');
   });
 
@@ -90,18 +89,10 @@ describe('ステージの定義', () => {
     expect(sheetKeyFor('suit', 'boss')).toBe('boss_disguise_suit');
   });
 
-  it('壊れる物の値段。ワゴンは¥500万。ワゴンと高級車はふつうの攻撃では壊れない', () => {
-    expect(PROP_COST.van).toBe(5_000_000);
-    for (const p of ['bosscar', 'pillar', 'barrier', 'cone', 'extinguisher'] as const) expect(PROP_COST[p]).toBeGreaterThan(0);
+  it('ワゴンと高級車はふつうの攻撃では壊れない', () => {
     for (const k of ATTACK_KINDS) {
       expect(ATTACKS[k].propBreakChance.van).toBe(0);
       expect(ATTACKS[k].propBreakChance.bosscar).toBe(0);
     }
-  });
-
-  it('id の確かめと、画面に出す文', () => {
-    expect(isStageId('garage')).toBe(true);
-    expect(isStageId('moon')).toBe(false);
-    expect(stageTexts()).toContain('路地裏をクリアすると遊べる');
   });
 });

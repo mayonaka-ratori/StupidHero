@@ -7,6 +7,7 @@
 // 小物のないシート(ステージ1の人など)や、色がないときは、元のキーをそのまま返す。
 
 import type Phaser from 'phaser';
+import { addSheetFrames, createSheetAnims } from './lib';
 import { animKey, sheetByKey } from './sheets';
 
 const KEY_R = 255, KEY_G = 0, KEY_B = 255;
@@ -16,7 +17,8 @@ const GOLD = 0xdbb624, GOLD_HI = 0xffff92, GOLD_LO = 0x926d00;
 const hasKey = new Map<string, boolean>();
 
 export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: number): string {
-  if (color === undefined) return sheetKey;
+  // 一度調べて小物がなかったシートは、何度呼ばれても元のキーを返す(毎回読み直さない)
+  if (color === undefined || hasKey.get(sheetKey) === false) return sheetKey;
   const key = `${sheetKey}#${color.toString(16).padStart(6, '0')}`;
   if (scene.textures.exists(key)) return key;
   const src = scene.textures.get(sheetKey);
@@ -54,23 +56,10 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
   ctx.putImageData(data, 0, 0);
 
   const def = sheetByKey(sheetKey);
-  const tex = scene.textures.addCanvas(key, canvas)!;
-  for (let row = 0; row < def.rows.length; row++) {
-    for (let i = 0; i < def.cols; i++) {
-      tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
-    }
-  }
-  def.rows.forEach((row, ri) => {
-    const k = animKey(key, row.name);
-    if (scene.anims.exists(k)) return;
-    const frames = Array.from({ length: row.frames }, (_, i) => ({ key, frame: ri * def.cols + i }));
-    scene.anims.create({ key: k, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
-  });
+  addSheetFrames(scene.textures.addCanvas(key, canvas)!, def);
+  createSheetAnims(scene, def, key);
   return key;
 }
-
-/** そのシートに塗り替える小物があるか(一度 accessorySheet を呼んだあとで分かる) */
-export const sheetHasAccessory = (sheetKey: string): boolean => hasKey.get(sheetKey) ?? false;
 
 /**
  * 塗り替えたシート(キーに # がつくもの)とそのアニメを全部消す。ステージ2を離れたとき

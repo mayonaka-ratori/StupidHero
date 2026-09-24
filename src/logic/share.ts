@@ -18,7 +18,7 @@
 import { FREE_ITEMS, FREE_ITEM_NAME } from './freeNames';
 import type { FreeRule, FreeTally, FreeWorstScene, StageId, WorstScene } from './types';
 
-export const SHARE_HASHTAG = '#StupidHero';
+const SHARE_HASHTAG = '#StupidHero';
 
 /**
  * 見出しにして目を引く場面(市民やおばあさんに当たった、市民がさらわれた、街がこわれた)。

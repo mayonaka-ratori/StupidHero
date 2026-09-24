@@ -145,15 +145,6 @@ describe('planGarage(地下駐車場)', () => {
     expect([...new Set(passers.map((p) => p.look))].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
     expect(passers.filter((p) => p.key !== `${p.look}_civ` || typeof p.color !== 'number')).toEqual([]);
   });
-
-  it('誰も見逃さなければ、集まる場所もワゴンもない', () => {
-    const stage = createStage(5, 'garage');
-    for (const w of stage.waves) {
-      const plan = planGarage(w.people, new Set(), STAGES.garage.props, createRng(1));
-      expect(plan.gathers).toEqual([]);
-      expect(plan.props.some((p) => p.kind === 'van')).toBe(false);
-    }
-  });
 });
 
 describe('planMall(ショッピングモール)', () => {

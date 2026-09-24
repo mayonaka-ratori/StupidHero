@@ -302,7 +302,7 @@ export interface StageStats {
   defeatedByVan: number;
   /** まとめて吹き飛ばした組の数(ステージ2。「一網打尽」) */
   groupsWiped: number;
-  /** 車で逃げられた組の数(ステージ2。「ギャングの運転手」) */
+  /** 車で逃げられた組の数(ステージ2。「ギャングの見送り係」) */
   groupsEscaped: number;
   /** 車で逃げられた人数(escaped に入っている) */
   escapedByVan: number;
@@ -331,6 +331,8 @@ export interface StageStats {
   badSparedByStop: number;
   /** おばあさんを殴ったか(巻きぞえを含む) */
   grannyHit: boolean;
+  /** おばあさんをワルに仕分けて殴ったか(巻きぞえは含まない。「おばあちゃんの敵」) */
+  grannyPunched: boolean;
   /** ボスを市民に仕分けたか */
   bossSortedCiv: boolean;
   /** ボス戦にかかった秒数。ボス戦をしていなければ null */
@@ -438,16 +440,12 @@ export interface SortTally {
 /** 称号1つ */
 export interface TitleDef {
   id: TitleId;
-  /** 調べる順(1〜20。フリープレイでは、フリープレイだけの称号(18〜20)を先に調べる) */
-  order: number;
   name: string;
   pose: WinPose;
   /** 条件の説明(日本語。称号の一覧で、取った称号に出す) */
   condition: string;
   /** まだ取っていない称号のヒント(称号の一覧で「ヒント:」のあとに出す。短く、ふだんの言葉で) */
   hint: string;
-  /** 結果画面のひとこと */
-  comment: Speech;
   /** 取れるステージ(省略するとどのステージでも取れる) */
   stages?: readonly StageId[];
   /**

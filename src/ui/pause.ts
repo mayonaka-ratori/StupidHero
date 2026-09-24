@@ -24,10 +24,10 @@ import { PixelText } from './text';
 import { DEPTH, FS } from './theme';
 import { goto } from './transition';
 
-export const PAUSE_SCENE = 'UiPause';
+const PAUSE_SCENE = 'UiPause';
 
 /** 止めた/再開したを知らせる。('pause', reason) と ('resume') */
-export const pauseEvents = new Phaser.Events.EventEmitter();
+const pauseEvents = new Phaser.Events.EventEmitter();
 // 止めている間は曲も止める
 pauseEvents.on('pause', () => audio.pauseBgm());
 pauseEvents.on('resume', () => audio.resumeBgm());

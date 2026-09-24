@@ -30,10 +30,10 @@ import {
 } from '../../logic';
 import { currentFreeWave, nextAfterFreeStreet, setSort, type GameRun } from '../../run';
 import { settings } from '../../settings';
-import { banner, gotoWhenFree, impact, lighter } from '../../ui';
+import { banner, gotoWhenFree, impact, lighter, waitMs } from '../../ui';
 import type { StreetScene } from '../Street';
 import { Actor, HEAD } from './actor';
-import { ATTACK_GAP, JUDGE_RISE, RUN } from './consts';
+import { ATTACK_GAP, JUDGE_RISE, RUN } from './common';
 import { FreeItems } from './freeItems';
 import { THREAT_DX, planFree, type PasserLook, type StreetPlan } from './plan';
 import { RuleSign } from './ruleSign';
@@ -509,7 +509,7 @@ export class FreeStreet {
   /** ms たつか、タップされるまで待つ(シーンの時計で数えるので、一時停止の間は進まない) */
   private async waitOrSkip(ms: number, skipped: () => boolean): Promise<void> {
     const step = 50;
-    for (let left = ms; left > 0 && !skipped() && !this.s.leaving; left -= step) await this.s.wait(step);
+    for (let left = ms; left > 0 && !skipped() && !this.s.leaving; left -= step) await waitMs(this.s, step);
   }
 
   /** 波の始め:「WAVE1」の帯、ヒーローの決めつけとオペレーターのツッコミ、ルールの札。時計は止めておく */
@@ -560,7 +560,7 @@ export class FreeStreet {
     s.stats.setFreeRule(next);
     if (this.run.free) this.run.free.opCounts.redeclare = (this.run.free.opCounts.redeclare ?? 0) + 1;
     this.lastOpAt = s.time.now;
-    await s.wait(this.timing.redeclarePauseSec * 1000);
+    await waitMs(s, this.timing.redeclarePauseSec * 1000);
     h.play('idle');
     this.hold(false);
     this.clockRunning = true;
@@ -705,7 +705,7 @@ export class FreeStreet {
     s.hero.pose('oops', 1);
     if (a.look === 'fp_alien') {
       this.heroMode = 'waitMech';
-      await s.ufoCall(a, true);
+      await s.ufoPart.ufoCall(a, true);
       this.heroMode = 'busy';
     } else await this.threatenFlow(a, true);
   }
@@ -719,17 +719,17 @@ export class FreeStreet {
     s.civCried = null;
     if (hits.length === 0) {
       h.play('idle');
-      await s.wait(380);
+      await waitMs(s, 380);
       return;
     }
     const direct = hits.find((c) => !c.collateral);
     if (direct) {
-      await s.wait(250);
+      await waitMs(s, 250);
       h.play('win_arms', true);
       audio.sfx('okay');
       s.heroSay(this.lines.heroStubborn(), 1100);
       this.miss('hitCiv', { look: direct.look });
-      await s.wait(900);
+      await waitMs(s, 900);
       h.play('idle');
       return;
     }
@@ -737,11 +737,11 @@ export class FreeStreet {
     h.play('oops', true);
     audio.sfx('oops');
     s.heroSay(s.line('oops', s.rng), 800);
-    await s.wait(800);
+    await waitMs(s, 800);
     h.play('okay', true);
     audio.sfx('okay');
     s.heroSay(s.line('okay', s.rng), 700);
-    await s.wait(500);
+    await waitMs(s, 500);
     h.play('idle');
   }
 
@@ -775,10 +775,10 @@ export class FreeStreet {
     if (a.civ) return;
     if (look === 'fp_gang' && a.person?.group) {
       this.heroMode = 'waitMech';
-      await s.gangCall(a);
+      await s.gangPart.gangCall(a);
     } else if (look === 'fp_alien') {
       this.heroMode = 'waitMech';
-      await s.ufoCall(a);
+      await s.ufoPart.ufoCall(a);
     } else await this.threatenFlow(a, false);
     this.heroMode = 'busy';
   }
@@ -953,7 +953,7 @@ export class FreeStreet {
     const s = this.s;
     this.heroMode = 'wait';
     if (this.pendingMischief > 0) s.hero.play('idle');
-    while (!s.leaving && (this.pendingMischief > 0 || this.pendingGo > 0 || this.threats.length > 0 || s.gang || s.ufo)) await s.wait(100);
+    while (!s.leaving && (this.pendingMischief > 0 || this.pendingGo > 0 || this.threats.length > 0 || s.gangPart.gang || s.ufoPart.ufo)) await waitMs(s, 100);
     this.heroMode = 'busy';
   }
 

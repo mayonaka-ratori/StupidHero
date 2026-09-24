@@ -51,8 +51,6 @@ export interface GameRun {
   randomSorted: string[];
   /** いちばんひどかった場面の画面(アクション部分 216×214)。Street と Boss が撮り、Result と共有カードが使う */
   worstShot: HTMLImageElement | null;
-  /** このページを開いてから何回目のプレイか(1始まり)。2回目からは短い掛け合いにする */
-  playCount: number;
   /** 背景のスクロール位置。Street から Boss へ背景をつなぐため */
   scrollX: number;
   /** 開発用に途中のシーンから始めたとき true */
@@ -66,7 +64,6 @@ export interface GameRun {
 const KEY = 'run';
 
 export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug = false, stageId: StageId = 'alley'): GameRun {
-  const prev = scene.registry.get(KEY) as GameRun | undefined;
   const stage = createStage(seed, stageId);
   const run: GameRun = {
     stage,
@@ -76,7 +73,6 @@ export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug
     sorts: {},
     randomSorted: [],
     worstShot: null,
-    playCount: (prev?.playCount ?? 0) + 1,
     scrollX: 0,
     debug,
     mode: 'stage',
@@ -97,7 +93,6 @@ export interface FreeRunOptions {
 
 /** フリープレイを始める(「フリープレイ▶」と、結果画面の「もう一回」) */
 export function startFreeRun(scene: Phaser.Scene, seed: number = randomSeed(), opts: FreeRunOptions = {}): GameRun {
-  const prev = scene.registry.get(KEY) as GameRun | undefined;
   const plan = createFreePlay(seed, opts.unlocked ?? unlockedStages());
   const stage = plan.stage;
   const slow = opts.slow ?? false;
@@ -112,7 +107,6 @@ export function startFreeRun(scene: Phaser.Scene, seed: number = randomSeed(), o
     sorts: {},
     randomSorted: [],
     worstShot: null,
-    playCount: (prev?.playCount ?? 0) + 1,
     scrollX: 0,
     debug: opts.debug ?? false,
     mode: 'free',
@@ -169,7 +163,7 @@ export function fillUnsorted(run: GameRun): Person[] {
 }
 
 /** 最後の波(波3)か */
-export const isLastWave = (run: GameRun): boolean => run.waveIndex >= run.stage.waves.length - 1;
+const isLastWave = (run: GameRun): boolean => run.waveIndex >= run.stage.waves.length - 1;
 
 /** Street が波の最後まで進んだあとの行き先。波1と波2は答え合わせ、波3はボス戦(答え合わせはボス戦のあと) */
 export function nextAfterStreet(run: GameRun): string {

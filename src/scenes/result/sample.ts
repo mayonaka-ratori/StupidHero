@@ -6,7 +6,7 @@
 //   ?scene=Result&sample=kind        やさしすぎるヒーロー(いちばんひどい場面なし)
 //   &stage=garage を足すと地下駐車場の見本(組ごと撃破、車で逃げた組、駐車場の背景と絵)
 //   ?scene=Result&sample=roundup&stage=garage  一網打尽(まとめて吹き飛ばした組が2組)
-//   ?scene=Result&sample=driver&stage=garage   ギャングの運転手(車で逃げられた組が2組)
+//   ?scene=Result&sample=driver&stage=garage   ギャングの見送り係(車で逃げられた組が2組)
 //   &stage=mall を足すとショッピングモールの見本(UFO、さらわれた、タイムセールのまとめ、モールの背景と絵)。
 //   ふつう(書かないとき)は買い物客が1人さらわれて、まあまあヒーロー
 //   ?scene=Result&sample=guide&stage=mall   宇宙人の案内係(2人さらわれた)
@@ -26,7 +26,7 @@ import type { RecordStorage, StageId, StatsTracker } from '../../logic';
 import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, loadRecords } from '../../logic';
 import { accessorySheet } from '../../art/recolor';
 import { FREE_ITEM_SHEETS, itemAnchor } from '../../art/free/items';
-import { drawAlley, drawSprite, frameOf, makeCanvas } from './draw';
+import { paintStageBg, drawSprite, frameOf, makeCanvas } from './draw';
 
 const SAMPLE_NAMES = [
   'granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter', 'sitter', 'interp', 'letitbe'
@@ -314,7 +314,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
 function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement | null {
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES.garage.bg);
+  paintStageBg(ctx, scene, 0, 0, 180, 216, STAGES.garage.bg);
   const feet = 196;
   const gang = ACCESSORY_COLORS.aqua.color;
   if (name === 'roundup' || name === 'demolition') {
@@ -330,7 +330,7 @@ function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElem
     drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 5), 80, feet, { anchor: 'feet' });
     drawSprite(ctx, scene, 'fx_hit_big', frameOf('fx_hit_big', 'play', 1), 120, feet - 40, { anchor: 'center' });
   } else {
-    // ふつう、ギャングの運転手:整備士の市民を殴ってしまい、柱が折れた
+    // ふつう、ギャングの見送り係:整備士の市民を殴ってしまい、柱が折れた
     drawSprite(ctx, scene, 'prop_pillar', 1, 176, feet - 6, { anchor: 'bottom' });
     drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 2), 86, feet, { anchor: 'feet' });
     const m = accessorySheet(scene, 'mechanic_civ', ACCESSORY_COLORS.orange.color);
@@ -346,7 +346,7 @@ function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElem
 function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement | null {
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES.mall.bg);
+  paintStageBg(ctx, scene, 0, 0, 180, 216, STAGES.mall.bg);
   const feet = 196;
   if (name === 'granny' || name === 'guide' || name === 'roundup' || name === 'driver') {
     // 買い物客がUFOに吸い上げられている。ヒーローは笑顔で手をふっている
@@ -384,7 +384,7 @@ function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElemen
  */
 function freeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: StageId): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES[stageId].bg);
+  paintStageBg(ctx, scene, 0, 0, 180, 216, STAGES[stageId].bg);
   const feet = 196;
   if (name === 'sitter') {
     drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 1), 70, feet, { anchor: 'feet' });
@@ -416,7 +416,7 @@ export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: S
   if (stageId === 'mall') return mallSampleShot(scene, name);
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180);
+  paintStageBg(ctx, scene, 0, 0, 180);
   const feet = 196;
   if (name === 'granny') {
     drawSprite(ctx, scene, 'prop_vending', 1, 176, 150, { anchor: 'bottom' });

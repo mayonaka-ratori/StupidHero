@@ -6,7 +6,7 @@ export type Pt = [number, number];
 /** 明るい、ふつう、暗い の3段 */
 export type Ramp = [string, string, string];
 
-export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const add = (p: Pt, dx: number, dy: number): Pt => [p[0] + dx, p[1] + dy];
 export const mix = (a: Pt, b: Pt, t: number): Pt => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 
@@ -15,15 +15,27 @@ export class Mask {
   readonly w: number;
   readonly h: number;
   readonly d: Uint8Array;
+  /** 塗ったことのあるドットを囲む範囲(消しても縮めない)。each などはこの中だけを見る */
+  private bx0: number; private by0: number; private bx1 = -1; private by1 = -1;
   constructor(w: number, h: number) {
     this.w = w; this.h = h; this.d = new Uint8Array(w * h);
+    this.bx0 = w; this.by0 = h;
+  }
+  private grow(x0: number, y0: number, x1: number, y1: number): void {
+    if (x0 < this.bx0) this.bx0 = x0;
+    if (y0 < this.by0) this.by0 = y0;
+    if (x1 > this.bx1) this.bx1 = x1;
+    if (y1 > this.by1) this.by1 = y1;
   }
   has(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.w && y < this.h && this.d[y * this.w + x] === 1;
   }
   set(x: number, y: number, v = true): this {
     x = Math.round(x); y = Math.round(y);
-    if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.d[y * this.w + x] = v ? 1 : 0;
+    if (x >= 0 && y >= 0 && x < this.w && y < this.h) {
+      this.d[y * this.w + x] = v ? 1 : 0;
+      if (v) this.grow(x, y, x, y);
+    }
     return this;
   }
   rect(x: number, y: number, w: number, h: number, v = true): this {
@@ -56,14 +68,28 @@ export class Mask {
   }
   poly(pts: Pt[], v = true): this {
     const ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
-    for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++)
-      for (let x = Math.floor(Math.min(...xs)); x <= Math.ceil(Math.max(...xs)); x++) {
-        if (inPoly(x, y, pts)) this.set(x, y, v);
+    const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs));
+    const cross: number[] = [];
+    for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++) {
+      // この行で辺と交わる x を集める(inPoly と同じ式)。x より右の交点が奇数個なら中
+      cross.length = 0;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if ((yi > y) !== (yj > y)) cross.push(((xj - xi) * (y - yi)) / (yj - yi) + xi);
       }
+      if (!cross.length) continue;
+      cross.sort((a, b) => a - b);
+      let k = 0;
+      for (let x = x0; x <= x1; x++) {
+        while (k < cross.length && cross[k] <= x) k++;
+        if ((cross.length - k) % 2 === 1) this.set(x, y, v);
+      }
+    }
     return this;
   }
   union(m: Mask): this {
     for (let i = 0; i < this.d.length; i++) if (m.d[i]) this.d[i] = 1;
+    this.grow(m.bx0, m.by0, m.bx1, m.by1);
     return this;
   }
   subtract(m: Mask): this {
@@ -77,24 +103,16 @@ export class Mask {
   clone(): Mask {
     const m = new Mask(this.w, this.h);
     m.d.set(this.d);
+    m.grow(this.bx0, this.by0, this.bx1, this.by1);
     return m;
   }
   empty(): boolean {
-    for (let i = 0; i < this.d.length; i++) if (this.d[i]) return false;
+    for (let y = this.by0; y <= this.by1; y++) for (let x = this.bx0; x <= this.bx1; x++) if (this.d[y * this.w + x]) return false;
     return true;
   }
   each(fn: (x: number, y: number) => void): void {
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (this.d[y * this.w + x]) fn(x, y);
+    for (let y = this.by0; y <= this.by1; y++) for (let x = this.bx0; x <= this.bx1; x++) if (this.d[y * this.w + x]) fn(x, y);
   }
-}
-
-function inPoly(x: number, y: number, pts: Pt[]): boolean {
-  let inside = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const [xi, yi] = pts[i], [xj, yj] = pts[j];
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
 }
 
 export interface FillOpts {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, canPersist, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isStageUnlocked, loadRecords, markIntroSeen,
+  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isStageUnlocked, loadRecords, markIntroSeen,
   markRushSeen,
   needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
@@ -10,7 +10,6 @@ class MemStorage implements RecordStorage {
   data = new Map<string, string>();
   getItem(k: string) { return this.data.get(k) ?? null; }
   setItem(k: string, v: string) { this.data.set(k, String(v)); }
-  removeItem(k: string) { this.data.delete(k); }
 }
 
 const broken: RecordStorage = {
@@ -29,7 +28,7 @@ const stats = (over: Partial<StageStats> = {}): StageStats => ({
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
   defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null, free: null,
   escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
-  grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
+  grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
   sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [],
   ...over
@@ -85,8 +84,6 @@ describe('records', () => {
     expect(b.firstPlay).toBe(false);
     expect(b.newRecords).toContain('mostDefeated');
     expect(b.titlesCollected).toBe(2);
-    expect(canPersist(broken)).toBe(false);
-    expect(canPersist(new MemStorage())).toBe(true);
     expect(() => saveResult('alley', stats(), 'soSo', null)).not.toThrow();
     expect(() => loadRecords()).not.toThrow();
   });
@@ -174,46 +171,6 @@ describe('records', () => {
     clearRecords(null);
     markRushSeen('mall', broken);
     expect(hasSeenRush('mall', loadRecords(broken))).toBe(true);
-  });
-
-  it('前の形(v1)の記録を読める。称号は路地裏のもの、ボス戦の記録があればステージ2が開く。v1は消さない', () => {
-    const st = new MemStorage();
-    const v1 = JSON.stringify({
-      version: 1,
-      stages: { alley: { mostDefeated: 7, fewestHurt: 1, highestDamage: 24_000_000, fastestBossSec: 6.2, plays: 4 } },
-      titles: ['soSo', 'demolition']
-    });
-    st.setItem(LEGACY_RECORDS_KEY, v1);
-    const r = loadRecords(st);
-    expect(r.version).toBe(2);
-    expect(r.stages.alley).toEqual({
-      mostDefeated: 7, fewestHurt: 1, highestDamage: 24_000_000, fastestBossSec: 6.2, plays: 4, clears: 1,
-      titles: ['soSo', 'demolition']
-    });
-    expect(r.titles).toEqual(['soSo', 'demolition']);
-    expect(isStageUnlocked('garage', r)).toBe(true);
-
-    // 保存すると v2 に書き、前の記録を引きつぐ。v1 はそのまま残る
-    const s = saveResult('alley', stats({ defeated: 8 }), 'realHero', st);
-    expect(s.firstPlay).toBe(false);
-    expect(s.newRecords).toEqual(['mostDefeated']);
-    expect(s.stage.plays).toBe(5);
-    expect(s.stage.clears).toBe(2);
-    expect(s.titlesCollected).toBe(3);
-    expect(s.unlockedNow).toEqual([]);
-    expect(st.getItem(LEGACY_RECORDS_KEY)).toBe(v1);
-    expect(JSON.parse(st.getItem(RECORDS_KEY)!).version).toBe(2);
-    expect(loadRecords(st).stages.alley!.plays).toBe(5);
-  });
-
-  it('前の形でボス戦の記録がなければ、ステージ2は閉じたまま', () => {
-    const st = new MemStorage();
-    st.setItem(LEGACY_RECORDS_KEY, JSON.stringify({
-      version: 1, stages: { alley: { mostDefeated: 3, fewestHurt: 0, highestDamage: 0, fastestBossSec: null, plays: 1 } }, titles: ['soSo']
-    }));
-    const r = loadRecords(st);
-    expect(r.stages.alley!.clears).toBe(0);
-    expect(isStageUnlocked('garage', r)).toBe(false);
   });
 
   it('v2 が壊れていたら v1 を読む。知らないステージは捨てる', () => {

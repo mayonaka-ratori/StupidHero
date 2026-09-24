@@ -205,6 +205,52 @@ const winShy: Pose[] = [0, 1].map((i) => P({
   cape: capeIdle(i * 3), tail: { a: -40, ph: i * 3 }
 }));
 
+// ---------- 14 蹴り:ひざを上げてから前へまっすぐ蹴る ----------
+const GUARD_F: Arm = { a: 40, e: 105, hand: 'fist' };
+const GUARD_B: Arm = { a: 60, e: 95, hand: 'fist' };
+const kick: Pose[] = [
+  P({ lean: -4, face: 'normal', af: GUARD_F, ab: GUARD_B,
+    lf: { a: 70, k: 115 }, lb: { a: -4, k: 6 }, cape: capeWind(0.5, -30), tail: { a: -50, ph: 0.5 } }),
+  P({ lean: -14, face: 'shout', af: { a: -40, e: 60, hand: 'fist' }, ab: { a: 75, e: 80, hand: 'fist' },
+    lf: { a: 92, k: 20 }, lb: { a: -8, k: 4 }, cape: capeWind(1.5, -55), tail: { a: -75, ph: 1.5 } }),
+  P({ lean: -22, face: 'shout', af: { a: -60, e: 40, hand: 'fist' }, ab: { a: 80, e: 70, hand: 'fist' },
+    lf: { a: 100, k: 0 }, lb: { a: -10, k: 2 }, cape: capeWind(2.5, -75), tail: { a: -90, ph: 2.5 } }),
+  P({ lean: -10, face: 'shout', af: GUARD_F, ab: GUARD_B,
+    lf: { a: 65, k: 105 }, lb: { a: -6, k: 4 }, cape: capeWind(3.5, -45), tail: { a: -65, ph: 3.5 } }),
+  P({ lean: 6, face: 'grin', af: GUARD_F, ab: GUARD_B,
+    lf: { a: -24, k: 6 }, lb: { a: 26, k: 16 }, cape: capeIdle(4.5), tail: { a: -50, ph: 4.5 } })
+];
+
+// ---------- 15 アッパー:しゃがんで、跳び上がりながら拳を突き上げる ----------
+const uppercut: Pose[] = [
+  P({ lean: 22, squash: 0.1, face: 'normal', af: { a: -30, e: 110, hand: 'fist' }, ab: { a: 50, e: 90, hand: 'fist' },
+    lf: { a: 45, k: 90 }, lb: { a: -15, k: 70 }, cape: capeWind(0.5, -35), tail: { a: -60, ph: 0.5 } }),
+  P({ lean: 8, face: 'shout', af: { a: 70, e: 80, hand: 'fist' }, ab: { a: -40, e: 90, hand: 'fist' },
+    lf: { a: 20, k: 40 }, lb: { a: -10, k: 30 }, cape: capeWind(1.5, -40), tail: { a: -70, ph: 1.5 } }),
+  P({ ground: false, y: 30, lean: -6, face: 'shout', af: { a: 160, e: 0, hand: 'fist' }, ab: { a: -50, e: 100, hand: 'fist' },
+    lf: { a: 30, k: 60 }, lb: { a: -8, k: 35 }, cape: { a: -10, len: 26, ph: 2.5, w: 10, amp: 2 }, tail: { a: -20, ph: 2.5 } }),
+  P({ ground: false, y: 30, lean: -8, face: 'grin', af: { a: 165, e: -4, hand: 'fist' }, ab: { a: -40, e: 90, hand: 'fist' },
+    lf: { a: 40, k: 80 }, lb: { a: 0, k: 45 }, cape: { a: 5, len: 24, ph: 3.5, w: 11, amp: 2 }, tail: { a: 0, ph: 3.5 } }),
+  P({ lean: 4, squash: 0.05, face: 'grin', af: { a: 130, e: 20, hand: 'fist' }, ab: HIP_B,
+    lf: { a: -20, k: 20 }, lb: { a: 28, k: 30 }, cape: capeIdle(4.5), tail: { a: -45, ph: 4.5 } })
+];
+
+// ---------- 16 飛び蹴り:跳んで、脚を伸ばして突っこむ ----------
+const flyKick: Pose[] = [
+  P({ lean: 24, squash: 0.1, face: 'normal', af: { a: -60, e: 40, hand: 'fist' }, ab: { a: -30, e: 60, hand: 'fist' },
+    lf: { a: 50, k: 100 }, lb: { a: -10, k: 70 }, cape: capeWind(0.5, -35), tail: { a: -60, ph: 0.5 } }),
+  P({ ground: false, y: 30, lean: -6, face: 'shout', af: { a: 150, e: 10, hand: 'fist' }, ab: { a: 120, e: 20, hand: 'fist' },
+    lf: { a: 70, k: 120 }, lb: { a: 30, k: 100 }, cape: { a: -40, len: 26, ph: 1.5, w: 10, amp: 2 }, tail: { a: -40, ph: 1.5 } }),
+  P({ ground: false, y: 30, lean: -26, face: 'shout', af: { a: -80, e: 30, hand: 'fist' }, ab: { a: 110, e: 30, hand: 'fist' },
+    lf: { a: 96, k: 4 }, lb: { a: 40, k: 115 }, cape: capeWind(2.5, -115), tail: { a: -115, ph: 2.5 } }),
+  P({ ground: false, x: 30, y: 30, lean: -30, face: 'shout', af: { a: -90, e: 20, hand: 'fist' }, ab: { a: 115, e: 25, hand: 'fist' },
+    lf: { a: 102, k: 0 }, lb: { a: 45, k: 120 }, cape: capeWind(3.5, -120), tail: { a: -120, ph: 3.5 } }),
+  P({ ground: false, y: 31, lean: -10, face: 'grin', af: { a: -40, e: 50, hand: 'fist' }, ab: { a: 60, e: 60, hand: 'fist' },
+    lf: { a: 40, k: 70 }, lb: { a: 10, k: 60 }, cape: { a: -20, len: 27, ph: 4.5, w: 10, amp: 2 }, tail: { a: -30, ph: 4.5 } }),
+  P({ lean: 10, squash: 0.08, face: 'grin', af: GUARD_F, ab: GUARD_B,
+    lf: { a: -26, k: 30 }, lb: { a: 30, k: 40 }, cape: capeIdle(5.5), tail: { a: -45, ph: 5.5 } })
+];
+
 export const HERO_ROWS: Pose[][] = [
-  idle, run, charge, punch, stomp, special, pass, stop, oops, okay, winPose, winArms, winFist, winShy
+  idle, run, charge, punch, stomp, special, pass, stop, oops, okay, winPose, winArms, winFist, winShy, kick, uppercut, flyKick
 ];

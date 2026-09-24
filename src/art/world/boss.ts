@@ -1,9 +1,10 @@
 // 路地裏のボス(正体)。96×96、足の裏は y=91、体の真ん中は x=48。
 // 人の仕組み(figure.ts)を大きな体つきで使い、頭だけ自分で描く。
 import { md, PixelGrid } from '../lib';
-import { type Look, type Pose, clonePose, drawPerson, movePose, moveUpper } from './figure';
+import { type Look, type Pose, clonePose, movePose, moveUpper } from './figure';
 import { GOLD, HAIR, OUTLINE, SKIN, TATTOO, WHITE } from './palette';
-import { Mask, type Painter, type Pt, type Ramp, bbox, rotateGrid, shadeT } from './pix';
+import { Mask, type Painter, type Pt, type Ramp, rotateGrid, shadeT } from './pix';
+import { P96, type ScrapStyle, alignFeet, drawScraps } from './bossKit';
 
 const JACKET: Ramp = [md(6, 1, 1), md(4, 0, 1), md(2, 0, 1)];
 const PANTS: Ramp = [md(2, 2, 3), md(2, 2, 3), md(1, 1, 2)];
@@ -128,7 +129,7 @@ function bossLook(face: BossFace, scraps = 0): Look {
       const k = 1.7;
       armTattoo(P, [pose.neck[0] - 1 * k, pose.neck[1] + 2.5 * k], pose.aF.e, 0.35, 1, 4);
       armTattoo(P, pose.aF.e, pose.aF.h, 0.1, 0.7, 4);
-      if (scraps) drawScraps(P, pose, scraps);
+      if (scraps) drawScraps(P, pose, scraps, SCRAPS);
     },
     farHand(P, pose) {
       armTattoo(P, [pose.neck[0] + 4 * 1.7, pose.neck[1] + 2.5 * 1.7], pose.aB.e, 0.35, 1, 4);
@@ -137,24 +138,11 @@ function bossLook(face: BossFace, scraps = 0): Look {
   };
 }
 
-/** 化けていた服の切れはし。step が大きいほど遠くへ飛ぶ */
-function drawScraps(P: Painter, pose: Pose, step: number): void {
-  const c: Pt = [pose.neck[0], pose.neck[1] + 14];
-  const pieces: [number, number, string, number][] = [
-    [-2.4, 14, PANTS[2], 0], [-0.5, 18, WHITE[0], 1], [0.4, 16, CLOTH_PINK, 2], [1.4, 17, PANTS[1], 1],
-    [2.3, 15, CLOTH_PINK, 0], [3.0, 19, WHITE[0], 2], [-1.4, 20, CLOTH_PINK, 1], [4.2, 16, PANTS[2], 2]
-  ];
-  const shapes = [['111.', '.111', '..1.'], ['.11', '111', '1..'], ['11..', '.111', '.11.', '..1.']];
-  pieces.forEach(([ang, d, col, sh], i) => {
-    const r = d * (0.35 + step * 0.4) + (i % 3);
-    const x = Math.round(c[0] + Math.cos(ang) * r * 1.4), y = Math.round(c[1] + Math.sin(ang) * r - step * 3);
-    if (y > 88 || x < 1 || x > 93) return;
-    const m = P.mask();
-    const s = shapes[(sh + step) % shapes.length];
-    s.forEach((row, j) => { for (let q = 0; q < row.length; q++) if (row[q] === '1') m.set(x + q, y + j); });
-    P.fill(m, col, { sep: 'outline', flat: true });
-  });
-}
+/** 化けていた服の切れはし(黒いズボン、白いシャツ、ピンクの服) */
+const SCRAPS: ScrapStyle = {
+  dy: 14, spread: 0.4, xMax: 93, yMin: -Infinity,
+  colors: [PANTS[2], WHITE[0], CLOTH_PINK, PANTS[1], CLOTH_PINK, WHITE[0], CLOTH_PINK, PANTS[2]]
+};
 
 const STAND: Pose = {
   head: [52, 23], face: 'normal',
@@ -164,19 +152,6 @@ const STAND: Pose = {
   lB: { k: [54, 73], a: [57, 86] },
   lF: { k: [43, 73], a: [40, 86] }
 };
-
-const P96 = (look: Look, p: Pose) => drawPerson(look, p, 96, 96);
-
-/** 足の裏(y=91)と体の真ん中(x=48)に合わせてずらす */
-function ground(g: PixelGrid, cx = true): PixelGrid {
-  const b = bbox(g);
-  if (!b) return g;
-  const dy = 91 - b.y1;
-  const dx = cx ? 48 - Math.round((b.x0 + b.x1) / 2) : 0;
-  const o = new PixelGrid(g.w, g.h);
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x]) o.px(x + dx, y + dy, g.cells[y][x]);
-  return o;
-}
 
 export function buildBoss(): PixelGrid[][] {
   const S = STAND;
@@ -194,7 +169,7 @@ export function buildBoss(): PixelGrid[][] {
   r3.aF = { e: [45, 41], h: [53, 36] }; r3.aB = { e: [63, 38], h: [70, 32] };
   const reveal = [
     P96(bossLook('grim', 1), r0), P96(bossLook('shout', 2), r1), P96(bossLook('shout', 3), r2), P96(bossLook('grin', 4), r3)
-  ].map((g) => ground(g, false));
+  ].map((g) => alignFeet(g));
 
   // 1 待機
   const i0 = clonePose(S);
@@ -245,10 +220,10 @@ export function buildBoss(): PixelGrid[][] {
   d3.aF = { e: [44, 36], h: [42, 26] }; d3.aB = { e: [60, 45], h: [62, 56] };
   d3.lF = { k: [58, 70], a: [50, 85] };
   const defeat = [
-    ground(P96(bossLook('hurt'), d0), false),
-    ground(P96(bossLook('hurt'), d1), false),
+    alignFeet(P96(bossLook('hurt'), d0)),
+    alignFeet(P96(bossLook('hurt'), d1)),
     rotateGrid(P96(bossLook('ko'), d2), -1.0, 48, 52, 48, 58),
-    ground(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48))
+    alignFeet(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48), true)
   ];
   return [reveal, idle, rampage, hit, defeat];
 }

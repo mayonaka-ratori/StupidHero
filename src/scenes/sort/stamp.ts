@@ -6,8 +6,8 @@ import { UI } from '../../config';
 import type { SortChoice } from '../../logic';
 import { PixelText, darker } from '../../ui';
 
-export const STAMP_LABEL: Record<SortChoice, string> = { bad: 'ワル', civ: '市民' };
-export const STAMP_COLOR: Record<SortChoice, number> = { bad: UI.bad, civ: UI.civ };
+const STAMP_LABEL: Record<SortChoice, string> = { bad: 'ワル', civ: '市民' };
+const STAMP_COLOR: Record<SortChoice, number> = { bad: UI.bad, civ: UI.civ };
 
 /** ハンコを作る。真ん中が原点 */
 export function makeStamp(scene: Phaser.Scene, choice: SortChoice, size = 16, mark = ''): Phaser.GameObjects.Container {

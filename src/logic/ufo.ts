@@ -38,11 +38,9 @@ import { UFO } from './rules';
  */
 export type UfoPhase = 'signal' | 'descend' | 'beam' | 'leave' | 'downed' | 'abducted';
 
+/** 時間を変えるとき(フリープレイのゆっくりモード)。省くと UFO の秒数 */
 export interface UfoCallOptions {
-  signalSec?: number;
-  descendSec?: number;
   beamSec?: number;
-  leaveSec?: number;
 }
 
 type TimedPhase = 'signal' | 'descend' | 'beam' | 'leave';
@@ -57,12 +55,7 @@ export class UfoCall {
 
   constructor(alienId: string, opts: UfoCallOptions = {}) {
     this.alienId = alienId;
-    this.sec = {
-      signal: opts.signalSec ?? UFO.signalSec,
-      descend: opts.descendSec ?? UFO.descendSec,
-      beam: opts.beamSec ?? UFO.beamSec,
-      leave: opts.leaveSec ?? UFO.leaveSec
-    };
+    this.sec = { signal: UFO.signalSec, descend: UFO.descendSec, beam: opts.beamSec ?? UFO.beamSec, leave: UFO.leaveSec };
   }
 
   get phase(): UfoPhase {
@@ -83,11 +76,6 @@ export class UfoCall {
   get progress(): number {
     if (this.isOver) return 1;
     return Math.min(1, this.t / this.sec[this.p as TimedPhase]);
-  }
-
-  /** 連れ去られるまでの残り秒数(beam のときだけ。ほかは null) */
-  get secondsToAbduct(): number | null {
-    return this.p === 'beam' ? Math.max(0, this.sec.beam - this.t) : null;
   }
 
   /** 行けが押された。吸い上げている間なら殴り落として true。それ以外は何も起きない(false) */
@@ -142,11 +130,8 @@ export interface UfoEvent {
 export class UfoQueue {
   private waiting: string[] = [];
   private cur: UfoCall | null = null;
-  private readonly opts: UfoCallOptions;
 
-  constructor(opts: UfoCallOptions = {}) {
-    this.opts = opts;
-  }
+  constructor(private readonly opts: UfoCallOptions = {}) {}
 
   /** 見逃した宇宙人を並べる(ヒーローが素通りしたとき)。同じ人は1回だけ */
   add(alienId: string): void {

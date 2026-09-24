@@ -2,24 +2,12 @@
 
 import Phaser from 'phaser';
 import { animKey } from '../../art/sheets';
+import { type SpawnFxOptions, spawnFx as spawnFxBase } from '../../ui/fx';
 import { DEPTH_OF } from './depth';
 
-/** エフェクトの絵を1回流して消す(fx_hit_big、fx_explosion など) */
-export function spawnFx(
-  scene: Phaser.Scene, key: string, x: number, y: number,
-  opt: { depth?: number; flipX?: boolean; speed?: number } = {}
-): Phaser.GameObjects.Sprite {
-  const s = scene.add.sprite(Math.round(x), Math.round(y), key, 0).setDepth(opt.depth ?? DEPTH_OF.fx);
-  if (opt.flipX) s.setFlipX(true);
-  const anim = animKey(key, 'play');
-  if (scene.anims.exists(anim)) {
-    s.play(anim);
-    if (opt.speed) s.anims.timeScale = opt.speed;
-    s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
-  } else {
-    scene.time.delayedCall(250, () => s.destroy());
-  }
-  return s;
+/** エフェクトの絵を1回流して消す(ui の spawnFx。重なり順を決めなければボス戦のエフェクトの高さ) */
+export function spawnFx(scene: Phaser.Scene, key: string, x: number, y: number, opt: SpawnFxOptions = {}): Phaser.GameObjects.Sprite {
+  return spawnFxBase(scene, key, x, y, { ...opt, depth: opt.depth ?? DEPTH_OF.fx });
 }
 
 /** 光の拳が from から to へ飛んで消える(fx_punch はくり返しのアニメなので、動きが終わったら消す) */

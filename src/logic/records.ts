@@ -49,7 +49,7 @@ export const RECORDS_KEY = 'stupidhero.records.v2';
 export const LEGACY_RECORDS_KEY = 'stupidhero.records.v1';
 
 /** 使う保存先の形(localStorage と同じ。テストでは自前のものを渡せる) */
-export type RecordStorage = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem'>>;
+export type RecordStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 export interface StageRecord {
   /** 最多撃破 */
@@ -489,7 +489,7 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   };
 }
 
-/** 記録を消す(設定画面やテスト用)。前の形の記録(v1)には手をつけない */
+/** 記録を消す(テスト用)。前の形の記録(v1)には手をつけない */
 export function clearRecords(storage: RecordStorage | null = defaultStorage()): void {
   memory = null;
   memoryNewer = false;
@@ -497,19 +497,5 @@ export function clearRecords(storage: RecordStorage | null = defaultStorage()): 
     storage?.setItem(RECORDS_KEY, JSON.stringify(emptyRecords()));
   } catch {
     // 消せなくても続ける
-  }
-}
-
-/** localStorage に書けるかを確かめる(「ホーム画面に追加すると記録が消えにくい」を出すか決めるのに使える) */
-export function canPersist(storage: RecordStorage | null = defaultStorage()): boolean {
-  try {
-    if (!storage) return false;
-    const probe = `${RECORDS_KEY}.probe`;
-    storage.setItem(probe, '1');
-    const ok = storage.getItem(probe) === '1';
-    storage.removeItem?.(probe);
-    return ok;
-  } catch {
-    return false;
   }
 }

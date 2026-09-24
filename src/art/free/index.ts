@@ -1,8 +1,7 @@
 // 担当:フリープレイの絵(一目で分かるワル、波3の小物、ルールの札、ヒーローの光)。docs/FREEPLAY.md の「絵」。
 // 人の仕組みや色はステージ1〜3(src/art/world*/)のものをそのまま使う。
-import type { ArtContext, PixelGrid } from '../lib';
+import { type ArtContext, type PixelGrid, addGridSheets } from '../lib';
 import { sheetByKey } from '../sheets';
-import { buildSheet } from '../world/sheet';
 import { auraAttack, auraAttackLine, auraPass, auraPassLine } from './fx';
 import {
   drawBag, drawBagIcon, drawBalloonFrames, drawBalloonIcon, drawFistIcon, drawHat, drawHatIcon, drawPalmIcon
@@ -36,8 +35,5 @@ export function buildFreeSheets(skip: Set<string> = new Set()): Record<string, P
 }
 
 export function generateFreeSet(ctx: ArtContext): void {
-  for (const [key, rows] of Object.entries(buildFreeSheets(ctx.skip))) {
-    if (ctx.skip.has(key)) continue;
-    ctx.addSheet(sheetByKey(key), buildSheet(sheetByKey(key), rows));
-  }
+  addGridSheets(ctx, buildFreeSheets(ctx.skip));
 }

@@ -31,7 +31,7 @@ export interface VehicleLook {
 }
 
 /** ステージ2:女ボスの高級車 */
-export const CAR_LOOK: VehicleLook = {
+const CAR_LOOK: VehicleLook = {
   key: 'prop_bosscar', w: 128, h: 56, flipX: true, flies: false,
   frontInset: 12, rider: { dx: -14, dy: 12 }, hitDy: 26, smokeDy: 36,
   // 左向きの車の、ボンネットとドアのあたり
