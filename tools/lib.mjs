@@ -5,35 +5,58 @@
 // config.height ÷ (config.width ÷ 216)。ページの中のゲームは window.__game(開発用のサーバーのときだけある)、
 // なければ dev/ui.html の window.uiDev.game を使う(どちらも同じ割り方でよい)。
 //
+// 開発用のサーバー:先に npm run dev を動かしておく。スクリプトはふつう http://localhost:5173/ を開く。
+// ほかの場所のサーバーを使うときは、環境変数 DEV_URL か、スクリプトの引数で渡す(数字だけならポートとして読む)。
+// 画面を撮ったものは、ふつう shots/ に置く(.gitignore に入れてある)。環境変数 SHOTS_DIR か引数で変えられる。
+//
 // 使い方:
-//   import { openBrowser, openPage, touchPad, checker } from './lib.mjs';
+//   import { openBrowser, openPage, touchPad, checker, serverUrl, shotsDir } from './lib.mjs';
+//   const base = serverUrl(process.argv[3]);             // 'http://localhost:5173/' など
+//   const outDir = shotsDir(process.argv[2]);            // なければ作る
 //   const browser = await openBrowser();
 //   const page = await openPage(browser, { dpr: 2 });   // Vite の通知は切ってある
 //   const pad = await touchPad(page);                    // pad.tap(108, 300)、pad.touch('touchStart', [...])、pad.css(x, y)
 //   const { check, done } = checker();  check('名前', ok, '補足');  await browser.close(); done();
 
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 // ブラウザの置き場所。環境変数 CHROME で変えられる。置き場所に何もなければ playwright-core が自分で探す
 const DEFAULT_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 export const CHROME = process.env.CHROME ?? (existsSync(DEFAULT_CHROME) ? DEFAULT_CHROME : undefined);
+/** 開発用のサーバー(npm run dev のふつうのポートは 5173) */
+export const DEV_URL = process.env.DEV_URL ?? 'http://localhost:5173/';
+
+/** 引数で渡されたサーバーの場所を URL にする。省略(か - )なら DEV_URL、数字だけならそのポート。URL はそのまま */
+export function serverUrl(arg) {
+  if (!arg || arg === '-') return DEV_URL;
+  if (/^\d+$/.test(arg)) return `http://localhost:${arg}/`;
+  return new URL(arg).href;
+}
+
+/** 撮ったものを置くフォルダ。省略なら SHOTS_DIR か shots/。なければ作る */
+export function shotsDir(arg) {
+  const dir = arg && arg !== '-' ? arg : process.env.SHOTS_DIR || 'shots';
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 /** 論理画面の横幅(src/config.ts の GAME_W) */
 export const GAME_W = 216;
 
 export const openBrowser = () => chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
 
-/** スマホの大きさ(タッチあり)の新しい context。addInitScript などを先に仕込みたいときに使う */
-export const mobileContext = (browser, { width = 390, height = 844, dpr = 1 } = {}) =>
-  browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr, hasTouch: true, isMobile: true });
+/** スマホの大きさ(タッチあり)の新しい context。addInitScript などを先に仕込みたいときに使う。mobile: false でパソコンの画面 */
+export const mobileContext = (browser, { width = 390, height = 844, dpr = 1, mobile = true } = {}) =>
+  browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr, hasTouch: mobile, isMobile: mobile });
 
 /**
  * スマホの大きさのページを開く(browser か、mobileContext で作った context から)。
  * - muteVite:Vite の通知を切る(ほかの担当がファイルを書きかえてもページを読み直さない)
  * - errors:配列を渡すと、ページのエラーと console.error をためる(渡さなければ表示する)
  */
-export async function openPage(from, { width = 390, height = 844, dpr = 1, muteVite = true, errors = null } = {}) {
-  const ctx = typeof from.newContext === 'function' ? await mobileContext(from, { width, height, dpr }) : from;
+export async function openPage(from, { width = 390, height = 844, dpr = 1, mobile = true, muteVite = true, errors = null } = {}) {
+  const ctx = typeof from.newContext === 'function' ? await mobileContext(from, { width, height, dpr, mobile }) : from;
   const page = await ctx.newPage();
   if (muteVite) await page.routeWebSocket(/.*/, () => {});
   const report = (msg) => (errors ? errors.push(msg) : console.error(msg));

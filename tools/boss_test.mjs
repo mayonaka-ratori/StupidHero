@@ -1,5 +1,6 @@
-// ボス戦を指で試す。npx vite --port 5203 --strictPort を動かしてから
-//   node tools/boss_test.mjs <出力フォルダ> [ポート] [倍率] [mode] [ステージ(alley、garage、mall)]
+// ボス戦を指で試す。npm run dev を動かしてから
+//   node tools/boss_test.mjs [出力フォルダ] [サーバー] [倍率] [mode] [ステージ(alley、garage、mall)]
+// 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/(tools/lib.mjs の shotsDir と serverUrl)
 // mode: rush(ふつう。連打→止める→連打で倒す)/ idle(一度も押さずに15秒で終わるか)/ pause(一時停止で時計が止まるか)
 //       civ(ボスを市民に仕分けたあと。流れは rush と同じ)
 // garage の rush では、体力が半分を切ると女ボスが高級車に飛び乗るところ、車ごと殴るところ、
@@ -7,10 +8,10 @@
 // 母艦の中で手が止まると¥150万ずつ増えるところ、倒すと母艦が噴水に落ちて¥150万を足すところを確かめる
 // (civ のときは、始めに空から光線が落ちてくるところも撮る)。NG があれば exit code 1。
 import { writeFileSync } from 'node:fs';
-import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const outDir = process.argv[2] ?? '.';
-const port = process.argv[3] ?? '5203';
+const outDir = shotsDir(process.argv[2]);
+const base = serverUrl(process.argv[3]);
 const dpr = Number(process.argv[4] ?? '1');
 const mode = process.argv[5] ?? 'rush';
 const stage = process.argv[6] ?? 'alley';
@@ -36,7 +37,7 @@ const fight = () => S(() => {
   return { taps: f.tapsCounted, hp: f.hp, hpRatio: f.hpRatio, dmg: f.damageYen, inCar: f.inCar, carMode: s.carMode, carTaps: s.carTaps, phase: s.phase, sec: f.elapsedSec };
 });
 
-await page.goto(`http://localhost:${port}/?scene=Boss&stage=${stage}&seed=${mode === 'civ' ? 7 : 12345}&sorts=${mode === 'civ' ? 'civ' : 'truth'}`);
+await page.goto(`${base}?scene=Boss&stage=${stage}&seed=${mode === 'civ' ? 7 : 12345}&sorts=${mode === 'civ' ? 'civ' : 'truth'}`);
 await page.waitForFunction(() => window.bossScene && window.bossScene.phase, null, { timeout: 10000 });
 check('ステージ', await S(() => window.bossScene.run.stage.id) === stage, stage);
 await wait(600);

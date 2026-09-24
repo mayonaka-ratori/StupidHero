@@ -1,6 +1,7 @@
 // 結果発表(Street)を指で試す(担当 street 用)。中断ボタン、待て、行けを指で押して、止まるか、反応するかを見る。
-// 使い方: npx vite --port 5202 --strictPort を動かしてから
-//   node tools/street_tap.mjs <URL(例 http://localhost:5202/)> [出力フォルダ] [ステージ(alley、garage、mall)] [種]
+// 使い方: npm run dev を動かしてから
+//   node tools/street_tap.mjs [サーバーかURL] [出力フォルダ] [ステージ(alley、garage、mall)] [種]
+// サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/street_tap.mjs - - mall)
 // alley :中断と再開、早送り(▶▶。合図の間はふつうの速さ)、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)
 // garage:中断と再開、見逃したギャングが仲間を呼んで集まったところで行け(まとめて吹き飛ばす)、
 //         ワゴンに乗りこんだところで行け(車ごと止める)
@@ -8,10 +9,11 @@
 //         さらわれる、波2のあとのタイムセールラッシュ(帯のタップで始まり、市民にだけ待てを押す)。
 //         ラッシュの前のエスカレーターが壊れないままラッシュが始まるか、ラッシュの長さ(約16秒)も見る
 // URL に ?scene= がなければ、開発用の入口で波1から始める。NG があれば exit code 1。
-import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const [url, outDir = '.', stage = 'alley', seed = stage === 'garage' ? '3' : '1'] = process.argv.slice(2);
-if (!url) { console.error('usage: node tools/street_tap.mjs <url> [outDir] [alley|garage|mall] [seed]'); process.exit(2); }
+const [urlArg, outArg, stage = 'alley', seed = stage === 'garage' ? '3' : '1'] = process.argv.slice(2);
+const url = serverUrl(urlArg);
+const outDir = shotsDir(outArg);
 if (!['alley', 'garage', 'mall'].includes(stage)) { console.error(`ステージは alley、garage、mall のどれか(${stage})`); process.exit(2); }
 const browser = await openBrowser();
 const { check, fail, done } = checker();

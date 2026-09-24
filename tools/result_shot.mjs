@@ -1,21 +1,18 @@
 // 結果画面の撮影(result 担当)。途中の何枚かと、共有カードのPNGを書き出す。
-// 使い方: npx vite --port 5204 --strictPort を動かしてから
-//   node tools/result_shot.mjs <出力フォルダ> [URLの後ろ(例 "sample=demolition")] [幅] [高さ] [待つms,待つms,...] [ポート]
-//   ポートは6つ目の引数か、環境変数 PORT で変えられる(どちらもなければ 5204)
+// 使い方: npm run dev を動かしてから
+//   node tools/result_shot.mjs [出力フォルダ] [URLの後ろ(例 "sample=demolition")] [幅] [高さ] [待つms,待つms,...] [サーバー]
+//   出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // 例: node tools/result_shot.mjs /tmp/out "sample=granny" 390 844 300,1200,4500
-//     PORT=5205 node tools/result_shot.mjs /tmp/out "stage=mall"
-import { openBrowser } from './lib.mjs';
-import { writeFileSync, mkdirSync } from 'node:fs';
+//     node tools/result_shot.mjs - "stage=mall"
+import { openBrowser, openPage, serverUrl, shotsDir } from './lib.mjs';
+import { writeFileSync } from 'node:fs';
 
-const [outDir = '.', extra = '', w = '390', h = '844', waits = '400,1300,5000', port = process.env.PORT ?? '5204'] = process.argv.slice(2);
-mkdirSync(outDir, { recursive: true });
+const [outArg, extra = '', w = '390', h = '844', waits = '400,1300,5000', server] = process.argv.slice(2);
+const outDir = shotsDir(outArg);
 const tag = (extra || 'default').replace(/[^a-z0-9]+/gi, '_');
 const browser = await openBrowser();
-const page = await browser.newPage({ viewport: { width: Number(w), height: Number(h) }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
-await page.routeWebSocket(/.*/, () => {});
-page.on('pageerror', (e) => console.error('pageerror:', e.message));
-page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('404')) console.error('console:', m.text()); });
-await page.goto(`http://localhost:${port}/?scene=Result&${extra}`);
+const page = await openPage(browser, { width: Number(w), height: Number(h), dpr: 3 });
+await page.goto(`${serverUrl(server)}?scene=Result&${extra}`);
 await page.waitForFunction(() => window.resultDev && window.resultDev.scene, null, { timeout: 10000 });
 const t0 = Date.now();
 for (const ms of waits.split(',').map(Number)) {
