@@ -17,7 +17,7 @@
 //   いちばん下に小さく heroAccuracyText)
 // - 背景、ひとこと、被害額のたとえは、波3の背景のステージ(遊び終わった場所)。共有カードのステージ名は「フリープレイ」
 // - いちばんひどい場面は、ステージの場面がなければ s.free.worst(freeWorstCaption)。共有文の1行目は freeShareCaption
-// - 路地裏しか開いていない人には、称号のひとことのあと、タップで一度だけ「ステージを進めると、出てくる人が増えるよ」
+// - 路地裏しかクリアしていない人には、称号のひとことのあと、タップで一度だけ「ステージを進めると、出てくる人が増えるよ」
 //   (次のステージが開いた知らせと同じ出し方)
 // - もう一回はフリープレイをもう一度(startFreeRun して、掛け合いを出さずに Street へ)。タイトルへはタイトルへ
 
@@ -38,7 +38,7 @@ import { getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '..
 import { settings } from '../settings';
 import { buildCard, cardTexts, freeWorstCaption, makeFallbackShot, worstCaption, type Card, type CardStage } from './result/card';
 import { makeCanvas } from './result/draw';
-import { freeWindow } from './result/freeStats';
+import { MORE_STAGES_HINT, freeWindow } from './result/freeStats';
 import { fillSampleStats, makeSampleShot, memoryFreeStorage, memoryStorage, sampleName } from './result/sample';
 import { ShareFlow } from './result/share';
 import type { StatRow, StatsWindow, WindowEnv } from './result/stats';
@@ -69,9 +69,6 @@ const fromFree = (o: FreeSaveOutcome): Saved => ({
   titleIsNew: o.titleIsNew, titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, earned: o.records.titles,
   newRecords: o.newRecords, unlockedNow: [], moreHint: o.showMoreStagesHint
 });
-
-/** 路地裏しか開いていない人に、フリープレイの結果画面で一度だけ出すオペレーターのひとこと */
-const MORE_STAGES_HINT = 'ステージを進めると、\n出てくる人が増えるよ';
 
 /** 同じプレイの記録を2回保存しないように */
 const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: Saved }>();
