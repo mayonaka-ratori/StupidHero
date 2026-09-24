@@ -110,8 +110,6 @@ export class IntroDemo {
     this.root.setVisible(false);
   }
 
-  get visible(): boolean { return this.root.visible; }
-
   show(kind: DemoKind | null): void {
     if (kind === this.kind) return;
     this.kind = kind;
@@ -401,9 +399,5 @@ export class IntroDemo {
   private tapStep(): void {
     const k = this.t % 700;
     this.hand.setPosition(this.cx + 10, this.h - 24 + (k < 120 ? 2 : 0));
-  }
-
-  destroy(): void {
-    this.root.destroy();
   }
 }

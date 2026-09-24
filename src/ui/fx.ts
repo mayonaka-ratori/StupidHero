@@ -10,11 +10,14 @@
 //   await banner(this, 'ボス出現!');     // 黒い帯が横から入ってきて、文字を見せて去る
 //   const alarm = new EdgeAlarm(this);  alarm.start();  alarm.stop();   // 画面の左右の端を赤く点滅
 //   enableTapSparks(this);               // タップしたところに小さな火花を出す
+//   spawnFx(this, 'fx_hit', x, y, { depth: 700 });   // エフェクトの絵を1回流して消す
+//   await waitMs(this, 300);             // シーンの時計で0.3秒待つ(一時停止やヒットストップの間は止まる)
 // 設定の「光と揺れを弱くする」(settings.reduceFx)がオンのときは、flash は何もせず、shake は1ドットまで
 // (小さい揺れは出さない)、jolt は半分の揺れにする。hitStop はそのまま。
 // 画面全体を光らせたり揺らしたりするときは、カメラを直接さわらず、必ずここの flash / shake / impact を使う。
 
 import Phaser from 'phaser';
+import { animKey } from '../art/sheets';
 import { UI } from '../config';
 import { layout } from '../layout';
 import { PixelText } from './text';
@@ -71,7 +74,7 @@ export function flash(scene: Phaser.Scene, color = 0xffffff, frames = 2): void {
 }
 
 /** 画面全体の光(flash)が出ているか */
-export const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
+const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
 
 /**
  * 画面全体の光が出ていないコマになったら fn を呼ぶ(ワーストシーンを撮るときなど)。
@@ -128,7 +131,11 @@ export function jolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Imag
     const dy = st.n % 4 === 1 ? -1 : 0;
     apply(dx, dy);
   };
-  const stop = (): void => { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); jolting.delete(target); };
+  const stop = (): void => {
+    scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, stop);
+    jolting.delete(target);
+  };
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
 }
@@ -334,4 +341,39 @@ export function tapSpark(scene: Phaser.Scene, x: number, y: number, color = 0xff
 /** タップのたびに火花を出す */
 export function enableTapSparks(scene: Phaser.Scene, color = 0xffffff): void {
   scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => { const q = px(p); tapSpark(scene, q.x, q.y, color); });
+}
+
+export interface SpawnFxOptions {
+  depth?: number;
+  scale?: number;
+  flipX?: boolean;
+  /** 原点(省略すると真ん中) */
+  origin?: [number, number];
+  /** アニメの速さの倍率 */
+  speed?: number;
+  /** 流し始めるまでのミリ秒 */
+  delay?: number;
+  /** くり返す(消さない。消すのは呼んだ側) */
+  loop?: boolean;
+}
+
+/** エフェクトの絵(fx_hit、fx_explosion など)を1回流して消す。アニメがなければ0.25秒で消す */
+export function spawnFx(scene: Phaser.Scene, key: string, x: number, y: number, opt: SpawnFxOptions = {}): Phaser.GameObjects.Sprite {
+  const s = scene.add.sprite(Math.round(x), Math.round(y), key, 0).setDepth(opt.depth ?? 0).setScale(opt.scale ?? 1);
+  if (opt.flipX) s.setFlipX(true);
+  if (opt.origin) s.setOrigin(...opt.origin);
+  const anim = animKey(key, 'play');
+  if (scene.anims.exists(anim)) {
+    s.play({ key: anim, delay: opt.delay ?? 0 });
+    if (opt.speed) s.anims.timeScale = opt.speed;
+    if (!opt.loop) s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+  } else if (!opt.loop) {
+    scene.time.delayedCall(250, () => s.destroy());
+  }
+  return s;
+}
+
+/** シーンの時計で ms ミリ秒待つ(シーンが止まっている間は進まない) */
+export function waitMs(scene: Phaser.Scene, ms: number): Promise<void> {
+  return new Promise((resolve) => scene.time.delayedCall(ms, () => resolve()));
 }

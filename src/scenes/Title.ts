@@ -12,8 +12,8 @@ import { animKey, originFor } from '../art/sheets';
 import { purgeAccessorySheets } from '../art/recolor';
 import { hasAnyRecord, loadRecords, randomSeed, TITLE_COUNT } from '../logic';
 import { startRun } from '../run';
-import { FS, PixelText, ditherTexture, flash, gotoWhenFree, shake } from '../ui';
-import { Z, addMute, devHook, drawAlley, drawLightPool, flicker } from './sort/common';
+import { FS, PixelText, ditherTexture, flash, gotoWhenFree, shake, spawnFx } from '../ui';
+import { Z, addMute, devHook, drawStageBg, drawLightPool, flicker } from './sort/common';
 import { entrySceneFor } from './Intro';
 
 const HERO_X = 108;
@@ -44,7 +44,7 @@ export class TitleScene extends Phaser.Scene {
     // 背景:夜空(足りないぶん) → 遠くのビル → サーチライト → 壁と地面
     this.add.rectangle(0, 0, W, this.top + 1, 0x000024).setOrigin(0).setDepth(Z.far);
     this.stars();
-    drawAlley(this, 0, this.top);
+    drawStageBg(this, undefined, 0, { y: this.top });
     this.beams = this.add.graphics().setDepth(Z.sky);
     flicker(this, this.beams);
 
@@ -81,9 +81,7 @@ export class TitleScene extends Phaser.Scene {
     // ロゴのふちを時々光らせる
     this.time.addEvent({
       delay: 1800, loop: true, startAt: 900, callback: () => {
-        const glint = this.add.sprite(logo.x + Phaser.Math.Between(-80, 80), logo.y + Phaser.Math.Between(-18, 10), 'fx_kiran').setDepth(Z.stamp + 1);
-        glint.play(animKey('fx_kiran', 'play'));
-        glint.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => glint.destroy());
+        spawnFx(this, 'fx_kiran', logo.x + Phaser.Math.Between(-80, 80), logo.y + Phaser.Math.Between(-18, 10), { depth: Z.stamp + 1 });
       }
     });
 
@@ -143,7 +141,7 @@ export class TitleScene extends Phaser.Scene {
     return c;
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     this.beamT += dt;
     this.drawBeams();
   }
@@ -196,15 +194,11 @@ export class TitleScene extends Phaser.Scene {
     const FEET_Y = this.feetY;
     const x = HERO_X + Phaser.Math.Between(-40, 40);
     const y = FEET_Y - Phaser.Math.Between(10, 100);
-    const s = this.add.sprite(x, y, 'fx_sparkle').setDepth(Z.actorFront);
-    s.play(animKey('fx_sparkle', 'play'));
-    s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+    spawnFx(this, 'fx_sparkle', x, y, { depth: Z.actorFront });
   }
 
   private kiran(): void {
-    const k = this.add.sprite(HERO_X + 14, this.feetY - 92, 'fx_kiran').setScale(2).setDepth(Z.actorFront);
-    k.play(animKey('fx_kiran', 'play'));
-    k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+    spawnFx(this, 'fx_kiran', HERO_X + 14, this.feetY - 92, { scale: 2, depth: Z.actorFront });
   }
 
   /** スタート:音を鳴らし始め、ステージを選ぶ画面へ(初めての人は路地裏へ) */

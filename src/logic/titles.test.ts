@@ -22,7 +22,6 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
 describe('称号', () => {
   it('17個、順番と名前とポーズがSPECとSTAGE2とSTAGE3の通り', () => {
     expect(TITLES).toHaveLength(17);
-    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     expect(TITLES.map((t) => t.name)).toEqual([
       '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの運転手', '宇宙人の案内係', 'おばあちゃんの敵',
       '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神', '連打の申し子', '待ての達人', 'UFOハンター', '一網打尽',

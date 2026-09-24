@@ -5,10 +5,10 @@
 //   環境変数: VH=画面の高さ(既定693) DPR=画素の倍率(既定1)
 // 撮ったものは <出力の頭>-<番号>.png と、横に並べた <出力の頭>.png。expect が1つでも NG なら exit code 1。
 // 例(仕分けを左にスワイプ):
-//   node tools/sort_drive.mjs "http://localhost:5201/?scene=Sort&stage=garage" /tmp/s wait:2500 shot swipe:108,120,-80 wait:400 shot \
+//   node tools/sort_drive.mjs "http://localhost:5173/?scene=Sort&stage=garage" /tmp/s wait:2500 shot swipe:108,120,-80 wait:400 shot \
 //     "expect:Object.keys(window.__sh.scene.run.sorts).length === 1"
 // 例(dev/ui.html の式を調べて撮る):
-//   node tools/sort_drive.mjs "http://localhost:5201/dev/ui.html?page=parts" /tmp/u wait:3000 "eval:window.uiDev.log" wait:300 shot
+//   node tools/sort_drive.mjs "http://localhost:5173/dev/ui.html?page=parts" /tmp/u wait:3000 "eval:window.uiDev.log" wait:300 shot
 import { writeFileSync } from 'node:fs';
 import { checker, contactSheet, openBrowser, openPage, touchPad, waitForGame } from './lib.mjs';
 

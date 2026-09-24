@@ -1,13 +1,14 @@
 // 結果画面の共有ともう一回を、タッチで試す(result 担当)。
-// 使い方: npx vite --port 5204 --strictPort を動かしてから
-//   node tools/result_sharetest.mjs [出力フォルダ] [ポート] [ステージ(alley、garage、mall)]
+// 使い方: npm run dev を動かしてから
+//   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall)]
+// 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // NG があれば exit code 1。
-import { checker, mobileContext, openBrowser, openPage, touchPad } from './lib.mjs';
+import { checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const outDir = process.argv[2] ?? '.';
-const port = process.argv[3] ?? '5204';
+const outDir = shotsDir(process.argv[2]);
+const server = serverUrl(process.argv[3]);
 const stage = process.argv[4] ?? 'alley';
-const BASE = `http://localhost:${port}/?scene=Result&stage=${stage}`;
+const BASE = `${server}?scene=Result&stage=${stage}`;
 const browser = await openBrowser();
 const { check, done } = checker();
 const errors = [];
@@ -83,7 +84,7 @@ async function open(mode, extra = '') {
   check('navigator.share を1回呼ぶ', shares.length === 1, JSON.stringify(shares));
   check('PNGを1枚わたす', shares[0]?.files.length === 1 && shares[0].files[0].type === 'image/png');
   const lines = shares[0]?.text?.split('\n') ?? [];
-  check('文は見出し、ハッシュタグ、URLの3行だけ', lines.length === 3 && lines[1] === '#StupidHero' && lines[2] === `http://localhost:${port}/`, JSON.stringify(lines));
+  check('文は見出し、ハッシュタグ、URLの3行だけ', lines.length === 3 && lines[1] === '#StupidHero' && lines[2] === server, JSON.stringify(lines));
   check('文に数字や称号の数を入れない', !/\d+\/\d+|撃破|負傷|被害額/.test(lines[0] ?? ''), lines[0]);
   check('ユーザーの操作の中で呼んでいる', shares[0]?.active !== false, String(shares[0]?.active));
   check('重ねて出さない', await page.evaluate(() => !document.getElementById('share-overlay')));
@@ -125,8 +126,8 @@ async function open(mode, extra = '') {
   const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
   // 掛け合いを見たことがあれば、Intro を通らずに仕分けへ直行する
   check('もう一回で Intro か仕分けへ', active.includes('Intro') || active.includes('Sort'), active.join(','));
-  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, count: r.playCount, wave: r.waveIndex, stage: r.stage.id }; });
-  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.count === 2 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
+  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id }; });
+  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.sorted === 0 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
   await page.goto(BASE);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);

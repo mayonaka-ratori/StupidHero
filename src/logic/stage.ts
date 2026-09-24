@@ -19,12 +19,9 @@ import { BAD_PER_WAVE, WAVES } from './rules';
 import { STAGES } from './stages';
 import type { AlleyDisguise, Look, PairLook, Person, Stage, StageId, Wave, WaveNo } from './types';
 
-export const PAIR_LOOKS: readonly PairLook[] = ['hoodie', 'suit', 'shopper'];
+const PAIR_LOOKS: readonly PairLook[] = ['hoodie', 'suit', 'shopper'];
 /** 路地裏のボスの化けた姿 */
-export const DISGUISE_LOOKS: readonly AlleyDisguise[] = ['suit', 'granny', 'shopper'];
-
-/** 路地裏の名前(STAGES.alley.name と同じ) */
-export const STAGE_NAME = STAGES.alley.name;
+const DISGUISE_LOOKS: readonly AlleyDisguise[] = ['suit', 'granny', 'shopper'];
 
 /**
  * 1ステージぶんの3つの波を作る。

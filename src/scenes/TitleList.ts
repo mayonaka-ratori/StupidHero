@@ -9,7 +9,8 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { px } from '../hires';
 import { TITLES, loadRecords, type TitleDef, type TitleId } from '../logic';
-import { Button, DEPTH, FS, MuteButton, PixelText, preloadFont } from '../ui';
+import { Button, DEPTH, FS, PixelText, preloadFont } from '../ui';
+import { addMute } from './sort/common';
 
 export interface TitleListData {
   /** 開いたシーンの key(もどるで起こす) */
@@ -64,7 +65,7 @@ export class TitleListScene extends Phaser.Scene {
     fixed.push(
       new PixelText(this, Math.floor(W / 2), 4, '称号の一覧', { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0),
       new PixelText(this, Math.floor(W / 2), 22, `{gold}${got}{/}/${TITLES.length}取った`, { size: FS.big, color: UI.text, outline: true }).setOrigin(0.5, 0),
-      new MuteButton(this, W - 11, 12, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }).setDepth(DEPTH.ui + 1)
+      addMute(this, W - 11, 12).setDepth(DEPTH.ui + 1)
     );
 
     const bottom = H - Math.max(6, layout.safeBottom + 4);
@@ -85,7 +86,6 @@ export class TitleListScene extends Phaser.Scene {
     let y = top + 1;
     for (const t of TITLES) {
       const b = this.card(t, 2, y, cw, wrap, earned.has(t.id), t.id === data.current);
-      b.draw(b.h);
       cards.push(...b.objs);
       y += b.h + gap;
     }
@@ -133,9 +133,9 @@ export class TitleListScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.cameras.remove(cam); });
   }
 
-  /** カード1枚を作る。高さを返し、draw(h) で枠を描く(となりのカードと高さをそろえるため、あとで描く) */
+  /** カード1枚を作って描く。高さを返す */
   private card(t: TitleDef, x: number, y: number, w: number, wrap: number, got: boolean, current: boolean):
-  { h: number; objs: Phaser.GameObjects.GameObject[]; draw: (h: number) => void } {
+  { h: number; objs: Phaser.GameObjects.GameObject[] } {
     const g = this.add.graphics().setDepth(DEPTH.ui - 1);
     const objs: Phaser.GameObjects.GameObject[] = [g];
     const tx = x + 5;
@@ -147,14 +147,12 @@ export class TitleListScene extends Phaser.Scene {
     objs.push(body);
     ty += Math.ceil(body.height);
     const h = ty - y + 5;
-    const draw = (hh: number): void => {
-      // 取った称号は青に金色のふち(今回の称号は少し明るく)、まだの称号は暗い灰色
-      const c = got ? { edge: UI.gold, fill: current ? CURRENT_FILL : UI.winFill } : LOCKED;
-      g.fillStyle(UI.black, 1).fillRect(x + 1, y, w - 2, hh).fillRect(x, y + 1, w, hh - 2);
-      g.fillStyle(c.edge, 1).fillRect(x + 1, y + 1, w - 2, hh - 2);
-      g.fillStyle(c.fill, 1).fillRect(x + 2, y + 2, w - 4, hh - 4);
-    };
-    return { h, objs, draw };
+    // 取った称号は青に金色のふち(今回の称号は少し明るく)、まだの称号は暗い灰色
+    const c = got ? { edge: UI.gold, fill: current ? CURRENT_FILL : UI.winFill } : LOCKED;
+    g.fillStyle(UI.black, 1).fillRect(x + 1, y, w - 2, h).fillRect(x, y + 1, w, h - 2);
+    g.fillStyle(c.edge, 1).fillRect(x + 1, y + 1, w - 2, h - 2);
+    g.fillStyle(c.fill, 1).fillRect(x + 2, y + 2, w - 4, h - 4);
+    return { h, objs };
   }
 
   /** もどる:開いたシーンを起こす */

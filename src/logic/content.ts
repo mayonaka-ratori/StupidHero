@@ -29,13 +29,11 @@ import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, RushTally, Speech, StageId,
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, Look, OperatorHint, RushTally, Speech, StageId,
   TitleId, WaveNo
 } from './types';
+import { hero, hint, op } from './speech';
 
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
-const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
 
 // ─── プロフィール ─────────────────────────────────
 
@@ -341,7 +339,7 @@ export const INTRO: readonly Speech[] = [
 ];
 
 /** 波の始まりの一言。上から順に出す */
-export const WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+const WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', '一目で分かる\nワルもいるからね')
@@ -386,7 +384,6 @@ export const ATTACK_SHOUTS: Readonly<Record<AttackKind, readonly Speech[]>> = {
 export type ReactionKey =
   | 'sortHurry'      // 残り5秒(オペレーター)
   | 'timeUp'         // 時間切れ(ヒーロー)
-  | 'timeUpOp'       // 時間切れへのツッコミ(オペレーター)
   | 'sortDone'       // 仕分けが終わって結果発表へ(ヒーロー)
   | 'teachStop'      // その回で初めて待ての合図が出た:待ての使い方(オペレーター)
   | 'teachGo'        // その回で初めてワルが悪さを始めた:行けの使い方(オペレーター)
@@ -428,7 +425,6 @@ export type ReactionKey =
 export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   sortHurry: [op('panic', 'あと5秒！\n急いで！'), op('panic', '時間ないよ！')],
   timeUp: [hero('smug', '時間切れ！\nあとは勘で行く！'), hero('smug', '残りは\n気分で決める！')],
-  timeUpOp: [op('panic', '勘はやめて！'), op('deadpan', 'せめて考えて')],
   sortDone: [hero('smug', '仕分け完了！\n行ってくる！'), hero('smug', 'よーし、\n出動！')],
   teachStop: [op('normal', 'ワルにした人だよ。\nちがうと思ったら待て！')],
   teachGo: [op('panic', '悪さを始めた！\n行けで追いかけて！')],
@@ -621,7 +617,7 @@ const MALL_TEXTS: StageTextSet = {
 };
 
 /** ステージごとの文の表 */
-export const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
+const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
   alley: { intro: INTRO, waveIntro: WAVE_INTRO, reactions: {}, titleComments: {} },
   garage: GARAGE_TEXTS,
   mall: MALL_TEXTS
@@ -630,7 +626,7 @@ export const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
 /**
  * 称号のひとことを、ステージに合った言い方で返す(結果画面と共有カード用)。
  * 例:titleCommentFor('demolition', 'garage') は「駐車場の修理代、誰が払うの…」。
- * 言い方を変えていない称号は title.comment(TITLE_COMMENTS)と同じ
+ * 言い方を変えていない称号は TITLE_COMMENTS と同じ
  */
 export function titleCommentFor(id: TitleId, stageId: StageId = 'alley'): Speech {
   return STAGE_TEXTS[stageId].titleComments[id] ?? TITLE_COMMENTS[id];
@@ -639,7 +635,7 @@ export function titleCommentFor(id: TitleId, stageId: StageId = 'alley'): Speech
 // ─── 選ぶための関数 ───────────────────────────────
 
 /** 一覧から1つ選ぶ。rng を渡さなければ Math.random で選ぶ */
-export function pickSpeech(list: readonly Speech[], rng?: Rng): Speech {
+function pickSpeech(list: readonly Speech[], rng?: Rng): Speech {
   if (list.length === 0) throw new Error('pickSpeech: 空の一覧');
   return rng ? rng.pick(list) : list[Math.floor(Math.random() * list.length)];
 }
@@ -716,9 +712,6 @@ export function mischiefLine(look: Look, rng?: Rng): Speech {
 export function streetTextsFor(stageId: StageId): { band: string; peekBad: string; peekCiv: string } {
   return STAGES[stageId].mechanic === 'ufo' ? MALL_STREET_TEXTS : STREET_TEXTS;
 }
-
-/** タイムセールラッシュの帯の文(ステージ3) */
-export const RUSH_BAND_TEXT = RUSH_BAND;
 
 /**
  * タイムセールラッシュの始まりの説明(オペレーターのカットイン)。

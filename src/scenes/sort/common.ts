@@ -1,6 +1,5 @@
 // タイトル、ステージ前の掛け合い、仕分けの3つのシーンで使う小さな道具。
-//   drawAlley(this)            路地裏の背景(遠く、壁、地面)を置く
-//   drawStageBg(this, def)     そのステージの背景(def.bg)を置く(路地裏なら drawAlley と同じ)
+//   drawStageBg(this, def.bg)  ステージの背景(遠く、壁、地面)を置く。bg を省くと路地裏
 //   spotlightDim(this)         スポットライトの形に穴のあいた「暗くする網目」のテクスチャ
 //   edgeGlow(g, side, level)   画面の左右の端を光らせる帯を描く
 //   flicker(this, obj)         1コマおきに見えたり消えたりさせる(半透明の代わり)
@@ -28,26 +27,40 @@ export const Z = {
   stamp: 20
 } as const;
 
-export interface AlleyLayers {
-  far: Phaser.GameObjects.Image;
+export interface StageBgLayers {
+  far: Phaser.GameObjects.TileSprite;
   wall: Phaser.GameObjects.TileSprite;
   ground: Phaser.GameObjects.TileSprite;
 }
 
-/** 路地裏の背景を置く。y はアクション部分の上端(ふつう0)。bg を渡すとほかのステージの背景 */
-export function drawAlley(scene: Phaser.Scene, scrollX = 0, y = 0, bg: StageDef['bg'] = STAGES.alley.bg): AlleyLayers {
-  const { W } = layout;
-  const far = scene.add.image(0, y, bg.far).setOrigin(0).setDepth(Z.far);
-  const wall = scene.add.tileSprite(0, y, W, 130, bg.wall).setOrigin(0).setDepth(Z.wall);
-  const ground = scene.add.tileSprite(0, y + 124, W, 90, bg.ground).setOrigin(0).setDepth(Z.ground);
-  wall.tilePositionX = Math.round(scrollX);
-  ground.tilePositionX = Math.round(scrollX);
-  return { far, wall, ground };
+/** 遠くの背景は、壁と地面の1/4だけ動かす */
+export const FAR_PARALLAX = 0.25;
+
+/**
+ * ステージの背景(遠く、壁、地面)を置く。bg を省くと路地裏。
+ * y はアクション部分の上端(ふつう0)。depth を省くと Z の far、wall、ground
+ */
+export function drawStageBg(
+  scene: Phaser.Scene, bg: StageDef['bg'] = STAGES.alley.bg, scrollX = 0,
+  opt: { y?: number; depth?: { far: number; wall: number; ground: number } } = {}
+): StageBgLayers {
+  const { W, actionH } = layout;
+  const y = opt.y ?? 0;
+  const d = opt.depth ?? Z;
+  const layers = {
+    far: scene.add.tileSprite(0, y, W, actionH, bg.far).setOrigin(0).setDepth(d.far),
+    wall: scene.add.tileSprite(0, y, W, 130, bg.wall).setOrigin(0).setDepth(d.wall),
+    ground: scene.add.tileSprite(0, y + 124, W, 90, bg.ground).setOrigin(0).setDepth(d.ground)
+  };
+  scrollStageBg(layers, scrollX);
+  return layers;
 }
 
-/** そのステージの背景(遠く、壁、地面)を置く */
-export function drawStageBg(scene: Phaser.Scene, def: Pick<StageDef, 'bg'>, scrollX = 0, y = 0): AlleyLayers {
-  return drawAlley(scene, scrollX, y, def.bg);
+/** 背景を横にずらす(壁と地面は scrollX、遠くは FAR_PARALLAX 倍) */
+export function scrollStageBg(l: StageBgLayers, scrollX: number): void {
+  l.far.tilePositionX = Math.round(scrollX * FAR_PARALLAX);
+  l.wall.tilePositionX = Math.round(scrollX);
+  l.ground.tilePositionX = Math.round(scrollX);
 }
 
 /**

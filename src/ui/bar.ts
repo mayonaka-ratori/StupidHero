@@ -22,8 +22,8 @@ export interface BarOptions {
   ticks?: number;
 }
 
-export class Bar extends Phaser.GameObjects.Container {
-  readonly w: number;
+class Bar extends Phaser.GameObjects.Container {
+  override readonly w: number;
   readonly h: number;
   value = 1;
   private shown = 1;

@@ -3,17 +3,17 @@ import { createRng } from './rng';
 import { createStage } from './stage';
 import {
   AGES, BOTH_PROFILE_LINES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, JUDGE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS,
-  RUSH_BAND_TEXT, STREET_TEXTS, TITLE_COMMENTS, allTexts, introFor, judgeLine, mischiefLine, reactionList, rushEndLine, rushIntroFor,
+  STREET_TEXTS, TITLE_COMMENTS, allTexts, introFor, judgeLine, mischiefLine, reactionList, rushEndLine, rushIntroFor,
   say, shout, streetTextsFor, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
 } from './content';
 import {
   GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
-  GARAGE_WAVE_INTRO, LINK_HINTS, LINK_PROFILES, allLinkTexts
+  GARAGE_WAVE_INTRO, LINK_HINTS, allLinkTexts
 } from './garageContent';
 import { MALL_LOOKS } from './mall';
 import {
   BOSS3_HINTS, MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS,
-  MALL_WAVE_INTRO, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
+  MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
 } from './mallContent';
 import { TITLES, titlesFor } from './titles';
 import type { GangLook, Look } from './types';
@@ -147,7 +147,7 @@ describe('content の文の決まり', () => {
   });
 
   it('称号ごとにひとことがある(ステージ2の称号はオペレーターが言う)', () => {
-    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBe(t.comment);
+    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBeDefined();
     expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
     expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
   });
@@ -224,11 +224,6 @@ describe('ステージ2の文', () => {
 
   it('つながりの文は、番号と小物の呼び名を入れたあとに {n} と {item} が残らず、「さっきの」で呼ばない(字数は allTexts の決まりで確かめる)', () => {
     for (const t of allLinkTexts()) expect(t).not.toMatch(/\{n\}|\{item\}|さっき/);
-    // ギャング向けも市民向けも、プロフィールにも一言にもある
-    for (const list of [LINK_HINTS, LINK_PROFILES]) {
-      expect(list.some((t) => t.for !== 'civ')).toBe(true);
-      expect(list.some((t) => t.for !== 'bad')).toBe(true);
-    }
   });
 
   it('4つの見た目に、市民とギャングの文と一言が何通りもある', () => {
@@ -287,7 +282,7 @@ describe('ステージ2の文', () => {
       faceOf.set(h.text, h.face);
     }
     // つながりの一言にも、あわてた顔がある(市民にも出る)
-    expect(LINK_HINTS.some((t) => t.face === 'panic' && t.for !== 'bad')).toBe(true);
+    expect(LINK_HINTS.some((t) => t.face === 'panic')).toBe(true);
   });
 
   it('プロフィールには市民とギャングの両方に出る文がある。小物の名前で言い分けない', () => {
@@ -297,10 +292,6 @@ describe('ステージ2の文', () => {
       expect(both.length, look).toBeGreaterThanOrEqual(2);
       for (const l of [...civ, ...bad]) expect(l).not.toMatch(/タオル|バンダナ/);
     }
-  });
-
-  it('つながりの文は、どれも市民にもギャングにも出る(文だけでは決まらない)', () => {
-    for (const t of [...LINK_HINTS, ...LINK_PROFILES]) expect(t.for, t.text).toBe('both');
   });
 
   it('仲間が誰も来ないときのセリフ(オペレーターとヒーロー)', () => {
@@ -319,7 +310,7 @@ describe('ステージ2の文', () => {
     for (const t of titlesFor('garage')) expect(titleCommentFor(t.id, 'garage').text, t.id).not.toMatch(/街|路地裏/);
     expect(titleCommentFor('demolition', 'garage').text).toContain('駐車場');
     // 路地裏は今まで通り
-    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(t.comment);
+    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(TITLE_COMMENTS[t.id]);
     expect(titleCommentFor('demolition', 'alley')).toBe(TITLE_COMMENTS.demolition);
     expect(reactionList('pass')).toBe(REACTIONS.pass);
     expect(reactionList('escaped')).toBe(REACTIONS.escaped);
@@ -352,7 +343,7 @@ describe('ステージ3の文', () => {
     const all = new Set(allTexts());
     for (const s of mallSpeeches) expect(all.has(s.text), s.text).toBe(true);
     for (const t of Object.values(streetTextsFor('mall'))) expect(all.has(t), t).toBe(true);
-    expect(all.has(RUSH_BAND_TEXT)).toBe(true);
+    expect(all.has(RUSH_BAND)).toBe(true);
     for (const look of MALL_LOOKS) {
       for (const l of [...MALL_PROFILE_LINES[look].civ, ...MALL_PROFILE_LINES[look].bad]) expect(all.has(l), l).toBe(true);
       for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
@@ -451,7 +442,7 @@ describe('ステージ3の文', () => {
     expect(rushIntroFor(true)).toHaveLength(1);
     expect(rushIntroFor(false)[1].text).toContain('市民にだけ待て');
     expect(rushIntroFor(true)[0].text).toContain('市民にだけ待て');
-    expect(RUSH_BAND_TEXT).toBe('タイムセール開始！');
+    expect(RUSH_BAND).toBe('タイムセール開始！');
     expect(rushEndLine({ civs: 4, civsSaved: 4 }).face).toBe('hype');
     expect(rushEndLine({ civs: 4, civsSaved: 3 }).face).toBe('deadpan');
   });

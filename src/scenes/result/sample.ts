@@ -19,7 +19,7 @@ import type Phaser from 'phaser';
 import type { RecordStorage, StageId, StatsTracker } from '../../logic';
 import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, loadRecords } from '../../logic';
 import { accessorySheet } from '../../art/recolor';
-import { drawAlley, drawSprite, frameOf, makeCanvas } from './draw';
+import { paintStageBg, drawSprite, frameOf, makeCanvas } from './draw';
 
 const SAMPLE_NAMES = ['granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter'] as const;
 export type SampleName = typeof SAMPLE_NAMES[number];
@@ -248,7 +248,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
 function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement | null {
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES.garage.bg);
+  paintStageBg(ctx, scene, 0, 0, 180, 216, STAGES.garage.bg);
   const feet = 196;
   const gang = ACCESSORY_COLORS.aqua.color;
   if (name === 'roundup' || name === 'demolition') {
@@ -280,7 +280,7 @@ function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElem
 function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement | null {
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES.mall.bg);
+  paintStageBg(ctx, scene, 0, 0, 180, 216, STAGES.mall.bg);
   const feet = 196;
   if (name === 'granny' || name === 'guide' || name === 'roundup' || name === 'driver') {
     // 買い物客がUFOに吸い上げられている。ヒーローは笑顔で手をふっている
@@ -318,7 +318,7 @@ export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: S
   if (stageId === 'mall') return mallSampleShot(scene, name);
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, 180);
+  paintStageBg(ctx, scene, 0, 0, 180);
   const feet = 196;
   if (name === 'granny') {
     drawSprite(ctx, scene, 'prop_vending', 1, 176, 150, { anchor: 'bottom' });

@@ -46,7 +46,7 @@ export interface Pose {
 
 type V = { x: number; y: number };
 const rad = (d: number): number => (d * Math.PI) / 180;
-export const dir = (a: number): V => ({ x: Math.sin(rad(a)), y: Math.cos(rad(a)) });
+const dir = (a: number): V => ({ x: Math.sin(rad(a)), y: Math.cos(rad(a)) });
 const add = (p: V, q: V, s = 1): V => ({ x: p.x + q.x * s, y: p.y + q.y * s });
 const clamp01 = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);
 
@@ -54,7 +54,7 @@ const clamp01 = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);
 const LIGHT = { x: -0.6, y: -0.8 };
 const darker = (r: Ramp): Ramp => [r[1], r[2], r[2]];
 
-export const BODY = {
+const BODY = {
   /** 胴の縦の伸ばし */
   torsoK: 1.1,
   upper: 7.5,

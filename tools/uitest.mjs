@@ -1,37 +1,18 @@
 // UIの部品をタッチで試す(dev/ui.html 用)。指の操作はCDPのタッチイベントで送る(2本指も試せる)。
-// 使い方: npx vite --port 5104 --strictPort を動かしてから
-//   node tools/uitest.mjs [出力フォルダ]     (途中のスクリーンショットをそこに置く)
-import { openBrowser } from './lib.mjs';
+// 使い方: npm run dev を動かしてから
+//   node tools/uitest.mjs [出力フォルダ] [サーバー]   (途中のスクリーンショットを出力フォルダに置く)
+// 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const BASE = 'http://localhost:5104/dev/ui.html';
-const outDir = process.argv[2] ?? '.';
+const outDir = shotsDir(process.argv[2]);
+const BASE = `${serverUrl(process.argv[3])}dev/ui.html`;
 const browser = await openBrowser();
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
-await page.routeWebSocket(/.*/, () => {});
-page.on('pageerror', (e) => console.error('pageerror:', e.message));
-const cdp = await page.context().newCDPSession(page);
-
-let failed = 0;
-const check = (name, ok, extra = '') => { console.log(`${ok ? 'OK ' : 'NG '} ${name} ${extra}`); if (!ok) failed++; };
+const page = await openPage(browser);
+const { touch, css, tap } = await touchPad(page);
+const { check, done } = checker();
 const wait = (ms) => page.waitForTimeout(ms);
 const log = () => page.evaluate(() => window.uiDev.log.slice());
 const clearLog = () => page.evaluate(() => { window.uiDev.log.length = 0; });
-
-/** 論理座標をCSSの座標に */
-async function css(lx, ly) {
-  return page.evaluate(([x, y]) => {
-    const r = window.uiDev.game.canvas.getBoundingClientRect();
-    return { x: r.left + (x * r.width) / 216, y: r.top + (y * r.height) / window.uiDev.game.scale.height };
-  }, [lx, ly]);
-}
-const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
-async function tap(lx, ly) {
-  const p = await css(lx, ly);
-  await touch('touchStart', [{ x: p.x, y: p.y, id: 1 }]);
-  await wait(40);
-  await touch('touchEnd', []);
-  await wait(40);
-}
 async function drag(fromCss, dxCss, steps, stepMs, id = 1) {
   await touch('touchStart', [{ x: fromCss.x, y: fromCss.y, id }]);
   for (let i = 1; i <= steps; i++) {
@@ -216,5 +197,4 @@ const active = await page.evaluate(() => window.uiDev.game.scene.getScenes(true)
 check('ワイプで次のシーンへ', active.includes('text') && !active.includes('swipe') && !active.includes('UiWipe'), JSON.stringify(active));
 
 await browser.close();
-console.log(failed ? `${failed} NG` : 'all OK');
-process.exit(failed ? 1 : 0);
+done();

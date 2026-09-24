@@ -373,16 +373,12 @@ export interface SortTally {
 /** 称号1つ */
 export interface TitleDef {
   id: TitleId;
-  /** 調べる順(1〜17) */
-  order: number;
   name: string;
   pose: WinPose;
   /** 条件の説明(日本語。称号の一覧で、取った称号に出す) */
   condition: string;
   /** まだ取っていない称号のヒント(称号の一覧で「ヒント:」のあとに出す。短く、ふだんの言葉で) */
   hint: string;
-  /** 結果画面のひとこと */
-  comment: Speech;
   /** 取れるステージ(省略するとどのステージでも取れる) */
   stages?: readonly StageId[];
   /** 条件に当てはまるか */

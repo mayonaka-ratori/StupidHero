@@ -2,9 +2,10 @@
 // 大きな頭に黒い大きな目と触角、銀の宇宙服、紫のえりとマント。目と触角の玉は黄緑(くずれと同じ色)。
 // 人の仕組み(figure.ts)を大きな体つきで使い、頭だけ自分で描く。
 import { md, PixelGrid } from '../lib';
-import { type Look, type Pose, clonePose, drawPerson, moveUpper, shoulders } from '../world/figure';
+import { type Look, type Pose, clonePose, moveUpper, shoulders } from '../world/figure';
 import { OUTLINE } from '../world/palette';
-import { Painter, type Pt, type Ramp, bbox, rotateGrid } from '../world/pix';
+import { Painter, type Pt, type Ramp, rotateGrid } from '../world/pix';
+import { P96, alignCenter, alignFeet, drawScraps } from '../world/bossKit';
 import { GLITCH } from './palette';
 
 /** 宇宙人の肌(うすい青緑) */
@@ -54,23 +55,6 @@ function bossHead(face: BossFace): { g: PixelGrid; nx: number; ny: number } {
   return { g: P.g, nx: CHIN_X, ny: CHIN_Y };
 }
 
-/** 化けていた服の切れはし。step が大きいほど遠くへ飛ぶ */
-function drawScraps(Pn: Painter, pose: Pose, step: number): void {
-  const c: Pt = [pose.neck[0], pose.neck[1] + 18];
-  const pieces: [number, number, number][] = [
-    [-2.4, 14, 0], [-0.5, 18, 1], [0.4, 16, 2], [1.4, 17, 1], [2.3, 15, 0], [3.0, 19, 2], [-1.4, 20, 1], [4.2, 16, 2]
-  ];
-  const shapes = [['111.', '.111', '..1.'], ['.11', '111', '1..'], ['11..', '.111', '.11.', '..1.']];
-  pieces.forEach(([ang, d, sh], i) => {
-    const r = d * (0.35 + step * 0.42) + (i % 3);
-    const x = Math.round(c[0] + Math.cos(ang) * r * 1.4), y = Math.round(c[1] + Math.sin(ang) * r - step * 3);
-    if (y > 88 || y < 1 || x < 1 || x > 91) return;
-    const m = Pn.mask();
-    shapes[(sh + step) % shapes.length].forEach((row, j) => { for (let q = 0; q < row.length; q++) if (row[q] === '1') m.set(x + q, y + j); });
-    Pn.fill(m, SCRAP[i % SCRAP.length], { sep: 'outline', flat: true });
-  });
-}
-
 const K = 1.5;
 
 function bossLook(face: BossFace, scraps = 0): Look {
@@ -113,7 +97,7 @@ function bossLook(face: BossFace, scraps = 0): Look {
       Pn.fill(Pn.mask().poly([[n[0] - 7, n[1] - 5], [n[0] - 2, n[1] + 1], [n[0] - 7, n[1] + 3], [n[0] - 10, n[1]]]), CAPE, { sep: 'outline', hi: 0.3, lo: 0.7 });
     },
     front(Pn, pose) {
-      if (scraps) drawScraps(Pn, pose, scraps);
+      if (scraps) drawScraps(Pn, pose, scraps, { dy: 18, spread: 0.42, xMax: 91, yMin: 1, colors: SCRAP });
     }
   };
 }
@@ -126,28 +110,6 @@ const STAND: Pose = {
   lB: { k: [52, 73], a: [54, 85] },
   lF: { k: [44, 73], a: [41, 85] }
 };
-
-const P96 = (look: Look, p: Pose) => drawPerson(look, p, 96, 96);
-
-/** 足の裏(y=91)にそろえる */
-function ground(g: PixelGrid): PixelGrid {
-  const b = bbox(g);
-  if (!b) return g;
-  const dy = 91 - b.y1;
-  const o = new PixelGrid(g.w, g.h);
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x]) o.px(x, y + dy, g.cells[y][x]);
-  return o;
-}
-
-/** 空中のコマ:体の真ん中を (48, 46) にそろえる */
-function center(g: PixelGrid): PixelGrid {
-  const b = bbox(g);
-  if (!b) return g;
-  const dx = 48 - Math.round((b.x0 + b.x1) / 2), dy = 46 - Math.round((b.y0 + b.y1) / 2);
-  const o = new PixelGrid(g.w, g.h);
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (g.cells[y][x]) o.px(x + dx, y + dy, g.cells[y][x]);
-  return o;
-}
 
 const pose = (edit: (p: Pose) => void, from: Pose = STAND): Pose => { const p = clonePose(from); edit(p); return p; };
 
@@ -171,14 +133,14 @@ export function buildBoss3(): PixelGrid[][] {
   });
   const reveal = [
     P96(bossLook('smirk', 1), r0), P96(bossLook('shout', 2), r1), P96(bossLook('shout', 3), r2), P96(bossLook('grin', 4), r3)
-  ].map(ground);
+  ].map((g) => alignFeet(g));
 
   // 1 待機:腕を組んで、ゆっくり揺れる
   const i0 = pose((p) => {
     p.aF = { e: [42, 47], h: [56, 45] };
     p.aB = { e: [61, 46], h: [50, 43] };
   });
-  const idle = [ground(P96(bossLook('smirk'), i0)), ground(P96(bossLook('smirk'), moveUpper(i0, 0, 1)))];
+  const idle = [alignFeet(P96(bossLook('smirk'), i0)), alignFeet(P96(bossLook('smirk'), moveUpper(i0, 0, 1)))];
 
   // 2 暴れる:両手を振り上げる、前へ突き出す、振り下ろす、ふんぞり返る
   const a0 = pose((p) => { p.aF = { e: [42, 24], h: [48, 12] }; p.aB = { e: [60, 22], h: [58, 11] }; });
@@ -196,7 +158,7 @@ export function buildBoss3(): PixelGrid[][] {
     p.lF = { k: [52, 67], a: [51, 79] };
   });
   const rampage = [
-    ground(P96(bossLook('shout'), a0)), ground(P96(bossLook('shout'), a1)), ground(P96(bossLook('grin'), a2)), ground(P96(bossLook('shout'), a3))
+    alignFeet(P96(bossLook('shout'), a0)), alignFeet(P96(bossLook('shout'), a1)), alignFeet(P96(bossLook('grin'), a2)), alignFeet(P96(bossLook('shout'), a3))
   ];
 
   // 3 ラッシュを受ける
@@ -210,7 +172,7 @@ export function buildBoss3(): PixelGrid[][] {
     p.aF = { e: [36, 44], h: [34, 54] }; p.aB = { e: [60, 40], h: [70, 38] };
     p.lF = { k: [41, 73], a: [37, 85] };
   });
-  const hit = [ground(P96(bossLook('hurt'), h0)), ground(P96(bossLook('hurt'), h1))];
+  const hit = [alignFeet(P96(bossLook('hurt'), h0)), alignFeet(P96(bossLook('hurt'), h1))];
 
   // 4 やられる:よろけて、ひざをつき、目を回して倒れる
   const d0 = pose((p) => {
@@ -232,10 +194,10 @@ export function buildBoss3(): PixelGrid[][] {
     p.lF = { k: [58, 70], a: [50, 84], toe: 0.3 };
   });
   const defeat = [
-    ground(P96(bossLook('hurt'), d0)),
-    ground(P96(bossLook('hurt'), d1)),
+    alignFeet(P96(bossLook('hurt'), d0)),
+    alignFeet(P96(bossLook('hurt'), d1)),
     rotateGrid(P96(bossLook('ko'), d2), -1.0, 48, 52, 48, 58),
-    ground(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48))
+    alignFeet(rotateGrid(P96(bossLook('ko'), d3), -Math.PI / 2, 48, 48, 48, 48))
   ];
 
   // 5 母艦に乗りこむ:天をさして呼ぶ → しゃがむ → 両手を上げて浮き上がる → ひざをかかえて吸いこまれる
@@ -259,10 +221,10 @@ export function buildBoss3(): PixelGrid[][] {
     p.lF = { k: [56, 64], a: [48, 74], toe: 0.6 }; p.lB = { k: [55, 68], a: [46, 77], toe: 0.8 };
   });
   const board = [
-    ground(P96(bossLook('grin'), b0)),
-    ground(P96(bossLook('smirk'), b1)),
-    center(P96(bossLook('grin'), b2)),
-    center(P96(bossLook('smirk'), b3))
+    alignFeet(P96(bossLook('grin'), b0)),
+    alignFeet(P96(bossLook('smirk'), b1)),
+    alignCenter(P96(bossLook('grin'), b2)),
+    alignCenter(P96(bossLook('smirk'), b3))
   ];
   return [reveal, idle, rampage, hit, defeat, board];
 }

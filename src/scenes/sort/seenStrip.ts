@@ -11,7 +11,7 @@ import type { AccessoryColorId, Person } from '../../logic';
 import { FS, PixelText, darker, lighter } from '../../ui';
 
 /** 札の大きさ(黒いふちを含む) */
-export const CHIP = 12;
+const CHIP = 12;
 /** 1行に並べる札の数と、1つぶんの幅 */
 const PER_ROW = 4;
 const SLOT_W = 34;
@@ -32,7 +32,7 @@ const PATTERN: Record<AccessoryColorId, (x: number, y: number) => boolean> = {
 };
 
 /** 札を1つ描く(左上が x, y) */
-export function drawChip(g: Phaser.GameObjects.Graphics, x: number, y: number, id: AccessoryColorId, color: number): void {
+function drawChip(g: Phaser.GameObjects.Graphics, x: number, y: number, id: AccessoryColorId, color: number): void {
   const inner = CHIP - 2;
   g.fillStyle(UI.black, 1).fillRect(x, y, CHIP, CHIP);
   g.fillStyle(color, 1).fillRect(x + 1, y + 1, inner, inner);

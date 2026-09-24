@@ -47,4 +47,3 @@ export const UI = {
   danger: 0xff7a70
 } as const;
 
-export const css = (c: number): string => '#' + c.toString(16).padStart(6, '0');

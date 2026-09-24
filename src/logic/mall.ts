@@ -17,7 +17,7 @@
 import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import type { Rng } from './rng';
-import { ALIENS_PER_WAVE, GLITCH, RUSH } from './rules';
+import { GLITCH, RUSH } from './rules';
 import { STAGES, sheetKeyFor } from './stages';
 import type { GlitchTiming, MallDisguise, MallLook, Person, RushPlan, RushRunner, Wave } from './types';
 
@@ -50,13 +50,6 @@ export function glitchCount(glitch: GlitchTiming | undefined, sec: number): numb
   return Math.floor((sec - glitch.firstSec) / glitch.everySec) + 1;
 }
 
-/** sec 秒より後で、次にくずれが始まる時刻(秒)。くずれない人は null */
-export function nextGlitchAt(glitch: GlitchTiming | undefined, sec: number): number | null {
-  if (!glitch) return null;
-  if (sec < glitch.firstSec) return glitch.firstSec;
-  return glitch.firstSec + glitchCount(glitch, sec) * glitch.everySec;
-}
-
 // ─── 3つの波 ──────────────────────────────────────
 
 export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
@@ -66,7 +59,8 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
   const bossDisguise = rng.pick(BOSS3_DISGUISES);
 
   return def.waves.map((plan) => {
-    const [aMin, aMax] = plan.aliens ?? [ALIENS_PER_WAVE.min, ALIENS_PER_WAVE.max];
+    if (!plan.aliens) throw new Error(`mall の波${plan.no}に aliens がない`);
+    const [aMin, aMax] = plan.aliens;
     const alienTotal = rng.int(aMin, aMax);
     const civSlots = plan.people - alienTotal;
 

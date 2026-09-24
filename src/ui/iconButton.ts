@@ -28,7 +28,7 @@ function fillCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, d: n
 }
 
 /** アイコンを描く(真ん中が 0,0) */
-export function drawIcon(g: Phaser.GameObjects.Graphics, name: IconName, color: number): void {
+function drawIcon(g: Phaser.GameObjects.Graphics, name: IconName, color: number): void {
   g.fillStyle(color, 1);
   switch (name) {
     case 'pause':

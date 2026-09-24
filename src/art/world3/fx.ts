@@ -2,6 +2,7 @@
 // どちらも左右反転しても変に見えない形にする。置くときの基準はコマの真ん中。
 import { md, PixelGrid } from '../lib';
 import { GLITCH } from './palette';
+import { hash } from '../world/wrap';
 
 const W = md(7, 7, 7);
 
@@ -11,13 +12,6 @@ const frames = (w: number, h: number, n: number, draw: (g: PixelGrid, i: number)
     draw(g, i);
     return g;
   });
-
-/** 決まった乱数 */
-const hash = (x: number, y: number, s = 0): number => {
-  let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
 
 /**
  * UFOの吸い上げる光 32×64。上がせまく下が広い光の柱。ふちの線と、上へ流れる輪で描き、

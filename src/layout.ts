@@ -10,14 +10,12 @@ export interface Layout {
   actionH: number;
   /** 下の操作部分の上端(=actionH) */
   panelTop: number;
-  /** 下の操作部分の高さ */
-  panelH: number;
   /** ホームバーのぶん、ボタンを上にずらす量(論理ドット) */
   safeBottom: number;
 }
 
 export let layout: Layout = {
-  W: GAME_W, H: MIN_H, actionH: ACTION_H, panelTop: ACTION_H, panelH: MIN_H - ACTION_H, safeBottom: 0
+  W: GAME_W, H: MIN_H, actionH: ACTION_H, panelTop: ACTION_H, safeBottom: 0
 };
 
 export function computeLayout(): Layout {
@@ -30,7 +28,7 @@ export function computeLayout(): Layout {
   const safeCss = probe ? probe.getBoundingClientRect().height : 0;
   const cssPerLogical = Math.min(vw / GAME_W, vh / H);
   const safeBottom = Math.ceil(safeCss / Math.max(cssPerLogical, 0.001));
-  layout = { W: GAME_W, H, actionH: ACTION_H, panelTop: ACTION_H, panelH: H - ACTION_H, safeBottom };
+  layout = { W: GAME_W, H, actionH: ACTION_H, panelTop: ACTION_H, safeBottom };
   return layout;
 }
 

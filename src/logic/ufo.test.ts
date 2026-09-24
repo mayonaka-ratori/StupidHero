@@ -5,7 +5,6 @@ import { UfoCall, UfoQueue } from './ufo';
 describe('UFOの数字', () => {
   it('合図0.8秒、下りる1秒、吸い上げ3秒、去る1秒。被害額¥300万', () => {
     expect([UFO.signalSec, UFO.descendSec, UFO.beamSec, UFO.leaveSec]).toEqual([0.8, 1, 3, 1]);
-    expect(UFO.cost).toBe(3_000_000);
   });
 });
 
@@ -18,9 +17,7 @@ describe('UfoCall', () => {
     expect(c.update(1)).toEqual(['descend']);
     expect(c.update(1000)).toEqual(['beam']);
     expect(c.markOn).toBe(true);
-    expect(c.secondsToAbduct).toBeCloseTo(3);
     expect(c.update(1500)).toEqual([]);
-    expect(c.secondsToAbduct).toBeCloseTo(1.5);
     expect(c.progress).toBeCloseTo(0.5);
     expect(c.update(1500)).toEqual(['leave']);
     expect(c.markOn).toBe(false);

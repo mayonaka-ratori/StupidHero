@@ -21,8 +21,9 @@ import {
   titleCommentFor, type RecordField, type SaveOutcome, type StageStats, type TitleDef
 } from '../logic';
 import {
-  Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake
+  Button, CutIn, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
 } from '../ui';
+import { addMute, drawStageBg, unlockOnTap } from './sort/common';
 import { getRun, recordAllSorts, startRun, type GameRun } from '../run';
 import { buildCard, cardTexts, makeFallbackShot, worstCaption, type Card } from './result/card';
 import { makeCanvas } from './result/draw';
@@ -112,12 +113,10 @@ export class ResultScene extends Phaser.Scene {
     // ─── 音 ───
     audio.sfx('fanfare');
     this.time.delayedCall(1500, () => audio.playBgm('result'));
-    this.input.on('pointerdown', () => audio.unlock());
+    unlockOnTap(this);
 
     // ─── 上:ステージの背景と勝利ポーズ ───
-    this.add.tileSprite(0, 0, W, actionH, def.bg.far).setOrigin(0).setTilePosition(Math.floor(run.scrollX / 4), 0);
-    this.add.tileSprite(0, 0, W, 130, def.bg.wall).setOrigin(0).setTilePosition(run.scrollX, 0);
-    this.add.tileSprite(0, 124, W, 90, def.bg.ground).setOrigin(0).setTilePosition(run.scrollX, 0);
+    drawStageBg(this, def.bg, run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
 
     const fist = t.pose === 'win_fist';
     const hx = 108;
@@ -137,7 +136,7 @@ export class ResultScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5).setVisible(false);
     // 初めて取った称号の NEW は、称号の右上に出す(左上は「あなたの称号」の札)
     const titleNew = this.newTag(Math.min(W - 44, Math.floor(W / 2) + Math.ceil(titleText.width / 2) - 8), 1).setVisible(false);
-    new MuteButton(this, W - 11, BAND_Y + 13, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }).setDepth(DEPTH.ui + 1);
+    addMute(this, W - 11, BAND_Y + 13).setDepth(DEPTH.ui + 1);
     const cut = new CutIn(this, 4, BAND_Y + 30, W - 8, 46).setVisible(false);
     // タップで次の知らせがあることを示す印(次のステージが開いたとき)
     const more = new PixelText(this, W - 9, BAND_Y + 30 + 46 - 3, '▼タップ', { size: FS.small, color: UI.cutEdge })
@@ -468,11 +467,8 @@ export class ResultScene extends Phaser.Scene {
       }, () => { if (this.card === card) { dev.log.push('nofile'); shareReady(); } });
     }).catch((e: unknown) => { console.error(e); });
 
-    // 称号の一覧から戻ったとき:共有を受け付けられるようにしておく(眠っている間はタップが来ない)
-    this.events.on(Phaser.Scenes.Events.WAKE, () => { dev.log.push('wake'); });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
-      this.events.off(Phaser.Scenes.Events.WAKE);
       this.share?.destroy();
       this.share = undefined;
       if (this.textures.exists(THUMB_KEY)) this.textures.remove(THUMB_KEY);
@@ -524,15 +520,11 @@ export class ResultScene extends Phaser.Scene {
   /** 背中の爆発。はじめに何発か続けて、あとはときどき */
   private startExplosions(x: number, groundY: number): void {
     const boom = (dx: number, dy: number, scale: number, loud: boolean): void => {
-      const e = this.add.sprite(x + dx, groundY + dy, 'fx_explosion', 0).setOrigin(0.5, 0.78).setScale(scale).setDepth(10);
-      e.play(animKey('fx_explosion', 'play'));
-      e.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => e.destroy());
+      spawnFx(this, 'fx_explosion', x + dx, groundY + dy, { origin: [0.5, 0.78], scale, depth: 10 });
       if (loud) {
         audio.sfx('explosion', { pitch: scale > 1 ? 0.8 : 1 + (Math.random() - 0.5) * 0.2 });
         shake(this, scale > 1 ? 6 : 3, 220);
-        const d = this.add.sprite(x + dx, groundY + 2, 'fx_dust', 0).setOrigin(0.5, 1).setDepth(11);
-        d.play(animKey('fx_dust', 'play'));
-        d.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => d.destroy());
+        spawnFx(this, 'fx_dust', x + dx, groundY + 2, { origin: [0.5, 1], depth: 11 });
       }
     };
     const first: [number, number, number, number][] = [
@@ -543,9 +535,7 @@ export class ResultScene extends Phaser.Scene {
       if (ms === 60) flash(this, 0xfff0c0, 2);
     }));
     const kiran = (): void => {
-      const k = this.add.sprite(x + 14, groundY - 104, 'fx_kiran', 0).setDepth(21);
-      k.play(animKey('fx_kiran', 'play'));
-      k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+      spawnFx(this, 'fx_kiran', x + 14, groundY - 104, { depth: 21 });
     };
     this.time.delayedCall(1100, kiran);
     this.time.addEvent({

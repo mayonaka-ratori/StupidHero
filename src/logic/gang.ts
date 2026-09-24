@@ -55,13 +55,6 @@ export function gatherMembers(memberIds: readonly string[], gone: (id: string) =
  */
 export type GangPhase = 'gather' | 'wait' | 'board' | 'drive' | 'wiped' | 'stopped' | 'escaped';
 
-export interface GangCallOptions {
-  gatherSec?: number;
-  escapeSec?: number;
-  boardSec?: number;
-  driveSec?: number;
-}
-
 export class GangCall {
   readonly members: readonly string[];
   private readonly sec: Record<'gather' | 'wait' | 'board' | 'drive', number>;
@@ -69,14 +62,9 @@ export class GangCall {
   /** 今の段階に入ってからの秒数 */
   private t = 0;
 
-  constructor(memberIds: readonly string[], opts: GangCallOptions = {}) {
+  constructor(memberIds: readonly string[]) {
     this.members = [...memberIds];
-    this.sec = {
-      gather: opts.gatherSec ?? GANG.gatherSec,
-      wait: opts.escapeSec ?? GANG.escapeSec,
-      board: opts.boardSec ?? GANG.boardSec,
-      drive: opts.driveSec ?? GANG.driveSec
-    };
+    this.sec = { gather: GANG.gatherSec, wait: GANG.escapeSec, board: GANG.boardSec, drive: GANG.driveSec };
   }
 
   /** 組の人数(まとめて吹き飛ばした人数、逃げた人数に使う) */

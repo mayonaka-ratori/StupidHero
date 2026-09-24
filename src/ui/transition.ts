@@ -12,7 +12,7 @@
 import Phaser from 'phaser';
 import { layout } from '../layout';
 
-export const WIPE_SCENE = 'UiWipe';
+const WIPE_SCENE = 'UiWipe';
 
 export interface GotoOptions {
   kind?: 'wipe' | 'fade';
@@ -24,9 +24,6 @@ export interface GotoOptions {
 }
 
 let busy = false;
-
-/** いま切り替えの途中か */
-export const isTransitioning = (): boolean => busy;
 
 export function goto(from: Phaser.Scene, to: string, data?: object, opt: GotoOptions = {}): boolean {
   if (busy) return false;

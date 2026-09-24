@@ -4,11 +4,12 @@
 import { md, PixelGrid } from '../lib';
 import {
   type Build, type HairStyle, HAIR_SHORT, type Look, type Pose,
-  clonePose, drawPerson, moveUpper, shoulders, stretchPose
+  clonePose, drawPerson, moveUpper, shoulders
 } from '../world/figure';
 import { HAIR, OUTLINE, SKIN, WHITE } from '../world/palette';
 import { Painter, type Pt, type Ramp, mix, rotateGrid } from '../world/pix';
-import { STAND, civRows, idleFrames, walkFrames, withFace } from '../world/poses';
+import { STAND, civRows, walkFrames, withFace } from '../world/poses';
+import { disguiseRows } from '../world/bossKit';
 import { GLITCH } from './palette';
 
 const R = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
@@ -470,14 +471,8 @@ function uncleSheets(): Pair {
 // 親玉の化けた姿:市民の絵を伸ばして、どこか1か所だけおかしくする(くずれは出ない)
 // =====================================================================
 
-function disguiseRows(look: Look, base: Pose, sort: Pose[], sy = 1.1, walk?: Pose[]): PixelGrid[][] {
-  const st = (p: Pose) => stretchPose(p, sy, 1.05);
-  return [
-    idleFrames(base).map((p) => drawPerson(look, st(p))),
-    (walk ?? walkFrames(base)).map((p) => drawPerson(look, st(p))),
-    sort.map((p) => drawPerson(look, st(p)))
-  ];
-}
+const disguise = (look: Look, base: Pose, sort: Pose[], sy?: number, walk?: Pose[]): PixelGrid[][] =>
+  disguiseRows(look, base, sort, { sx: 1.05, sy, walk });
 
 // ---------------------------------------------------------------------
 
@@ -487,12 +482,12 @@ export function buildPeople3(skip: Set<string>): Record<string, PixelGrid[][]> {
   if (need('mascot_civ', 'mascot_bad', 'boss3_disguise_mascot')) {
     const s = mascotSheets();
     out.mascot_civ = s.civ; out.mascot_bad = s.bad;
-    out.boss3_disguise_mascot = disguiseRows(mascotLook(true), s.base, s.civSort, 1.02);
+    out.boss3_disguise_mascot = disguise(mascotLook(true), s.base, s.civSort, 1.02);
   }
   if (need('clerk_civ', 'clerk_bad', 'boss3_disguise_clerk')) {
     const s = clerkSheets();
     out.clerk_civ = s.civ; out.clerk_bad = s.bad;
-    out.boss3_disguise_clerk = disguiseRows(clerkLook(true), s.base, s.civSort);
+    out.boss3_disguise_clerk = disguise(clerkLook(true), s.base, s.civSort);
   }
   if (need('dancer_civ', 'dancer_bad')) {
     const s = dancerSheets();
@@ -502,7 +497,7 @@ export function buildPeople3(skip: Set<string>): Record<string, PixelGrid[][]> {
     const s = uncleSheets();
     out.uncle_civ = s.civ; out.uncle_bad = s.bad;
     const withBag = (p: Pose): Pose => { const q = clonePose(p); q.aB = { e: [q.neck[0] + 7, q.neck[1] + 9], h: [q.neck[0] + 9, q.neck[1] + 15] }; return q; };
-    out.boss3_disguise_uncle = disguiseRows(uncleLook(true), s.base, s.civSort, 1.1, walkFrames(s.base).map(withBag));
+    out.boss3_disguise_uncle = disguise(uncleLook(true), s.base, s.civSort, 1.1, walkFrames(s.base).map(withBag));
   }
   return out;
 }

@@ -51,8 +51,9 @@ const asPublished = (s: Stage) => ({
  * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
  * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
  * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
+ * timeUpOp:どこからも使っていなかったので消した
  */
-const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero']);
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp']);
 
 /** fixture の答えから、わざと変えた項目を取りのぞく */
 type FixtureStage = (typeof alleyV1.stages)[number]['stage'];
@@ -143,7 +144,6 @@ class MemStorage implements RecordStorage {
   data = new Map<string, string>();
   getItem(k: string) { return this.data.get(k) ?? null; }
   setItem(k: string, v: string) { this.data.set(k, String(v)); }
-  removeItem(k: string) { this.data.delete(k); }
 }
 
 describe('公開版が保存した記録を今の版で読める', () => {
