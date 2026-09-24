@@ -35,6 +35,25 @@
 //   //   buildShareText({ caption: shareCaption({ worstScene: s.worstScene, caption, titleName }), url })
 //   // 答え合わせ(波ごと):tallySorts(wave.people, sorts, randomSorted) を stats.recordSorts に。決め手の文は reasonFor(person, wave)
 //   //   ショッピングモールの波2は、最後に rushSummary(stats.rushTally!) を1行
+//
+// フリープレイの呼ぶ順番の例(docs/FREEPLAY.md。画面の流れは src/run.ts の先頭):
+//   // ステージを選ぶ画面:freeSelectInfo() で開いているか(路地裏のボスを倒したか)とベストの時間(formatClearTime)
+//   const plan = createFreePlay(seed, unlockedStages());   // run.ts の startFreeRun が呼ぶ。plan.stage が run.stage
+//   stats.startFree(plan, slow); stats.setFreeRule(plan.waves[0].rule);   // startFreeRun が呼ぶ
+//   // 掛け合い:needsFreeIntro() なら文の担当の FREE_INTRO を出して markFreeIntroSeen()
+//   // 波の始め:fw = plan.waves[i]。背景 STAGES[fw.bgStage].bg、ルールの札 ruleSignText(fw.rule)、
+//   //   時間と間は freeTiming(fw.no, slow)。人は plan.stage.waves[i].people(ギャングの組は wave.groups)
+//   // 1人ごと:rule = ruleAt(fw, person.index)、heroChoice(rule, person) が 'bad' なら殴りかかる(待てのマーク)、
+//   //   'civ' なら素通り。場面の種類は freeRoleOf(fw, person)。仕組みは見た目で決める
+//   //   (fp_gang はギャングの組、fp_alien はUFO、fp_mohawk はナイフで脅す)
+//   //   波3の言い直し:person.index が fw.redeclare.after になる前に、ルールを変えて stats.setFreeRule(fw.redeclare.rule)
+//   // 待てと行け:new DryPress() を待てと行けに1つずつ。dry.press(nowMs, マークがあるか) が false なら効かない
+//   //   (マークがなければ stats.dryPress())。数え方は stats.ts の先頭の「フリープレイ」
+//   // 波の終わり:nextAfterFreeStreet(run)(run.ts)。波3のあとは stats.finishFree(時計) をしてから Result
+//   // 結果:const s = stats.snapshot(); const title = decideTitle(s);   // s.free があればフリープレイの順で調べる
+//   //   s.free.clearSec(大きく)、s.free.stopSaved、s.free.goScenes、heroAccuracyText(s.free)
+//   //   const saved = saveFreeResult(s, title.id);   // saved.showMoreStagesHint で「ステージを進めると…」
+//   //   buildShareText({ caption: freeShareCaption({ worstScene: s.worstScene, caption, free: s.free, titleName }), url })
 
 export * from './types';
 export * from './rng';
@@ -56,4 +75,5 @@ export * from './share';
 export * from './records';
 export * from './reasons';
 export * from './freeNames';
+export * from './freeplay';
 export * from './freeContent';
