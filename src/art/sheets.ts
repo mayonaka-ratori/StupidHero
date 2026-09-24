@@ -140,6 +140,17 @@ const fx = (key: string, w: number, h: number, frames: number, fps: number, loop
   key, frameW: w, frameH: h, cols: frames, anchor, rows: [a('play', frames, fps, loop, note)]
 });
 
+/** フリープレイの一目で分かるワル:ふつうのワルと同じ7行。悪さの中身だけ書く */
+const freeVillain = (key: string, mischief: string): SheetDef => ({
+  key, frameW: 64, frameH: 64, cols: 4, anchor: 'feet',
+  rows: [...civRows(), a('mischief', 4, 8, false, mischief, [3])]
+});
+
+/** 1コマの小さな絵(小物、ルールの札) */
+const still = (key: string, w: number, h: number, anchor: SheetDef['anchor'], note: string): SheetDef => ({
+  key, frameW: w, frameH: h, cols: 1, anchor, rows: [a('idle', 1, 1, false, note)]
+});
+
 export const SHEETS: SheetDef[] = [
   HERO,
   face('face_hero', [['smug', 'ドヤ顔'], ['oops', 'やっちまった(汗)'], ['smile', '笑顔']]),
@@ -207,7 +218,28 @@ export const SHEETS: SheetDef[] = [
   fx('fx_brake', 32, 16, 4, 16, false, '急ブレーキの火花'),
   fx('fx_gaan', 64, 64, 2, 8, true, '「ガーン」の稲妻'),
   fx('fx_kiran', 32, 32, 4, 12, false, '「キラーン」の光'),
-  fx('fx_explosion', 96, 96, 6, 12, false, '勝利ポーズの背中の爆発')
+  fx('fx_explosion', 96, 96, 6, 12, false, '勝利ポーズの背中の爆発'),
+  // ─── フリープレイ(docs/FREEPLAY.md)───
+  // 一目で分かるワル。武器は顔の向きの側に、波3の小物は頭の上と後ろに来るように描いてある
+  freeVillain('fp_mohawk', '悪さ:ナイフで脅す(振りかぶる → 踏みこむ → 前へ突き出す(当たり) → 突きつけたまま)'),
+  freeVillain('fp_gang', '悪さ:口笛で仲間を呼ぶ(地下駐車場のギャングと同じ。手まねきする手でバットを振り上げる)'),
+  freeVillain('fp_alien', '悪さ:空へ合図を送る(ショッピングモールの宇宙人と同じ。当たりで手の先が光る)'),
+  // 波3の小物。人の絵に重ねる別の絵で、付ける場所は src/art/free/items.ts の itemAnchor。右向きの人に合わせて描いてある
+  { key: 'fp_item_balloon', frameW: 32, frameH: 48, cols: 2, anchor: 'bottom',
+    rows: [a('float', 2, 3, true, '黄色の風船がゆれる。ひもの下の端(下の真ん中)を手に合わせる。玉は頭の上の後ろ寄りに浮かぶ')] },
+  still('fp_item_hat', 16, 20, 'bottom', '濃い緑のとんがり帽子(14×15)。下の真ん中を頭のてっぺんに合わせる'),
+  still('fp_item_bag', 16, 16, 'top', '茶色の大きな紙袋(袋は11×11)。持ち手のてっぺん(上の真ん中)を手に合わせる'),
+  // ルールの札の絵
+  still('ui_rule_fist', 16, 16, 'center', '拳(殴りかかる)'),
+  still('ui_rule_palm', 16, 16, 'center', '手のひら(素通りする)'),
+  still('ui_item_balloon', 16, 16, 'center', '風船'),
+  still('ui_item_hat', 16, 16, 'center', 'とんがり帽子'),
+  still('ui_item_bag', 16, 16, 'center', '紙袋'),
+  // ヒーローの光。fx_aura と同じ大きさで同じように置く。光は1コマおきに点滅させ、*_line は点滅させない
+  fx('fx_aura_attack', 64, 64, 4, 12, true, '殴りかかるときの光。赤いトゲトゲの輪'),
+  fx('fx_aura_pass', 64, 64, 4, 8, true, '素通りするときの光。水色の丸い輪と泡'),
+  fx('fx_aura_attack_line', 64, 64, 1, 1, false, '光と揺れを弱くするときの、殴りかかるほうのふち取り(トゲトゲ)。点滅させない'),
+  fx('fx_aura_pass_line', 64, 64, 1, 1, false, '光と揺れを弱くするときの、素通りのほうのふち取り(丸)。点滅させない')
 ];
 
 export const IMAGES: ImageDef[] = [
