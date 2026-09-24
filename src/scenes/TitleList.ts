@@ -1,5 +1,6 @@
-// 称号の一覧。全部のステージの17個(TITLES)を1列のカードで並べ、ずらして見る。取った称号は名前(金色)と条件、まだの称号は「？？？」とヒント。
+// 称号の一覧。全部のステージとフリープレイの20個(TITLES)を1列のカードで並べ、ずらして見る。取った称号は名前(金色)と条件、まだの称号は「？？？」とヒント。
 // 画面に入りきらないときは、指で上下にずらして見る(マウスのホイールでも動く)。
+// フリープレイだけで取れる称号(modes が ['free'])は、カードの右上に「フリープレイだけ」の札を出す(取っていてもいなくても)。
 // 開き方:openTitleList(this, { earned, current })。開いたシーンは眠らせておき、もどるで起こす
 // (結果画面なら、称号の発表や数え上げをやり直さずに元のまま戻る)。
 
@@ -33,6 +34,9 @@ const LOCKED = { edge: 0x6a6488, fill: 0x1c1a2c };
 const CURRENT_FILL = 0x22307a;
 /** まだの称号の名前の色 */
 const UIDIM = 0x8a84a0;
+/** フリープレイだけで取れる称号の札 */
+const FREE_ONLY = 'フリープレイだけ';
+const isFreeOnly = (t: TitleDef): boolean => t.modes?.length === 1 && t.modes[0] === 'free';
 
 /** 開発用:window.titleListDev から中身をさわれる(テスト用) */
 interface TitleListDev { scene?: TitleListScene; back?: Button; scrollMax?: number; earned?: TitleId[] }
@@ -129,7 +133,7 @@ export class TitleListScene extends Phaser.Scene {
     this.input.on('pointerupoutside', up);
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => setScroll(scroll + dy / 4));
 
-    void preloadFont(TITLES.flatMap((t) => [t.name, t.condition, t.hint]).concat(['ヒント:', '？？？']), [12]);
+    void preloadFont(TITLES.flatMap((t) => [t.name, t.condition, t.hint]).concat(['ヒント:', '？？？', FREE_ONLY]), [10, 12]);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.cameras.remove(cam); });
   }
 
@@ -140,7 +144,17 @@ export class TitleListScene extends Phaser.Scene {
     const objs: Phaser.GameObjects.GameObject[] = [g];
     const tx = x + 5;
     let ty = y + 5;
-    const name = new PixelText(this, tx, ty, got ? t.name : '？？？', { size: FS.body, color: got ? UI.gold : UIDIM, wrap });
+    // フリープレイだけの称号:右上に札(名前はその左で折り返す)
+    let tagW = 0;
+    if (isFreeOnly(t)) {
+      const tag = new PixelText(this, x + w - 7, y + 5, FREE_ONLY, { size: FS.small, color: 0xffffff }).setOrigin(1, 0);
+      tagW = Math.ceil(tag.width) + 6;
+      const tg = this.add.graphics().setDepth(DEPTH.ui - 1);
+      tg.fillStyle(UI.black, 1).fillRect(x + w - 5 - tagW - 1, y + 3, tagW + 2, 15);
+      tg.fillStyle(0x9a2a6a, 1).fillRect(x + w - 5 - tagW, y + 4, tagW, 13);
+      objs.push(tg, tag);
+    }
+    const name = new PixelText(this, tx, ty, got ? t.name : '？？？', { size: FS.body, color: got ? UI.gold : UIDIM, wrap: wrap - tagW });
     objs.push(name);
     ty += Math.ceil(name.height) + 2;
     const body = new PixelText(this, tx, ty, got ? t.condition : `ヒント:${t.hint}`, { size: FS.body, color: got ? UI.text : UI.textDim, wrap });

@@ -273,6 +273,18 @@ describe('フリープレイの記録', () => {
     expect(saveFreeResult(s, 'letItBe', st).showMoreStagesHint).toBe(false);
   });
 
+  it('路地裏のボスを倒した人(地下駐車場も開いている)にも出す。モールまで開いていれば出さない', () => {
+    const s = play(ALLEY, 'handsOff').snapshot();
+    const rec = (stages: object): MemStorage => {
+      const st = new MemStorage();
+      st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages, titles: [] }));
+      return st;
+    };
+    const cleared = { plays: 1, clears: 1, titles: [] };
+    expect(saveFreeResult(s, 'letItBe', rec({ alley: cleared })).showMoreStagesHint).toBe(true);
+    expect(saveFreeResult(s, 'letItBe', rec({ alley: cleared, garage: cleared })).showMoreStagesHint).toBe(false);
+  });
+
   it('前の形の記録(フリープレイの欄がない)も読める。壊れた欄は捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 2, clears: 1, titles: ['soSo'] } }, titles: ['soSo'], introSeen: ['alley'], rushSeen: [] }));

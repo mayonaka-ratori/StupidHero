@@ -1,5 +1,7 @@
 // 文字の確かめ用の開発ページ(/dev/text.html)。ゲームには入らない。
 // ゲームで出る文(content.ts の allTexts() と、シーンや部品に直接書かれた文字)を PixelText で並べて描く。
+// フリープレイの共有の文(share.ts の freeShareTexts() の見出しと、ルールの言い方)と、結果画面のいちばん下の1行の例も入れる
+// (ルールの札の文は allTexts() に入っている。「『…』で」は字を読みこむための切れはしなので、禁則を見ないように外す)。
 // ?set=texts  文を並べる(ふつう)。?size=10|12|16(ふつう12) ?wrap=152(折り返す幅。0で折り返さない)
 //             ?from=0&count=40 で一部だけ。?cols=2 で列の数
 // ?set=chars  使われている字をすべて1字ずつ並べる(字の形を見る)。?size= で大きさ
@@ -11,6 +13,9 @@ import '@fontsource/dotgothic16';
 import Phaser from 'phaser';
 import { UI } from '../config';
 import { allTexts } from '../logic/content';
+import { FREE_ITEMS } from '../logic/freeNames';
+import { freeShareTexts, heroAccuracyText, ruleQuote } from '../logic/share';
+import type { FreeRule } from '../logic/types';
 import { FS, PixelText, preloadFont, stripMarkup } from '../ui';
 
 const params = new URLSearchParams(location.search);
@@ -48,7 +53,12 @@ const sceneTexts: { file: string; text: string }[] = [];
 for (const [file, src] of Object.entries(sources)) {
   for (const text of literalsOf(src)) sceneTexts.push({ file: file.replace(/^\.\.\//, ''), text });
 }
-const contentTexts = allTexts();
+const freeRules: FreeRule[] = [{ kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))];
+const freeTexts = [
+  ...freeShareTexts().filter((t) => !t.endsWith('』で') && !t.includes('ヒーローだけなら人')), ...freeRules.map(ruleQuote),
+  heroAccuracyText({ heroRight: 10, fixedRight: 25, units: 27 })
+];
+const contentTexts = [...allTexts(), ...freeTexts];
 const all: { from: string; text: string }[] = [
   ...contentTexts.map((text) => ({ from: 'content', text })),
   ...sceneTexts.map((t) => ({ from: t.file, text: t.text }))

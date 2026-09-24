@@ -10,6 +10,16 @@
 // ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、ラッシュのあるステージ(def.hasRush)はラッシュのまとめを、小さく1行ずつ足す。
 // 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
+//
+// フリープレイ(run.mode === 'free'。docs/FREEPLAY.md「結果画面」):
+// - 称号は decideTitle(s)(s.free があればフリープレイの順)。記録は saveFreeResult。新記録の NEW はステージと同じ出し方
+// - 数字の窓は result/freeStats.ts(クリアまでの時間を大きく、待てで守った、行けで決めた、市民のけが、逃がした、被害額、
+//   いちばん下に小さく heroAccuracyText)
+// - 背景、ひとこと、被害額のたとえは、波3の背景のステージ(遊び終わった場所)。共有カードのステージ名は「フリープレイ」
+// - いちばんひどい場面は、ステージの場面がなければ s.free.worst(freeWorstCaption)。共有文の1行目は freeShareCaption
+// - 路地裏しかクリアしていない人には、称号のひとことのあと、タップで一度だけ「ステージを進めると、出てくる人が増えるよ」
+//   (次のステージが開いた知らせと同じ出し方)
+// - もう一回はフリープレイをもう一度(startFreeRun して、掛け合いを出さずに Street へ)。タイトルへはタイトルへ
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -17,23 +27,51 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  buildShareText, damageAnalogy, decideTitle, formatYen, hurtBreakdown, randomSeed, rushSummary, saveResult, say, shareCaption, STAGES,
-  titleCommentFor, type RecordField, type SaveOutcome, type StageStats, type TitleDef
+  FREE_NAME, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, randomSeed, rushSummary, saveFreeResult,
+  saveResult, say, shareCaption, STAGES, titleCommentFor, type FreeSaveOutcome, type SaveOutcome, type StageId, type StageStats,
+  type TitleDef
 } from '../logic';
 import {
   Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake
 } from '../ui';
-import { getRun, recordAllSorts, startRun, type GameRun } from '../run';
-import { buildCard, cardTexts, makeFallbackShot, worstCaption, type Card } from './result/card';
+import { getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '../run';
+import { settings } from '../settings';
+import { buildCard, cardTexts, freeWorstCaption, makeFallbackShot, worstCaption, type Card, type CardStage } from './result/card';
 import { makeCanvas } from './result/draw';
-import { fillSampleStats, makeSampleShot, memoryStorage, sampleName } from './result/sample';
+import { MORE_STAGES_HINT, freeWindow } from './result/freeStats';
+import { fillSampleStats, makeSampleShot, memoryFreeStorage, memoryStorage, sampleName } from './result/sample';
 import { ShareFlow } from './result/share';
+import type { StatRow, StatsWindow, WindowEnv } from './result/stats';
 import { Timeline } from './result/timeline';
 import { markJustUnlocked } from './stageselect/state';
 import { openTitleList } from './TitleList';
 
+/** 保存した記録のうち、結果画面が使うもの(ステージとフリープレイで同じ形にしたもの) */
+interface Saved {
+  titleIsNew: boolean;
+  titlesCollected: number;
+  titlesTotal: number;
+  /** 取った称号の全部(称号の一覧に渡す) */
+  earned: SaveOutcome['records']['titles'];
+  /** 新記録の項目 */
+  newRecords: readonly string[];
+  /** 今回のプレイで開いたステージ(フリープレイは空) */
+  unlockedNow: StageId[];
+  /** 「ステージを進めると、出てくる人が増えるよ」を出すか(フリープレイだけ) */
+  moreHint: boolean;
+}
+
+const fromStage = (o: SaveOutcome): Saved => ({
+  titleIsNew: o.titleIsNew, titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, earned: o.records.titles,
+  newRecords: o.newRecords, unlockedNow: o.unlockedNow, moreHint: false
+});
+const fromFree = (o: FreeSaveOutcome): Saved => ({
+  titleIsNew: o.titleIsNew, titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, earned: o.records.titles,
+  newRecords: o.newRecords, unlockedNow: [], moreHint: o.showMoreStagesHint
+});
+
 /** 同じプレイの記録を2回保存しないように */
-const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: SaveOutcome }>();
+const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: Saved }>();
 
 const THUMB_KEY = 'result_thumb';
 
@@ -42,16 +80,7 @@ const BAND_Y = 12;
 /** いちばんひどい場面の写真を出すのに要る高さ */
 const THUMB_MIN = 58;
 
-interface StatRow {
-  label: string;
-  target: number;
-  format: (n: number) => string;
-  color: number;
-  record?: RecordField;
-  ms: number;
-}
-
-/** 数字の窓とボタンの並べ方 */
+/** ステージの数字の窓とボタンの並べ方 */
 interface Fit {
   smallH: number;
   shareH: number;
@@ -90,22 +119,32 @@ export class ResultScene extends Phaser.Scene {
     // ─── 数字と称号と記録 ───
     let rec = savedRuns.get(run);
     let shot: CanvasImageSource | null = run.worstShot;
+    const free = run.mode === 'free' && run.free !== null;
     if (!rec) {
       const sample = sampleName();
       if (run.debug && run.stats.defeated === 0 && run.stats.damage === 0 && run.stats.civHurt === 0) fillSampleStats(run.stats, sample);
-      // 答え合わせを通らずに来たとき(開発用に途中から始めたときなど)も、仕分けの済んだ波は数える
-      recordAllSorts(run);
-      const stats = run.stats.snapshot();
-      const title = decideTitle(stats);
-      const saved = saveResult(run.stage.id, stats, title.id, run.debug ? memoryStorage(run.stage.id) : undefined);
-      rec = { stats, title, saved };
+      if (free) {
+        const stats = run.stats.snapshot();
+        const title = decideTitle(stats);
+        rec = { stats, title, saved: fromFree(saveFreeResult(stats, title.id, run.debug ? memoryFreeStorage() : undefined)) };
+      } else {
+        // 答え合わせを通らずに来たとき(開発用に途中から始めたときなど)も、仕分けの済んだ波は数える
+        recordAllSorts(run);
+        const stats = run.stats.snapshot();
+        const title = decideTitle(stats);
+        const saved = saveResult(run.stage.id, stats, title.id, run.debug ? memoryStorage(run.stage.id) : undefined);
+        rec = { stats, title, saved: fromStage(saved) };
+        // 次のステージが開いた:ステージを選ぶ画面で鍵がこわれる演出をする
+        markJustUnlocked(this, saved.unlockedNow);
+      }
       savedRuns.set(run, rec);
-      // 次のステージが開いた:ステージを選ぶ画面で鍵がこわれる演出をする
-      markJustUnlocked(this, saved.unlockedNow);
     }
-    if (!shot && run.debug) shot = makeSampleShot(this, sampleName(), run.stage.id);
+    // フリープレイの背景と言い方は、波3の背景のステージ(遊び終わった場所)
+    const textStage: StageId = free ? run.free!.plan.waves[run.free!.plan.waves.length - 1].bgStage : run.stage.id;
+    if (!shot && run.debug) shot = makeSampleShot(this, sampleName(), textStage, free);
     const { stats: s, title: t, saved } = rec;
-    const def = run.stage.def;
+    const def = free ? STAGES[textStage] : run.stage.def;
+    const caption = free ? freeWorstCaption(s) : worstCaption(s);
     dev.log.push(`title:${t.id}`);
     if (saved.unlockedNow.length) dev.log.push(`unlocked:${saved.unlockedNow.join(',')}`);
 
@@ -145,100 +184,15 @@ export class ResultScene extends Phaser.Scene {
 
     // ─── 下:数字 ───
     addPanel(this);
-    const top = actionH;
-    const boxY = top + 4;
+    const boxY = actionH + 4;
     const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
-    const hurtParts = hurtBreakdown(s);
-    // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
-    const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
-    const rushText = def.hasRush && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
-    const extraRows = (f: Fit): number =>
-      (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
-    const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);
-    const shareYOf = (f: Fit): number => bottom - f.smallH - f.gap - f.shareH;
-    const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRowsOf(f);
-    const roomOf = (f: Fit): number => shareYOf(f) - 5 - (boxY + boxHOf(f) + 5);
-    // 写真が入る並べ方を、ゆったりした順に探す。どれでも入らなければ、いちばん詰めたもの(写真なし)
-    // (UFOとラッシュの行をまとめる pack は、ステージ3のほかでは何も変えない)
-    const fits: Fit[] = [
-      { smallH: 26, shareH: 30, gap: 5, rowH: 17, merge: false, subH: 13, pack: false },
-      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: false },
-      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: true },
-      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: true, subH: 13, pack: true },
-      // いちばん低い画面(高さ384)のステージ2と3:写真なしで、窓がボタンにかぶらないところまで詰める
-      { smallH: 22, shareH: 24, gap: 3, rowH: 15, merge: true, subH: 12, pack: true }
-    ];
-    const fit = fits.find((f) => roomOf(f) >= THUMB_MIN) ?? fits.find((f) => roomOf(f) >= -6) ?? fits[fits.length - 1];
-    const { rowH, merge, subH, pack } = fit;
-    const boxH = boxHOf(fit);
-    new WindowFrame(this, 4, boxY, W - 8, boxH, 'win');
-
-    const rows: StatRow[] = [
-      { label: '仕分け正解', target: s.sortCorrect, format: (n) => `${n}/${s.sortTotal}人`, color: UI.gold, ms: 350 },
-      { label: '悪党を倒した', target: s.defeated, format: (n) => `${n}人`, color: UI.gold, record: 'mostDefeated', ms: 350 },
-      { label: '市民のけが', target: s.civHurt, format: (n) => `${n}人`, color: s.civHurt > 0 ? UI.danger : UI.gold, record: 'fewestHurt', ms: 350 },
-      { label: '逃がした', target: s.escaped, format: (n) => `${n}人`, color: s.escaped > 0 ? UI.danger : UI.gold, ms: 300 },
-      { label: '被害額', target: s.damage, format: (n) => formatYen(n), color: UI.gold, record: 'highestDamage', ms: 800 }
-    ];
-    const DAMAGE = 4;
-    // 行ごとの位置(左、右、上)。まとめるときは「逃がした」を「悪党を倒した」の行の右半分に置く(字は小さめ)
-    const place: { x: number; right: number; y: number; small: boolean }[] = [];
-    let cy = boxY + 5;
-    const hurtSub = { y: 0 };
-    const analogyY = { y: 0 };
-    rows.forEach((_r, i) => {
-      if (merge && i === 1) { place.push({ x: 11, right: 118, y: cy, small: true }); cy += rowH; return; }
-      if (merge && i === 3) { place.push({ x: 124, right: W - 11, y: place[1].y, small: true }); return; }
-      place.push({ x: 11, right: W - 11, y: cy, small: false });
-      cy += rowH;
-      if (i === 2 && hurtParts.length) { hurtSub.y = cy - 1; cy += subH; }
-      if (i === DAMAGE) { analogyY.y = cy - 2; cy += subH; }
-    });
-    const extraY = cy - 2;
-    const values = rows.map((r, i) => {
-      const p = place[i];
-      // まとめた行は、見出しを小さい字にして数字は大きいまま
-      // 仕分け正解はいちばん大事なので、見出しも金色
-      new PixelText(this, p.x, p.small ? p.y + 3 : p.y, r.label, { size: p.small ? FS.body : FS.big, color: i === 0 ? UI.gold : UI.textDim });
-      return new PixelText(this, p.right, p.y, '', { size: FS.big, color: r.color, outline: true }).setOrigin(1, 0);
-    });
-    // 新記録の NEW は見出しのすぐ右
-    const newTags = rows.map((r, i) => {
-      const p = place[i];
-      const tag = this.newTag(p.x + 16 * r.label.length + 4, p.y + 3).setVisible(false);
-      // まとめた行は数字とぶつかるので出さない
-      if (p.small) tag.setData('never', true);
-      return tag;
-    });
-    // 市民のけがの内わけ(0の理由は書かない)
-    const hurtLine = hurtParts.length
-      ? new PixelText(this, W - 11, hurtSub.y, hurtParts.join('・'), { size: FS.small, color: UI.textDim }).setOrigin(1, 0).setVisible(false)
-      : null;
-    const analogy = new PixelText(this, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.body, color: UI.gold, outline: true })
-      .setOrigin(1, 0).setVisible(false);
-    const extraTexts: PixelText[] = [];
-    if (def.mechanic === 'gang') {
-      const byGroup = s.defeatedByWipe + s.defeatedByVan;
-      extraTexts.push(
-        new PixelText(this, 11, extraY, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),
-        new PixelText(this, W - 11, extraY, `車で逃げた{${s.groupsEscaped > 0 ? 'red' : 'gold'}}${s.groupsEscaped}{/}組`, { size: FS.body, color: UI.textDim })
-          .setOrigin(1, 0).setVisible(false)
-      );
-    }
-    // UFOとラッシュ:ふだんは1行ずつ。まとめるときは小さい字で「UFO：2機・セール：…」の1行にする
-    // (「UFO2機」だと「UFO」と数字がつながって読みにくいので、ラッシュのまとめと同じく「：」で区切る)
-    if (pack && ufoText && rushText) {
-      const short = `UFO：{gold}${s.ufosDowned}{/}機・${rushText}`;
-      extraTexts.push(new PixelText(this, 11, extraY + 1, short, { size: FS.small, color: UI.textDim }).setVisible(false));
-    } else {
-      [ufoText, rushText].filter((x): x is string => !!x).forEach((x, k) => {
-        extraTexts.push(new PixelText(this, 11, extraY + subH * k, x, { size: FS.body, color: UI.textDim }).setVisible(false));
-      });
-    }
+    const env: WindowEnv = { scene: this, boxY, bottom, newTag: (x, y) => this.newTag(x, y) };
+    const sw = free ? freeWindow(env, s, { analogy: damageAnalogy(s.damage, textStage).text }) : stageWindow(env, s, run);
+    const { fit, boxH, rows, values, newTags } = sw;
 
     // ─── ボタン ───
     const { smallH, shareH } = fit;
-    const shareY = shareYOf(fit);
+    const shareY = bottom - smallH - fit.gap - shareH;
     const rowBtnY = bottom - smallH;
     // 共有の画像(File)ができるまでは押せない
     const shareBtn = new Button(this, 6, shareY, W - 12, shareH, 'じゅんびちゅう', { color: 'stop' }).setEnabled(false);
@@ -250,7 +204,9 @@ export class ResultScene extends Phaser.Scene {
     againBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
-      goto(this, SCENES.intro, undefined, { onCovered: () => startRun(this, randomSeed(), false, run.stage.id) });
+      // フリープレイは、掛け合いを出さずにすぐ Street へ(初回の掛け合いはもう見ている)
+      if (free) goto(this, SCENES.street, undefined, { onCovered: () => startFreeRun(this, randomSeed(), { slow: settings.slowMode }) });
+      else goto(this, SCENES.intro, undefined, { onCovered: () => startRun(this, randomSeed(), false, run.stage.id) });
     });
     titleBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
@@ -293,7 +249,7 @@ export class ResultScene extends Phaser.Scene {
       const bh = probe.width > rw - 4 ? 30 : 22;
       probe.destroy();
       listBtn = new Button(this, rx, ty + th - bh, rw, bh, bh > 22 ? listText.replace('(', '\n(') : listText, listStyle);
-      const cap = new PixelText(this, rx, 0, worstCaption(s), { size: FS.body, color: UI.text, wrap: rw, lineSpacing: 1 });
+      const cap = new PixelText(this, rx, 0, caption, { size: FS.body, color: UI.text, wrap: rw, lineSpacing: 1 });
       // 見出し、説明の文、ボタンの順。高さが足りなければ見出しを省く
       const withLabel = 14 + Math.ceil(cap.height) + 3 + bh <= th;
       cap.setY(ty + (withLabel ? 14 : 0));
@@ -321,7 +277,7 @@ export class ResultScene extends Phaser.Scene {
     listBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       this.skipAll(quiet, cut);
-      openTitleList(this, { earned: saved.records.titles, current: t.id });
+      openTitleList(this, { earned: saved.earned, current: t.id });
     });
     dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn, list: listBtn };
 
@@ -347,7 +303,7 @@ export class ResultScene extends Phaser.Scene {
       .wait(250)
       .step(0, {
         end: () => {
-          const c = titleCommentFor(t.id, run.stage.id);
+          const c = titleCommentFor(t.id, textStage);
           void cut.say(c.text, c.face, { who: c.who }).then(() => { commentShownAt = this.time.now; });
           if (quiet.v) cut.skip();
         }
@@ -368,13 +324,13 @@ export class ResultScene extends Phaser.Scene {
           sfx(i === rows.length - 1 ? 'stamp' : 'blip');
           if (i === rows.length - 1 && !quiet.v && r.target >= 10_000_000) shake(this, 3, 200);
           if (r.record && saved.newRecords.includes(r.record) && !newTags[i].getData('never')) { newTags[i].setVisible(true); sfx('sparkle'); }
-          if (i === 2) hurtLine?.setVisible(true);
+          sw.onRowEnd(i);
         }
       });
     });
     this.tl
       .wait(200)
-      .step(0, { end: () => { analogy.setVisible(true); for (const g of extraTexts) g.setVisible(true); sfx('sparkle'); } })
+      .step(0, { end: () => { sw.reveal(); sfx('sparkle'); } })
       .wait(300)
       .step(0, {
         end: () => {
@@ -383,12 +339,19 @@ export class ResultScene extends Phaser.Scene {
         }
       });
 
-    // 次のステージが開いた知らせ(帯とオペレーターのひとこと)。称号のひとことのあと、タップで出す
-    let unlockPending = saved.unlockedNow.length > 0;
+    // 次のステージが開いた知らせ(帯とオペレーターのひとこと)。称号のひとことのあと、タップで出す。
+    // フリープレイの「ステージを進めると、出てくる人が増えるよ」も同じ出し方
+    let unlockPending = saved.unlockedNow.length > 0 || saved.moreHint;
     const showUnlock = (): void => {
       if (!unlockPending) return;
       unlockPending = false;
       more.setVisible(false);
+      if (saved.moreHint) {
+        void cut.say(MORE_STAGES_HINT, 'normal', { who: 'operator' });
+        audio.sfx('sparkle');
+        dev.log.push('more-hint-shown');
+        return;
+      }
       const opened = saved.unlockedNow[0];
       // 名前が長くて帯の字が画面の端につくとき(「ショッピングモール」)は、短い名前(「モール」)にする
       const full = `${STAGES[opened].name}が遊べる!`;
@@ -424,7 +387,13 @@ export class ResultScene extends Phaser.Scene {
     // ─── 共有 ───
     // 文は短く:いちばんひどい場面の見出し(弱ければ称号)、ハッシュタグ、URL。数字は画像に入っている
     const url = location.origin + location.pathname;
-    const text = buildShareText({ caption: shareCaption({ worstScene: s.worstScene, caption: worstCaption(s), titleName: t.name }), url });
+    // フリープレイは、ルールと場面をつなげた文(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)
+    const text = buildShareText({
+      caption: free && s.free
+        ? freeShareCaption({ worstScene: s.worstScene, caption: worstCaption(s), free: s.free, titleName: t.name })
+        : shareCaption({ worstScene: s.worstScene, caption: worstCaption(s), titleName: t.name }),
+      url
+    });
     dev.shareText = text;
     this.share = new ShareFlow({
       text,
@@ -443,10 +412,12 @@ export class ResultScene extends Phaser.Scene {
       this.share?.arm();
     });
 
-    const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: def };
+    // フリープレイのカードは、右上のステージ名を「フリープレイ」にする(背景は波3のステージ)
+    const cardStage: CardStage = free ? { bg: def.bg, bossSheet: def.bossSheet, name: FREE_NAME, shortName: FREE_NAME } : def;
+    const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: cardStage, textStage };
     const texts = [
-      ...cardTexts(cardIn), ...rows.map((r) => r.label), 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, hurtParts.join('・'),
-      worstCaption(s), ufoText ?? '', rushText ?? '', 'UFO：機・'
+      ...cardTexts(cardIn), ...sw.texts, 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, caption,
+      free ? MORE_STAGES_HINT : ''
     ];
     const alive = (): boolean => this.sys.isActive() || this.sys.isPaused() || this.sys.isSleeping();
     // 共有ボタンを使えるようにする(File が作れなかったときも、画像を大きく出す方で共有できる)
@@ -556,6 +527,110 @@ export class ResultScene extends Phaser.Scene {
       }
     });
   }
+}
+
+/**
+ * ステージの数字の窓。並び:仕分け正解、悪党を倒した、市民のけが(その下に小さく内わけ)、逃がした、被害額(その下にたとえ)。
+ * ステージ2は組の行、ステージ3はUFOとラッシュの行を足す。低い画面では詰める(先頭の説明)
+ */
+function stageWindow(env: WindowEnv, s: StageStats, run: GameRun): StatsWindow {
+  const { scene, boxY, bottom } = env;
+  const { W } = layout;
+  const def = run.stage.def;
+  const hurtParts = hurtBreakdown(s);
+  // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
+  const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
+  const rushText = def.hasRush && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
+  const extraRows = (f: Fit): number =>
+    (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
+  const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);
+  const shareYOf = (f: Fit): number => bottom - f.smallH - f.gap - f.shareH;
+  const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRowsOf(f);
+  const roomOf = (f: Fit): number => shareYOf(f) - 5 - (boxY + boxHOf(f) + 5);
+  // 写真が入る並べ方を、ゆったりした順に探す。どれでも入らなければ、いちばん詰めたもの(写真なし)
+  // (UFOとラッシュの行をまとめる pack は、ステージ3のほかでは何も変えない)
+  const fits: Fit[] = [
+    { smallH: 26, shareH: 30, gap: 5, rowH: 17, merge: false, subH: 13, pack: false },
+    { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: false },
+    { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: true },
+    { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: true, subH: 13, pack: true },
+    // いちばん低い画面(高さ384)のステージ2と3:写真なしで、窓がボタンにかぶらないところまで詰める
+    { smallH: 22, shareH: 24, gap: 3, rowH: 15, merge: true, subH: 12, pack: true }
+  ];
+  const fit = fits.find((f) => roomOf(f) >= THUMB_MIN) ?? fits.find((f) => roomOf(f) >= -6) ?? fits[fits.length - 1];
+  const { rowH, merge, subH, pack } = fit;
+  const boxH = boxHOf(fit);
+  new WindowFrame(scene, 4, boxY, W - 8, boxH, 'win');
+
+  const rows: StatRow[] = [
+    { label: '仕分け正解', target: s.sortCorrect, format: (n) => `${n}/${s.sortTotal}人`, color: UI.gold, ms: 350 },
+    { label: '悪党を倒した', target: s.defeated, format: (n) => `${n}人`, color: UI.gold, record: 'mostDefeated', ms: 350 },
+    { label: '市民のけが', target: s.civHurt, format: (n) => `${n}人`, color: s.civHurt > 0 ? UI.danger : UI.gold, record: 'fewestHurt', ms: 350 },
+    { label: '逃がした', target: s.escaped, format: (n) => `${n}人`, color: s.escaped > 0 ? UI.danger : UI.gold, ms: 300 },
+    { label: '被害額', target: s.damage, format: (n) => formatYen(n), color: UI.gold, record: 'highestDamage', ms: 800 }
+  ];
+  const DAMAGE = 4;
+  // 行ごとの位置(左、右、上)。まとめるときは「逃がした」を「悪党を倒した」の行の右半分に置く(字は小さめ)
+  const place: { x: number; right: number; y: number; small: boolean }[] = [];
+  let cy = boxY + 5;
+  const hurtSub = { y: 0 };
+  const analogyY = { y: 0 };
+  rows.forEach((_r, i) => {
+    if (merge && i === 1) { place.push({ x: 11, right: 118, y: cy, small: true }); cy += rowH; return; }
+    if (merge && i === 3) { place.push({ x: 124, right: W - 11, y: place[1].y, small: true }); return; }
+    place.push({ x: 11, right: W - 11, y: cy, small: false });
+    cy += rowH;
+    if (i === 2 && hurtParts.length) { hurtSub.y = cy - 1; cy += subH; }
+    if (i === DAMAGE) { analogyY.y = cy - 2; cy += subH; }
+  });
+  const extraY = cy - 2;
+  const values = rows.map((r, i) => {
+    const p = place[i];
+    // まとめた行は、見出しを小さい字にして数字は大きいまま
+    // 仕分け正解はいちばん大事なので、見出しも金色
+    new PixelText(scene, p.x, p.small ? p.y + 3 : p.y, r.label, { size: p.small ? FS.body : FS.big, color: i === 0 ? UI.gold : UI.textDim });
+    return new PixelText(scene, p.right, p.y, '', { size: FS.big, color: r.color, outline: true }).setOrigin(1, 0);
+  });
+  // 新記録の NEW は見出しのすぐ右
+  const newTags = rows.map((r, i) => {
+    const p = place[i];
+    const tag = env.newTag(p.x + 16 * r.label.length + 4, p.y + 3).setVisible(false);
+    // まとめた行は数字とぶつかるので出さない
+    if (p.small) tag.setData('never', true);
+    return tag;
+  });
+  // 市民のけがの内わけ(0の理由は書かない)
+  const hurtLine = hurtParts.length
+    ? new PixelText(scene, W - 11, hurtSub.y, hurtParts.join('・'), { size: FS.small, color: UI.textDim }).setOrigin(1, 0).setVisible(false)
+    : null;
+  const analogy = new PixelText(scene, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.body, color: UI.gold, outline: true })
+    .setOrigin(1, 0).setVisible(false);
+  const extraTexts: PixelText[] = [];
+  if (def.mechanic === 'gang') {
+    const byGroup = s.defeatedByWipe + s.defeatedByVan;
+    extraTexts.push(
+      new PixelText(scene, 11, extraY, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),
+      new PixelText(scene, W - 11, extraY, `車で逃げた{${s.groupsEscaped > 0 ? 'red' : 'gold'}}${s.groupsEscaped}{/}組`, { size: FS.body, color: UI.textDim })
+        .setOrigin(1, 0).setVisible(false)
+    );
+  }
+  // UFOとラッシュ:ふだんは1行ずつ。まとめるときは小さい字で「UFO：2機・セール：…」の1行にする
+  // (「UFO2機」だと「UFO」と数字がつながって読みにくいので、ラッシュのまとめと同じく「：」で区切る)
+  if (pack && ufoText && rushText) {
+    const short = `UFO：{gold}${s.ufosDowned}{/}機・${rushText}`;
+    extraTexts.push(new PixelText(scene, 11, extraY + 1, short, { size: FS.small, color: UI.textDim }).setVisible(false));
+  } else {
+    [ufoText, rushText].filter((x): x is string => !!x).forEach((x, k) => {
+      extraTexts.push(new PixelText(scene, 11, extraY + subH * k, x, { size: FS.body, color: UI.textDim }).setVisible(false));
+    });
+  }
+
+  return {
+    fit, boxH, rows, values, newTags,
+    onRowEnd: (i) => { if (i === 2) hurtLine?.setVisible(true); },
+    reveal: () => { analogy.setVisible(true); for (const g of extraTexts) g.setVisible(true); },
+    texts: [...rows.map((r) => r.label), hurtParts.join('・'), ufoText ?? '', rushText ?? '', 'UFO：機・']
+  };
 }
 
 /** 場面の写真を 216×214 のキャンバスにそろえる */

@@ -118,6 +118,7 @@ Boot→Title→StageSelect→Intro
 - `&stage=garage`や`&stage=mall`をつけて`sample`を書かないときは、そのステージのふつうの見本になる(モールは買い物客が1人さらわれた数字)
 - 路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。地下駐車場の見本に足すと「モールが開いた」です(例:`?scene=Result&sample=roundup&stage=garage&unlock=1`)
 - 見本は本当の記録を書きかえません(その場かぎりの記録に書く)。前の記録を入れてあるので、NEWの印が出る。`&new=0`で前の記録を入れない
+- `?scene=Result&free=1`でフリープレイの結果画面の見本(`&sample=sitter`、`interp`、`letitbe`でフリープレイだけの3つの称号。`&more=1`で「ステージを進めると、出てくる人が増えるよ」も出る)
 
 開発用のサーバーでは、ブラウザの開発ツールからゲームの中身をさわれます(`tools/`のスクリプトが使う)。
 
