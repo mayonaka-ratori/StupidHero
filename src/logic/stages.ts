@@ -146,9 +146,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     name: 'ショッピングモール',
     shortName: 'モール',
     bg: { far: 'bg_mall_far', wall: 'bg_mall_wall', ground: 'bg_mall_ground' },
-    // 音の担当がステージ3の曲(結果発表、ボス戦、タイムセールラッシュ)を足したら、
-    // street3、boss3、rush に書きかえる(BgmName にまだないので、今は地下駐車場の曲を借りている)
-    bgm: { street: 'street2', boss: 'boss2', rush: null },
+    bgm: { street: 'street3', boss: 'boss3', rush: 'sale3' },
     bossSheet: 'boss3',
     disguises: ['clerk', 'uncle', 'mascot'],
     disguiseSheets: {
@@ -188,7 +186,7 @@ export const MALL_SHEETS = {
   /** 母艦 160×64。浮かぶ2コマ、光線、落ちた */
   mothership: 'prop_mothership',
   /** UFOの吸い上げる光 32×64 */
-  beam: 'fx_beam',
+  beam: 'fx_ufobeam',
   /** くずれのノイズ 64×64(タイムセールラッシュで体全体に重ねる) */
   glitch: 'fx_glitch'
 } as const;

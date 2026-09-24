@@ -8,7 +8,7 @@ import type { StageId } from './types';
  * 絵がもうあるステージ。ショッピングモールの絵は絵の担当が作っている途中なので、キーの名前だけ下で確かめる
  * (絵の担当が src/art/sheets.ts にモールの絵を足したら、'mall' を足す)
  */
-const ART_READY: readonly StageId[] = ['alley', 'garage'];
+const ART_READY: readonly StageId[] = ['alley', 'garage', 'mall'];
 
 describe('ステージの定義', () => {
   it('番号、名前、値段とボス戦の数字、開く順。ステージ2は曲もボスの絵も別', () => {
@@ -54,7 +54,7 @@ describe('ステージの定義', () => {
     expect(d.looks).toEqual(['mascot', 'clerk', 'dancer', 'uncle']);
     for (const look of d.disguises) expect(sheetKeyFor(look, 'boss', 'mall')).toBe(`boss3_disguise_${look}`);
     expect(d.props.map((p) => `prop_${p}`)).toEqual(['prop_gacha', 'prop_mannequin', 'prop_showcase', 'prop_fountain', 'prop_escalator']);
-    expect(MALL_SHEETS).toEqual({ ufo: 'prop_ufo', mothership: 'prop_mothership', beam: 'fx_beam', glitch: 'fx_glitch' });
+    expect(MALL_SHEETS).toEqual({ ufo: 'prop_ufo', mothership: 'prop_mothership', beam: 'fx_ufobeam', glitch: 'fx_glitch' });
   });
 
   it('ステージ3の物の値段と大きさ(STAGE3の表)。噴水とエスカレーターは大きな物。UFOと母艦はふつうの攻撃では壊れない', () => {

@@ -16,7 +16,7 @@
 //   for (const e of ufos.update(deltaMs)) {
 //     if (e.phase === 'signal') { /* e.alienId が空へ合図を送る。say('ufoSignal', rng, 'mall') */ }
 //     if (e.phase === 'descend') { /* UFOが下りてくる。買い物客を歩かせる。say('ufoArrive', ...) */ }
-//     if (e.phase === 'beam') { /* 吸い上げる(fx_beam)。UFOの上に行けのマーク。初めてなら say('teachUfo')、ほかは say('ufoBeam') */ }
+//     if (e.phase === 'beam') { /* 吸い上げる(fx_ufobeam)。UFOの上に行けのマーク。初めてなら say('teachUfo')、ほかは say('ufoBeam') */ }
 //     if (e.phase === 'leave') { /* 行けを押さなかった。買い物客と宇宙人を乗せて去る */ }
 //     if (e.phase === 'abducted') { stats.ufoEscaped(); stats.reportScene('abducted'); say('ufoAbducted') }
 //   }
