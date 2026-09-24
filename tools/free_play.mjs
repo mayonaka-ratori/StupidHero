@@ -5,7 +5,9 @@
 //   good  市民への待てのマークと、行けのマーク(悪さのワル、ギャングの組、UFO)だけを、出たらすぐ押す。
 //         波1の始めに1回だけ、マークのないときに待てを押す(空押し。ヒーローが振り向き、空押しに1回数えるか)
 //   none  何も押さない(ヒーローにまかせる)
-//   both  good と none を続けて
+//   late  市民への待ては、ためのいちばん最後(ギリギリセーフ)に押す。最初に殴りかかられるワルにも1回だけ待てを押し、
+//         悪さを始めたら行けで取り返す。行けのマークは出たらすぐ指で押す(待ては、遅れないようにページの中から押す)
+//   both  good と none を続けて(all は good、none、late)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
 // エラーが出たとき、結果画面まで行けなかったとき、数が合わないときは exit code 1 で終わる。
@@ -14,8 +16,8 @@ import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
 
 const [url, outDir, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 if (!url || !outDir) { console.error('usage: node tools/free_play.mjs <url> <outDir> [good|none|both] [seed] [unlocked]'); process.exit(2); }
-const policies = policyArg === 'both' ? ['good', 'none'] : [policyArg];
-if (policies.some((p) => !['good', 'none'].includes(p))) { console.error(`押し方は good、none、both のどれか(${policyArg})`); process.exit(2); }
+const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late'] : [policyArg];
+if (policies.some((p) => !['good', 'none', 'late'].includes(p))) { console.error(`押し方は good、none、late、both、all のどれか(${policyArg})`); process.exit(2); }
 mkdirSync(outDir, { recursive: true });
 const browser = await openBrowser();
 const { check, done } = checker();
@@ -36,6 +38,7 @@ const peek = () => {
     stopMark: sd.stopHandler !== null,
     stopCiv: !!marked && marked.civ,
     stopId: marked?.person?.id ?? null,
+    windup: f.windupProgress,
     go: f.goTarget() !== null,
     stopLocked: f.dryStop.locked(sd.time.now),
     goLocked: f.dryGo.locked(sd.time.now),
@@ -70,6 +73,30 @@ const expected = () => {
   return { stop, goScenes, goPeople, chances: plan.chances };
 };
 
+/**
+ * late の待て:ページの中で毎コマ見張り、市民へのためがいちばん最後(0.85より先)まで進んだら待てを押す。
+ * 指で押すと、ブラウザとのやりとりの遅れで間に合わないことがあるので、ボタンを押したときと同じ pressStop を呼ぶ。
+ * 最初に殴りかかられるワルにも1回だけ待てを押す(取り返しを見る)
+ */
+const lateWatcher = () => {
+  const done = new Set();
+  let villain = false;
+  const tick = () => {
+    const sd = window.streetDev;
+    const f = sd?.free;
+    if (f && sd.sys.isActive() && sd.stopHandler) {
+      const a = sd.queue.find((q) => q.markKind === 'stop' && q.standing);
+      const id = a?.person?.id;
+      if (a && !done.has(id)) {
+        if (!a.civ && !villain) { villain = true; done.add(id); f.pressStop(); }
+        else if (a.civ && f.windupProgress !== null && f.windupProgress >= 0.85) { done.add(id); f.pressStop(); }
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
 async function play(policy) {
   const errors = [];
   const page = await openPage(browser, { errors });
@@ -87,6 +114,7 @@ async function play(policy) {
   await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
   const pad = await touchPad(page);
   const exp = await page.evaluate(expected);
+  if (policy === 'late') await page.evaluate(lateWatcher);
   console.log(`[${policy}] 待てのチャンス ${exp.stop}、行けの場面 ${exp.goScenes}(ワル ${exp.goPeople}人)、場面 ${exp.chances.scenes}`);
   const shots = new Set();
   const shot = async (name) => {
@@ -101,6 +129,7 @@ async function play(policy) {
   let dryDone = false;
   let dryTurned = null;
   let reached = false;
+  let villainStopped = false;
   let declareShotAt = 0;
   while (Date.now() - t0 < 360000) {
     const st = await page.evaluate(peek);
@@ -113,6 +142,17 @@ async function play(policy) {
     if (s.stopMark) await shot(`w${st.wave + 1}_stopmark`);
     if (s.go) await shot(`w${st.wave + 1}_gomark`);
     if (s.redeclared) await shot('w3_redeclare');
+    if (policy === 'late' && s.open && !s.leaving) {
+      // 待ては、ページの中の見張り(lateWatcher)が押す。行けのマークは出たらすぐ指で押す
+      if (s.stopMark && !s.stopCiv) await shot('late_villainstop');
+      if (s.go && !s.goLocked && Date.now() - pressedGoAt > 250) {
+        pressedGoAt = Date.now();
+        await pad.tap(s.goBtn.x, s.goBtn.y);
+        continue;
+      }
+      await page.waitForTimeout(30);
+      continue;
+    }
     if (policy === 'good' && s.open && !s.leaving) {
       // 波1の始め、マークのないときに1回だけ空押し
       if (!dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
@@ -137,6 +177,7 @@ async function play(policy) {
     await page.waitForTimeout(40);
   }
   const secs = Math.round((Date.now() - t0) / 1000);
+  const seen = await page.evaluate(() => window.__game.registry.get('run') && window.streetDev?.free?.seen);
   check(`[${policy}] 結果画面まで行く`, reached, `${secs}秒`);
   await page.waitForTimeout(1500);
   await shot('result');
@@ -147,6 +188,7 @@ async function play(policy) {
     console.log(`[${policy}] 待てで守った ${f.stopSaved}/${f.stopChances}、行けで決めた ${f.goScenes}/${f.goChances}、取り返し ${f.recovered}、` +
       `空押し ${f.dryPresses}、逃がした ${snap.escaped}、けが ${snap.civHurt}(ヒーロー ${snap.civHurtByHero})、` +
       `当たり ${f.heroRight}→${f.fixedRight}/${f.units}、時計 ${f.rawSec?.toFixed(1)}秒、クリア ${f.clearSec?.toFixed(1)}秒${f.slow ? '(ゆっくり)' : ''}`);
+    console.log(`[${policy}] 起きた場面: ${JSON.stringify(seen)}`);
     check(`[${policy}] チャンスの数(待て9、行け8、場面27)`, f.stopChances === 9 && f.goChances === 8 && f.units === 27 && exp.stop === 9 && exp.goScenes === 8);
     check(`[${policy}] 時計が進んで止まった`, f.rawSec !== null && f.rawSec > 30 && f.rawSec < 400, String(f.rawSec));
     check(`[${policy}] クリアの時間は、逃がしたワルと市民のけが1人につき3秒を足す`, Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt) * 3)) < 1e-6);
@@ -158,6 +200,12 @@ async function play(policy) {
       check('[good] ヒーローが殴った市民はいない', snap.civHurtByHero === 0, String(snap.civHurtByHero));
       check('[good] 逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
       check('[good] 直したあとは全部当たり(巻きぞえのほかは)', f.fixedRight === f.units, `${f.fixedRight}/${f.units}`);
+    } else if (policy === 'late') {
+      check('[late] ワルに待てを押して、取り返しを数えた', f.recovered >= 1 || snap.escaped >= 1, `取り返し ${f.recovered}`);
+      check('[late] 空押しはない', f.dryPresses === 0, String(f.dryPresses));
+      check('[late] ギリギリセーフが起きた', (seen?.closeCall ?? 0) >= 1, String(seen?.closeCall));
+      check('[late] ギリギリで待てを押した市民も全員守れた', f.stopSaved === 9, String(f.stopSaved));
+      check('[late] ギリギリセーフが待てのチャンスの数だけ起きた', seen?.closeCall === 9, String(seen?.closeCall));
     } else {
       check('[none] 待ても行けも効いていない', f.effectiveStops === 0 && f.effectiveGos === 0 && f.stopSaved === 0 && f.goScenes === 0);
       check('[none] 空押しはない', f.dryPresses === 0);

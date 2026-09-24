@@ -82,6 +82,9 @@ const linesOf = new WeakMap<GameRun, FreeLines>();
 const spokenOf = new WeakMap<GameRun, Set<string>>();
 /** その回で行けの使い方をもう言ったか */
 const taughtGo = new WeakSet<GameRun>();
+/** 開発用:その回で場面が何回起きたか(光の拳、走って殴る、ギリギリセーフ、行けのマークが2つ、ワルに待て) */
+interface Seen { fist: number; runHit: number; closeCall: number; twoGo: number; recover: number }
+const seenOf = new WeakMap<GameRun, Seen>();
 
 /** 開いているステージの市民の絵(悪さの相手)。地下駐車場の市民の小物はオレンジか紫 */
 function passerLooks(unlocked: readonly StageId[]): PasserLook[] {
@@ -124,6 +127,10 @@ export class FreeStreet {
   private auras: Partial<Record<'attack' | 'pass' | 'attackLine' | 'passLine', Phaser.GameObjects.Sprite>> = {};
   private bubbleIcon: Phaser.GameObjects.Container | null = null;
   private offSettings: (() => void) | null = null;
+  /** ためを数えている時計(ためのときだけ) */
+  private windupEv: Phaser.Time.TimerEvent | null = null;
+  /** 開発用:その回で場面が何回起きたか(tools/free_play.mjs が見る) */
+  readonly seen: Seen;
 
   constructor(private s: StreetScene) {
     const run = s.run;
@@ -134,6 +141,9 @@ export class FreeStreet {
     let lines = linesOf.get(run);
     if (!lines) { lines = createFreeLines(run.rng); linesOf.set(run, lines); }
     this.lines = lines;
+    let seen = seenOf.get(run);
+    if (!seen) { seen = { fist: 0, runHit: 0, closeCall: 0, twoGo: 0, recover: 0 }; seenOf.set(run, seen); }
+    this.seen = seen;
     this.items = new FreeItems(s);
     this.timing = freeTiming(this.fw.no, settings.slowMode);
     this.passerPool = passerLooks(run.free!.plan.unlocked);
@@ -290,7 +300,12 @@ export class FreeStreet {
     if (!this.inputOpen) return;
     const t = this.goTarget();
     if (!this.dryGo.press(this.s.time.now, t !== null)) { if (!t) this.dry('go'); return; }
-    t?.fire();
+    if (t) this.fireGo(t);
+  }
+
+  /** ためがどこまで進んだか(0〜1。ためでなければ null。開発用) */
+  get windupProgress(): number | null {
+    return this.windupEv && !this.windupEv.hasDispatched ? this.windupEv.getProgress() : null;
   }
 
   /** 行けが効く相手のうち、いちばん先にマークが出たもの */
@@ -301,6 +316,12 @@ export class FreeStreet {
     if (h) list.push({ since: s.goSince, fire: h });
     if (list.length === 0) return null;
     return list.reduce((a, b) => (b.since < a.since ? b : a));
+  }
+
+  /** 行けを押した(2つ出ていたら数えておく) */
+  private fireGo(t: GoTarget): void {
+    if (this.threats.length + (this.s.goHandler ? 1 : 0) > 1) this.seen.twoGo++;
+    t.fire();
   }
 
   /** 空押し:ヒーローが「?」と振り向く(待ては少し立ち止まる) */
@@ -549,6 +570,7 @@ export class FreeStreet {
         s.stopHandler = null;
         s.walker = null;
         ev?.remove();
+        this.windupEv = null;
         resolve({ stop, close });
       };
       s.stopHandler = () => finish(true, !!ev && ev.getProgress() >= 1 - CLOSE_CALL);
@@ -557,6 +579,7 @@ export class FreeStreet {
         if (done) return;
         s.windup(k);
         ev = s.time.delayedCall(this.timing.windupSec * 1000, () => finish(false));
+        this.windupEv = ev;
       });
     });
   }
@@ -564,7 +587,9 @@ export class FreeStreet {
   /** 決めつけの一言。波3は吹き出しの左に小物の絵も出す(「風船だからワル!」) */
   private heroSayItem(sp: { text: string }, item?: FreeItem): void {
     const s = this.s;
-    s.heroSay(sp.text, 1600, JUDGE_RISE);
+    // マークが出ている間(近づく間とため)は出しておく
+    const markMs = ((MARK.showDistance - ATTACK_GAP) / (RUN * this.timing.markSlowmo) + this.timing.windupSec) * 1000;
+    s.heroSay(sp.text, Math.max(1600, Math.round(markMs) + 200), JUDGE_RISE);
     this.bubbleIcon?.destroy();
     this.bubbleIcon = null;
     const key = item ? FREE_ITEM_ICONS[item] : null;
@@ -595,12 +620,14 @@ export class FreeStreet {
     const s = this.s;
     if (a.civ) {
       // 拳が当たる寸前に止めた:ギリギリセーフの場面
+      if (close) this.seen.closeCall++;
       if (close && s.stats.reportFreeScene('closeCall')) s.time.delayedCall(60, () => s.shoot(0, (img) => { this.run.worstShot = img; }));
       this.hit('saved');
       await s.doStop(a);
       return;
     }
     this.missStreak = 0;
+    this.seen.recover++;
     await s.doStop(a);
     if (!a.standing) return;
     // ほら、やっぱりワル:止めたワルはすぐ悪さを始める
@@ -704,18 +731,20 @@ export class FreeStreet {
     return new Promise((resolve) => {
       void (async () => {
         let v = s.passers.find((p) => p.standing && p.x > a.x + 24 && p.x < a.x + 110);
+        let meetX = v?.x ?? 0;
         if (!v) {
-          // 相手がいなければ、右から歩いてくる
+          // 相手がいなければ、右の端から歩いてくる(モヒカンは相手が着く所へ走る)
           const vy = a.y < 192 ? 204 : 178;
+          meetX = Math.max(a.x + THREAT_DX, s.hero.x + 60);
           v = this.makePasser(s.L.right + 20, vy);
           v.play('walk', true);
           const nv = v;
-          void s.moveTo(nv, Math.max(a.x + THREAT_DX, s.hero.x + 60), vy, 700, 'Linear').then(() => { if (nv.standing) nv.play('idle'); });
+          void s.moveTo(nv, meetX, vy, 700, 'Linear').then(() => { if (nv.standing) nv.play('idle'); });
         }
         const victim = v;
         a.faceLeft(false).play('walk', true, 2.4);
         s.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
-        await s.moveTo(a, Math.max(a.x, victim.x - 18), victim.y, 620);
+        await s.moveTo(a, Math.max(a.x, meetX - 18), victim.y, 620);
         if (!a.standing) { resolve(); return; }
         a.faceLeft(false).play('mischief', true);
         audio.sfx('swipeBad');
@@ -768,6 +797,8 @@ export class FreeStreet {
     this.goDone(t.recovered);
     t.a.pose('surprised');
     const canRun = (this.heroMode === 'walk' || this.heroMode === 'wait') && t.a.x - ATTACK_GAP >= s.hero.x - 2;
+    if (canRun) this.seen.runHit++;
+    else this.seen.fist++;
     void (canRun ? this.runAndHit(t) : this.fistShot(t)).then(() => {
       const v = t.victim;
       if (v.standing) {
