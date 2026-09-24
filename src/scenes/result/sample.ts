@@ -7,20 +7,26 @@
 //   &stage=garage を足すと地下駐車場の見本(組ごと撃破、車で逃げた組、駐車場の背景と絵)
 //   ?scene=Result&sample=roundup&stage=garage  一網打尽(まとめて吹き飛ばした組が2組)
 //   ?scene=Result&sample=driver&stage=garage   ギャングの運転手(車で逃げられた組が2組)
-//   &unlock=1 で、路地裏をクリアして地下駐車場が開いた知らせを出す(路地裏の見本のとき)
+//   &stage=mall を足すとショッピングモールの見本(UFO、さらわれた、タイムセールのまとめ、モールの背景と絵)。
+//   ふつう(書かないとき)は買い物客が1人さらわれて、まあまあヒーロー
+//   ?scene=Result&sample=guide&stage=mall   宇宙人の案内係(2人さらわれた)
+//   ?scene=Result&sample=sale&stage=mall    タイムセールの守り神(セールで1人も間違えない)
+//   ?scene=Result&sample=hunter&stage=mall  UFOハンター(UFOを2機落とした。エスカレーターが壊れた)
+//   &unlock=1 で、そのステージのクリアで次のステージが開いた知らせを出す(路地裏なら地下駐車場、地下駐車場ならモール)
 
 import { emptyStageRecord } from '../../logic/records';
 import type Phaser from 'phaser';
 import type { RecordStorage, StageId, StatsTracker } from '../../logic';
-import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, loadRecords } from '../../logic';
+import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, loadRecords } from '../../logic';
 import { accessorySheet } from '../../art/recolor';
 import { drawAlley, drawSprite, frameOf, makeCanvas } from './draw';
 
-export type SampleName = 'granny' | 'demolition' | 'flawless' | 'runaway' | 'kind' | 'roundup' | 'driver';
+const SAMPLE_NAMES = ['granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter'] as const;
+export type SampleName = typeof SAMPLE_NAMES[number];
 
 export function sampleName(): SampleName {
   const q = new URLSearchParams(location.search).get('sample');
-  return (['granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver'] as const).find((s) => s === q) ?? 'granny';
+  return SAMPLE_NAMES.find((s) => s === q) ?? 'granny';
 }
 
 /** 地下駐車場の見本の数字 */
@@ -84,9 +90,106 @@ function fillGarageSample(stats: StatsTracker, name: SampleName): void {
   }
 }
 
+/**
+ * ショッピングモールの見本の数字。ラッシュは宇宙人4人と市民4人。
+ * miss は間違えた数(宇宙人を逃がした数、市民を殴った数)
+ */
+function fillMallSample(stats: StatsTracker, name: SampleName): void {
+  const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
+  const rush = (alienMiss: number, civMiss: number): void => {
+    stats.startRush({ alienCount: 4, civCount: 4 });
+    n(4 - alienMiss, () => stats.rushHit('bad')); n(alienMiss, () => stats.rushStopped('bad'));
+    n(4 - civMiss, () => stats.rushStopped('civ')); n(civMiss, () => stats.rushHit('civ'));
+  };
+  switch (name) {
+    case 'guide':
+      // 2人さらわれた(宇宙人の案内係)
+      n(5, () => stats.defeatBad('sort'));
+      n(2, () => stats.ufoEscaped());
+      stats.defeatBoss(8.4);
+      stats.breakProp('gacha'); stats.breakProp('mannequin');
+      stats.addBossDamage(3_000_000);
+      rush(1, 2);
+      stats.reportScene('abducted');
+      break;
+    case 'sale':
+      // セールは全部正しい。1人だけ逃がした(全員倒していないので、ほかの称号にならない)
+      n(stats.villainTotal - 3, () => stats.defeatBad('sort'));
+      stats.ufoDowned(); stats.breakProp('showcase');
+      stats.escaped();
+      stats.defeatBoss(8.8);
+      stats.breakProp('fountain');
+      rush(0, 0);
+      stats.reportScene('bossDefeated');
+      break;
+    case 'hunter':
+      // UFOを2機落として、エスカレーターが壊れた。市民を1人殴った
+      n(5, () => stats.defeatBad('sort'));
+      n(2, () => stats.ufoDowned());
+      stats.breakProp('escalator'); stats.breakProp('gacha');
+      stats.hurtCiv('hero', 'clerk');
+      stats.defeatBoss(9.5);
+      stats.breakProp('fountain');
+      rush(1, 1);
+      stats.reportScene('bigPropBroken');
+      break;
+    case 'demolition':
+      n(6, () => stats.defeatBad('sort'));
+      stats.ufoDowned();
+      n(4, () => stats.breakProp('escalator'));
+      n(3, () => stats.breakProp('showcase'));
+      stats.bossRampage();
+      stats.addBossDamage(4_500_000);
+      stats.hurtCiv('collateral', 'dancer');
+      rush(2, 1);
+      stats.reportScene('specialOnCiv');
+      break;
+    case 'flawless':
+      n(stats.villainTotal - 2, () => stats.defeatBad('sort'));
+      stats.ufoDowned();
+      stats.defeatBoss(5.6);
+      stats.breakProp('gacha');
+      stats.stopped('civ');
+      rush(0, 0);
+      stats.reportScene('bossDefeated');
+      break;
+    case 'runaway':
+      n(stats.villainTotal - 2, () => stats.defeatBad('sort'));
+      stats.ufoDowned();
+      stats.defeatBoss(7.3);
+      n(2, () => stats.hurtCiv('hero', 'dancer'));
+      stats.hurtCiv('collateral', 'uncle');
+      stats.breakProp('mannequin'); stats.breakProp('showcase');
+      rush(1, 2);
+      stats.reportScene('civHit');
+      break;
+    case 'kind':
+      n(3, () => stats.defeatBad('sort'));
+      stats.defeatBoss(9.2);
+      stats.ufoEscaped();
+      n(2, () => stats.escaped());
+      n(2, () => stats.stopped('civ'));
+      rush(3, 0);
+      break;
+    default:
+      // ふつう:買い物客が1人さらわれ、UFOを1機落とした。セールは少し間違えた
+      n(5, () => stats.defeatBad('sort'));
+      stats.ufoDowned(); stats.breakProp('mannequin');
+      stats.ufoEscaped();
+      stats.defeatBoss(7.6);
+      stats.breakProp('gacha'); stats.breakProp('showcase'); stats.breakProp('fountain');
+      stats.addBossDamage(3_000_000);
+      rush(1, 2);
+      stats.reportScene('bigPropBroken');
+      stats.reportScene('abducted');
+      break;
+  }
+}
+
 /** 見本の数字を入れる(撃破、負傷、壊れた物など) */
 export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
   if (stats.stageId === 'garage') { fillGarageSample(stats, name); return; }
+  if (stats.stageId === 'mall') { fillMallSample(stats, name); return; }
   const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
   switch (name) {
     case 'granny':
@@ -131,9 +234,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
       stats.breakProp('vending'); stats.breakProp('window'); stats.breakProp('sign');
       stats.reportScene('civHit');
       break;
-    case 'kind':
-    case 'roundup':
-    case 'driver':
+    default:
       n(3, () => stats.defeatBad('sort'));
       stats.defeatBoss(9.2);
       n(4, () => stats.escaped());
@@ -173,9 +274,48 @@ function garageSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElem
   return canvas;
 }
 
+/**
+ * ショッピングモールの見本の場面。共有カードは写真の下のほう(y 126〜196)だけを使うので、UFOも低めに描く
+ */
+function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement | null {
+  if (name === 'kind') return null;
+  const { canvas, ctx } = makeCanvas(216, 214);
+  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES.mall.bg);
+  const feet = 196;
+  if (name === 'granny' || name === 'guide' || name === 'roundup' || name === 'driver') {
+    // 買い物客がUFOに吸い上げられている。ヒーローは笑顔で手をふっている
+    drawSprite(ctx, scene, 'prop_gacha', 0, 196, feet - 4, { anchor: 'bottom' });
+    // (右上はカードのステージの名前が重なるので、UFOは真ん中寄り)
+    drawSprite(ctx, scene, 'uncle_civ', frameOf('uncle_civ', 'surprised'), 136, feet - 6, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_ufobeam', frameOf('fx_ufobeam', 'play', 1), 120, 134, { anchor: 'topleft' });
+    drawSprite(ctx, scene, 'prop_ufo', 2, 136, 138, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'pass', 1), 64, feet, { anchor: 'feet' });
+  } else if (name === 'hunter' || name === 'demolition') {
+    // UFOが落ちて、エスカレーターが壊れた
+    drawSprite(ctx, scene, 'prop_escalator', 1, 158, feet - 2, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'prop_ufo', 3, 150, feet, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 5), 76, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_hit_big', frameOf('fx_hit_big', 'play', 1), 116, feet - 40, { anchor: 'center' });
+  } else if (name === 'runaway') {
+    drawSprite(ctx, scene, 'prop_mannequin', 1, 190, feet - 2, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'stomp', 4), 100, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_shockwave', frameOf('fx_shockwave', 'play', 1), 100, feet - 12, { anchor: 'center' });
+    drawSprite(ctx, scene, 'dancer_civ', frameOf('dancer_civ', 'knocked', 1), 150, feet - 6, { anchor: 'feet' });
+  } else {
+    // 母艦が噴水に落ちて、親玉が目を回している
+    drawSprite(ctx, scene, 'prop_fountain', 1, 176, feet - 2, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'prop_mothership', 3, 176, feet - 18, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'boss3', frameOf('boss3', 'defeat', 3), 126, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 5), 70, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_stars', frameOf('fx_stars', 'play', 1), 120, feet - 34, { anchor: 'center' });
+  }
+  return canvas;
+}
+
 /** 見本の「いちばんひどかった場面」(216×214)。ヒーローが市民を殴った瞬間など */
 export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: StageId = 'alley'): HTMLCanvasElement | null {
   if (stageId === 'garage') return garageSampleShot(scene, name);
+  if (stageId === 'mall') return mallSampleShot(scene, name);
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
   drawAlley(ctx, scene, 0, 0, 180);
@@ -218,8 +358,10 @@ export function memoryStorage(stageId: StageId = 'alley'): RecordStorage {
   // 地下駐車場(とそのあと)の見本は、開くのに必要なステージをクリアしたことにしておく
   const need = STAGES[stageId].unlockAfter;
   if (need) rec.stages[need] = { ...(rec.stages[need] ?? emptyStageRecord()), clears: Math.max(1, rec.stages[need]?.clears ?? 0) };
-  // ?unlock=1:路地裏をまだクリアしていないことにして、今回のクリアで地下駐車場が開くようにする
-  if (q.get('unlock') === '1' && stageId === 'alley') rec.stages.alley = { ...(rec.stages.alley ?? emptyStageRecord()), clears: 0 };
+  // ?unlock=1:このステージをまだクリアしていないことにして、今回のクリアで次のステージが開くようにする
+  // (路地裏なら地下駐車場、地下駐車場ならショッピングモール。次のステージがなければ何もしない)
+  const opens = STAGE_IDS.some((id) => STAGES[id].unlockAfter === stageId);
+  if (q.get('unlock') === '1' && opens) rec.stages[stageId] = { ...(rec.stages[stageId] ?? emptyStageRecord()), clears: 0 };
   m.set(RECORDS_KEY, JSON.stringify(rec));
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v); } };
 }
