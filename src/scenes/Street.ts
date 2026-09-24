@@ -6,6 +6,13 @@
 // 流れは run() の async の中で1人ずつ進める。待つのはシーンの時計(this.time)なので、ヒットストップと一時停止で止まる。
 // 早送り(▶▶)は、時計、動き(tween)、アニメ、毎フレームの動きをまとめて2倍にする(update の applySpeed)。
 // 待てと行けの合図が出ている間だけは、ふつうの速さに戻す(考える時間を減らさないため)。
+//
+// ステージごとの違いは def.mechanic と def.hasRush で分ける(ステージの名前では比べない)。
+// - mechanic 'gang'(ステージ2):見逃したギャングが口笛で仲間を呼び、集まった組を行けでまとめて倒す。車で逃げる
+// - mechanic 'ufo'(ステージ3):見逃した宇宙人が空へ合図 → UFOが下りて通りがかりの買い物客を吸い上げる。
+//   行けでUFOを殴り落とす(真下の物が壊れる)。押さなければ連れ去られる。時間は UfoQueue(logic/ufo.ts)が数える
+// - hasRush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
+//   ヒーローは全員に光のパンチ。市民にだけ待てを押す。時間は update の stepRush が数える(一時停止とヒットストップで止まる)
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -14,10 +21,11 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
 import {
-  GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, STREET_TEXTS, canStop, formatYen, gatherMembers, isAttacked, judgeLine,
+  GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, RUSH, RUSH_BAND_TEXT, UfoQueue, canStop, hasSeenRush, markRushSeen, rushEndLine,
+  rushGlitchShowing, rushIntroFor, rushSpawnSec, streetTextsFor, formatYen, gatherMembers, isAttacked, isBigProp, judgeLine,
   mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollGroupWipeProps, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
   type AnyReactionKey, type AttackKind, type Encounter, type GangPhase, type Look, type PropKind, type ReactionKey, type Rng, type Speech,
-  type StageDef, type StatsTracker, type WorstScene
+  type RushRunner, type StageDef, type StatsTracker, type UfoEvent, type WorstScene
 } from '../logic';
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
@@ -27,8 +35,9 @@ import {
 import { Actor, HEAD } from './street/actor';
 import { FastButton } from './street/fastButton';
 import { Layers } from './street/layers';
-import { HERO_START, VAN_Y, planGarage, planStreet, type GatherSpot } from './street/plan';
+import { HERO_START, VAN_Y, planGarage, planMall, planStreet, type GatherSpot } from './street/plan';
 import { snapshotLogical } from '../hires';
+import { settings } from '../settings';
 
 /** ヒーローの走る速さ(ドット/秒) */
 const RUN = 84;
@@ -48,11 +57,25 @@ const FAST = 2;
 const JUDGE_RISE = 8;
 /** 本性ちらり(ワルにした人に向かったときに一瞬見せる正体)の長さ */
 const PEEK_MS = 700;
+/** ステージ3:本性ちらりで光る宇宙人の目の色(黄緑。明るい緑 R0 G255 B0 は使わない) */
+const EYE_GLOW = 0x92ff00;
+/** ステージ3:人の絵の目の位置(右を向いているとき、足からのずれ)。4つの見た目と親玉の化けた姿で同じ */
+const EYE_AT = { dx: 6, dy: -48 };
+/** ステージ3:UFOが止まる高さ(連れ去られる買い物客の足から、UFOの下の端まで) */
+const UFO_HOVER = 72;
+/** ステージ3:連れ去られる買い物客が立つ所(素通りしたヒーローの何ドット先か) */
+const SHOPPER_DX = 56;
+/** ステージ3:落ちたUFOが止まる所(下の端の y)。奥の列の物と手前の人の間 */
+const UFO_LAND_Y = 160;
+/** ラッシュ:走ってきた人が止まる所(ヒーローの何ドット先か。ヒーローがエスカレーターの前をふさいでいる) */
+const RUSH_BLOCK = 28;
+/** ラッシュ:待てで通した人が、ヒーローの後ろを抜けていくときにずらす奥行き */
+const RUSH_PASS_DY = -10;
 
 /** 早送りのオンとオフ。ページを開いている間は、波や回をまたいで覚えておく */
 let fastOn = false;
 /** 待てと行けの使い方をもう言ったか(回ごと。その回で初めて合図が出たときだけ言う) */
-const taught = new WeakMap<GameRun, Set<'stop' | 'go'>>();
+const taught = new WeakMap<GameRun, Set<'stop' | 'go' | 'ufo'>>();
 
 interface PropObj { kind: PropKind; x: number; y: number; wall: boolean; sprite: Phaser.GameObjects.Sprite; broken: boolean }
 interface Walker { toX: number; fromX: number; fromY: number; toY: number; speed: number; resolve: () => void }
@@ -72,6 +95,38 @@ interface GangRun {
   count?: PixelText;
   /** 行けを押したあとの動きが終わったら呼ぶ */
   done: () => void;
+}
+/** ステージ3:来ているUFO1機(宇宙人の合図から、殴り落とす・連れ去られるまで)。時間は UfoQueue が数える */
+interface UfoRun {
+  alien: Actor;
+  /** 連れ去られそうになる通りがかりの買い物客(UFOが下りてくるときに歩いてくる) */
+  shopper?: Actor;
+  /** UFOの真ん中の x と、止まっているときの下の端の y */
+  x: number;
+  bottom: number;
+  sprite?: Phaser.GameObjects.Sprite;
+  beam?: Phaser.GameObjects.Sprite;
+  mark?: Phaser.GameObjects.Sprite;
+  /** 吸い上げる音を次に鳴らすまでのミリ秒 */
+  tractorMs: number;
+  /** 殴り落とすか、連れ去られたあとの動きが終わったら呼ぶ */
+  done: () => void;
+}
+/**
+ * タイムセールラッシュで走ってくる1人。
+ * wait:まだ来ていない / run:走っている / mark:待てのマーク(ヒーローの前で止まってからも) / hit:殴られた / pass:待てで通した / gone:いない
+ */
+interface RushMan {
+  r: RushRunner;
+  /** 画面の右に出てくる時刻(ラッシュの時計の秒。ゆっくりモードは間隔が1.5倍) */
+  spawnSec: number;
+  a?: Actor;
+  state: 'wait' | 'run' | 'mark' | 'hit' | 'pass' | 'gone';
+  /** マークが出た時刻(ラッシュの時計の秒) */
+  markSec: number;
+  /** 宇宙人のくずれのノイズ(体全体に重ねる) */
+  noise?: Phaser.GameObjects.Sprite;
+  glitchOn: boolean;
 }
 type HitMode = 'bad' | 'civ' | 'go' | 'reveal';
 
@@ -137,6 +192,22 @@ export class StreetScene extends Phaser.Scene {
   /** 待てで止めた人の id(組に呼ばれても来ない) */
   private stoppedIds = new Set<string>();
   private gang: GangRun | null = null;
+  // ステージ3:UFO
+  private ufos = new UfoQueue();
+  private ufo: UfoRun | null = null;
+  // ステージ3:タイムセールラッシュ
+  /** ラッシュでヒーローが立つ所(ラッシュのない波は null) */
+  private rushX: number | null = null;
+  /** ラッシュの間 true(早送りを切り、行けのボタンを暗くする) */
+  private rushOn = false;
+  /** ラッシュの時計が進んでいるか(帯と説明の間は止めている) */
+  private rushRunning = false;
+  private rushSec = 0;
+  private rushMen: RushMan[] = [];
+  /** ラッシュの全員が終わったら呼ぶ */
+  private rushDone: (() => void) | null = null;
+  /** 帯を出して止めている間に止めた絵(始めたら動かし直す) */
+  private rushHeld: Phaser.GameObjects.Sprite[] = [];
 
   constructor() { super(SCENES.street); }
 
@@ -154,6 +225,8 @@ export class StreetScene extends Phaser.Scene {
     this.auraOn = false;
     this.camFocus = null;
     this.gathers = new Map(); this.vans = new Map(); this.stoppedIds = new Set(); this.gang = null;
+    this.ufos = new UfoQueue(); this.ufo = null;
+    this.rushX = null; this.rushOn = false; this.rushRunning = false; this.rushSec = 0; this.rushMen = []; this.rushDone = null; this.rushHeld = [];
     const fa = new URLSearchParams(location.search).get('attack');
     this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
@@ -186,9 +259,13 @@ export class StreetScene extends Phaser.Scene {
     const wave = currentWave(this.run);
     const encOf = (id: string, truth: 'bad' | 'civ' | 'boss'): Encounter => resolveEncounter(truth, this.run.sorts[id] ?? 'civ');
     const passBad = new Set(wave.people.filter((p) => encOf(p.id, p.truth) === 'passBad').map((p) => p.id));
+    // 置く物はステージの仕組みごと(ステージ3はモールの物。ラッシュのある波はヒーローが立つ所にエスカレーター)
     const plan = this.def.mechanic === 'gang'
       ? planGarage(wave.people, passBad, this.def.props, this.rng)
-      : planStreet(wave.people, passBad, this.rng);
+      : this.def.mechanic === 'ufo'
+        ? planMall(wave.people, passBad, this.def.props, this.rng, this.rushThisWave())
+        : planStreet(wave.people, passBad, this.rng);
+    this.rushX = plan.rushX ?? null;
 
     for (const p of plan.props) {
       const key = `prop_${p.kind}`;
@@ -240,7 +317,9 @@ export class StreetScene extends Phaser.Scene {
       const pause = new PauseControl(this);
       this.icons.push(new IconButton(this, W - 12, 12, 'pause', () => pause.pause()));
       this.icons.push(new MuteButton(this, W - 34, 12, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }));
-      this.fastBtn = new FastButton(this, W - 56, 12, { isOn: () => fastOn, toggle: () => { audio.unlock(); fastOn = !fastOn; } });
+      this.fastBtn = new FastButton(this, W - 56, 12, {
+        isOn: () => fastOn, toggle: () => { audio.unlock(); fastOn = !fastOn; }, locked: () => this.rushOn
+      });
       this.icons.push(this.fastBtn);
 
       addPanel(this);
@@ -283,6 +362,8 @@ export class StreetScene extends Phaser.Scene {
       const dt = ms / 1000;
       this.stepWalker(dt);
       if (this.gang) this.stepGang(ms);
+      if (this.ufo) this.stepUfo(ms);
+      if (this.rushRunning) this.stepRush(ms);
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
       this.camX += (target - this.camX) * Math.min(1, dt * 6);
@@ -298,6 +379,8 @@ export class StreetScene extends Phaser.Scene {
     this.syncHero();
     for (const a of this.queue) if (a.state !== 'gone') a.sync();
     for (const a of this.passers) if (a.state !== 'gone') a.sync();
+    for (const m of this.rushMen) if (m.a && m.a.state !== 'gone') m.a.sync();
+    this.syncNoise();
     this.hero.sync();
     this.syncBubble();
     this.syncPeeks();
@@ -311,7 +394,8 @@ export class StreetScene extends Phaser.Scene {
    */
   private applySpeed(): void {
     const deciding = this.stopHandler !== null || this.goHandler !== null;
-    const sp = fastOn && !deciding ? FAST : 1;
+    // タイムセールラッシュの間は早送りを切る(終わったら、覚えている fastOn に戻る)
+    const sp = fastOn && !deciding && !this.rushOn ? FAST : 1;
     this.speed = sp;
     if (this.time.timeScale !== sp) this.time.timeScale = sp;
     if (this.tweens.timeScale !== sp) this.tweens.timeScale = sp;
@@ -379,6 +463,9 @@ export class StreetScene extends Phaser.Scene {
     const go = this.goHandler !== null;
     if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st).setColor(UI.stop);
     if (this.goBtn.isEnabled !== go) this.goBtn.setEnabled(go).setColor(UI.go);
+    // タイムセールラッシュでは行けを使わないので、ボタンを暗くしておく
+    const goAlpha = this.rushOn ? 0.4 : 1;
+    if (this.goBtn.alpha !== goAlpha) this.goBtn.setAlpha(goAlpha);
     // 押せるときは、ボタンをゆっくり明るくしたり戻したりする。
     // 強く点滅させると、正しくワルにした人にも待てを押したくなるので、やさしく光らせるだけにする
     if (this.frameN % 3 === 0 && (st || go)) {
@@ -547,7 +634,7 @@ export class StreetScene extends Phaser.Scene {
   private async play(): Promise<void> {
     // 見ているだけの画面だと思われないように、帯は「待てと行けの出番」と言い切る(波の数は左上に小さく出ている)
     // 早送りでも帯は読めるように、出ている時間はふつうの速さのときと同じにする
-    void banner(this, STREET_TEXTS.band, { hold: fastOn ? 600 * FAST : 600 });
+    void banner(this, streetTextsFor(this.def.id).band, { hold: fastOn ? 600 * FAST : 600 });
     this.opSay(this.line('sortDone', this.rng));
     await this.wait(700);
     for (const a of this.queue) {
@@ -603,16 +690,21 @@ export class StreetScene extends Phaser.Scene {
     return false;
   }
 
-  /** 本性ちらり:ワルにした人に向かったとき、本当はワル(ボスも)なら何かをさっと隠し、市民なら小さくおじぎする */
+  /** 本性ちらり:ワルにした人に向かったとき、本当はワル(ボスも)なら何かをさっと隠し(宇宙人は目が光る)、市民なら小さくおじぎする */
   private peek(a: Actor): void {
     const bad = !a.civ;
     const dx = 9;
     const dy = -40;
-    const b = new Bubble(this, this.L.screenX(a.x) + dx, a.y + dy, bad ? STREET_TEXTS.peekBad : STREET_TEXTS.peekCiv,
+    const texts = streetTextsFor(this.def.id);
+    const b = new Bubble(this, this.L.screenX(a.x) + dx, a.y + dy, bad ? texts.peekBad : texts.peekCiv,
       { tail: 'left', size: FS.small, life: PEEK_MS });
     b.setScrollFactor(0).setDepth(1100);
     this.peeks.push({ b, a, dx, dy });
-    if (bad) {
+    if (bad && this.def.mechanic === 'ufo') {
+      // 宇宙人:目が一瞬光って「ピピッ…」
+      this.eyeGlow(a);
+      audio.sfx('beep');
+    } else if (bad) {
       // くるっと背を向けて、すぐ戻る(何かを隠す)
       a.faceLeft(false);
       a.x += 1;
@@ -624,8 +716,24 @@ export class StreetScene extends Phaser.Scene {
     }
   }
 
-  /** 待てや行けの使い方を、その回でまだ言っていなければ true(言ったことにする) */
-  private firstTime(kind: 'stop' | 'go'): boolean {
+  /** 宇宙人の目が一瞬光る(黄緑。2回またたいて消える)。光は半透明にせず、ふちの点で広がって見せる */
+  private eyeGlow(a: Actor): void {
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1).fillRect(0, 0, 2, 1);
+    g.fillStyle(EYE_GLOW, 1).fillRect(-1, -1, 4, 1).fillRect(-1, 1, 4, 1).fillRect(-2, 0, 1, 1).fillRect(2, 0, 2, 1);
+    g.fillStyle(EYE_GLOW, 1).fillRect(-4, 0, 1, 1).fillRect(5, 0, 1, 1);
+    const place = (): void => {
+      const dx = a.sprite.flipX ? -EYE_AT.dx - 1 : EYE_AT.dx;
+      g.setPosition(Math.round(a.x + dx), Math.round(a.y - a.lift + EYE_AT.dy)).setDepth(a.y + 0.6);
+    };
+    place();
+    const steps: [number, boolean][] = [[0, true], [110, false], [170, true], [330, false]];
+    for (const [t, on] of steps) this.time.delayedCall(t, () => { if (g.active) { place(); g.setVisible(on && a.standing); } });
+    this.time.delayedCall(360, () => g.destroy());
+  }
+
+  /** 待てや行けの使い方を、その回でまだ言っていなければ true(言ったことにする)。'ufo' はUFOを行けで落とすこと */
+  private firstTime(kind: 'stop' | 'go' | 'ufo'): boolean {
     let set = taught.get(this.run);
     if (!set) { set = new Set(); taught.set(this.run, set); }
     if (set.has(kind)) return false;
@@ -883,10 +991,11 @@ export class StreetScene extends Phaser.Scene {
     p.sprite.setFrame(1);
     const cy = p.wall ? p.y : p.y - p.sprite.height / 2;
     const groundY = p.wall ? 150 : p.y;
-    this.fx('fx_dust', p.x, cy, { depth: 960, scale: p.kind === 'car' || p.kind === 'pillar' ? 2 : 1 });
+    // 大きな物(車、自販機、柱、噴水、エスカレーター)は、ほこりも揺れも大きく
+    const bigOne = isBigProp(p.kind);
+    this.fx('fx_dust', p.x, cy, { depth: 960, scale: bigOne && p.kind !== 'vending' ? 2 : 1 });
     this.debris(p.x, cy, groundY);
     audio.sfx('break');
-    const bigOne = p.kind === 'car' || p.kind === 'vending' || p.kind === 'pillar';
     if (bigOne) { shake(this, 5, 300); hitStop(this, 60); this.fx('fx_hit', p.x, cy, { scale: 2, depth: 960 }); }
     else shake(this, 2, 120);
     if (!count) return;
@@ -1019,6 +1128,8 @@ export class StreetScene extends Phaser.Scene {
     if (enc === 'passBad') {
       // 地下駐車場のギャングは悪さの代わりに口笛で仲間を呼ぶ
       if (this.def.mechanic === 'gang' && a.person?.group) await this.gangCall(a);
+      // ショッピングモールの宇宙人は、悪さの代わりに空へ合図を送ってUFOを呼ぶ
+      else if (this.def.mechanic === 'ufo') await this.ufoCall(a);
       else await this.mischief(a);
       return false;
     }
@@ -1166,14 +1277,14 @@ export class StreetScene extends Phaser.Scene {
     });
   }
 
-  /** 壊れた車から、しばらく黒い煙が上がる */
-  private smoke(van: PropObj, ms: number): void {
+  /** 壊れた車(や落ちたUFO)から、しばらく黒い煙が上がる。top は煙が出る高さ(下の端から) */
+  private smoke(van: PropObj, ms: number, top = 50): void {
     const until = this.time.now + ms;
     const ev = this.time.addEvent({
       delay: 240, loop: true, callback: () => {
         if (this.time.now > until || !van.sprite.active) { ev.remove(); return; }
         const x0 = van.sprite.x + this.rng.int(-30, 20);
-        const y0 = van.y - 50;
+        const y0 = van.y - top;
         const d = this.add.sprite(x0, y0, 'fx_dust').setDepth(van.y + 0.5).setTint(0x3a3448);
         d.play(animKey('fx_dust', 'play'));
         const o = { t: 0 };
@@ -1544,6 +1655,518 @@ export class StreetScene extends Phaser.Scene {
     }));
   }
 
+  // ─── ステージ3:UFO ────────────────────────────
+  // 見逃した宇宙人が空へ合図 → UFOが下りてくる(通りがかりの買い物客が歩いてくる) → 光で吸い上げる(UFOの上に行けの合図)。
+  // 行けでヒーローが跳んでUFOを殴り落とす(真下の物が1つ壊れる。市民は巻きこまない)。押さなければ乗せて去る。
+  // 時間は UfoQueue(logic/ufo.ts)が数え、段階が変わるたびに onUfo で画面を動かす。UFOは1機ずつ(流れは終わるまで待つ)。
+
+  /** 見逃した宇宙人:UFOを呼ぶ。殴り落とすか、連れ去られたあとの動きが終わるまで待つ */
+  private ufoCall(a: Actor): Promise<void> {
+    return new Promise((resolve) => {
+      this.ufo = { alien: a, x: this.hero.x + SHOPPER_DX, bottom: 0, tractorMs: 0, done: resolve };
+      this.ufos.add(a.person!.id);
+    });
+  }
+
+  private stepUfo(ms: number): void {
+    const u = this.ufo;
+    if (!u) return;
+    for (const e of this.ufos.update(ms)) this.onUfo(u, e);
+    const c = this.ufos.current;
+    if (this.ufo !== u || !c || !u.sprite) return;
+    const p = c.progress;
+    if (c.phase === 'descend') {
+      // 空から、だんだんゆっくり下りてくる
+      const e = 1 - (1 - p) * (1 - p);
+      u.sprite.setY(Math.round(-4 + (u.bottom + 4) * e));
+    }
+    if (c.phase === 'descend' || c.phase === 'leave') u.sprite.setFrame(Math.floor(this.frameN / 5) % 2);
+    if (c.phase === 'beam') {
+      // 買い物客がじわじわ浮いていく。吸い上げる音は0.5秒ごと(続けて鳴らすとつながる)
+      const s = u.shopper;
+      if (s?.standing) s.lift = Math.max(0, Math.round(p * 30 + Math.sin(this.time.now / 90) * 1.5));
+      u.tractorMs -= ms;
+      if (u.tractorMs <= 0) { u.tractorMs += 500; audio.sfx('tractor'); }
+    }
+    if (c.phase === 'leave') {
+      // 右上へ、だんだん速く去る
+      u.sprite.setPosition(Math.round(u.x + p * p * 80), Math.round(u.bottom - p * p * (u.bottom + 8)));
+    }
+  }
+
+  private onUfo(u: UfoRun, e: UfoEvent): void {
+    if (e.phase === 'signal') void this.ufoSignal(u);
+    else if (e.phase === 'descend') this.ufoDescend(u);
+    else if (e.phase === 'beam') this.ufoBeam(u);
+    else if (e.phase === 'leave') this.ufoLeave(u);
+    else if (e.phase === 'abducted') this.ufoAbducted(u);
+  }
+
+  /** 空へ合図:ヒーローを追い抜いて前へ出て、指を空に向ける(当たりのコマで指先が光り、光が空へのぼる) */
+  private async ufoSignal(u: UfoRun): Promise<void> {
+    const a = u.alien;
+    const h = this.hero;
+    h.play('idle');
+    a.showTag(true);
+    a.faceLeft(false).play('walk', true, 2.4);
+    this.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
+    await this.moveTo(a, Math.max(a.x, u.x - 26), a.y, 300);
+    if (!a.standing || this.ufo !== u) return;
+    a.faceLeft(false).play('mischief', true);
+    this.opSay(mischiefLine(a.look!, this.rng), true);
+    h.pose('oops', 1);
+    this.heroSay(this.line('mischiefHero', this.rng), 1300);
+    this.time.delayedCall(260, () => {
+      if (!a.standing) return;
+      audio.sfx('beep', { pitch: 1.4, volume: 0.6 });
+      for (let i = 0; i < 4; i++) {
+        this.time.delayedCall(i * 60, () => this.fx('fx_sparkle', a.x + 8, a.y - 62 - i * 22, { depth: 960, flicker: i > 0 }));
+      }
+    });
+  }
+
+  /** UFOが下りてくる。通りがかりの買い物客が、UFOの下へ歩いてくる */
+  private ufoDescend(u: UfoRun): void {
+    const a = u.alien;
+    if (a.standing) a.faceLeft(false).play('idle');
+    const sy = a.y < 192 ? 204 : 182;
+    u.bottom = sy - UFO_HOVER;
+    // 空から下りてくる間は人より手前に(落ちたら奥行きの順に戻す)
+    u.sprite = this.add.sprite(u.x, -4, 'prop_ufo', 0).setOrigin(0.5, 1).setDepth(800);
+    audio.sfx('ufoDown');
+    this.opSay(this.line('ufoArrive', this.rng), true);
+    // 買い物客は宇宙人と違う見た目にする(同じだと、どちらが連れ去られるのか分かりにくい)
+    const look = this.rng.pick(this.def.looks.filter((l) => l !== a.look));
+    const s = new Actor(this, `${look}_civ`, this.L.right + 20, sy);
+    s.look = look; s.civ = true;
+    s.faceLeft(true).play('walk', true);
+    this.passers.push(s);
+    u.shopper = s;
+    void this.moveTo(s, u.x, sy, 850, 'Linear').then(() => { if (s.standing && s.lift === 0) s.play('idle'); });
+    this.hero.play('idle');
+  }
+
+  /** 光で吸い上げる。UFOの上に行けの合図(初めてのときは行けの使い方を言う) */
+  private ufoBeam(u: UfoRun): void {
+    const s = u.shopper;
+    if (s) { this.tweens.killTweensOf(s); s.x = u.x; s.pose('surprised'); }
+    u.sprite?.setFrame(2).setPosition(u.x, u.bottom);
+    u.beam = this.add.sprite(u.x, u.bottom - 4, 'fx_ufobeam').setOrigin(0.5, 0).setDepth((s?.y ?? u.bottom + UFO_HOVER) + 0.5);
+    u.beam.play(animKey('fx_ufobeam', 'play'));
+    this.flickers.add(u.beam);
+    u.mark = this.bigMark(u.x, u.bottom - 32 - 18, 2);
+    u.tractorMs = 0;
+    // 吹き出しが大きな合図に重ならないように消す
+    this.heroBubble?.destroy();
+    this.heroBubble = undefined;
+    this.goAlarm.start();
+    this.opSay(this.firstTime('ufo') ? this.line('teachUfo') : this.line('ufoBeam', this.rng), true);
+    this.goHandler = () => this.ufoGo();
+  }
+
+  /** 行けを押さなかった:買い物客と宇宙人をUFOに吸いこんで去る */
+  private ufoLeave(u: UfoRun): void {
+    this.goHandler = null;
+    this.goAlarm.stop();
+    u.mark?.destroy(); u.mark = undefined;
+    u.beam?.destroy(); u.beam = undefined;
+    u.sprite?.setFrame(0);
+    for (const m of [u.shopper, u.alien]) {
+      if (!m || !m.standing) continue;
+      this.tweens.killTweensOf(m);
+      m.pose('surprised');
+      m.showTag(false);
+      this.tweens.add({
+        targets: m, x: u.x, lift: Math.max(0, m.y - u.bottom + 6), duration: 320, ease: 'Quad.easeIn',
+        onComplete: () => m.sprite.setVisible(false)
+      });
+    }
+    audio.sfx('tractor', { pitch: 1.5 });
+    // いちばんひどい場面は、買い物客が吸いこまれていくところを撮る(このあとは必ず連れ去られる)
+    this.report('abducted');
+  }
+
+  /** 連れ去られた(去りきった) */
+  private ufoAbducted(u: UfoRun): void {
+    this.ufo = null;
+    this.stats.ufoEscaped();
+    u.sprite?.destroy();
+    u.alien.destroy();
+    u.shopper?.destroy();
+    this.opSay(this.line('ufoAbducted', this.rng));
+    this.hero.play('idle');
+    this.time.delayedCall(600, () => u.done());
+  }
+
+  private ufoGo(): void {
+    const u = this.ufo;
+    if (!u || !this.ufos.go()) return;
+    this.ufo = null;
+    this.goHandler = null;
+    this.goAlarm.stop();
+    u.mark?.destroy(); u.mark = undefined;
+    audio.sfx('go');
+    void this.ufoDown(u).then(() => u.done());
+  }
+
+  /**
+   * 行け:ヒーローが跳んでUFOを殴り落とす。UFOはその場の真下に落ち、真下の物を1つ壊す。
+   * 宇宙人も一緒に倒れる(stats.ufoDowned)。買い物客は無事に下りる。落ちたUFOは市民を巻きこまない
+   */
+  private async ufoDown(u: UfoRun): Promise<void> {
+    const h = this.hero;
+    const ufo = u.sprite!;
+    const s = u.shopper;
+    const a = u.alien;
+    this.heroSay(this.line('ufoGo', this.rng), 1000);
+    this.auraOn = true;
+    // UFOの横まで走って、UFOの高さまで跳ぶ
+    await this.runTo(u.x - 70, { speed: RUN * 3 });
+    h.play('stomp', true);
+    audio.sfx('stomp', { pitch: 1.3 });
+    const rise = Math.max(20, h.y - u.bottom - 6);
+    const x0 = h.x;
+    const up = { t: 0 };
+    await new Promise<void>((resolve) => this.tweens.add({
+      targets: up, t: 1, duration: 260, ease: 'Quad.easeOut',
+      onUpdate: () => { h.x = x0 + (u.x - 38 - x0) * up.t; h.lift = rise * up.t; },
+      onComplete: () => resolve()
+    }));
+    // 殴る
+    h.play('punch', true);
+    audio.sfx('punch');
+    audio.sfx('ufoFall');
+    u.beam?.destroy(); u.beam = undefined;
+    ufo.setFrame(3);
+    this.fx('fx_hit', u.x - 26, u.bottom - 16, { scale: 2, depth: 960 });
+    this.fx('fx_hit', u.x - 8, u.bottom - 24, { depth: 960 });
+    impact(this, 'big');
+    hitStop(this, 120);
+    // 買い物客は無事に下りる
+    if (s?.standing) {
+      this.tweens.killTweensOf(s);
+      this.tweens.add({ targets: s, lift: 0, duration: 380, ease: 'Bounce.easeOut' });
+    }
+    // ヒーローは着地
+    const x1 = h.x;
+    const down = { t: 0 };
+    this.tweens.add({
+      targets: down, t: 1, duration: 360, delay: 120, ease: 'Quad.easeIn',
+      onUpdate: () => { h.x = x1 - 14 * down.t; h.lift = rise * (1 - down.t); },
+      onComplete: () => { h.lift = 0; }
+    });
+    // UFOは真下に落ちる(殴ってから0.5秒ほどで、ufoFall の地面に当たる音が入る)
+    await new Promise<void>((resolve) => this.tweens.add({
+      targets: ufo, y: UFO_LAND_Y, duration: 480, ease: 'Quad.easeIn', onComplete: () => resolve()
+    }));
+    ufo.setDepth(UFO_LAND_Y);
+    shake(this, 6, 400);
+    this.fx('fx_dust', u.x - 18, UFO_LAND_Y - 8, { scale: 2, depth: 960 });
+    this.fx('fx_dust', u.x + 18, UFO_LAND_Y - 6, { scale: 2, depth: 960 });
+    this.debris(u.x, UFO_LAND_Y - 16, UFO_LAND_Y + 6, 6, 40);
+    const wreck: PropObj = { kind: 'ufo', x: u.x, y: UFO_LAND_Y, wall: false, sprite: ufo, broken: true };
+    this.props.push(wreck);
+    this.smoke(wreck, 5000, 26);
+    const cost = this.stats.ufoDowned();
+    this.pop(u.x, UFO_LAND_Y - 36, formatYen(cost), true);
+    // 真下の物を1つ壊す(いちばん近いもの)
+    const under = this.props
+      .filter((p) => !p.broken && !p.wall && p.kind !== 'van' && Math.abs(p.x - u.x) < 32 + p.sprite.width / 2)
+      .sort((p, q) => Math.abs(p.x - u.x) - Math.abs(q.x - u.x))[0];
+    if (under) this.breakProp(under);
+    // 宇宙人も一緒に倒れる(撃破は ufoDowned で数えた)
+    if (a.standing) {
+      this.fx('fx_hit', a.x, a.y - 30, { depth: 950 });
+      this.knock(a, 28, 22, -1);
+    }
+    await this.wait(500);
+    this.auraOn = false;
+    this.opSay(this.line('ufoDowned', this.rng));
+    h.play('okay', true);
+    audio.sfx('okay');
+    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    // 買い物客はほっとして、右へ歩いて去る
+    if (s?.standing) {
+      s.play('idle');
+      void this.arc(s, s.x, 6, 220);
+      this.fx('fx_sparkle', s.x, s.y - HEAD - 4, { depth: 960 });
+      this.time.delayedCall(700, () => {
+        if (!s.standing) return;
+        s.faceLeft(false).play('walk', true);
+        void this.moveTo(s, this.L.right + 40, s.y, 1600, 'Linear').then(() => s.destroy());
+      });
+    }
+    await this.wait(900);
+    h.play('idle');
+  }
+
+  // ─── タイムセールラッシュ(ステージ3の波2のあと) ─────────
+  // チャイムと「タイムセール開始!」の帯 → ゲームを止めて(曲、動き、ラッシュの時計)オペレーターが説明 → ▼タップで始める。
+  // ヒーローはエスカレーターの前で立ち止まり、右から8人が走ってくる。48ドット手前で待てのマーク(約1秒。ゆっくりにしない)。
+  // 待てなし=光のパンチで殴る、待て=止まって通す。ちらりと決めつけは出さず、全員に「セール荒らしめ!」。
+  // 巻きぞえなし、物は壊れない。数え方は stats.startRush / rushHit / rushStopped(ほかの数字には入れない)。
+  // 時計は update の stepRush で進める(一時停止、画面を離れたとき、ヒットストップで止まる)。早送りは切る。
+
+  /** この波の結果発表のあとにタイムセールラッシュがあるか */
+  private rushThisWave(): boolean {
+    return this.def.hasRush && this.run.stage.rush !== null && currentWave(this.run).no === RUSH.afterWave;
+  }
+
+  private async saleRush(): Promise<void> {
+    const plan = this.run.stage.rush!;
+    const h = this.hero;
+    h.faceLeft(false).play('idle');
+    this.rushOn = true;
+    this.fastBtn.refresh();
+    // 館内放送のチャイムと帯。帯が出た瞬間にゲームを止める
+    audio.stopBgm();
+    audio.sfx('chime');
+    const band = this.saleBand();
+    this.holdWorld(true);
+    const seen = hasSeenRush(this.def.id);
+    markRushSeen(this.def.id);
+    await this.rushIntro(rushIntroFor(seen), this.time.now + RUSH.tapLockSec * 1000);
+    // タップで始まる
+    band.out();
+    this.holdWorld(false);
+    audio.playBgm(this.def.bgm.rush ?? this.def.bgm.street);
+    this.stats.startRush(plan);
+    const slow = settings.slowMode;
+    this.rushMen = plan.runners.map((r): RushMan => ({
+      r, spawnSec: slow ? rushSpawnSec(r.index, true) : r.spawnSec, state: 'wait', markSec: 0, glitchOn: false
+    }));
+    this.rushSec = 0;
+    await new Promise<void>((resolve) => { this.rushDone = resolve; this.rushRunning = true; });
+    this.rushRunning = false;
+    await this.wait(400);
+    this.opSay(rushEndLine(this.stats.rushTally ?? { civs: 0, civsSaved: 0 }, this.rng));
+    h.play('okay', true);
+    audio.sfx('okay');
+    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    await this.wait(1700);
+    this.rushOn = false;
+    this.fastBtn.refresh();
+  }
+
+  /** 「タイムセール開始!」の大きな帯。タップで始めるまで出しておき、out() で左へ去る */
+  private saleBand(): { out: () => void } {
+    const { W } = layout;
+    const bandH = 34;
+    const c = this.add.container(W, 52).setDepth(1500).setScrollFactor(0);
+    const g = this.add.graphics();
+    g.fillStyle(UI.black, 1).fillRect(0, 0, W, bandH);
+    g.fillStyle(UI.gold, 1).fillRect(0, 2, W, 2).fillRect(0, bandH - 4, W, 2);
+    g.fillStyle(UI.bad, 1).fillRect(0, 5, W, 1).fillRect(0, bandH - 6, W, 1);
+    const label = new PixelText(this, Math.floor(W / 2), 9, RUSH_BAND_TEXT, { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0);
+    c.add([g, label]);
+    const slide = (x: number, ms: number, ease: string, done?: () => void): void => {
+      this.tweens.add({ targets: c, x, duration: ms, ease, onUpdate: () => { c.x = Math.round(c.x); }, onComplete: () => done?.() });
+    };
+    slide(0, 180, 'Cubic.easeOut');
+    return { out: () => slide(-W, 160, 'Cubic.easeIn', () => c.destroy()) };
+  }
+
+  /** 帯を出している間、通りの絵の動きを止める(on=false で動かし直す)。カットインの顔は止めない */
+  private holdWorld(on: boolean): void {
+    if (on) {
+      this.rushHeld = this.children.list.filter((o): o is Phaser.GameObjects.Sprite => o instanceof Phaser.GameObjects.Sprite && o.anims.isPlaying);
+      for (const s of this.rushHeld) s.anims.pause();
+    } else {
+      for (const s of this.rushHeld) if (s.active) s.anims.resume();
+      this.rushHeld = [];
+    }
+  }
+
+  /**
+   * 説明のカットイン(初めては2つ、見たことがあれば1つ)と、▼タップ。
+   * 止めてから lockUntil まではタップを受けない。始めるタップは待てや行けに効かない(このあいだは合図がないので、ボタンは押せない)。
+   * 一時停止のメニューの「つづける」のタップでも始まらないように、戻ってから少しの間も受けない
+   */
+  private async rushIntro(lines: readonly Speech[], lockUntil: number): Promise<void> {
+    let lock = lockUntil;
+    let tapped: (() => void) | null = null;
+    const onDown = (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void => {
+      if (this.time.now < lock) return;
+      // 中断、音、早送りのボタンは、それぞれのボタンとして効かせる
+      if (over.some((o) => o.parentContainer && this.icons.includes(o.parentContainer))) return;
+      if (this.cut.isTyping) {
+        // カットインを押したときは、カットインが自分で文字送りを飛ばす
+        if (!over.some((o) => o.parentContainer === this.cut)) this.cut.skip();
+        return;
+      }
+      tapped?.();
+    };
+    const onResume = (): void => { lock = Math.max(lock, this.time.now + RUSH.tapLockSec * 1000); };
+    this.input.on('pointerdown', onDown);
+    this.events.on(Phaser.Scenes.Events.RESUME, onResume);
+    /** タップを待つ(ms を渡すと、その時間がたっても進む) */
+    const waitTap = (ms?: number): Promise<void> => new Promise((resolve) => {
+      let over = false;
+      const go = (): void => { if (over) return; over = true; tapped = null; resolve(); };
+      tapped = go;
+      if (ms !== undefined) this.time.delayedCall(ms, go);
+    });
+    for (let i = 0; i < lines.length; i++) {
+      const sp = lines[i];
+      await this.cut.say(sp.text, sp.face, { who: sp.who, alarm: sp.face === 'panic' });
+      if (i < lines.length - 1) await waitTap(1200);
+    }
+    // ▼タップ(ゆっくり点滅)
+    const { W, actionH } = layout;
+    const tip = new PixelText(this, W - 6, actionH - 18, '▼タップ', { size: FS.big, color: UI.gold, outline: true })
+      .setOrigin(1, 0).setScrollFactor(0).setDepth(1500);
+    const blinkEv = this.time.addEvent({ delay: 420, loop: true, callback: () => tip.setVisible(!tip.visible) });
+    await waitTap();
+    blinkEv.remove();
+    tip.destroy();
+    this.input.off('pointerdown', onDown);
+    this.events.off(Phaser.Scenes.Events.RESUME, onResume);
+    audio.unlock();
+  }
+
+  private stepRush(ms: number): void {
+    const dt = ms / 1000;
+    this.rushSec += dt;
+    const hx = this.hero.x;
+    for (const m of this.rushMen) {
+      if (m.state === 'wait' && this.rushSec >= m.spawnSec) this.rushSpawn(m);
+      const a = m.a;
+      if (!a || !a.standing) continue;
+      if (m.state === 'run' || m.state === 'mark') {
+        // ヒーローがエスカレーターの前をふさいでいるので、目の前で止まって、それぞれのぎこちない動き
+        const stopX = hx + RUSH_BLOCK;
+        if (a.x > stopX) {
+          a.x = Math.max(stopX, a.x - RUSH.runSpeed * dt);
+          if (a.x === stopX) a.play('sortIdle', true);
+        }
+        if (m.state === 'run' && a.x <= hx + RUSH.markDistance) this.rushMark(m);
+        else if (m.state === 'mark' && this.rushSec - m.markSec >= RUSH.markSec) this.rushPunch(m);
+      }
+      // セールに夢中の宇宙人は、0.3秒に1回くずれる(体全体にノイズ)
+      if (m.r.truth === 'bad') {
+        const on = m.state !== 'hit' && rushGlitchShowing(this.rushSec - m.spawnSec);
+        if (on && !m.glitchOn && a.x < this.L.right) audio.sfx('glitch', { volume: 0.7 });
+        m.glitchOn = on;
+      }
+    }
+    if (this.rushMen.every((m) => m.state === 'gone')) {
+      this.rushRunning = false;
+      const d = this.rushDone;
+      this.rushDone = null;
+      d?.();
+    }
+  }
+
+  /** くずれのノイズを体に合わせる(光は半透明にせず、1コマおきに点滅) */
+  private syncNoise(): void {
+    const on = this.frameN % 2 === 0;
+    for (const m of this.rushMen) {
+      const n = m.noise;
+      if (!n || !m.a) continue;
+      if (!n.active) { m.noise = undefined; continue; }
+      const a = m.a;
+      n.setPosition(Math.round(a.x), Math.round(a.y - a.lift - 28)).setDepth(a.y + 0.5);
+      n.setVisible(m.glitchOn && on && a.standing && a.sprite.visible);
+    }
+  }
+
+  /** 右から走ってくる */
+  private rushSpawn(m: RushMan): void {
+    const y = this.hero.y + this.rng.int(-3, 3);
+    const a = new Actor(this, m.r.sheetKey, this.L.right + 24, y);
+    a.look = m.r.look;
+    a.civ = m.r.truth === 'civ';
+    a.faceLeft(true).play('walk', true, 2);
+    m.a = a;
+    m.state = 'run';
+    if (m.r.truth === 'bad') {
+      m.noise = this.add.sprite(a.x, a.y - 28, 'fx_glitch').play(animKey('fx_glitch', 'play')).setVisible(false);
+    }
+  }
+
+  /** 48ドット手前:待てのマーク。ヒーローは全員に同じ一言で構える(ちらりと決めつけは出さない) */
+  private rushMark(m: RushMan): void {
+    const a = m.a!;
+    m.state = 'mark';
+    m.markSec = this.rushSec;
+    this.showMark(a, 'stop');
+    this.stopAlarm.start();
+    this.heroSay(this.line('rushMark', this.rng), 1000);
+    this.hero.pose('punch', 0);
+    this.auraOn = true;
+    this.stopHandler = () => this.rushStop(m);
+  }
+
+  /** 待てを押さなかった:光のパンチ。巻きぞえは出さず、物も壊れない */
+  private rushPunch(m: RushMan): void {
+    const a = m.a!;
+    const h = this.hero;
+    m.state = 'hit';
+    m.glitchOn = false;
+    this.stopHandler = null;
+    this.stopAlarm.stop();
+    this.hideMark(a);
+    h.play('punch', true);
+    audio.sfx('punch');
+    const fist = this.fx('fx_punch', h.x + 16, a.y - 30, { loop: true, depth: 900 });
+    this.tweens.add({
+      targets: fist, x: a.x - 4, duration: 80,
+      onComplete: () => {
+        fist.destroy();
+        this.fx('fx_hit', a.x - 4, a.y - 30, { depth: 950 });
+        this.fx('fx_hit', a.x + 4, a.y - 22, { depth: 950 });
+        audio.sfx('hit');
+        impact(this, 'small');
+        hitStop(this, 80);
+        m.noise?.destroy();
+        m.noise = undefined;
+        this.knock(a, 64, 26, 1);
+        this.stats.rushHit(m.r.truth);
+        if (m.r.truth === 'civ') {
+          // 市民だった:「あれ?」と言って次へ(言いはる、ツッコミ、やっちまったーは出さない)
+          this.report('civHit', 'punch');
+          this.heroSay(this.line('rushCivHit', this.rng), 700);
+        }
+        this.auraOn = false;
+        this.time.delayedCall(260, () => { if (this.rushOn && m.state === 'hit') h.play('idle'); });
+        // のびた人は、少しして煙になって消える(次の人の邪魔にならないように)
+        this.time.delayedCall(1300, () => {
+          if (a.state === 'gone') return;
+          this.fx('fx_dust', a.x, a.y - 8, { depth: a.y + 1 });
+          a.destroy();
+          m.state = 'gone';
+        });
+      }
+    });
+  }
+
+  /** 待て:急ブレーキで止まり、相手を通す(ヒーローの後ろを抜けて左へ走っていく) */
+  private rushStop(m: RushMan): void {
+    const a = m.a!;
+    const h = this.hero;
+    m.state = 'pass';
+    this.stopHandler = null;
+    this.stopAlarm.stop();
+    this.hideMark(a);
+    this.auraOn = false;
+    h.play('stop', true);
+    audio.sfx('stop');
+    for (let i = 0; i < 3; i++) this.time.delayedCall(i * 60, () => this.fx('fx_brake', h.x + 6, h.y - 6, { depth: h.y + 1 }));
+    this.heroSay(this.line('stop', this.rng), 800);
+    this.stats.rushStopped(m.r.truth);
+    if (a.civ) this.fx('fx_sparkle', a.x, a.y - HEAD - 4, { depth: 960 });
+    this.time.delayedCall(250, () => {
+      if (!a.standing) return;
+      a.faceLeft(true).play('walk', true, 2);
+      const toX = this.L.left - 30;
+      void this.moveTo(a, toX, a.y + RUSH_PASS_DY, Math.max(300, ((a.x - toX) / (RUSH.runSpeed * 1.4)) * 1000), 'Linear').then(() => {
+        a.destroy();
+        m.state = 'gone';
+      });
+    });
+    this.time.delayedCall(700, () => { if (this.rushOn && !this.stopHandler) h.play('idle'); });
+  }
+
   // ─── ボス ─────────────────────────────────────
 
   /** ボスが正体を現す(fx_dust で包んで boss.reveal) */
@@ -1597,6 +2220,8 @@ export class StreetScene extends Phaser.Scene {
       // 地下駐車場:女ボスは手下の車をけしかける。ワゴンが通りを走り抜けて、物を壊していく
       this.thugVans();
     } else {
+      // ショッピングモール:母艦の光線でモールを焼く
+      if (this.def.mechanic === 'ufo') audio.sfx('shipBeam');
       const near = this.visibleProps().filter((p) => Math.abs(p.x - a.x) < 130).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x));
       near.forEach((p, i) => this.time.delayedCall(150 + i * 170, () => { this.breakProp(p, false); shake(this, 4, 200); }));
     }
@@ -1623,11 +2248,16 @@ export class StreetScene extends Phaser.Scene {
   private async waveClear(): Promise<void> {
     const h = this.hero;
     const last = this.queue[this.queue.length - 1];
-    await this.runTo((last?.x ?? h.x) + 70);
+    const rush = this.rushThisWave();
+    // ラッシュのある波は、エスカレーターの前(rushX)で止まる
+    if (rush && this.rushX !== null) await this.runTo(this.rushX, { y: HERO_START.y });
+    else await this.runTo((last?.x ?? h.x) + 70);
     h.play('okay', true);
     this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
     audio.sfx('okay');
     await banner(this, `WAVE${this.run.waveIndex + 1} CLEAR!`, { hold: 700 });
+    // 波2の結果発表が終わったあと、答え合わせの前に1回だけ
+    if (rush && !this.leaving) await this.saleRush();
     if (this.leaving) return;
     this.leaving = true;
     this.devLog('wave clear');
