@@ -9,6 +9,7 @@
 //         悪さを始めたら行けで取り返す。行けのマークは出たらすぐ指で押す(待ては、遅れないようにページの中から押す)
 //   both  good と none を続けて(all は good、none、late)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
+// 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
 // エラーが出たとき、結果画面まで行けなかったとき、数が合わないときは exit code 1 で終わる。
 import { mkdirSync } from 'node:fs';
@@ -100,6 +101,11 @@ const lateWatcher = () => {
 async function play(policy) {
   const errors = [];
   const page = await openPage(browser, { errors });
+  const slow = process.env.SLOW === '1';
+  const reduce = process.env.REDUCE === '1';
+  if (slow || reduce) {
+    await page.addInitScript((v) => localStorage.setItem('stupidhero.settings.v1', v), JSON.stringify({ slowMode: slow, reduceFx: reduce }));
+  }
   // 読みこめなかったファイル(外への通信が止められている環境など)はゲームのエラーに数えず、名前だけ出す
   const failed = new Set();
   page.on('response', (r) => { if (r.status() >= 400) failed.add(`${r.status()} ${r.url()}`); });
@@ -190,6 +196,7 @@ async function play(policy) {
       `当たり ${f.heroRight}→${f.fixedRight}/${f.units}、時計 ${f.rawSec?.toFixed(1)}秒、クリア ${f.clearSec?.toFixed(1)}秒${f.slow ? '(ゆっくり)' : ''}`);
     console.log(`[${policy}] 起きた場面: ${JSON.stringify(seen)}`);
     check(`[${policy}] チャンスの数(待て9、行け8、場面27)`, f.stopChances === 9 && f.goChances === 8 && f.units === 27 && exp.stop === 9 && exp.goScenes === 8);
+    check(`[${policy}] ゆっくりモードの印`, f.slow === slow, String(f.slow));
     check(`[${policy}] 時計が進んで止まった`, f.rawSec !== null && f.rawSec > 30 && f.rawSec < 400, String(f.rawSec));
     check(`[${policy}] クリアの時間は、逃がしたワルと市民のけが1人につき3秒を足す`, Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt) * 3)) < 1e-6);
     if (policy === 'good') {

@@ -13,6 +13,10 @@
 //   行けでUFOを殴り落とす(真下の物が壊れる)。押さなければ連れ去られる。時間は UfoQueue(logic/ufo.ts)が数える
 // - hasRush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
 //   ヒーローは全員に光のパンチ。市民にだけ待てを押す。時間は update の stepRush が数える(一時停止とヒットストップで止まる)
+//
+// フリープレイ(run.mode === 'free'。docs/FREEPLAY.md)は、流れを street/free.ts の FreeStreet が受け持つ(this.free)。
+// 背景と置く物は波ごとの背景のステージ、仕組みは人の見た目で決める。技、吹っ飛び、ギャングの組、UFO はここのものを使い、
+// 画面の違い(札を出さない、早送りなし、ステージの流れのオペレーターの一言を出さない、ワゴンが右から走ってくる)だけを this.free で分ける
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';

@@ -1,4 +1,5 @@
 // 結果発表の通りの並べ方。仕分けた人、通りがかりの市民、壊れる物の位置を決める(画面には頼らない)。
+// ステージごとに planStreet(路地裏)、planGarage(地下駐車場)、planMall(ショッピングモール)。フリープレイは planFree。
 // x は通りの位置(ドット)、y は足の位置(地面は y=124〜214。歩道は 124〜150、車道は 150〜214)。
 
 import { ACCESSORY_COLORS, GANG_COLOR_IDS, MALL_LOOKS, type GangLook, type Look, type Person, type PropKind, type Rng, type StageId } from '../../logic';
