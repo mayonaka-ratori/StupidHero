@@ -125,6 +125,18 @@ export const MALLET: FmPatch = {
   vib: [5, 9, 0.12]
 };
 
+/** 宇宙っぽいふわふわしたパッド(ステージ3用。ゆっくり立ち上がり、ずらした2つの音がゆれる) */
+export const SPACE: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.11, env: E(0.35, 0.8, 0.8, 0.45) },
+    { ratio: 3, det: 7, lvl: 0.45, env: E(0.5, 1.0, 0.5, 0.45) },
+    { ratio: 2, det: -10, lvl: 0.06, env: E(0.45, 0.8, 0.8, 0.45) }
+  ],
+  mods: [[1, 0], [1, 2]],
+  out: [0, 2],
+  vib: [5, 22, 0.15]
+};
+
 // ---------------------------------------------------------------- 楽器
 
 export type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
@@ -144,6 +156,7 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   stab: fmInst(STAB),
   deep: fmInst(DEEP),
   mallet: fmInst(MALLET),
+  space: fmInst(SPACE),
   /** PSGの短い矩形波(アルペジオ用) */
   sq: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate: Math.min(gate, 0.09), env: E(0.001, 0.08, 0.4, 0.03), vol: 0.1 * vol });
@@ -151,6 +164,10 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   /** PSGののばす矩形波(ビブラートつき) */
   sqlong: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate, env: E(0.004, 0.3, 0.7, 0.06), vol: 0.09 * vol, vib: [5.5, 10] });
+  },
+  /** テルミン風(ステージ3用)。半音下からすくい上げ、ゆっくりふくらむ三角波に深いビブラート */
+  theremin: (ctx, out, t, midi, gate, vol) => {
+    tone(ctx, out, t, { f: hz(midi - 1), f2: hz(midi), slide: 0.1, gate, env: E(0.07, 0.4, 0.8, 0.14), vol: 0.14 * vol, wave: 'triangle', vib: [5.5, 32] });
   }
 };
 

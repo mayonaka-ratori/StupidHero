@@ -34,7 +34,7 @@ export interface SongDef {
   intro?: SectionDef;
   /** くり返す部分 */
   loop: SectionDef;
-  /** エコー(ステージ2の曲だけ) */
+  /** エコー(ステージ2と3の曲だけ) */
   echo?: EchoDef;
 }
 
@@ -327,4 +327,145 @@ const BOSS2: SongDef = {
   }
 };
 
-export const SONGS = { title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT, street2: STREET2, boss2: BOSS2 } as const;
+// ================================================================ street3
+// ヘ長調。F Dm Gm C / F A7 Bb Db。夜のショッピングモールの結果発表。
+// 店内放送のようなエレピとボサノバ風のベースに、テルミン風の音と宇宙っぽいパッドをふわふわ重ねる。
+// 最後の Db(半音上のほうにずれた和音)で少しだけ「よその星」っぽくして頭に戻る。
+const STREET3_ROOTS = ['F1', 'D2', 'G1', 'C2', 'F1', 'A1', 'Bb1', 'Db2'];
+const STREET3_CHORDS = ['F4 A4 C5', 'D4 F4 A4', 'G4 Bb4 D5', 'E4 G4 C5', 'F4 A4 C5', 'E4 G4 C#5', 'F4 Bb4 D5', 'F4 Ab4 Db5'];
+/** 和音ごとに1小節のばす(パッド用)。n は和音の何番目の音か */
+const holds = (chords: string[], n: number): string => chords.map((c) => [c.split(/\s+/)[n], rep('-', 15)].join(' ')).join(' ');
+const STREET3: SongDef = {
+  bpm: 128,
+  echo: { steps: 3, feedback: 0.3, wet: 0.3, damp: 2800 },
+  loop: {
+    bars: 8,
+    tracks: [
+      {
+        inst: 'bell',
+        vol: 1,
+        notes: [
+          'A4 . C5 . F5 - - E5 . . F5 . A5 - - -',
+          'G5 . F5 . D5 - - - . . A4 . D5 . F5 .',
+          'E5 . D5 . Bb4 - - - D5 . G5 - - - F5 .',
+          'E5 - - - C5 . . . G4 - - - . . . .',
+          'A4 . C5 . F5 - - E5 . . F5 . C6 - - -',
+          'C#6 . A5 . E5 - - - G5 . E5 . C#5 - - -',
+          'D5 . F5 . Bb5 - - A5 . . G5 . F5 - - -',
+          'Ab5 - - - F5 - - - Db5 - - - C5 - - -'
+        ].join(' ')
+      },
+      // テルミン風:のばす音でゆったり追いかける
+      {
+        inst: 'theremin',
+        vol: 0.8,
+        echo: true,
+        notes: [
+          'C5 - - - - - - - - - - - A4 - - -',
+          'A4 - - - - - - - F4 - - - - - - -',
+          'Bb4 - - - - - - - D5 - - - - - - -',
+          'C5 - - - - - - - - - - - E5 - - -',
+          'C5 - - - - - - - A4 - - - - - - -',
+          'C#5 - - - - - - - - - - - E5 - - -',
+          'D5 - - - - - - - - - - - F5 - - -',
+          'Ab4 - - - - - - - - - - - G4 - - -'
+        ].join(' ')
+      },
+      { inst: 'space', vol: 0.9, notes: holds(STREET3_CHORDS, 0) },
+      { inst: 'space', vol: 0.9, notes: holds(STREET3_CHORDS, 2) },
+      { inst: 'bass', vol: 0.85, notes: bars('r . . r f . . r R . . r f . r .', STREET3_ROOTS) },
+      { inst: 'sq', vol: 0.7, notes: arp(STREET3_CHORDS, '. . 1 . . . 2 . . . 1 . . 2 . .') },
+      // 星のきらめき:4小節に1回、上がる4つの音がエコーで響く
+      { inst: 'sq', vol: 0.5, echo: true, notes: [rep('.', 56), 'F5 . A5 . C6 . F6 .'].join(' ') },
+      { inst: 'drums', vol: 0.75, notes: [rep('k . h . r . h h k . h . r . h .', 7), 'k . h . r . h h k . k . r . o .'].join(' ') }
+    ]
+  }
+};
+
+// ================================================================ boss3
+// イ短調。Am Am F G / Am Am Bb E。宇宙人の親玉と母艦とのボス戦。
+// 16分で走るベースと、エコーのかかった硬いリード。うしろでテルミン風の音がうなり、
+// 最後の小節は全音音階で下りてくる(宇宙人っぽい、落ちつかない音の並び)。
+const BOSS3_ROOTS = ['A1', 'A1', 'F1', 'G1', 'A1', 'A1', 'Bb1', 'E2'];
+const BOSS3: SongDef = {
+  bpm: 180,
+  echo: { steps: 3, feedback: 0.25, wet: 0.2, damp: 3000 },
+  loop: {
+    bars: 8,
+    tracks: [
+      {
+        inst: 'hard',
+        vol: 1,
+        echo: true,
+        notes: [
+          'A5 - - - E5 - A5 - C6 - B5 - A5 - E5 -',
+          'G5 - A5 - - - E5 . C5 . D5 . E5 - - -',
+          'F5 - - - C5 - F5 - A5 - G5 - F5 - C5 -',
+          'D5 - E5 - F5 - G5 - B5 - - - G5 - - -',
+          'A5 - - - E5 - A5 - C6 - B5 - A5 - E6 -',
+          'E6 - D6 - C6 - B5 - A5 - - - C6 - B5 -',
+          'Bb5 - - - F5 - Bb5 - D6 - - - C6 - Bb5 -',
+          'E6 - D6 - C6 - Bb5 - G#5 - F#5 - E5 - G#5 -'
+        ].join(' ')
+      },
+      { inst: 'theremin', vol: 0.55, echo: true, notes: ['E5', rep('-', 31), 'F5', rep('-', 15), 'D5', rep('-', 15), 'E5', rep('-', 31), 'F5', rep('-', 15), 'E5', rep('-', 15)].join(' ') },
+      { inst: 'bass', vol: 0.9, notes: bars('r r R r r R r r r r R r R r f R', BOSS3_ROOTS) },
+      { inst: 'stab', vol: 0.75, notes: bars('R . . . . . R . . . R . . . . .', BOSS3_ROOTS) },
+      {
+        inst: 'sq',
+        vol: 0.5,
+        notes: arp(['A4 C5 E5', 'A4 C5 E5', 'A4 C5 F5', 'B4 D5 G5', 'A4 C5 E5', 'A4 C5 E5', 'Bb4 D5 F5', 'G#4 B4 E5'], '0 1 2 1 0 1 2 1 0 1 2 1 0 1 2 1')
+      },
+      {
+        inst: 'drums',
+        notes: ['kc h s h k h s k h k s h k h s o', rep('k h s h k h s k h k s h k h s h', 6), 'k . s s T T t t l l s s kc . kc .'].join(' ')
+      }
+    ]
+  }
+};
+
+// ================================================================ sale3
+// ニ長調。D Bm G A。タイムセールラッシュ(約16秒)の曲。
+// 「ジャン・ジャン!」の1小節のあと、4小節(約5.7秒)のループを何度か回す。
+// 安売りの呼びこみのように、ブラスが短く何度も呼びかけ、オクターブで跳ねるベースと裏打ちのハイハットで急かす。
+const SALE3_ROOTS = ['D2', 'B1', 'G1', 'A1'];
+const SALE3_CHORDS = ['D4 F#4 A4', 'D4 F#4 B4', 'D4 G4 B4', 'C#4 E4 A4'];
+const SALE3: SongDef = {
+  bpm: 168,
+  intro: {
+    bars: 1,
+    tracks: [
+      { inst: 'brass', vol: 1, notes: 'D5 . . . D5 . . . . . . . A4 . C#5 .' },
+      { inst: 'stab', vol: 0.8, notes: 'D3 . . . D3 . . . . . . . . . . .' },
+      { inst: 'bass', vol: 1, notes: 'D2 . . . D2 . . . . . . . A1 . C#2 .' },
+      { inst: 'drums', notes: 'kc . . . kc . . . . . s . s s s s' }
+    ]
+  },
+  loop: {
+    bars: 4,
+    tracks: [
+      {
+        inst: 'brass',
+        vol: 1,
+        notes: [
+          'A4 . A4 . D5 . A4 . F#5 - - . E5 . D5 .',
+          'F#5 . F#5 . D5 . B4 . D5 - - - . . . .',
+          'G5 . G5 . B5 . G5 . A5 - - . G5 . F#5 .',
+          'E5 - - - A5 - - - C#6 . B5 . A5 . E5 .'
+        ].join(' ')
+      },
+      // 呼びかけへの合いの手
+      { inst: 'bell', vol: 0.8, notes: [rep('.', 28), 'A5 . B5 . D6', rep('-', 3), rep('.', 28)].join(' ') },
+      { inst: 'bass', vol: 0.9, notes: bars('r . R . r . R . r . R . r . R f', SALE3_ROOTS) },
+      { inst: 'sq', vol: 0.75, notes: arp(SALE3_CHORDS, '. . 1 . . . 2 . . . 1 . . . 2 .') },
+      { inst: 'sq', vol: 0.75, notes: arp(SALE3_CHORDS, '. . 2 . . . 0 . . . 2 . . . 0 .') },
+      { inst: 'stab', vol: 0.6, notes: bars('R . . . . . . . . . . . . . . .', SALE3_ROOTS) },
+      { inst: 'drums', notes: [rep('k . h o s . h o k . h o s . h o', 3), 'k . h o s . h o k . s . s s s s'].join(' ') }
+    ]
+  }
+};
+
+export const SONGS = {
+  title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT, street2: STREET2, boss2: BOSS2,
+  street3: STREET3, boss3: BOSS3, sale3: SALE3
+} as const;

@@ -14,13 +14,18 @@ import {
   renderSfxRepeat,
   renderWorstCase,
   renderWorstCaseBoss2,
+  renderWorstCaseBoss3,
+  renderWorstCaseSale3,
   renderWorstCaseStreet2,
+  renderWorstCaseStreet3,
   SFX_START,
   songSeconds
 } from '../audio/offline';
 
 /** ステージ2で足した効果音(何度も続けて鳴らしたときの大きさも測る) */
 const STAGE2_SFX: SfxName[] = ['whistle', 'engine', 'skid', 'horn', 'crash'];
+/** ステージ3で足した効果音のうち、何度も続けて鳴らすもの */
+const STAGE3_SFX: SfxName[] = ['tractor', 'shipBeam', 'beep', 'glitch'];
 
 const engine = audio as unknown as Engine;
 
@@ -92,12 +97,15 @@ async function check(): Promise<{ rows: Row[]; backlog: number }> {
   for (const n of SFX_NAMES) {
     rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n as SfxName), SFX_START), raw: analyze(await renderSfx(n as SfxName, false), SFX_START) });
   }
-  for (const n of STAGE2_SFX) {
+  for (const n of [...STAGE2_SFX, ...STAGE3_SFX]) {
     rows.push({ kind: 'rep', name: n + '×', final: analyze(await renderSfxRepeat(n), SFX_START), raw: analyze(await renderSfxRepeat(n, false), SFX_START) });
   }
   rows.push({ kind: 'mix', name: 'boss+sfx', final: analyze(await renderWorstCase()), raw: analyze(await renderWorstCase(false)) });
   rows.push({ kind: 'mix', name: 'boss2+sfx', final: analyze(await renderWorstCaseBoss2()), raw: analyze(await renderWorstCaseBoss2(false)) });
   rows.push({ kind: 'mix', name: 'street2+sfx', final: analyze(await renderWorstCaseStreet2()), raw: analyze(await renderWorstCaseStreet2(false)) });
+  rows.push({ kind: 'mix', name: 'boss3+sfx', final: analyze(await renderWorstCaseBoss3()), raw: analyze(await renderWorstCaseBoss3(false)) });
+  rows.push({ kind: 'mix', name: 'street3+sfx', final: analyze(await renderWorstCaseStreet3()), raw: analyze(await renderWorstCaseStreet3(false)) });
+  rows.push({ kind: 'mix', name: 'sale3+sfx', final: analyze(await renderWorstCaseSale3()), raw: analyze(await renderWorstCaseSale3(false)) });
   return { rows, backlog: backlogSteps() };
 }
 

@@ -142,6 +142,65 @@ export async function renderWorstCaseStreet2(limit = true): Promise<AudioBuffer>
   return ctx.startRendering();
 }
 
+/**
+ * ステージ3の結果発表でいちばんうるさい場面:ピピッ → UFOが下りて吸い上げる → 行けで殴り落として店の物が壊れる。
+ * 吸い上げる光はゲームと同じく0.5秒ごとに鳴らす
+ */
+export async function renderWorstCaseStreet3(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.street3), 'street3', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  SFX.beep(ctx, mix.sfx, 0.1, 1);
+  SFX.ufoDown(ctx, mix.sfx, 0.3, 1);
+  for (let t = 1.2; t < 2.6; t += 0.5) SFX.tractor(ctx, mix.sfx, t, 1);
+  SFX.mark(ctx, mix.sfx, 1.2, 1);
+  SFX.go(ctx, mix.sfx, 2.0, 1);
+  SFX.charge(ctx, mix.sfx, 2.1, 1);
+  SFX.punch(ctx, mix.sfx, 2.5, 1);
+  SFX.ufoFall(ctx, mix.sfx, 2.5, 1);
+  SFX.break(ctx, mix.sfx, 3.0, 1);
+  SFX.bigHit(ctx, mix.sfx, 3.0, 1);
+  return ctx.startRendering();
+}
+
+/** タイムセールラッシュでいちばんうるさい場面:走ってくる宇宙人のくずれ(0.3秒ごと)の中で、パンチと待てが続く */
+export async function renderWorstCaseSale3(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.sale3), 'sale3', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  SFX.chime(ctx, mix.sfx, 0.05, 1);
+  for (let t = 0.2; t < 3.5; t += 0.3) SFX.glitch(ctx, mix.sfx, t, 1);
+  for (const t of [0.8, 1.6, 2.4, 3.2]) {
+    SFX.mark(ctx, mix.sfx, t - 0.4, 1);
+    SFX.punch(ctx, mix.sfx, t, 1);
+    SFX.hit(ctx, mix.sfx, t + 0.02, 1);
+  }
+  SFX.stop(ctx, mix.sfx, 2.0, 1);
+  return ctx.startRendering();
+}
+
+/** ステージ3のボス戦でいちばんうるさい場面:連打 + 母艦の光線(1秒ごと)+ 母艦が落ちて爆発 */
+export async function renderWorstCaseBoss3(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss3), 'boss3', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
+  for (let t = 0.1; t < 2; t += 0.6) SFX.shipBeam(ctx, mix.sfx, t, 1);
+  SFX.ufoFall(ctx, mix.sfx, 1.5, 1);
+  SFX.bigHit(ctx, mix.sfx, 1.5, 1);
+  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
+  SFX.explosion(ctx, mix.sfx, 2.1, 1);
+  SFX.break(ctx, mix.sfx, 2.1, 1);
+  SFX.stamp(ctx, mix.sfx, 2.2, 1);
+  return ctx.startRendering();
+}
+
 /** ルックアヘッドが遅れたとき、たまった音をまとめて鳴らさないことを確かめる。遅れて1回呼んだときに予約したマスの数を返す */
 export function backlogSteps(): number {
   const ctx = new OfflineAudioContext(1, RATE, RATE);
@@ -152,5 +211,5 @@ export function backlogSteps(): number {
   return player.pump(10.15, 10, true);
 }
 
-export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2'];
+export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2', 'street3', 'boss3', 'sale3'];
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];
