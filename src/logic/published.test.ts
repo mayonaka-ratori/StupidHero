@@ -49,8 +49,10 @@ const asPublished = (s: Stage) => ({
  * 結果発表の作り直しで、わざと変えたセリフ(比べない)。
  * streetWatch:待てと行けの使い方は、初めて合図が出たときに言う(teachStop、teachGo)ので、なくした。
  * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
+ * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
+ * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
  */
-const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops']);
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero']);
 
 /** fixture の答えから、わざと変えた項目を取りのぞく */
 type FixtureStage = (typeof alleyV1.stages)[number]['stage'];

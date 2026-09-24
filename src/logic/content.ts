@@ -95,7 +95,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       'ポケットの中身は\n今月の全財産',
       '人を待っている。\n相手はまだ来ない',
       '夜の散歩が好き。\n路地裏は近道',
-      '手ぶらに見えるが\n持つ物は持っている',
+      '手ぶらに見えるが\n必要な物は持っている',
       '最近、財布を\n新しくした',
       'バイト帰り。\n今日は給料日',
       ...BOTH_PROFILE_LINES.hoodie
@@ -477,15 +477,15 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   ],
   collateral: [
     op('panic', '後ろの人にも\n当たってる！'),
-    op('panic', '巻きぞえ！\n関係ない人！'),
+    op('panic', '巻きぞえ！\n関係ない人まで！'),
     op('panic', '今の、奥の人に\n当たったよ！')
   ],
   grannyHit: [op('panic', 'おばあちゃん\nだったのに！'), op('panic', 'よりによって\nおばあちゃん！')],
   specialOnCiv: [op('panic', '必殺技を市民に\n当てないで！'), op('panic', '光線が市民に！\n何してんの！')],
   stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まります！'), hero('smile', 'おっと、了解！')],
-  stopOp: [op('normal', '了解、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先へ！')],
+  stopOp: [op('normal', 'オッケー、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先に進もう！')],
   stopBad: [op('deadpan', 'あ、ワルだったかも…'), op('deadpan', 'あれ？今の人、\nワルだったかも…')],
-  stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'こいつは\n止まれない！')],
+  stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'ボスだけは\n待てないよ！')],
   go: [hero('smug', '行ってくる！'), hero('smug', '逃がすかーっ！'), hero('smug', '待てーっ！\n悪党ーっ！')],
   goOp: [op('hype', '行け！'), op('hype', '追いかけて！')],
   pass: [
@@ -497,7 +497,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   mischiefHero: [hero('oops', 'あれっ！？\nいい人だと思ったのに！'), hero('oops', 'えっ、\nワルだったの！？')],
   escaped: [op('deadpan', '逃げられた…'), op('deadpan', 'あーあ、\n逃げてった'), op('deadpan', '逃がしたね…')],
   bossReveal: [op('panic', '正体を現した！\nこいつがボスだ！'), op('panic', '出た！\n路地裏のボス！')],
-  bossRevealHero: [hero('smug', 'やっぱりね！\n最初から分かってた！'), hero('smug', '見破ったり！')],
+  bossRevealHero: [hero('smug', 'やっぱりね！\n最初から分かってた！'), hero('smug', 'お見通しだよ！')],
   bossRevealOp2: [op('deadpan', '絶対うそでしょ'), op('deadpan', '今気づいたよね')],
   bossRampage: [op('panic', 'ボスだったの！？\n街が壊れてく！'), op('panic', '素通りした人が\nボスだった！')],
   bossRampageHero: [hero('oops', 'えっ、ボス！？\n手を振っちゃった！'), hero('oops', 'いい人そう\nだったのに！')],

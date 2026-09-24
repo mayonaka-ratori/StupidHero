@@ -2,10 +2,10 @@
 // 使い方: node tools/audioCheck.mjs [URL]   (URLの省略時は http://localhost:5103/dev/audio.html)
 // 1) 各曲の数秒と各効果音を OfflineAudioContext で描き出し、最大音量が1.0以下で無音でないことを見る
 // 2) unlock 前の呼び出し、画面が隠れたとき/戻ったとき、消音の保存 をブラウザで動かして見る
-import { chromium } from 'playwright-core';
+import { openBrowser } from './lib.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:5103/dev/audio.html';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const browser = await openBrowser();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const errors = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));

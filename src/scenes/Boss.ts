@@ -1,8 +1,8 @@
-// ボス戦。結果発表(Street)で波3のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、Result へ。
-// 決まりは docs/SPEC.md の「ボス」「ボス戦」と docs/STAGE2.md の「ボス戦」。連打の計算は logic の BossFight。
+// ボス戦。結果発表(Street)で波3のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、波3の答え合わせ(WaveReview)へ。
+// 決まりは docs/SPEC.md の「ボス」「ボス戦」、docs/STAGE2.md と docs/STAGE3.md の「ボス戦」。連打の計算は logic の BossFight。
 //
 // 流れ:ボス出現!の帯 → 2人のセリフ → 「連打!」 → 連打(手が止まるとボスが暴れて被害額が増える)
-//   → 撃破(いちばんひどい場面なら撮る)→ 爆発と勝利ポーズ → Result
+//   → 撃破(いちばんひどい場面なら撮る)→ 爆発と勝利ポーズ → WaveReview
 // ステージ2(地下駐車場)の女ボスは、体力が半分を切ると奥に止めてある高級車に飛び乗る(BossFight の boardedCar)。
 //   そのあとは車ごと殴る。手が止まると車が暴れて柱や止めてある車にぶつかる。倒すと車がひっくり返って爆発する。
 // ステージ3(ショッピングモール)の宇宙人の親玉は、体力が半分を切ると天井を破って母艦を呼び、乗りこむ(女ボスの車と同じ作り)。
@@ -253,9 +253,13 @@ export class BossScene extends Phaser.Scene {
     return say(key, rng, this.stageId);
   }
 
-  /** 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする */
+  /**
+   * 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする。
+   * 撃破したあと(爆発、車や母艦が壊れる、ボスが出てくる)は揺れが続くので、さらに半分にする
+   */
   private quake(px: number, ms: number): void {
-    shake(this, Math.max(1, Math.round(px / 2)), ms);
+    const div = this.phase === 'end' ? 4 : 2;
+    shake(this, Math.max(1, Math.round(px / div)), ms);
   }
 
   // ─── 始まり ───

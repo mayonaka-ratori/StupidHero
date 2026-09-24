@@ -41,8 +41,8 @@ export function upscale(src: HTMLCanvasElement, k: number): HTMLCanvasElement {
 export interface SpriteOpt {
   scale?: number;
   flipX?: boolean;
-  /** x, y の意味。'feet' は足の裏(下から4ドット上の真ん中)、'bottom' は下の真ん中、'center' は真ん中、'topleft' は左上 */
-  anchor?: 'feet' | 'bottom' | 'center' | 'topleft';
+  /** x, y の意味。'feet' は足の裏(下から4ドット上の真ん中)、'bottom' は下の真ん中、'center' は真ん中、'top' は上の真ん中、'topleft' は左上 */
+  anchor?: 'feet' | 'bottom' | 'center' | 'top' | 'topleft';
 }
 
 /** テクスチャの1コマを描く。コマは番号(シート全体での番号)か、画像なら '__BASE' */
@@ -61,6 +61,7 @@ export function drawSprite(
     case 'feet': dx = x - w / 2; dy = y - (f.cutHeight - FEET_OFFSET) * k; break;
     case 'bottom': dx = x - w / 2; dy = y - h; break;
     case 'center': dx = x - w / 2; dy = y - h / 2; break;
+    case 'top': dx = x - w / 2; break;
     default: break;
   }
   dx = Math.round(dx); dy = Math.round(dy);

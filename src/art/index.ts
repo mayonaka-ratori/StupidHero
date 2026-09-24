@@ -9,6 +9,30 @@ import { generateWorldSet } from './worldSet';
 import { generateWorld2Set } from './world2';
 import { generateWorld3Set } from './world3';
 
+/** public/art/manifest.json の中身。PNGを用意したキーを並べる */
+export interface ArtManifest { sheets?: string[]; images?: string[] }
+
+/**
+ * manifest にあるPNGを読み込みに並べて、並べたキーを返す(generateArt の skip に渡す)。
+ * 表(SHEETS と IMAGES)にないキーは読まない。dir は art/ の置き場(ゲームは 'art/'、dev/ のページは '../art/')。
+ * 並べたあとで scene.load.start() を呼び、読み終わってから generateArt を呼ぶ。
+ */
+export function loadArtPngs(scene: Phaser.Scene, manifest: ArtManifest | undefined, dir = 'art/'): Set<string> {
+  const skip = new Set<string>();
+  for (const key of manifest?.sheets ?? []) {
+    const def = SHEETS.find((d) => d.key === key);
+    if (!def) continue;
+    scene.load.spritesheet(key, `${dir}${key}.png`, { frameWidth: def.frameW, frameHeight: def.frameH });
+    skip.add(key);
+  }
+  for (const key of manifest?.images ?? []) {
+    if (!IMAGES.some((d) => d.key === key)) continue;
+    scene.load.image(key, `${dir}${key}.png`);
+    skip.add(key);
+  }
+  return skip;
+}
+
 export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
   const ctx = makeArtContext(scene, skip);
   generateHeroSet(ctx);

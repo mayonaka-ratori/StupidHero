@@ -1,8 +1,9 @@
 // 絵の一覧を見るための開発用ページ(/dev/art.html)。ゲームには入らない。
 // ?keys=hero,fx_aura で絞りこみ、?scale=3 で拡大率を変える。
+// ゲームと同じく public/art/manifest.json にあるPNGを読み、ないものはコードで描く。PNGの絵にはキーの横に「PNG」と出す。
 import '@fontsource/dotgothic16';
 import Phaser from 'phaser';
-import { generateArt } from '../art';
+import { type ArtManifest, generateArt, loadArtPngs } from '../art';
 import { IMAGES, SHEETS, sheetSize } from '../art/sheets';
 
 const params = new URLSearchParams(location.search);
@@ -28,13 +29,33 @@ for (const d of images) {
 }
 
 class Preview extends Phaser.Scene {
+  preload(): void {
+    this.load.json('art-manifest', '../art/manifest.json');
+  }
+
   create(): void {
-    generateArt(this, new Set());
+    const skip = loadArtPngs(this, this.cache.json.get('art-manifest') as ArtManifest | undefined, '../art/');
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.draw(skip));
+    this.load.start();
+  }
+
+  private draw(skip: Set<string>): void {
+    // PNGを読めたキー(読めなかったキーは、Phaser の「絵がない」印が出る)
+    const png = new Set([...skip].filter((k) => this.textures.exists(k)));
+    generateArt(this, skip);
     const g = this.add.graphics();
     for (const it of items) {
-      this.add.text(pad, it.y - 14, it.key, { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
+      const label = this.add.text(pad, it.y - 14, it.key, { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
+      // PNGで差し替わった絵には印を付ける。大きさが決まりとちがえば赤で出す
+      if (png.has(it.key)) {
+        const src = this.textures.get(it.key).getSourceImage() as { width: number; height: number };
+        const wrong = src.width !== it.w || src.height !== it.h ? `(大きさが${src.width}x${src.height}、決まりは${it.w}x${it.h})` : '';
+        this.add.text(pad + label.width + 6, it.y - 14, `PNG${wrong}`, { fontFamily: 'monospace', fontSize: '12px', color: wrong ? '#ff6a6a' : '#7cf0a0' });
+      } else if (skip.has(it.key)) {
+        this.add.text(pad + label.width + 6, it.y - 14, 'PNGが読めない', { fontFamily: 'monospace', fontSize: '12px', color: '#ff6a6a' });
+      }
       g.fillStyle(0x3a3550, 1).fillRect(pad, it.y, it.w * scale, it.h * scale);
-      this.add.image(pad, it.y, it.key, '__BASE').setOrigin(0).setScale(scale)
+      this.add.image(pad, it.y, it.key, '__BASE').setOrigin(0).setScale(scale);
 
       if (it.fw && it.fh) {
         g.lineStyle(1, 0x6a6488, 0.6);

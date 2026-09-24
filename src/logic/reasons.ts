@@ -51,7 +51,7 @@ export const MALL_REASONS: Readonly<Record<MallLook, Record<'bad' | 'civ', strin
 /** ショッピングモールの親玉:化けた姿のどこか1か所おかしい所(mallContent の BOSS3_ODD_POINT) */
 export const MALL_BOSS_REASONS: Readonly<Record<MallDisguise, string>> = {
   clerk: '店員なのに名札が逆さ',
-  uncle: 'おじさんの耳がとがる',
+  uncle: 'おじさんの耳がとがっていた',
   mascot: '着ぐるみから触角'
 };
 

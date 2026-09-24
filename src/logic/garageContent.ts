@@ -355,9 +355,9 @@ export function allLinkTexts(): string[] {
 export const GARAGE_INTRO: readonly Speech[] = [
   hero('smug', '次は地下駐車場！\nギャング退治だ！'),
   op('normal', '前の人とおそろいの色\nならギャングの仲間かも'),
-  op('deadpan', 'でも色だけの市民もいる。\n指の合図も見てね'),
+  op('deadpan', '色が同じでも市民かも。\n指の合図も見てね'),
   op('normal', '見逃すと口笛で仲間を\n呼ぶ。集まったら行け！'),
-  op('panic', '3秒で車に乗って逃げる。\n行けならすぐ止まる')
+  op('panic', '3秒で車に乗って逃げる。\n行けを押せばすぐ止まる！')
 ];
 
 /** 地下駐車場の波の始まりの一言。上から順に出す */
