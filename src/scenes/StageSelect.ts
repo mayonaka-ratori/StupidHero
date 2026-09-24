@@ -11,13 +11,12 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { animKey } from '../art/sheets';
 import { purgeAccessorySheets } from '../art/recolor';
 import { randomSeed, say, stageSelectInfo, type StageId } from '../logic';
 import { startRun } from '../run';
 import { px } from '../hires';
-import { Button, CutIn, FS, PixelText, banner, flash, goto, shake } from '../ui';
-import { addMute, devHook, unlockOnTap } from './sort/common';
+import { Button, CutIn, FS, PixelText, banner, flash, shake, spawnFx, waitMs } from '../ui';
+import { addMute, devHook, gotoSafe, unlockOnTap } from './sort/common';
 import { drawHand } from './sort/introDemo';
 import { entrySceneFor } from './Intro';
 import { StageCard } from './stageselect/card';
@@ -84,9 +83,7 @@ export class StageSelectScene extends Phaser.Scene {
     // 見出しの字がときどきキラーンと光る
     this.time.addEvent({
       delay: 1900, loop: true, startAt: 1200, callback: () => {
-        const k = this.add.sprite(Math.round(W / 2) + Phaser.Math.Between(-44, 44), 10, 'fx_kiran').setDepth(510);
-        k.play(animKey('fx_kiran', 'play'));
-        k.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => k.destroy());
+        spawnFx(this, 'fx_kiran', Math.round(W / 2) + Phaser.Math.Between(-44, 44), 10, { depth: 510 });
       }
     });
     // 選べるカードの上に、ときどきキラキラ
@@ -95,9 +92,7 @@ export class StageSelectScene extends Phaser.Scene {
         const open = this.cards.filter((c) => !c.locked);
         if (!open.length || this.leaving) return;
         const c = Phaser.Utils.Array.GetRandom(open);
-        const sp = this.add.sprite(c.root.x + Phaser.Math.Between(10, c.box.w - 10), c.root.y + Phaser.Math.Between(8, c.box.thumbH || c.box.h - 8), 'fx_sparkle').setDepth(300);
-        sp.play(animKey('fx_sparkle', 'play'));
-        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sp.destroy());
+        spawnFx(this, 'fx_sparkle', c.root.x + Phaser.Math.Between(10, c.box.w - 10), c.root.y + Phaser.Math.Between(8, c.box.thumbH || c.box.h - 8), { depth: 300 });
       }
     });
 
@@ -202,10 +197,9 @@ export class StageSelectScene extends Phaser.Scene {
     this.hand?.setVisible(false);
     // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
     this.time.delayedCall(360, () => {
-      window.setTimeout(() => {
-        const ok = goto(this, entrySceneFor(id), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) });
+      gotoSafe(this, entrySceneFor(id), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) }, (ok) => {
         if (!ok) this.leaving = false;
-      }, 0);
+      });
     });
   }
 
@@ -214,14 +208,14 @@ export class StageSelectScene extends Phaser.Scene {
     this.leaving = true;
     audio.unlock();
     audio.sfx('button');
-    window.setTimeout(() => { if (!goto(this, SCENES.title)) this.leaving = false; }, 0);
+    gotoSafe(this, SCENES.title, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
   }
 
   // ─── ステージが開く ─────────────────────────────
 
   private async playUnlock(cards: StageCard[]): Promise<void> {
     this.busy = true;
-    await this.wait(750);
+    await waitMs(this, 750);
     for (const card of cards) {
       audio.sfx('tick');
       await card.unlock((x, y) => {
@@ -229,13 +223,9 @@ export class StageSelectScene extends Phaser.Scene {
         audio.sfx('fanfare', { volume: 0.6 });
         flash(this, 0xfff0c0, 2);
         shake(this, 6, 300);
-        const e = this.add.sprite(x, y, 'fx_explosion', 0).setDepth(800);
-        e.play(animKey('fx_explosion', 'play'));
-        e.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => e.destroy());
+        spawnFx(this, 'fx_explosion', x, y, { depth: 800 });
         for (let i = 0; i < 6; i++) {
-          const s = this.add.sprite(x + Phaser.Math.Between(-80, 80), y + Phaser.Math.Between(-30, 30), 'fx_sparkle').setDepth(801);
-          s.play({ key: animKey('fx_sparkle', 'play'), delay: i * 60 });
-          s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+          spawnFx(this, 'fx_sparkle', x + Phaser.Math.Between(-80, 80), y + Phaser.Math.Between(-30, 30), { depth: 801, delay: i * 60 });
         }
       });
       card.setBadge('NEW!');
@@ -249,10 +239,6 @@ export class StageSelectScene extends Phaser.Scene {
       this.time.delayedCall(2600, () => cut.destroy());
     }
     this.busy = false;
-  }
-
-  private wait(ms: number): Promise<void> {
-    return new Promise((r) => this.time.delayedCall(ms, r));
   }
 
   // ─── 背景 ───────────────────────────────────────

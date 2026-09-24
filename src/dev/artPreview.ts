@@ -69,7 +69,8 @@ class Preview extends Phaser.Scene {
   }
 }
 
-new Phaser.Game({
+// 確かめ用のスクリプトから絵の中身を読めるように、ゲームを window に出す
+(window as unknown as { artGame: Phaser.Game }).artGame = new Phaser.Game({
   type: Phaser.CANVAS, width: Math.max(width, 400), height: Math.max(height, 200), pixelArt: true,
   backgroundColor: '#2a2638', scene: [Preview], banner: false, audio: { noAudio: true }
 });

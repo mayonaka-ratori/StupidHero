@@ -29,13 +29,11 @@ import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, RushTally, Speech, StageId,
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, Look, OperatorHint, RushTally, Speech, StageId,
   TitleId, WaveNo
 } from './types';
+import { hero, hint, op } from './speech';
 
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
-const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
 
 // ─── プロフィール ─────────────────────────────────
 
@@ -714,9 +712,6 @@ export function mischiefLine(look: Look, rng?: Rng): Speech {
 export function streetTextsFor(stageId: StageId): { band: string; peekBad: string; peekCiv: string } {
   return STAGES[stageId].mechanic === 'ufo' ? MALL_STREET_TEXTS : STREET_TEXTS;
 }
-
-/** タイムセールラッシュの帯の文(ステージ3) */
-export const RUSH_BAND_TEXT = RUSH_BAND;
 
 /**
  * タイムセールラッシュの始まりの説明(オペレーターのカットイン)。

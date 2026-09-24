@@ -2,7 +2,7 @@
 // 絵の担当はこのファイルを使ってよいが、変えない(変えたいときはディレクターに相談)。
 
 import type Phaser from 'phaser';
-import { type ImageDef, type SheetDef, sheetSize } from './sheets';
+import { IMAGES, type ImageDef, type SheetDef, animKey, sheetByKey, sheetSize } from './sheets';
 
 /** R、G、Bそれぞれの8段階(ART_SPECの「使える色」) */
 export const LEVELS = [0, 36, 73, 109, 146, 182, 219, 255] as const;
@@ -90,6 +90,25 @@ export class PixelGrid {
 export const cellOrigin = (def: SheetDef, row: number, i: number): { x: number; y: number } =>
   ({ x: i * def.frameW, y: row * def.frameH });
 
+/** シートの表の通りに、テクスチャにコマ(番号は 行×列の数+列)を切る */
+export function addSheetFrames(tex: Phaser.Textures.Texture, def: SheetDef): void {
+  for (let row = 0; row < def.rows.length; row++) {
+    for (let i = 0; i < def.cols; i++) {
+      tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
+    }
+  }
+}
+
+/** シートの表の行ごとのアニメを登録する。key はテクスチャのキー(塗り替えたシートは元の def と別のキー) */
+export function createSheetAnims(scene: Phaser.Scene, def: SheetDef, key = def.key): void {
+  def.rows.forEach((row, r) => {
+    const k = animKey(key, row.name);
+    if (scene.anims.exists(k)) return;
+    const frames = Array.from({ length: row.frames }, (_, i) => ({ key, frame: r * def.cols + i }));
+    scene.anims.create({ key: k, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
+  });
+}
+
 export interface ArtContext {
   scene: Phaser.Scene;
   /** PNGが用意されていて、作らなくてよいキー */
@@ -110,12 +129,7 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
       if (canvas.width !== w || canvas.height !== h) {
         throw new Error(`${def.key}: シートの大きさが ${canvas.width}x${canvas.height} で、決まりの ${w}x${h} と違う`);
       }
-      const tex = scene.textures.addCanvas(def.key, canvas)!;
-      for (let row = 0; row < def.rows.length; row++) {
-        for (let i = 0; i < def.cols; i++) {
-          tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
-        }
-      }
+      addSheetFrames(scene.textures.addCanvas(def.key, canvas)!, def);
     },
     addImage(def, canvas) {
       if (skip.has(def.key) || scene.textures.exists(def.key)) return;
@@ -125,4 +139,37 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
       scene.textures.addCanvas(def.key, canvas);
     }
   };
+}
+
+/** rows[行][コマ] の順にコマを並べて、シートのキャンバスにする */
+export function buildSheet(def: SheetDef, rows: PixelGrid[][]): HTMLCanvasElement {
+  const { canvas, ctx } = createSheetCanvas(def);
+  rows.forEach((frames, r) => {
+    if (r >= def.rows.length) return;
+    frames.slice(0, def.rows[r].frames).forEach((g, i) => {
+      const o = cellOrigin(def, r, i);
+      g.drawTo(ctx, o.x, o.y);
+    });
+  });
+  return canvas;
+}
+
+/** シートのキー → 行ごとのコマ、を並べて登録する(PNGがあるキーは飛ばす) */
+export function addGridSheets(ctx: ArtContext, sheets: Record<string, PixelGrid[][]>): void {
+  for (const [key, rows] of Object.entries(sheets)) {
+    if (ctx.skip.has(key)) continue;
+    const def = sheetByKey(key);
+    ctx.addSheet(def, buildSheet(def, rows));
+  }
+}
+
+/** 1枚絵のキー → 描く関数、を描いて登録する(PNGがあるキーは描かない) */
+export function addGridImages(ctx: ArtContext, images: Record<string, () => PixelGrid>): void {
+  for (const [key, draw] of Object.entries(images)) {
+    if (ctx.skip.has(key)) continue;
+    const def = IMAGES.find((d) => d.key === key)!;
+    const { canvas, ctx: c } = createCanvas(def.w, def.h);
+    draw().drawTo(c, 0, 0);
+    ctx.addImage(def, canvas);
+  }
 }

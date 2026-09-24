@@ -22,7 +22,7 @@ import { HURRY_AT_SEC, glitchCount, glitchShowing, say, waveIntroFor, type Perso
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
-  addPanel, banner, flash, gotoWhenFree, panelRect, shake
+  addPanel, banner, flash, gotoWhenFree, panelRect, shake, waitMs
 } from '../ui';
 import {
   BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawLightPool, drawStageBg, edgeGlow, spotlightDim, unlockOnTap
@@ -187,7 +187,7 @@ export class SortScene extends Phaser.Scene {
 
   private buildAction(W: number): void {
     // 暗くしたステージの背景と、真ん中のスポットライト
-    drawStageBg(this, this.run.stage.def);
+    drawStageBg(this, this.run.stage.def.bg);
     this.add.image(0, 0, spotlightDim(this, CX, FEET_Y)).setOrigin(0).setDepth(Z.dim);
     const pool = this.add.graphics().setDepth(Z.dim + 0.5);
     drawLightPool(pool, CX, FEET_Y + 1, 46, 7);
@@ -614,14 +614,14 @@ export class SortScene extends Phaser.Scene {
     this.nameText.setText('時間切れ！');
     this.lineText.setText('残りはヒーローが\n気まぐれで決めます');
     void banner(this, '時間切れ！', { hold: 500, y: 128 });
-    await this.wait(750);
+    await waitMs(this, 750);
     // 残りの人に、ヒーローが決めたハンコを次々に押す
     for (let k = 0; k < filled.length; k++) {
       const p = filled[k];
       if (k > 0) {
         this.idx = this.people.indexOf(p);
         this.enter(this.people.indexOf(p), 0, true, this.run.sorts[filled[k - 1].id] === 'bad' ? 'right' : 'left');
-        await this.wait(110);
+        await waitMs(this, 110);
       }
       const c = this.run.sorts[p.id];
       audio.sfx(c === 'bad' ? 'swipeBad' : 'swipeCiv');
@@ -629,15 +629,11 @@ export class SortScene extends Phaser.Scene {
       this.stampAndThrow(c, '?');
       this.nameText.setText('時間切れ！');
       this.profTyper.show('残りはヒーローが\n気まぐれで決めます');
-      await this.wait(200);
+      await waitMs(this, 200);
     }
     this.idx = this.people.length;
-    await this.wait(250);
+    await waitMs(this, 250);
     this.leave();
-  }
-
-  private wait(ms: number): Promise<void> {
-    return new Promise((resolve) => this.time.delayedCall(ms, resolve));
   }
 
   /** 全員仕分けた:すぐ結果発表へ */

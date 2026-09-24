@@ -5,11 +5,12 @@ import { md, type PixelGrid } from '../lib';
 import { KEY_ACCESSORY } from '../sheets';
 import {
   type Build, type HairStyle, HAIR_SHORT, type Look, type Pose,
-  clonePose, drawPerson, moveUpper, shoulders, stretchPose
+  clonePose, drawPerson, moveUpper, shoulders
 } from '../world/figure';
 import { GOLD, HAIR, OUTLINE, SKIN, WHITE } from '../world/palette';
 import { type Painter, type Pt, type Ramp } from '../world/pix';
-import { STAND, civRows, idleFrames, walkFrames, withFace } from '../world/poses';
+import { STAND, civRows, withFace } from '../world/poses';
+import { disguiseRows } from '../world/bossKit';
 
 const KEY = KEY_ACCESSORY;
 const R = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
@@ -586,14 +587,8 @@ function olSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] }
 // 女ボスの化けた姿:市民の絵を伸ばして、どこか1か所だけおかしくする
 // ---------------------------------------------------------------------
 
-function disguiseRows(look: Look, base: Pose, sort: Pose[], tweak: (p: Pose) => Pose = (p) => p): PixelGrid[][] {
-  const st = (p: Pose) => tweak(stretchPose(p, 1.1, 1.04));
-  return [
-    idleFrames(base).map((p) => drawPerson(look, st(p))),
-    walkFrames(base).map((p) => drawPerson(look, st(p))),
-    sort.map((p) => drawPerson(look, st(p)))
-  ];
-}
+const disguise = (look: Look, sort: Pose[], tweak?: (p: Pose) => Pose): PixelGrid[][] =>
+  disguiseRows(look, STAND, sort, { sx: 1.04, tweak });
 
 /** 警備員 + サングラス */
 function disguiseGuard(civSort: Pose[]): PixelGrid[][] {
@@ -605,7 +600,7 @@ function disguiseGuard(civSort: Pose[]): PixelGrid[][] {
     g.px(8, y + 2, OUTLINE).px(9, y + 2, OUTLINE).px(11, y + 2, OUTLINE).px(12, y + 2, OUTLINE);
     g.px(9, y + 1, WHITE[0]);
   });
-  return disguiseRows(look, STAND, civSort);
+  return disguise(look, civSort);
 }
 
 /** 整備士 + 赤いハイヒール */
@@ -628,7 +623,7 @@ function disguiseMech(civSort: Pose[]): PixelGrid[][] {
     for (const l of [q.lF, q.lB]) { l.toe = (l.toe ?? 0) + 0.45; }
     return q;
   };
-  return disguiseRows(look, STAND, civSort, tweak);
+  return disguise(look, civSort, tweak);
 }
 
 /** 会社員の女性 + 金の太い腕輪 */
@@ -644,7 +639,7 @@ function disguiseOL(civSort: Pose[]): PixelGrid[][] {
     Pn.fill(m, [GOLD[0], GOLD[1], GOLD[1]], { sep: 'outline' });
     Pn.px(w[0] - 1, w[1] - 1, GOLD[0]);
   };
-  return disguiseRows(look, STAND, civSort);
+  return disguise(look, civSort);
 }
 
 // ---------------------------------------------------------------------

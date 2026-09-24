@@ -8,12 +8,10 @@
 // 前の人とのつながりの文は、createStage が並び順を決めてから linkText() で作る。
 
 import type {
-  GangLook, GarageDisguise, HeroFace, OperatorFace, OperatorHint, Speech, WaveNo
+  GangLook, GarageDisguise, OperatorFace, OperatorHint, Speech, WaveNo
 } from './types';
+import { hero, hint, op } from './speech';
 
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
-const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
 
 // ─── プロフィール ─────────────────────────────────
 

@@ -15,7 +15,7 @@ import {
   type StageDef, type StageId, type StageStats, type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
-import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
+import { paintStageBg, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
 const CARD_W = 216;
 const CARD_H = 270;
@@ -112,7 +112,7 @@ export function cardTexts(i: CardInput): string[] {
 /** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている(背景とボスはそのステージの絵) */
 export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number, stage: CardStage = STAGES[stats.stageId ?? 'alley']): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(216, 214);
-  drawAlley(ctx, scene, 0, 0, scrollX, 216, stage.bg);
+  paintStageBg(ctx, scene, 0, 0, scrollX, 216, stage.bg);
   const feet = 194;
   if (stats.bossDefeated) {
     const boss = stage.bossSheet;
@@ -135,7 +135,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   const TOP = 96;
   {
     const bg = makeCanvas(W, 214);
-    drawAlley(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
+    paintStageBg(bg.ctx, scene, 0, 0, i.scrollX, W, stage.bg);
     ctx.drawImage(bg.canvas, 0, 100, W, TOP, 0, 0, W, TOP);
     const hx = 46;
     const feet = i.title.pose === 'win_fist' ? 84 : 90;

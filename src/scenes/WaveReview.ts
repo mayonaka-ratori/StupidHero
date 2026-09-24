@@ -11,7 +11,8 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { RUSH, reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
-import { Button, DEPTH, FS, MuteButton, PixelText, goto, preloadFont } from '../ui';
+import { Button, DEPTH, FS, PixelText, goto, preloadFont } from '../ui';
+import { addMute, unlockOnTap } from './sort/common';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
 import { Timeline } from './result/timeline';
 import { drawMark, personThumb } from './review/draw';
@@ -61,7 +62,7 @@ export class WaveReviewScene extends Phaser.Scene {
     recordWaveSorts(run);
 
     audio.playBgm('sort');
-    this.input.on('pointerdown', () => audio.unlock());
+    unlockOnTap(this);
 
     // ─── 背景 ───
     const bg = this.add.graphics().setDepth(0);
@@ -76,7 +77,7 @@ export class WaveReviewScene extends Phaser.Scene {
     new PixelText(this, Math.floor(W / 2), 4, `WAVE${wave.no}の答え合わせ`, { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0);
     const count = new PixelText(this, Math.floor(W / 2), 22, `${people.length}人中{gold}${correct}人{/}正解`, { size: FS.big, color: UI.text, outline: true })
       .setOrigin(0.5, 0).setVisible(false);
-    new MuteButton(this, W - 11, 12, { isMuted: () => audio.isMuted(), toggle: () => audio.toggleMuted() }).setDepth(DEPTH.ui + 1);
+    addMute(this, W - 11, 12).setDepth(DEPTH.ui + 1);
 
     // ─── 次へ ───
     const bottom = H - Math.max(6, layout.safeBottom + 4);

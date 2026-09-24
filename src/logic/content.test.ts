@@ -3,7 +3,7 @@ import { createRng } from './rng';
 import { createStage } from './stage';
 import {
   AGES, BOTH_PROFILE_LINES, BOSS_HINTS, BOSS_PROFILE_LINES, INTRO, JUDGE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES, REACTIONS,
-  RUSH_BAND_TEXT, STREET_TEXTS, TITLE_COMMENTS, allTexts, introFor, judgeLine, mischiefLine, reactionList, rushEndLine, rushIntroFor,
+  STREET_TEXTS, TITLE_COMMENTS, allTexts, introFor, judgeLine, mischiefLine, reactionList, rushEndLine, rushIntroFor,
   say, shout, streetTextsFor, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey
 } from './content';
 import {
@@ -13,7 +13,7 @@ import {
 import { MALL_LOOKS } from './mall';
 import {
   BOSS3_HINTS, MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS,
-  MALL_WAVE_INTRO, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
+  MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
 } from './mallContent';
 import { TITLES, titlesFor } from './titles';
 import type { GangLook, Look } from './types';
@@ -343,7 +343,7 @@ describe('ステージ3の文', () => {
     const all = new Set(allTexts());
     for (const s of mallSpeeches) expect(all.has(s.text), s.text).toBe(true);
     for (const t of Object.values(streetTextsFor('mall'))) expect(all.has(t), t).toBe(true);
-    expect(all.has(RUSH_BAND_TEXT)).toBe(true);
+    expect(all.has(RUSH_BAND)).toBe(true);
     for (const look of MALL_LOOKS) {
       for (const l of [...MALL_PROFILE_LINES[look].civ, ...MALL_PROFILE_LINES[look].bad]) expect(all.has(l), l).toBe(true);
       for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
@@ -442,7 +442,7 @@ describe('ステージ3の文', () => {
     expect(rushIntroFor(true)).toHaveLength(1);
     expect(rushIntroFor(false)[1].text).toContain('市民にだけ待て');
     expect(rushIntroFor(true)[0].text).toContain('市民にだけ待て');
-    expect(RUSH_BAND_TEXT).toBe('タイムセール開始！');
+    expect(RUSH_BAND).toBe('タイムセール開始！');
     expect(rushEndLine({ civs: 4, civsSaved: 4 }).face).toBe('hype');
     expect(rushEndLine({ civs: 4, civsSaved: 3 }).face).toBe('deadpan');
   });

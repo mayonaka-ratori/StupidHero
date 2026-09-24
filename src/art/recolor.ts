@@ -7,6 +7,7 @@
 // 小物のないシート(ステージ1の人など)や、色がないときは、元のキーをそのまま返す。
 
 import type Phaser from 'phaser';
+import { addSheetFrames, createSheetAnims } from './lib';
 import { animKey, sheetByKey } from './sheets';
 
 const KEY_R = 255, KEY_G = 0, KEY_B = 255;
@@ -54,18 +55,8 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
   ctx.putImageData(data, 0, 0);
 
   const def = sheetByKey(sheetKey);
-  const tex = scene.textures.addCanvas(key, canvas)!;
-  for (let row = 0; row < def.rows.length; row++) {
-    for (let i = 0; i < def.cols; i++) {
-      tex.add(row * def.cols + i, 0, i * def.frameW, row * def.frameH, def.frameW, def.frameH);
-    }
-  }
-  def.rows.forEach((row, ri) => {
-    const k = animKey(key, row.name);
-    if (scene.anims.exists(k)) return;
-    const frames = Array.from({ length: row.frames }, (_, i) => ({ key, frame: ri * def.cols + i }));
-    scene.anims.create({ key: k, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
-  });
+  addSheetFrames(scene.textures.addCanvas(key, canvas)!, def);
+  createSheetAnims(scene, def, key);
   return key;
 }
 

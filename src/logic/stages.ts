@@ -125,10 +125,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     mechanic: 'gang',
     hasRush: false,
     bossRampageCost: BOSS2_RAMPAGE_COST,
-    bossFight: {
-      carAtHpRatio: BOSS2.carAtHpRatio, carIdleCostPerSec: BOSS2.carIdleCostPerSec,
-      carHoldSec: BOSS2.carHoldSec, carMinSec: BOSS2.carMinSec
-    },
+    bossFight: BOSS2,
     unlockAfter: 'alley',
     lockedText: '路地裏をクリアすると遊べる'
   },
@@ -153,10 +150,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     mechanic: 'ufo',
     hasRush: true,
     bossRampageCost: BOSS3_RAMPAGE_COST,
-    bossFight: {
-      carAtHpRatio: BOSS3.carAtHpRatio, carIdleCostPerSec: BOSS3.carIdleCostPerSec,
-      carHoldSec: BOSS3.carHoldSec, carMinSec: BOSS3.carMinSec
-    },
+    bossFight: BOSS3,
     unlockAfter: 'garage',
     lockedText: '地下駐車場をクリアすると遊べる'
   }

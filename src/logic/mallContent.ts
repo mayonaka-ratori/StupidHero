@@ -8,12 +8,10 @@
 // 名前、年齢、プロフィール、一言は content.ts の NAMES などに入っている(createStage が選ぶ)。
 
 import type {
-  HeroFace, MallDisguise, MallLook, OperatorFace, OperatorHint, Speech, WaveNo
+  MallDisguise, MallLook, OperatorHint, Speech, WaveNo
 } from './types';
+import { hero, hint, op } from './speech';
 
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
-const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
 
 // ─── プロフィール ─────────────────────────────────
 

@@ -2,8 +2,8 @@
 // どの担当も作らなかったキーには、仮の四角を入れておく(ゲームが止まらないように)。
 
 import Phaser from 'phaser';
-import { createCanvas, makeArtContext } from './lib';
-import { IMAGES, SHEETS, animKey, sheetSize } from './sheets';
+import { createCanvas, createSheetAnims, makeArtContext } from './lib';
+import { IMAGES, SHEETS, sheetSize } from './sheets';
 import { generateHeroSet } from './heroSet';
 import { generateWorldSet } from './worldSet';
 import { generateWorld2Set } from './world2';
@@ -89,12 +89,5 @@ function fillPlaceholders(ctx: ReturnType<typeof makeArtContext>): void {
 
 /** SHEETS の表から、すべてのアニメーションを登録する */
 function registerAnims(scene: Phaser.Scene): void {
-  for (const def of SHEETS) {
-    def.rows.forEach((row, r) => {
-      const key = animKey(def.key, row.name);
-      if (scene.anims.exists(key)) return;
-      const frames = Array.from({ length: row.frames }, (_, i) => ({ key: def.key, frame: r * def.cols + i }));
-      scene.anims.create({ key, frames, frameRate: row.fps, repeat: row.loop ? -1 : 0 });
-    });
-  }
+  for (const def of SHEETS) createSheetAnims(scene, def);
 }
