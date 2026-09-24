@@ -390,7 +390,7 @@ export class ResultScene extends Phaser.Scene {
     // フリープレイは、ルールと場面をつなげた文(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)
     const text = buildShareText({
       caption: free && s.free
-        ? freeShareCaption({ worstScene: s.worstScene, caption: worstCaption(s), free: s.free, titleName: t.name })
+        ? freeShareCaption({ worstScene: s.worstScene, caption: freeWorstCaption(s), free: s.free, titleName: t.name })
         : shareCaption({ worstScene: s.worstScene, caption: worstCaption(s), titleName: t.name }),
       url
     });

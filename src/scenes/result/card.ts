@@ -76,9 +76,11 @@ export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> &
  * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の文
  */
 export function freeWorstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack' | 'free'> & Partial<Pick<StageStats, 'stageId'>>): string {
-  if (s.worstScene) return worstCaption(s);
+  // 波ごとに背景が変わるので、ステージの名前で言い方を変える文(「駐車場ボロボロ!」など)は使わない
+  const plain = { worstScene: s.worstScene, worstAttack: s.worstAttack };
+  if (s.worstScene) return worstCaption(plain);
   if (s.free?.worst) return FREE_WORST_CAPTION[s.free.worst];
-  return worstCaption(s);
+  return worstCaption(plain);
 }
 
 /** 説明の文の全部(字を先に読みこむため) */
