@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1とステージ2)
-        default: ec2b1528a15df9ac1761207f08b50ccb90433e3c
+        # いま公開している版(ステージ1からステージ3)
+        default: ef47d5a88e44c9faf1c05a19c2d47cc63f899b1b
 
 permissions:
   contents: read
