@@ -741,6 +741,7 @@ export class BossScene extends Phaser.Scene {
       // ボスが投げたがれきが飛んでいって当たる
       throwDebris(this, BOSS_X, FEET_Y - 60, c.x - BOSS_X, c.y - (FEET_Y - 60), 180);
       this.time.delayedCall(180, () => {
+        if (this.phase !== 'fight') return;
         prop.setFrame(1);
         audio.sfx('break');
         // 画面は揺らさず、壊れた物だけを揺らす
@@ -781,7 +782,7 @@ export class BossScene extends Phaser.Scene {
       this.tweens.add({ targets: car.lunge, x: dir > 0 ? 22 : -14, y: -5, duration: 120, ease: 'Quad.easeIn', yoyo: true, hold: 70 });
     }
     this.time.delayedCall(120, () => {
-      if (this.phase === 'intro') return;
+      if (this.phase !== 'fight') return;
       const hitX = dir > 0 ? Math.min(208, car.x + 58) : car.frontX - 8;
       const hitY = FEET_Y - 26;
       audio.sfx('crash');
@@ -827,7 +828,7 @@ export class BossScene extends Phaser.Scene {
       this.tweens.add({ targets: ship.lunge, x: dir > 0 ? 10 : -12, duration: 140, ease: 'Quad.easeOut', yoyo: true, hold: 160 });
     }
     this.time.delayedCall(140, () => {
-      if (this.phase === 'intro') return;
+      if (this.phase !== 'fight') return;
       // 光線が当たった床が焼けて、火花と煙
       const bx = ship.x;
       const by = FEET_Y - 6;

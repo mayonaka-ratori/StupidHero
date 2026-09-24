@@ -40,19 +40,20 @@ class Preview extends Phaser.Scene {
   }
 
   private draw(skip: Set<string>): void {
-    // PNGを読めたキー(読めなかったキーは、Phaser の「絵がない」印が出る)
-    const png = new Set([...skip].filter((k) => this.textures.exists(k)));
+    // PNGを読めたキーと、その大きさ(読めなかったものや大きさが合わないものは、generateArt がコードの絵にもどす)
+    const png = new Map<string, { width: number; height: number }>();
+    for (const k of skip) if (this.textures.exists(k)) png.set(k, this.textures.get(k).getSourceImage() as { width: number; height: number });
     generateArt(this, skip);
     const g = this.add.graphics();
     for (const it of items) {
       const label = this.add.text(pad, it.y - 14, it.key, { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
       // PNGで差し替わった絵には印を付ける。大きさが決まりとちがえば赤で出す
-      if (png.has(it.key)) {
-        const src = this.textures.get(it.key).getSourceImage() as { width: number; height: number };
-        const wrong = src.width !== it.w || src.height !== it.h ? `(大きさが${src.width}x${src.height}、決まりは${it.w}x${it.h})` : '';
+      const src = png.get(it.key);
+      if (src) {
+        const wrong = src.width !== it.w || src.height !== it.h ? `(大きさが${src.width}x${src.height}、決まりは${it.w}x${it.h}。コードの絵を出している)` : '';
         this.add.text(pad + label.width + 6, it.y - 14, `PNG${wrong}`, { fontFamily: 'monospace', fontSize: '12px', color: wrong ? '#ff6a6a' : '#7cf0a0' });
       } else if (skip.has(it.key)) {
-        this.add.text(pad + label.width + 6, it.y - 14, 'PNGが読めない', { fontFamily: 'monospace', fontSize: '12px', color: '#ff6a6a' });
+        this.add.text(pad + label.width + 6, it.y - 14, 'PNGが読めない(コードの絵を出している)', { fontFamily: 'monospace', fontSize: '12px', color: '#ff6a6a' });
       }
       g.fillStyle(0x3a3550, 1).fillRect(pad, it.y, it.w * scale, it.h * scale);
       this.add.image(pad, it.y, it.key, '__BASE').setOrigin(0).setScale(scale);

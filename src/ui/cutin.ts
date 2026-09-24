@@ -58,6 +58,8 @@ export class CutIn extends Phaser.GameObjects.Container {
   private line: PixelText;
   private hit: Phaser.GameObjects.Zone;
   private speed: number;
+  /** いま出しているセリフの速さ(say で指定されたもの) */
+  private curSpeed = 30;
   private pageMs: number;
   private timer?: Phaser.Time.TimerEvent;
   private shakeTimer?: Phaser.Time.TimerEvent;
@@ -149,12 +151,12 @@ export class CutIn extends Phaser.GameObjects.Container {
     if (opt.alarm) this.shake();
     if (!this.visible) this.show();
     this.onChar = opt.onChar;
-    const speed = opt.speed ?? this.speed;
+    this.curSpeed = opt.speed ?? this.speed;
     this.pages = this.paginate(text);
     this.setExpression(expr, true);
     return new Promise<void>((resolve) => {
       this.resolveSay = resolve;
-      this.typePage(speed);
+      this.typePage(this.curSpeed);
     });
   }
 
@@ -166,12 +168,12 @@ export class CutIn extends Phaser.GameObjects.Container {
       this.line.setVisibleChars(-1);
       this.typing = false;
       if (!this.pages.length) this.finish();
-      else this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(this.speed));
+      else this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(this.curSpeed));
       return;
     }
     // ページの待ち時間中なら次のページへ
     this.timer?.remove();
-    this.typePage(this.speed);
+    this.typePage(this.curSpeed);
   }
 
   show(): this {

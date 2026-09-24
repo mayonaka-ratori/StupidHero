@@ -128,7 +128,11 @@ export function jolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Imag
     const dy = st.n % 4 === 1 ? -1 : 0;
     apply(dx, dy);
   };
-  const stop = (): void => { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); jolting.delete(target); };
+  const stop = (): void => {
+    scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, stop);
+    jolting.delete(target);
+  };
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
 }

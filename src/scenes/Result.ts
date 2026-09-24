@@ -468,11 +468,8 @@ export class ResultScene extends Phaser.Scene {
       }, () => { if (this.card === card) { dev.log.push('nofile'); shareReady(); } });
     }).catch((e: unknown) => { console.error(e); });
 
-    // 称号の一覧から戻ったとき:共有を受け付けられるようにしておく(眠っている間はタップが来ない)
-    this.events.on(Phaser.Scenes.Events.WAKE, () => { dev.log.push('wake'); });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
-      this.events.off(Phaser.Scenes.Events.WAKE);
       this.share?.destroy();
       this.share = undefined;
       if (this.textures.exists(THUMB_KEY)) this.textures.remove(THUMB_KEY);
