@@ -5,7 +5,8 @@
 // garage:中断と再開、見逃したギャングが仲間を呼んで集まったところで行け(まとめて吹き飛ばす)、
 //         ワゴンに乗りこんだところで行け(車ごと止める)
 // mall  :中断と再開、見逃した宇宙人が呼んだUFOを行けで殴り落とす(¥300万と真下の物)、押さずにいると買い物客が
-//         さらわれる、波2のあとのタイムセールラッシュ(帯のタップで始まり、市民にだけ待てを押す)
+//         さらわれる、波2のあとのタイムセールラッシュ(帯のタップで始まり、市民にだけ待てを押す)。
+//         ラッシュの前のエスカレーターが壊れないままラッシュが始まるか、ラッシュの長さ(約16秒)も見る
 // URL に ?scene= がなければ、開発用の入口で波1から始める。NG があれば exit code 1。
 import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
 
@@ -144,6 +145,18 @@ if (stage === 'alley') {
     const band = await page.waitForFunction(() => window.streetDev.rushOn && window.streetDev.cut && !window.streetDev.rushRunning, null, { timeout: 60000 })
       .then(() => true, () => false);
     if (check('ラッシュの帯が出る', band)) {
+      // ヒーローの後ろのエスカレーターは、壊れないままラッシュが始まる(ラッシュが終わるまで、どの攻撃でも壊れない)
+      const esc = await S(page, () => {
+        const d = window.streetDev;
+        const g = d.rushGuard;
+        if (!g) return null;
+        const before = g.broken;
+        d.breakProp(g);
+        return { kind: g.kind, dx: g.x - d.hero.x, before, after: g.broken, listed: d.visibleProps().includes(g), frame: g.sprite.frame.name };
+      });
+      check('エスカレーターが壊れないままラッシュが始まる', esc && esc.kind === 'escalator' && !esc.before && Math.abs(esc.dx) < 30 && String(esc.frame) === '0', JSON.stringify(esc));
+      check('ラッシュの前のエスカレーターは攻撃で壊れない(攻撃の当たる物から外れる)', esc && !esc.after && !esc.listed, JSON.stringify(esc));
+      await page.screenshot({ path: `${outDir}/${stage}_tap_rushescalator.png` });
       await page.waitForTimeout(3500);
       await page.screenshot({ path: `${outDir}/${stage}_tap_rushband.png` });
       check('帯の間は始まらない', !(await S(page, () => window.streetDev.rushRunning)));
@@ -155,6 +168,7 @@ if (stage === 'alley') {
       for (let i = 0; i < 8 && !(await S(page, () => window.streetDev.rushRunning)); i++) { await pad.tap(108, 110); await page.waitForTimeout(700); }
       check('タップで始まる', await S(page, () => window.streetDev.rushRunning));
       let stops = 0, shot = false;
+      const shotMen = new Set();
       const t0 = Date.now();
       while (Date.now() - t0 < 40000 && await S(page, () => window.streetDev.rushOn)) {
         const m = await S(page, () => {
@@ -162,6 +176,11 @@ if (stage === 'alley') {
           const k = d.rushMen.find((x) => x.state === 'mark');
           return d.stopHandler && k ? { civ: k.r.truth === 'civ', i: k.r.index } : null;
         });
+        // 最初と最後の人のマークを撮る
+        if (m && (m.i === 0 || m.i === 7) && !shotMen.has(m.i)) {
+          shotMen.add(m.i);
+          await page.screenshot({ path: `${outDir}/${stage}_tap_rush${m.i === 0 ? 'first' : 'last'}.png` });
+        }
         if (m && m.civ) {
           const s = await btn(page, 'stopBtn');
           await pad.tap(s.x, s.y); stops++;
@@ -173,6 +192,10 @@ if (stage === 'alley') {
       }
       const r = (await stats(page)).rush;
       check('ラッシュが終わる', !(await S(page, () => window.streetDev.rushOn)), JSON.stringify(r));
+      // ラッシュの時計(一時停止とヒットストップの間は進まない)で、始まってから終わるまで。仕様は8人で約16秒
+      const len = await S(page, () => window.streetDev.rushSec);
+      check('ラッシュの長さは約16秒', len >= 14.8 && len <= 16.8, `${len.toFixed(2)}秒`);
+      check('ラッシュが終わったら、エスカレーターは守らない', await S(page, () => window.streetDev.rushGuard === null));
       check('市民は全員待てで守り、宇宙人は全員殴る', r && r.civsSaved === r.civs && r.civsHit === 0 && r.aliensDefeated === r.aliens && r.aliens + r.civs === 8,
         `待て${stops}回 ${JSON.stringify(r)}`);
     }

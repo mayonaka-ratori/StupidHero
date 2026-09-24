@@ -108,7 +108,7 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
 
 /**
  * index 番目(0始まり)の人が画面の右に出てくる時刻(ラッシュが始まってからの秒数)。
- * 最初の2人のあとは2.4秒、そのあとは1.8秒おき。slow(ゆっくりモード)なら間隔を1.5倍にする
+ * 最初の2人のあとは2秒、そのあとは1.7秒おき。slow(ゆっくりモード)なら間隔を1.5倍にする
  */
 export function rushSpawnSec(index: number, slow = false): number {
   let t = 0;

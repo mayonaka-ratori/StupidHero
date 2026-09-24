@@ -287,6 +287,8 @@ export class EdgeAlarm {
 
   start(): this { this.on = true; this.n = 0; return this; }
   stop(): this { this.on = false; this.g.setVisible(false); return this; }
+  /** このコマだけ隠す(写真を撮るとき。次のコマからまた点滅する) */
+  hideNow(): void { this.g.setVisible(false); }
 
   private tick(): void {
     if (!this.on) return;

@@ -192,8 +192,10 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0x000000, [W - sz.w - 8, MID, sz.w + 8, sz.h + 4]);
     fill(ctx, UI.gold, [W - sz.w - 8, MID + sz.h + 3, sz.w + 8, 1]);
     drawText(ctx, scene, W - 4, MID + 2, sl, { size: 12, color: UI.gold }, [1, 0]);
+    // 説明の字は右下。さらわれた場面は写真の真ん中から右にUFOと浮いた買い物客がいるので、左下に置く
     const cap = worstCaption(s);
-    drawText(ctx, scene, W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [1, 1]);
+    const capLeft = s.worstScene === 'abducted';
+    drawText(ctx, scene, capLeft ? 4 : W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [capLeft ? 0 : 1, 1]);
   }
 
   // ─── 下:数字 ───

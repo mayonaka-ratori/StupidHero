@@ -252,15 +252,23 @@ describe('タイムセールラッシュの並び', () => {
     }
   });
 
-  it('来る時刻:最初の2人のあとは2.4秒、そのあとは1.8秒。ゆっくりモードは1.5倍', () => {
-    expect(plans[0].runners.map((x) => x.spawnSec)).toEqual([0, 2.4, 4.8, 6.6, 8.4, 10.2, 12, 13.8]);
-    expect(rushSpawnSec(2, true)).toBe(7.2);
-    expect(rushSpawnSec(7, true)).toBe(20.7);
-    // 間隔はマーク(約1秒)と殴る動きを足した長さより長い(マークは一度に1人だけ)
-    expect(RUSH.gapSec).toBeGreaterThan(RUSH.markSec + 0.5);
-    // 最後の人が出てから、走ってヒーローに着くまでを足すと約16秒
-    expect(rushSpawnSec(7)).toBeGreaterThan(12);
-    expect(rushSpawnSec(7)).toBeLessThan(16);
+  it('来る時刻:最初の2人のあとは2秒、そのあとは1.7秒。ゆっくりモードは1.5倍', () => {
+    expect(plans[0].runners.map((x) => x.spawnSec)).toEqual([0, 2, 4, 5.7, 7.4, 9.1, 10.8, 12.5]);
+    expect(rushSpawnSec(2, true)).toBe(6);
+    expect(rushSpawnSec(7, true)).toBe(18.75);
+    // 間隔は、マーク(約1秒)と急ブレーキのポーズを足した長さより長い(マークは一度に1人だけ)
+    expect(RUSH.gapSec).toBeGreaterThan(RUSH.markSec + RUSH.brakeSec);
+    // 殴る動き(拳が飛ぶ0.08秒、ヒットストップ0.08秒、構えを解くまで0.26秒)も急ブレーキより短い
+    expect(0.08 + 0.08 + 0.26).toBeLessThan(RUSH.brakeSec);
+  });
+
+  it('全体の長さは8人で約16秒', () => {
+    // 右の端の外(ヒーローの180ドット先)から、マークの出る48ドット手前まで走る時間
+    const approach = (180 - RUSH.markDistance) / RUSH.runSpeed;
+    const total = rushSpawnSec(RUSH.people - 1) + approach + RUSH.markSec + RUSH.settleSec;
+    expect(total).toBeCloseTo(16.3, 5);
+    expect(total).toBeGreaterThan(15.5);
+    expect(total).toBeLessThan(16.5);
   });
 
   it('走る速さとマークの数字、ラッシュの宇宙人は0.3秒に1回くずれる', () => {
