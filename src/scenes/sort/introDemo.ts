@@ -205,7 +205,7 @@ export class IntroDemo {
       case 'ufo': {
         // UFOが光で市民を吸い上げる
         this.person.setVisible(false);
-        const beam = add(sc.add.sprite(this.cx, 36, 'fx_ufobeam').setOrigin(0.5, 0));
+        const beam = add(sc.add.sprite(this.cx, 36, 'fx_ufobeam').setOrigin(...originFor('fx_ufobeam')));
         beam.play(animKey('fx_ufobeam', 'play'));
         const civ = add(sc.add.sprite(this.cx, this.feetY, 'uncle_civ', 0).setOrigin(...originFor('uncle_civ')));
         civ.play(animKey('uncle_civ', 'surprised'));

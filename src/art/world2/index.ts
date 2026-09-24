@@ -8,16 +8,22 @@ import { buildBoss2 } from './boss2';
 import { buildPeople2 } from './people';
 import { buildProps2 } from './props';
 
+/** シートのキー → 行ごとのコマ(絵の決まりのテストでも使う) */
+export function buildWorld2Sheets(skip: Set<string> = new Set()): Record<string, PixelGrid[][]> {
+  const sheets: Record<string, PixelGrid[][]> = { ...buildPeople2(skip), ...buildProps2() };
+  if (!skip.has('boss2')) sheets.boss2 = buildBoss2();
+  return sheets;
+}
+
+export const WORLD2_IMAGES: Record<string, () => PixelGrid> = { bg_garage_far: drawFar, bg_garage_wall: drawWall, bg_garage_ground: drawGround };
+
 export function generateWorld2Set(ctx: ArtContext): void {
-  const sheets: Record<string, PixelGrid[][]> = { ...buildPeople2(ctx.skip), ...buildProps2() };
-  if (!ctx.skip.has('boss2')) sheets.boss2 = buildBoss2();
-  for (const [key, rows] of Object.entries(sheets)) {
+  for (const [key, rows] of Object.entries(buildWorld2Sheets(ctx.skip))) {
     if (ctx.skip.has(key)) continue;
     const def = sheetByKey(key);
     ctx.addSheet(def, buildSheet(def, rows));
   }
-  const images: Record<string, () => PixelGrid> = { bg_garage_far: drawFar, bg_garage_wall: drawWall, bg_garage_ground: drawGround };
-  for (const [key, draw] of Object.entries(images)) {
+  for (const [key, draw] of Object.entries(WORLD2_IMAGES)) {
     if (ctx.skip.has(key)) continue;
     const def = IMAGES.find((d) => d.key === key)!;
     const g = draw();

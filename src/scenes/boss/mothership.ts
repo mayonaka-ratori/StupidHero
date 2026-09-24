@@ -3,7 +3,7 @@
 // 半透明は使わず、光線の光は1コマおきの点滅で見せる。「光と揺れを弱くする」の設定では点滅させない。
 
 import Phaser from 'phaser';
-import { animKey } from '../../art/sheets';
+import { animKey, originFor } from '../../art/sheets';
 import { MALL_SHEETS } from '../../logic';
 import { settings } from '../../settings';
 import { DEPTH_OF } from './depth';
@@ -98,7 +98,7 @@ export function skyBeam(scene: Phaser.Scene, x: number, top: number, bottom: num
   const key = MALL_SHEETS.beam;
   const len = Math.max(8, Math.round(bottom - top));
   const scale = Math.ceil(len / 64);
-  const s = scene.add.sprite(Math.round(x), Math.round(top), key, 0).setOrigin(0.5, 0).setScale(1, scale).setDepth(DEPTH_OF.fx);
+  const s = scene.add.sprite(Math.round(x), Math.round(top), key, 0).setOrigin(...originFor(key)).setScale(1, scale).setDepth(DEPTH_OF.fx);
   const crop = (): void => { s.setCrop(0, 0, s.width, Math.round(len / scale)); };
   crop();
   const anim = animKey(key, 'play');

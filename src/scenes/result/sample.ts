@@ -287,7 +287,7 @@ function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElemen
     drawSprite(ctx, scene, 'prop_gacha', 0, 196, feet - 4, { anchor: 'bottom' });
     // (左上と右上はカードの札が重なるので、UFOはその間。説明の字は左下に出る。結果発表の写真と同じ置き方)
     drawSprite(ctx, scene, 'uncle_civ', frameOf('uncle_civ', 'surprised'), 144, feet - 8, { anchor: 'feet' });
-    drawSprite(ctx, scene, 'fx_ufobeam', frameOf('fx_ufobeam', 'play', 1), 128, 146, { anchor: 'topleft' });
+    drawSprite(ctx, scene, 'fx_ufobeam', frameOf('fx_ufobeam', 'play', 1), 144, 146, { anchor: 'top' });
     drawSprite(ctx, scene, 'prop_ufo', 2, 144, 150, { anchor: 'bottom' });
     drawSprite(ctx, scene, 'hero', frameOf('hero', 'pass', 1), 64, feet, { anchor: 'feet' });
   } else if (name === 'hunter' || name === 'demolition') {

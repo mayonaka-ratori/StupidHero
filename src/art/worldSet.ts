@@ -9,14 +9,23 @@ import { buildPeople } from './world/people';
 import { buildProps } from './world/props';
 import { buildSheet } from './world/sheet';
 
+/** シートのキー → 行ごとのコマ(絵の決まりのテストでも使う) */
+export function buildWorldSheets(skip: Set<string> = new Set()): Record<string, PixelGrid[][]> {
+  const sheets: Record<string, PixelGrid[][]> = { ...buildPeople(skip), ...buildProps() };
+  if (!skip.has('boss')) sheets.boss = buildBoss();
+  return sheets;
+}
+
+/** 背景3枚(奥、壁、地面の順) */
+export const WORLD_BGS: Record<string, () => PixelGrid> = { bg_alley_far: drawFar, bg_alley_wall: drawWall, bg_alley_ground: drawGround };
+
 export function generateWorldSet(ctx: ArtContext): void {
-  const sheets = { ...buildPeople(ctx.skip), ...buildProps() };
-  for (const [key, rows] of Object.entries(sheets)) {
+  for (const [key, rows] of Object.entries(buildWorldSheets(ctx.skip))) {
     if (ctx.skip.has(key)) continue;
     const def = sheetByKey(key);
     ctx.addSheet(def, buildSheet(def, rows));
   }
-  const images: Record<string, () => PixelGrid> = { bg_alley_far: drawFar, bg_alley_wall: drawWall, bg_alley_ground: drawGround, logo: drawLogo };
+  const images: Record<string, () => PixelGrid> = { ...WORLD_BGS, logo: drawLogo };
   for (const [key, draw] of Object.entries(images)) {
     if (ctx.skip.has(key)) continue;
     const def = IMAGES.find((d) => d.key === key)!;
@@ -24,9 +33,5 @@ export function generateWorldSet(ctx: ArtContext): void {
     const { canvas, ctx: c } = createCanvas(def.w, def.h);
     g.drawTo(c, 0, 0);
     ctx.addImage(def, canvas);
-  }
-  if (!ctx.skip.has('boss')) {
-    const def = sheetByKey('boss');
-    ctx.addSheet(def, buildSheet(def, buildBoss()));
   }
 }

@@ -25,8 +25,8 @@ export interface SheetDef {
   /** 1行に並べるコマ数(シートの横幅 = cols * frameW) */
   cols: number;
   rows: AnimDef[];
-  /** 置くときの基準。'feet' = 下から4ドット上の真ん中、'bottom' = 下の真ん中、'center' = 真ん中 */
-  anchor: 'feet' | 'bottom' | 'center';
+  /** 置くときの基準。'feet' = 下から4ドット上の真ん中、'bottom' = 下の真ん中、'center' = 真ん中、'top' = 上の真ん中 */
+  anchor: 'feet' | 'bottom' | 'center' | 'top';
 }
 
 export interface ImageDef {
@@ -136,8 +136,8 @@ const BOSS3: SheetDef = {
   ]
 };
 
-const fx = (key: string, w: number, h: number, frames: number, fps: number, loop: boolean, note: string): SheetDef => ({
-  key, frameW: w, frameH: h, cols: frames, anchor: 'center', rows: [a('play', frames, fps, loop, note)]
+const fx = (key: string, w: number, h: number, frames: number, fps: number, loop: boolean, note: string, anchor: SheetDef['anchor'] = 'center'): SheetDef => ({
+  key, frameW: w, frameH: h, cols: frames, anchor, rows: [a('play', frames, fps, loop, note)]
 });
 
 export const SHEETS: SheetDef[] = [
@@ -186,7 +186,7 @@ export const SHEETS: SheetDef[] = [
   prop('prop_fountain', 64, 40, 'bottom'),
   prop('prop_escalator', 96, 64, 'bottom'),
   // UFOの吸い上げる光(fx_beam はヒーローの必殺技の光線が使っているので、別のキーにした)
-  fx('fx_ufobeam', 32, 64, 4, 12, true, 'UFOの吸い上げる光。上の端をUFOの口に合わせる。ゲームの中で1コマおきに点滅させる'),
+  fx('fx_ufobeam', 32, 64, 4, 12, true, 'UFOの吸い上げる光。上の端をUFOの口に合わせる。ゲームの中で1コマおきに点滅させる', 'top'),
   fx('fx_glitch', 64, 64, 4, 20, true, 'くずれのノイズ(黄緑)。体全体に重ねる。ゲームの中で1コマおきに点滅させる'),
   fx('fx_hit', 32, 32, 4, 16, false, '殴ったときの火花'),
   fx('fx_hit_big', 48, 48, 4, 16, false, 'ボス戦の大きな火花'),
@@ -248,12 +248,13 @@ export const KEY_ACCESSORY = 'rgb(255,0,255)';
 export const FEET_OFFSET = 4;
 
 /**
- * スプライトの原点(setOrigin に渡す値)。position を足の裏や下の真ん中に置けるようにする。
+ * スプライトの原点(setOrigin に渡す値)。position を足の裏や下の真ん中、上の真ん中に置けるようにする。
  * 例: this.add.sprite(x, feetY, 'hero').setOrigin(...originFor('hero'))
  */
 export const originFor = (key: string): [number, number] => {
   const d = sheetByKey(key);
   if (d.anchor === 'feet') return [0.5, (d.frameH - FEET_OFFSET) / d.frameH];
   if (d.anchor === 'bottom') return [0.5, 1];
+  if (d.anchor === 'top') return [0.5, 0];
   return [0.5, 0.5];
 };

@@ -1,11 +1,11 @@
 // UIの部品をタッチで試す(dev/ui.html 用)。指の操作はCDPのタッチイベントで送る(2本指も試せる)。
 // 使い方: npx vite --port 5104 --strictPort を動かしてから
 //   node tools/uitest.mjs [出力フォルダ]     (途中のスクリーンショットをそこに置く)
-import { chromium } from 'playwright-core';
+import { openBrowser } from './lib.mjs';
 
 const BASE = 'http://localhost:5104/dev/ui.html';
 const outDir = process.argv[2] ?? '.';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const browser = await openBrowser();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
 await page.routeWebSocket(/.*/, () => {});
 page.on('pageerror', (e) => console.error('pageerror:', e.message));

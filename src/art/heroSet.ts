@@ -19,13 +19,20 @@ function addGridSheet(ctx: ArtContext, key: string, frames: PixelGrid[][]): void
   ctx.addSheet(def, canvas);
 }
 
-export function generateHeroSet(ctx: ArtContext): void {
-  if (!ctx.skip.has('hero')) addGridSheet(ctx, 'hero', HERO_ROWS.map((row) => row.map((p) => renderPose(p))));
-  if (!ctx.skip.has('face_hero')) addGridSheet(ctx, 'face_hero', drawFaceSheet('hero'));
-  if (!ctx.skip.has('face_operator')) addGridSheet(ctx, 'face_operator', drawFaceSheet('operator'));
+/** シートのキー → 行ごとのコマ(絵の決まりのテストでも使う) */
+export function buildHeroSheets(skip: Set<string> = new Set()): Record<string, PixelGrid[][]> {
+  const sheets: Record<string, PixelGrid[][]> = {};
+  if (!skip.has('hero')) sheets.hero = HERO_ROWS.map((row) => row.map((p) => renderPose(p)));
+  if (!skip.has('face_hero')) sheets.face_hero = drawFaceSheet('hero');
+  if (!skip.has('face_operator')) sheets.face_operator = drawFaceSheet('operator');
   for (const [key, make] of Object.entries(FX)) {
-    if (ctx.skip.has(key)) continue;
+    if (skip.has(key)) continue;
     const def = sheetByKey(key);
-    addGridSheet(ctx, key, [make(def.frameW, def.frameH, def.cols)]);
+    sheets[key] = [make(def.frameW, def.frameH, def.cols)];
   }
+  return sheets;
+}
+
+export function generateHeroSet(ctx: ArtContext): void {
+  for (const [key, rows] of Object.entries(buildHeroSheets(ctx.skip))) addGridSheet(ctx, key, rows);
 }

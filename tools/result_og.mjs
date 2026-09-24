@@ -2,12 +2,12 @@
 // 使い方: npx vite --port 5204 --strictPort を動かしてから
 //   node tools/result_og.mjs [出力PNG(ふつう public/og.png)] [ポート(ふつう 5204)]
 // 中身は src/scenes/result/og.ts。そのファイルを読みこむだけのページをこのスクリプトの中で作って開く。
-import { chromium } from 'playwright-core';
+import { openBrowser } from './lib.mjs';
 import { writeFileSync } from 'node:fs';
 
 const [out = 'public/og.png', port = '5204'] = process.argv.slice(2);
 const origin = `http://localhost:${port}`;
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const browser = await openBrowser();
 const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
 await page.routeWebSocket(/.*/, () => {});
 page.on('pageerror', (e) => console.error('pageerror:', e.message));

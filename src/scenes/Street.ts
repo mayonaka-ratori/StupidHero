@@ -18,7 +18,7 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { animKey } from '../art/sheets';
+import { animKey, originFor } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
 import {
   GANG, GangCall, MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, RUSH, RUSH_BAND_TEXT, UfoQueue, canStop, hasSeenRush, markRushSeen, rushEndLine,
@@ -1822,7 +1822,7 @@ export class StreetScene extends Phaser.Scene {
     const s = u.shopper;
     if (s) { this.tweens.killTweensOf(s); s.x = u.x; s.pose('surprised'); }
     u.sprite?.setFrame(2).setPosition(u.x, u.bottom);
-    u.beam = this.add.sprite(u.x, u.bottom - 4, 'fx_ufobeam').setOrigin(0.5, 0).setDepth((s?.y ?? u.bottom + UFO_HOVER) + 0.5);
+    u.beam = this.add.sprite(u.x, u.bottom - 4, 'fx_ufobeam').setOrigin(...originFor('fx_ufobeam')).setDepth((s?.y ?? u.bottom + UFO_HOVER) + 0.5);
     u.beam.play(animKey('fx_ufobeam', 'play'));
     this.flickers.add(u.beam);
     u.mark = this.bigMark(u.x, u.bottom - 32 - 18, 2);
@@ -1998,7 +1998,7 @@ export class StreetScene extends Phaser.Scene {
   // ─── タイムセールラッシュ(ステージ3の波2のあと) ─────────
   // チャイムと「タイムセール開始!」の帯 → ゲームを止めて(曲、動き、ラッシュの時計)オペレーターが説明 → ▼タップで始める。
   // ヒーローはエスカレーターの前で立ち止まり、右から8人が走ってくる。48ドット手前で待てのマーク(約1秒。ゆっくりにしない)。
-  // 待てなし=光のパンチで殴る、待て=止まって通す。ちらりと決めつけは出さず、全員に「セール荒らしめ!」。
+  // 待てなし=光のパンチで殴る、待て=止まって通す。ちらりと決めつけは出さず、全員に「セールを荒らすなーっ!」。
   // 巻きぞえなし、物は壊れない。数え方は stats.startRush / rushHit / rushStopped(ほかの数字には入れない)。
   // 時計は update の stepRush で進める(一時停止、画面を離れたとき、ヒットストップで止まる)。早送りは切る。
 

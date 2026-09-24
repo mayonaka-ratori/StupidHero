@@ -147,7 +147,7 @@ Boot→Title→StageSelect→Intro
 
 | ページ | 中身 |
 |---|---|
-| `/dev/art.html` | 絵の一覧。`?keys=hero,fx_aura`で絞りこみ、`?scale=3`で拡大。コードで描いた絵だけを出す(`public/art/`のPNGは読まない) |
+| `/dev/art.html` | 絵の一覧。`?keys=hero,fx_aura`で絞りこみ、`?scale=3`で拡大。ゲームと同じく`public/art/`のPNGを読み、PNGで差し替わった絵はキーの横に「PNG」と出す |
 | `/dev/audio.html` | 曲と効果音を1つずつ鳴らす。「数字で確かめる」で音の大きさを表にする |
 | `/dev/ui.html` | UIの部品。`?page=sort`、`result`、`parts`、`swipe`、`text` |
 | `/dev/text.html` | ゲームに出る文を並べる。`?set=check`で禁則のまちがいだけを並べる |
@@ -155,11 +155,13 @@ Boot→Title→StageSelect→Intro
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは23ファイル、254件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは24ファイル、271件)
 npm run typecheck   # tsc
 ```
 
 pushするたびに、GitHub Actions(`.github/workflows/test.yml`)で同じ2つが動きます。
+
+`src/art/artRules.test.ts`は、コードで描いた絵の全部(ヒーロー、ステージ1〜3)が`docs/ART_SPEC.md`の色の決まりを守っているかを見るテストです。1枚15色まで、8段階の色だけ、明るい緑なし、赤紫はステージ2の人の小物だけ、黄緑の3色はステージ3だけ、背景は3枚で45色まで、奥の背景に透明なし、を確かめます。絵を描き足したり直したりしたら、これが通るかを見ます。
 
 `src/logic/published.test.ts`は、公開した版とステージ1の中身が変わっていないかを比べるテストです。答えは`src/logic/fixtures/`のJSONに入っています。このJSONは作り直さないでください。ステージ1の中身をわざと変えたときだけ、理由を書いて作り直します。仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えたので、JSONは作り直さずに、それらを比べる項目から外してあります。
 
@@ -174,7 +176,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 
 使い方の引数は、各ファイルの先頭にくわしく書いてあります。NGが1つでもあると、終了コード1で終わります。
 
-ブラウザの場所は`tools/lib.mjs`の`CHROME`に書いてあります(Claude Codeのクラウドの環境に入っているChromium)。ほかの場所で動かすときはここを書きかえます。`audioCheck.mjs`、`result_og.mjs`、`result_shot.mjs`、`uitest.mjs`は`lib.mjs`を使わず、同じ場所をファイルの中に直接書いているので、そちらも書きかえます。
+ブラウザの場所は`tools/lib.mjs`の`CHROME`に書いてあります(Claude Codeのクラウドの環境に入っているChromium)。どのスクリプトもここを見るので、ほかの場所で動かすときはここだけを書きかえます。
 
 | スクリプト | ポート | ステージ | すること |
 |---|---|---|---|
@@ -183,7 +185,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 | `street_tap.mjs` | 5202(URLを渡す) | `alley`、`garage`、`mall` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て。エスカレーターが壊れないまま始まるか、長さが約16秒か)も試す |
 | `boss_test.mjs` | 5203(引数で変えられる) | `alley`、`garage`、`mall` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る。地下駐車場とモールは、体力が半分を切ると車(母艦)に乗りこむところと、手が止まったときの被害額(乗る前¥50万、車¥100万、母艦¥150万が1秒ごと)、モールは倒すと噴水の¥150万が足されるかも見る |
 | `result_sharetest.mjs` | 5204(引数で変えられる) | `alley`、`garage`、`mall` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、キャンセルされたとき、失敗したとき、パソコン)。共有の文が見出し、#StupidHero、URLの3行か、「画像を保存」でPNGを保存できるかも見る |
-| `result_shot.mjs` | 5204 | URLの後ろに`stage=`を書く | 結果画面と共有カードの画像を書き出す |
+| `result_shot.mjs` | 5204(6つ目の引数か環境変数`PORT`で変えられる) | URLの後ろに`stage=`を書く | 結果画面と共有カードの画像を書き出す |
 | `result_og.mjs` | 5204(引数で変えられる) | | 共有用の画像`public/og.png`をゲームの絵で作り直す |
 | `textcheck.mjs` | 5205(URLを渡す) | | ゲームの全部の文を折り返して、禁則のまちがいがないか見る |
 | `audioCheck.mjs` | 5103(URLを渡せる) | | 曲と効果音の音の大きさを測り、音が割れていないか、無音でないかを見る |
@@ -215,9 +217,9 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 { "sheets": ["hero", "face_hero"], "images": ["logo"] }
 ```
 
-キーとコマの大きさは`src/art/sheets.ts`の表で決まっています(`SHEETS`と`IMAGES`)。表にないキーは読み込みません。読み込みは`src/scenes/Boot.ts`がします。
+キーとコマの大きさは`src/art/sheets.ts`の表で決まっています(`SHEETS`と`IMAGES`)。表にないキーは読み込みません。読み込みは`src/scenes/Boot.ts`がします(読み方は`src/art/index.ts`の`loadArtPngs`)。
 
-`/dev/art.html`はコードで描いた絵しか出さないので、差し替えた絵はゲームの画面で確かめます(例:`?scene=Sort&stage=mall`や`?scene=Street&wave=1&sorts=civ`)。
+置いたら、まず`/dev/art.html`で確かめます。差し替わった絵は、キーの横に緑で「PNG」と出ます。PNGの大きさが決まりとちがうときは赤で大きさが出て、読めなかったときは「PNGが読めない」と出ます。コマの区切りの線も出るので、コマがずれていないかも見ます。そのあとゲームの画面でも確かめます(例:`?scene=Sort&stage=mall`や`?scene=Street&wave=1&sorts=civ`)。
 
 ## 公開する
 
