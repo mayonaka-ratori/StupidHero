@@ -14,6 +14,19 @@ export type GangLook = 'guard' | 'mechanic' | 'clubber' | 'officelady';
 export type MallLook = 'mascot' | 'clerk' | 'dancer' | 'uncle';
 /** 見た目の種類(全部のステージ) */
 export type Look = AlleyLook | GangLook | MallLook;
+/**
+ * フリープレイの、一目で分かるワルの見た目(docs/FREEPLAY.md)。
+ * ナイフを振りかざしたモヒカン、バンダナで顔を隠して金属バットを持ったギャング、触角の出た緑の宇宙人
+ */
+export type FreeVillainLook = 'fp_mohawk' | 'fp_gang' | 'fp_alien';
+/** フリープレイの波3の小物(風船、とんがり帽子、大きな紙袋) */
+export type FreeItem = 'balloon' | 'hat' | 'bag';
+/**
+ * フリープレイのヒーローの決めつけ。
+ * allBad:「ここはワルだらけだな!」(全員に殴りかかる)、allCiv:「ここにはワルはいなさそうだ!」(全員素通り)、
+ * item:「〇〇の人はワル!」(その小物の人にだけ殴りかかる)
+ */
+export type FreeRule = { kind: 'allBad' } | { kind: 'allCiv' } | { kind: 'item'; item: FreeItem };
 /** 同じ見た目の市民とワルがいる組(パーカーの男、スーツの男、買い物袋の女性) */
 export type PairLook = 'hoodie' | 'suit' | 'shopper';
 /** ステージ1のボスの化けた姿(会社員、おばあさん、買い物袋の女性) */

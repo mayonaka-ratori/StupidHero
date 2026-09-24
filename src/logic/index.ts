@@ -55,3 +55,4 @@ export * from './format';
 export * from './share';
 export * from './records';
 export * from './reasons';
+export * from './freeNames';
