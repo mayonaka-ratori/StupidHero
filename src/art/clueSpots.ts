@@ -13,6 +13,8 @@
 //   モヒカン:ナイフを持つ手
 //   ステージ2の4人:小物(腕章、首の布、ヘアバンド、スカーフ)。女ボスは金色の小物(会社員の女ボスは金の腕輪も、4コマのうち3コマで入る。
 //   警備員の女ボスのサングラスは頭の上なので入らない)
+//   ステージ3の4人:くずれる場所(着ぐるみは頭、店員は目、学生は腕のつけね、おじさんは胴)。市民のぎこちない動きも同じ四角に入る。
+//   親玉は、着ぐるみの触角は入る。店員の逆さの名札とおじさんのとがった耳は入らない(見た目で見分ける)
 
 /** 窓で見せる四角の大きさ(コマのドット)。窓の中では3倍にする */
 export const CLUE_W = 16;
@@ -32,6 +34,10 @@ const GUARD = r(26, 15);
 const MECHANIC = r(25, 14);
 const CLUBBER = r(26, 3);
 const OFFICELADY = r(26, 13);
+const MASCOT = r(26, 4);
+const CLERK = r(31, 7);
+const DANCER = r(27, 14);
+const UNCLE = r(23, 23);
 
 /** 仕分けに出るシート → 四角 */
 export const CLUE_SPOTS: Readonly<Record<string, ClueRect>> = {
@@ -56,7 +62,18 @@ export const CLUE_SPOTS: Readonly<Record<string, ClueRect>> = {
   clubber_bad: CLUBBER,
   officelady_civ: OFFICELADY,
   officelady_bad: OFFICELADY,
-  boss2_disguise_officelady: OFFICELADY
+  boss2_disguise_officelady: OFFICELADY,
+  mascot_civ: MASCOT,
+  mascot_bad: MASCOT,
+  boss3_disguise_mascot: MASCOT,
+  clerk_civ: CLERK,
+  clerk_bad: CLERK,
+  boss3_disguise_clerk: CLERK,
+  dancer_civ: DANCER,
+  dancer_bad: DANCER,
+  uncle_civ: UNCLE,
+  uncle_bad: UNCLE,
+  boss3_disguise_uncle: UNCLE
 };
 
 /** そのシートの四角(色を塗り替えたシートのキー 'guard_civ#ff0000' でもよい)。表にないときは胸のあたり */

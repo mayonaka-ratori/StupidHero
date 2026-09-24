@@ -296,7 +296,7 @@
 | prop_ufo | UFO | 64×32。飛ぶ2コマ、吸い上げる、落ちた |
 | prop_mothership | 母艦 | 160×64。浮かぶ2コマ、光線、落ちた |
 | prop_gacha、prop_mannequin、prop_showcase、prop_fountain、prop_escalator | ガチャガチャ、マネキン、ショーケース、噴水、エスカレーター | 上の「店が壊れる」の表の大きさ。ふつうと壊れた |
-| fx_beam、fx_glitch | UFOの吸い上げる光、くずれのノイズ | 光は32×64、ノイズは64×64 |
+| fx_ufobeam、fx_glitch | UFOの吸い上げる光、くずれのノイズ | 光は32×64、ノイズは64×64。光のキーは、ヒーローの必殺技の光線 fx_beam とかぶらないように fx_ufobeam にする |
 | bg_mall_far、bg_mall_wall、bg_mall_ground | 背景3枚 | 路地裏と同じ大きさ |
 
 - ショーケースのキーは、ステージ1の窓(prop_window)とかぶらないようにprop_showcaseにする
