@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { allTexts } from './content';
 import {
-  FREE_ATTACK, FREE_DECLARES, FREE_DRY_PRESS, FREE_INTRO, FREE_ITEM_ATTACK, FREE_OP, FREE_OP_KEYS, FREE_PASS,
+  FREE_ATTACK, FREE_DECLARES, FREE_DRY_PRESS, FREE_INTRO, FREE_ITEM_ATTACK, FREE_OP, FREE_OP_GRANNY_HIT, FREE_OP_GRANNY_RULE,
+  FREE_OP_KEYS, FREE_OP_PASS_VILLAIN, FREE_PASS, freeOpContextLines,
   FREE_REDECLARE_HERO, FREE_REDECLARE_OP, FREE_STUBBORN, FREE_TOLD_YOU, allFreeSpeechTexts, allFreeTexts,
   createFreeLines, declareList, freeOpTier
 } from './freeContent';
@@ -197,5 +198,85 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
     const b = createFreeLines(createRng(7));
     for (const look of ALL_LOOKS) expect(a.heroAttack(look, { kind: 'allBad' })).toEqual(b.heroAttack(look, { kind: 'allBad' }));
     expect(a.op('hitCiv', 3)).toEqual(b.op('hitCiv', 3));
+  });
+});
+
+describe('オペレーターの一言に、その人や小物に合った文をまぜる(op の3つ目)', () => {
+  const tierTexts = (key: (typeof FREE_OP_KEYS)[number]) => new Set(FREE_OP[key].flat().map((s) => s.text));
+
+  /** 何回も呼んで、合った文とふつうの文の数を数える */
+  function tally(key: (typeof FREE_OP_KEYS)[number], ctx: Parameters<ReturnType<typeof createFreeLines>['op']>[2]) {
+    const lines = createFreeLines(createRng(11));
+    const special = new Set(freeOpContextLines(key, ctx).map((s) => s.text));
+    const normal = tierTexts(key);
+    let sp = 0;
+    let no = 0;
+    for (let i = 0; i < 400; i++) {
+      const t = lines.op(key, 1 + (i % 7), ctx).text;
+      if (special.has(t)) sp++;
+      else if (normal.has(t)) no++;
+      else throw new Error(`知らない文 ${t}`);
+    }
+    return { sp, no };
+  }
+
+  it('hitCivRule:おばあさんなら、おばあさんの文を半分くらいまぜる', () => {
+    expect(FREE_OP_GRANNY_RULE.map((s) => s.text)).toContain('おばあちゃんだよ！？');
+    const { sp, no } = tally('hitCivRule', { look: 'granny' });
+    expect(sp).toBeGreaterThan(120);
+    expect(no).toBeGreaterThan(120);
+  });
+
+  it('hitCivRule:小物のルールで当てはまった市民なら、小物の名前が入った文をまぜる', () => {
+    for (const item of FREE_ITEMS) {
+      const special = freeOpContextLines('hitCivRule', { look: 'suit', item });
+      expect(special.length, item).toBeGreaterThanOrEqual(3);
+      for (const s of special) expect(s.text, item).toContain(FREE_ITEM_NAME[item]);
+      const { sp, no } = tally('hitCivRule', { look: 'suit', item });
+      expect(sp, item).toBeGreaterThan(120);
+      expect(no, item).toBeGreaterThan(120);
+    }
+    expect(freeOpContextLines('hitCivRule', { item: 'balloon' }).map((s) => s.text)).toContain('風船持ってる\nだけ！');
+  });
+
+  it('passBadRule:一目で分かるワルごとの文をまぜる(ナイフ、バット、触角)', () => {
+    const words: Record<FreeVillainLook, string> = { fp_mohawk: 'ナイフ', fp_gang: 'バット', fp_alien: '触角' };
+    for (const look of FREE_VILLAINS) {
+      expect(FREE_OP_PASS_VILLAIN[look].some((s) => s.text.includes(words[look])), look).toBe(true);
+      const { sp, no } = tally('passBadRule', { look });
+      expect(sp, look).toBeGreaterThan(120);
+      expect(no, look).toBeGreaterThan(120);
+    }
+    expect(FREE_OP_PASS_VILLAIN.fp_mohawk.map((s) => s.text)).toContain('どう見ても\nナイフ持ってる！');
+  });
+
+  it('hitCiv:おばあさんなら、おばあさんの文をまぜる', () => {
+    expect(FREE_OP_GRANNY_HIT.length).toBeGreaterThanOrEqual(3);
+    const { sp, no } = tally('hitCiv', { look: 'granny' });
+    expect(sp).toBeGreaterThan(120);
+    expect(no).toBeGreaterThan(120);
+  });
+
+  it('合う文がないときと、ctx を渡さないときは、今までの文だけ', () => {
+    expect(freeOpContextLines('hitCivRule', undefined)).toEqual([]);
+    expect(freeOpContextLines('hitCivRule', { look: 'suit' })).toEqual([]);
+    expect(freeOpContextLines('passBadRule', { look: 'granny' })).toEqual([]);
+    expect(freeOpContextLines('saved', { look: 'granny', item: 'hat' })).toEqual([]);
+    const a = createFreeLines(createRng(5));
+    const b = createFreeLines(createRng(5));
+    for (let i = 0; i < 50; i++) {
+      const key = FREE_OP_KEYS[i % FREE_OP_KEYS.length];
+      expect(a.op(key, 1 + (i % 6)).text).toBe(b.op(key, 1 + (i % 6), { look: 'suit' }).text);
+    }
+  });
+
+  it('合った文をまぜても、直前と同じ文を続けて出さない', () => {
+    const lines = createFreeLines(createRng(21));
+    let prev = '';
+    for (let i = 0; i < 300; i++) {
+      const t = lines.op('hitCivRule', 1 + (i % 7), { look: 'granny', item: 'hat' }).text;
+      expect(t).not.toBe(prev);
+      prev = t;
+    }
   });
 });

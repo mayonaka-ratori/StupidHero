@@ -11,7 +11,8 @@
 //   lines.heroAttack(person.look, rule)          // 殴りかかるときの一言(波3は小物の名前が入る)
 //   lines.heroPass(person.look)                  // 素通りするときの一言(ワルには、おバカな見落とし)
 //   lines.heroStubborn() / heroToldYou() / heroDryPress()
-//   lines.op(key, count)                         // オペレーターの一言。count はその場面が何回目か(1始まり)
+//   lines.op(key, count, { look, item })         // オペレーターの一言。count はその場面が何回目か(1始まり)
+//                                                // 3つ目は省略できる。渡すと、その人や小物に合った文を半分くらいまぜる
 // 文字の確かめとフォントの読みこみ用に、全部の文を allFreeTexts() で返す(content.ts の allTexts() に入れてある)。
 
 import { FREE_ITEMS, FREE_ITEM_NAME, FREE_NAME, ruleSignText } from './freeNames';
@@ -103,7 +104,7 @@ export const FREE_DECLARES: Readonly<Record<StageId, FreeDeclareSet>> = {
     allCiv: [
       pair('車がピカピカ！\nみんないい人！', '車しか\n見てないじゃん！'),
       pair('ひんやり涼しい！\nワルはいなさそう！', '涼しいのと\n関係ある！？', 'panic'),
-      pair('白い線がまっすぐ！\nまっすぐないい人ばかり！', '線がまっすぐでも\nワルはいるよ')
+      pair('白い線がきれい！\nみんないい人！', '線は\n関係ないでしょ！')
     ],
     item: {
       balloon: [
@@ -133,7 +134,7 @@ export const FREE_DECLARES: Readonly<Record<StageId, FreeDeclareSet>> = {
     ],
     item: {
       balloon: [
-        pair('勝手に取った顔！\n{item}の人はワル！', 'もらったんでしょ！'),
+        pair('にやにやしてる！\n{item}の人はワル！', '{item}が\nうれしいだけでしょ！'),
         pair('明るい所で風船！\n{item}の人はワル！', 'ここ、{item}\nいっぱいあるよ！')
       ],
       hat: [
@@ -165,7 +166,7 @@ export const FREE_REDECLARE_HERO: readonly Speech[] = [
   hero('smug', '{from}はもう古い！\n{to}の人がワル！'),
   hero('smug', 'ひらめいた！\n本当は{to}の人がワル！'),
   hero('smug', '{from}じゃなかった！\n{to}の人がワル！'),
-  hero('smug', 'よく見たら\nやっぱり{to}の人がワル！')
+  hero('smug', 'よく見たら\n{to}の人がワル！')
 ];
 
 /** 言い直しへのツッコミ(オペレーター) */
@@ -560,10 +561,87 @@ export const FREE_OP: Readonly<Record<FreeOpKey, readonly [readonly Speech[], re
   ],
   recovered: [
     [op('hype', '取り返した！\nセーフ！'), op('hype', 'ギリギリ\n間に合った！')],
-    [op('hype', 'ナイスフォロー！'), op('hype', 'よく見てた！'), op('hype', '待てのあとの行け、\nうまい！')],
+    [op('hype', 'よく気づいた！'), op('hype', 'よく見てた！'), op('hype', '待てのあとの行け、\nうまい！')],
     [op('normal', '止めてから\n倒すの、得意だね'), op('deadpan', 'もう作戦でしょ'), op('hype', '取り返しの名人！')]
   ]
 };
+
+/** op に渡せる、その場面の人と小物 */
+export interface FreeOpContext {
+  look?: Look | FreeVillainLook;
+  item?: FreeItem;
+}
+
+/** その人や小物に合った一言をまぜる割合 */
+export const FREE_OP_CTX_CHANCE = 0.5;
+
+/** ルールに当てはまる市民に殴りかかる:おばあさんのとき */
+export const FREE_OP_GRANNY_RULE: readonly Speech[] = [
+  op('panic', 'おばあちゃんだよ！？'),
+  op('panic', 'おばあちゃんに\n何する気！？'),
+  op('panic', 'おばあちゃんは\nワルじゃない！')
+];
+
+/** ルールに当てはまる市民に殴りかかる:小物のルールのとき({item} に小物の名前が入る) */
+export const FREE_OP_ITEM_RULE: Readonly<Record<FreeItem, readonly Speech[]>> = {
+  balloon: [
+    op('panic', '{item}持ってる\nだけ！'),
+    op('panic', '{item}は\n悪くないって！'),
+    op('deadpan', '{item}だけで\n決めないで！')
+  ],
+  hat: [
+    op('panic', '{item}かぶってる\nだけ！'),
+    op('panic', '{item}は\n悪くないって！'),
+    op('deadpan', '{item}だけで\n決めないで！')
+  ],
+  bag: [
+    op('panic', '{item}持ってる\nだけ！'),
+    op('panic', '{item}は\n悪くないって！'),
+    op('deadpan', '{item}だけで\n決めないで！')
+  ]
+};
+
+/** ルールに当てはまらないワルを素通り:一目で分かるワルごと */
+export const FREE_OP_PASS_VILLAIN: Readonly<Record<FreeVillainLook, readonly Speech[]>> = {
+  fp_mohawk: [
+    op('panic', 'どう見ても\nナイフ持ってる！'),
+    op('panic', 'ナイフ、\n見えてるよね！？'),
+    op('deadpan', 'そのナイフ、\nおもちゃじゃないよ')
+  ],
+  fp_gang: [
+    op('panic', 'どう見ても\nバット持ってる！'),
+    op('panic', '顔、バンダナで\n隠してるよ！？'),
+    op('deadpan', '野球の人じゃ\nないってば')
+  ],
+  fp_alien: [
+    op('panic', 'どう見ても\n触角ある！'),
+    op('panic', '触角、\n見えてるよね！？'),
+    op('deadpan', '肌が緑だよ？\n気づいて')
+  ]
+};
+
+/** 市民を殴ってしまった:おばあさんのとき */
+export const FREE_OP_GRANNY_HIT: readonly Speech[] = [
+  op('panic', 'よりによって\nおばあちゃん！'),
+  op('panic', 'おばあちゃんに\n何してるの！？'),
+  op('deadpan', 'おばあちゃんに\nあとで謝ってね')
+];
+
+/** その場面の人と小物に合った一言(なければ空) */
+export function freeOpContextLines(key: FreeOpKey, ctx?: FreeOpContext): Speech[] {
+  if (!ctx) return [];
+  const out: Speech[] = [];
+  if (key === 'hitCivRule') {
+    if (ctx.look === 'granny') out.push(...FREE_OP_GRANNY_RULE);
+    const item = ctx.item;
+    if (item) out.push(...FREE_OP_ITEM_RULE[item].map((s) => fillSpeech(s, { item })));
+  } else if (key === 'passBadRule') {
+    if (ctx.look === 'fp_mohawk' || ctx.look === 'fp_gang' || ctx.look === 'fp_alien') out.push(...FREE_OP_PASS_VILLAIN[ctx.look]);
+  } else if (key === 'hitCiv') {
+    if (ctx.look === 'granny') out.push(...FREE_OP_GRANNY_HIT);
+  }
+  return out;
+}
 
 /** 何回目から2段目、3段目の言い方にするか */
 const OP_TIER_FROM: Readonly<Record<FreeOpKey, readonly [number, number]>> = {
@@ -600,8 +678,12 @@ export interface FreeLines {
   heroToldYou(): Speech;
   /** 空押しで振り向いたとき(「?」) */
   heroDryPress(): Speech;
-  /** count はその場面が何回目か(1始まり)。回数で言い方を変える */
-  op(key: FreeOpKey, count: number): Speech;
+  /**
+   * count はその場面が何回目か(1始まり)。回数で言い方を変える。
+   * ctx(省略できる)を渡すと、hitCivRule はおばあさんや小物の文、passBadRule は一目で分かるワルの文、
+   * hitCiv はおばあさんの文を、半分くらいまぜる
+   */
+  op(key: FreeOpKey, count: number, ctx?: FreeOpContext): Speech;
 }
 
 /**
@@ -659,8 +741,10 @@ export function createFreeLines(rng: Rng): FreeLines {
     heroDryPress() {
       return say('heroDryPress', FREE_DRY_PRESS);
     },
-    op(key, count) {
-      return say(`op:${key}`, FREE_OP[key][freeOpTier(key, count)]);
+    op(key, count, ctx) {
+      const special = freeOpContextLines(key, ctx);
+      const list = special.length > 0 && rng.chance(FREE_OP_CTX_CHANCE) ? special : FREE_OP[key][freeOpTier(key, count)];
+      return say(`op:${key}`, list);
     }
   };
 }
@@ -697,6 +781,10 @@ export function allFreeSpeechTexts(): string[] {
   add(FREE_TOLD_YOU);
   add(FREE_DRY_PRESS);
   for (const key of FREE_OP_KEYS) for (const tier of FREE_OP[key]) add(tier);
+  add(FREE_OP_GRANNY_RULE);
+  for (const item of FREE_ITEMS) for (const s of FREE_OP_ITEM_RULE[item]) out.push(fillItems(s.text, { item }));
+  for (const l of Object.values(FREE_OP_PASS_VILLAIN)) add(l);
+  add(FREE_OP_GRANNY_HIT);
   return out;
 }
 
