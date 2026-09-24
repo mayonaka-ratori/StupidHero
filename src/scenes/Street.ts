@@ -31,7 +31,7 @@ import {
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
-  CurlSmoke, UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, lighter, panelRect, popText, shake, spawnFx, whenNoFlash, waitMs
+  CurlSmoke, SMOKE_DARK, SMOKE_LIGHT, UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, lighter, panelRect, popText, shake, spawnFx, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
 import { Actor, HEAD } from './street/actor';
@@ -1198,15 +1198,18 @@ export class StreetScene extends Phaser.Scene {
 
   /** 壊れた車(や落ちたUFO)から、しばらく黒い煙が上がる。top は煙が出る高さ(下の端から) */
   smoke(van: PropObj, ms: number, top = 50): void {
-    // 煙のかたまり(砂ぼこりの絵)の上に、渦を巻いて上る細かい煙を重ねる。風で少し左へ流れる
-    new CurlSmoke(this, {
-      x: () => van.sprite.x - 5, y: van.y - top, depth: van.y + 0.4,
-      spread: 22, rate: 80, life: [1.1, 1.9], wind: -10, embers: 0.1, max: 200
+    // 煙のかたまり(砂ぼこりの絵)の上に、渦を巻いて上る細かい煙を重ねる。風で少し左へ流れる。
+    // 壊れたものより奥に置いて、後ろから上って見せる(UFOの上でのびている宇宙人にかけない)。
+    // 色は、モールは背景が明るいので黒、地下駐車場は背景が暗いので灰色
+    const fine = new CurlSmoke(this, {
+      x: () => van.sprite.x - 5, y: () => van.y - top, depth: van.y - 0.1,
+      colors: this.def.id === 'mall' ? SMOKE_DARK : SMOKE_LIGHT,
+      spread: 22, rate: 110, life: [1.1, 1.9], wind: -10, embers: 0.1, max: 240
     }).stopAfter(ms);
     const until = this.time.now + ms;
     const ev = this.time.addEvent({
       delay: 240, loop: true, callback: () => {
-        if (this.time.now > until || !van.sprite.active) { ev.remove(); return; }
+        if (this.time.now > until || !van.sprite.active) { ev.remove(); fine.stop(); return; }
         const x0 = van.sprite.x + this.rng.int(-30, 20);
         const y0 = van.y - top;
         const d = this.add.sprite(x0, y0, 'fx_dust').setDepth(van.y + 0.5).setTint(0x3a3448);

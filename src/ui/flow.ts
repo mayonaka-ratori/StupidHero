@@ -24,7 +24,7 @@ function lattice(ix: number, iy: number, seed: number): number {
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
   h ^= h >>> 16;
-  return (h >>> 0) / 0x7fffffff - 1;
+  return (h >>> 0) / 0x80000000 - 1;
 }
 
 export interface NoiseSample { v: number; dx: number; dy: number }

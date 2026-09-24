@@ -24,7 +24,7 @@ import {
 import { getRun, type GameRun } from '../run';
 import {
   Button, CurlSmoke, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
-  addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
+  SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg } from './sort/common';
 import { BossCar, MOTHERSHIP_LOOK } from './boss/car';
@@ -480,9 +480,12 @@ export class BossScene extends Phaser.Scene {
     if (this.carMode === 'car' && this.fight.hpRatio < 0.3 && this.time.now - this.lastHoodSmokeAt > 220) {
       this.lastHoodSmokeAt = this.time.now;
       spawnFx(this, 'fx_dust', car.frontX + Phaser.Math.Between(4, 24), car.smokeY, { depth: DEPTH_OF.car + 0.5 });
-      // 砂ぼこりの絵のすき間から、細かい煙が渦を巻いて上る(車が動いてもついて行く)
+      // 砂ぼこりの絵のすき間から、細かい煙が渦を巻いて上る(車が動いてもついて行く)。
+      // ボンネットの先(母艦は円盤のふち)から出して、風で左へ流す。屋根から顔を出すボスより奥に置き、
+      // 渦で右へ流れた粒がボスの顔にかからないようにする
       this.hoodSmoke ??= new CurlSmoke(this, {
-        x: () => car.frontX + 14, y: () => car.smokeY, depth: DEPTH_OF.car + 0.4, spread: 9, rate: 55
+        x: () => car.frontX + 6, y: () => car.smokeY, depth: DEPTH_OF.bossInCar - 0.1,
+        colors: this.smokeColors(), spread: 4, rate: 35, wind: -16
       });
     }
   }
@@ -1042,6 +1045,11 @@ export class BossScene extends Phaser.Scene {
     this.bossOutOfWreck(s, 640);
   }
 
+  /** 煙の色。モールは背景が明るいので黒い煙、ほかは背景が暗いので灰色の煙 */
+  private smokeColors(): readonly number[] {
+    return this.stageId === 'mall' ? SMOKE_DARK : SMOKE_LIGHT;
+  }
+
   /** 壊れた車(母艦)で爆発を何発も。最後は大きな爆発が3つ重なる。startMs は1発目までの時間 */
   private burnWreck(s: Phaser.GameObjects.Sprite, startMs: number): void {
     for (let i = 0; i < 9; i++) {
@@ -1066,10 +1074,15 @@ export class BossScene extends Phaser.Scene {
       audio.sfx('bigHit', { pitch: 0.8 });
       this.quake(9, 500);
       hitStop(this, 80);
-      // そのあとも車は燃えている。黒い煙が渦を巻いて上り、火の粉が飛ぶ
+      // そのあとも車は燃えている。煙が渦を巻いて上り、火の粉が飛ぶ。
+      // 煙は車より奥から出して、車の上から立ちのぼって見せる(車体にかかると汚れに見える)。
+      // 高く上りすぎると「ボス撃破!」の字にかかるので、早めに消す。
+      // モールは母艦が落ちる噴水が字のすぐ下にあるので、低くして、字のない右へ流す
+      const low = this.stageId === 'mall';
       new CurlSmoke(this, {
-        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car + 0.4,
-        spread: 30, rate: 120, life: [1.3, 2.3], rise: 24, embers: 0.15, max: 300
+        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car - 0.1, colors: this.smokeColors(),
+        spread: 12, rate: 90, life: low ? [0.8, 1.3] : [1.0, 1.6], rise: low ? 18 : 30, wind: low ? 14 : 0,
+        swirl: 24, embers: 0.15, max: 220
       }).stopAfter(4500);
       for (let i = 0; i < 8; i++) {
         this.time.delayedCall(200 + i * 260, () => spawnFx(this, i % 2 ? 'fx_dust' : 'fx_hit', s.x + Phaser.Math.Between(-40, 40), s.y - 22 + Phaser.Math.Between(-4, 6), { depth: DEPTH_OF.car + 0.5 }));

@@ -162,17 +162,19 @@ export class UfoPart {
     u.beam = this.s.add.sprite(u.x, u.bottom - 4, 'fx_ufobeam').setOrigin(...originFor('fx_ufobeam')).setDepth((s?.y ?? u.bottom + UFO_HOVER) + 0.5);
     u.beam.play(animKey('fx_ufobeam', 'play'));
     this.s.flickers.add(u.beam);
-    // 光の粒が買い物客の体のまわりから出て、横へふくらんでから、UFOの口へまっすぐ上から吸いこまれる。
-    // 色は宇宙人の黄緑(UFOの光なので使ってよい)。暗い色から明るい色へ変わる
+    // 光の粒が買い物客の足と胴のあたりから出て、左右に大きくふくらんでから、UFOの口へ下からまっすぐ吸いこまれる。
+    // 顔のあたりからは出さない(顔にかけない)。色は宇宙人の黄緑から白(UFOの光なので使ってよい)。
+    // いちばん暗い黄緑(0x49b600)は光のふちの色と同じで見分けにくいので使わない。
+    // 行き先はUFOの絵の今の位置(去っていくUFOにも吸いこまれる)
     u.sparks = new HermiteSparks(this.s, {
       from: () => {
         const sh = u.shopper?.standing ? u.shopper : null;
         const feet = sh ? sh.y - sh.lift : u.bottom + UFO_HOVER;
-        return { x: (sh?.x ?? u.x) + (Math.random() * 2 - 1) * 12, y: feet - 4 - Math.random() * 44 };
+        return { x: (sh?.x ?? u.x) + (Math.random() * 2 - 1) * 6, y: feet - 4 - Math.random() * 30 };
       },
-      to: () => ({ x: u.x, y: u.bottom - 3 }),
+      to: () => (u.sprite?.active ? { x: u.sprite.x, y: u.sprite.y - 3 } : { x: u.x, y: u.bottom - 3 }),
       depth: (s?.y ?? u.bottom + UFO_HOVER) + 0.6,
-      colors: [0x49b600, 0x92ff00, 0xdbff92], rate: 60, bulge: 140, pull: 110
+      colors: [0x92ff00, 0xdbff92, 0xffffff], rate: 60, bulge: 260, pull: 110
     });
     u.mark = this.s.bigMark(u.x, u.bottom - 32 - 18, 2);
     u.tractorMs = 0;
