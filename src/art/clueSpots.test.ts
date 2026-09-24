@@ -11,7 +11,7 @@ const people = (id: StageId): Person[] => {
 };
 
 describe('「持ち物」の窓の四角', () => {
-  const all = [...people('alley'), ...people('garage')];
+  const all = [...people('alley'), ...people('garage'), ...people('mall')];
 
   it('仕分けに出るシートは全部、表にある。四角はコマの中に入る', () => {
     for (const p of all) {

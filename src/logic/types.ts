@@ -1,5 +1,5 @@
 // ルールの部品で共通に使う型。Phaser にも画面にも頼らない。
-// 数字やルールの出どころは docs/SPEC.md(ステージ1)と docs/STAGE2.md(ステージ2)。
+// 数字やルールの出どころは docs/SPEC.md(ステージ1)、docs/STAGE2.md(ステージ2)、docs/STAGE3.md(ステージ3)。
 
 import type { StageDef } from './stages';
 
@@ -7,16 +7,23 @@ import type { StageDef } from './stages';
 export type AlleyLook = 'hoodie' | 'suit' | 'shopper' | 'mohawk' | 'granny';
 /** ステージ2(地下駐車場)の見た目。どれも市民とギャングの組(警備員、整備士、派手な若者、会社員の女性) */
 export type GangLook = 'guard' | 'mechanic' | 'clubber' | 'officelady';
+/**
+ * ステージ3(ショッピングモール)の見た目。どれも市民と宇宙人の組
+ * (着ぐるみのバイト、寝不足の店員、ロボットダンスの学生、買い物客のおじさん)
+ */
+export type MallLook = 'mascot' | 'clerk' | 'dancer' | 'uncle';
 /** 見た目の種類(全部のステージ) */
-export type Look = AlleyLook | GangLook;
+export type Look = AlleyLook | GangLook | MallLook;
 /** 同じ見た目の市民とワルがいる組(パーカーの男、スーツの男、買い物袋の女性) */
 export type PairLook = 'hoodie' | 'suit' | 'shopper';
 /** ステージ1のボスの化けた姿(会社員、おばあさん、買い物袋の女性) */
 export type AlleyDisguise = 'suit' | 'granny' | 'shopper';
 /** ステージ2の女ボスの化けた姿(警備員、整備士、会社員の女性) */
 export type GarageDisguise = 'guard' | 'mechanic' | 'officelady';
+/** ステージ3の宇宙人の親玉の化けた姿(寝不足の店員、買い物客のおじさん、着ぐるみのバイト) */
+export type MallDisguise = 'clerk' | 'uncle' | 'mascot';
 /** ボスの化けた姿(全部のステージ) */
-export type DisguiseLook = AlleyDisguise | GarageDisguise;
+export type DisguiseLook = AlleyDisguise | GarageDisguise | MallDisguise;
 /** 本当の正体 */
 export type Truth = 'bad' | 'civ' | 'boss';
 /** プレイヤーの仕分け(左スワイプでワル、右スワイプで市民) */
@@ -48,9 +55,10 @@ export interface OperatorHint {
 
 /**
  * ワルの悪さの種類(bad のシートの 'mischief' の動き)。
- * 'whistle' はステージ2のギャング:悪さの代わりに口笛で仲間を呼ぶ(被害額も市民負傷も増えない)
+ * 'whistle' はステージ2のギャング:悪さの代わりに口笛で仲間を呼ぶ(被害額も市民負傷も増えない)。
+ * 'signal' はステージ3の宇宙人:悪さの代わりに空へ合図を送ってUFOを呼ぶ(合図そのものの被害額は0)
  */
-export type MischiefKind = 'shove' | 'snatch' | 'pickpocket' | 'threaten' | 'whistle';
+export type MischiefKind = 'shove' | 'snatch' | 'pickpocket' | 'threaten' | 'whistle' | 'signal';
 
 /** 小物の色の id(ステージ2)。gold は女ボスだけ */
 export type AccessoryColorId = 'red' | 'green' | 'yellow' | 'aqua' | 'purple' | 'orange' | 'gold';
@@ -75,6 +83,22 @@ export interface PersonLink {
   toId: string;
   /** どちらの文をつながりの文にしたか */
   where: 'profile' | 'hint';
+}
+
+/**
+ * ステージ3の宇宙人の、動きのくずれの時間(STAGE3「動きのくずれ」)。数えるのは仕分けの時計だけ
+ * (その人が出ている間で、時計が進んでいる時間。文字送りと一時停止の間は進まない)。
+ * firstSec で初めてくずれ、そのあと everySec ごとに showSec の間くずれる。glitchShowing(glitch, sec) で調べる
+ */
+export interface GlitchTiming {
+  /** 初めてくずれるまでの秒数(3〜6秒を0.5秒きざみ。練習用は1.5秒) */
+  firstSec: number;
+  /** 2回目からの間隔(3秒。練習用は2秒) */
+  everySec: number;
+  /** 1回のくずれの長さ(0.2秒。練習用は0.3秒) */
+  showSec: number;
+  /** 波1の練習用の宇宙人か */
+  practice: boolean;
 }
 
 export type WaveNo = 1 | 2 | 3;
@@ -103,6 +127,8 @@ export interface Person {
   accessory?: Accessory;
   /** ステージ2だけ:前の人とのつながり(ない人もいる) */
   link?: PersonLink;
+  /** ステージ3の宇宙人だけ:動きのくずれの時間。市民と親玉にはない(親玉はくずれない) */
+  glitch?: GlitchTiming;
 }
 
 /** ステージ2のギャングの組 */
@@ -130,8 +156,30 @@ export interface Wave {
   groups: GangGroup[];
 }
 
-/** ステージの id。'alley' は路地裏(ステージ1)、'garage' は地下駐車場(ステージ2) */
-export type StageId = 'alley' | 'garage';
+/** ステージの id。'alley' は路地裏(ステージ1)、'garage' は地下駐車場(ステージ2)、'mall' はショッピングモール(ステージ3) */
+export type StageId = 'alley' | 'garage' | 'mall';
+
+/** タイムセールラッシュで走ってくる1人(ステージ3。STAGE3「タイムセールラッシュ」) */
+export interface RushRunner {
+  /** 来る順(0始まり) */
+  index: number;
+  look: MallLook;
+  /** 'bad' は宇宙人 */
+  truth: 'bad' | 'civ';
+  /** 絵のキー(仕分けと同じ 'mascot_bad' など) */
+  sheetKey: string;
+  /** ラッシュが始まってから画面の右に出てくるまでの秒数(ふつうの速さ。ゆっくりモードは rushSpawnSec で) */
+  spawnSec: number;
+}
+
+/** タイムセールラッシュの並び(ステージ3の stage.rush。ラッシュのないステージは null) */
+export interface RushPlan {
+  runners: RushRunner[];
+  /** 宇宙人の数(3か4) */
+  alienCount: number;
+  /** 市民の数 */
+  civCount: number;
+}
 
 /** 1ステージぶん */
 export interface Stage {
@@ -146,19 +194,23 @@ export interface Stage {
   waves: Wave[];
   /** 倒すべき相手の総数(ワル全員とボス)。「全員撃破」はこれと比べる */
   villainTotal: number;
-  /** 出てくる人の総数(ボスを含む。路地裏16、地下駐車場18) */
+  /** 出てくる人の総数(ボスを含む。路地裏16、地下駐車場18、ショッピングモール18) */
   peopleTotal: number;
+  /** タイムセールラッシュの並び(def.hasRush のステージだけ。ほかは null)。ラッシュの人は villainTotal と peopleTotal に入れない */
+  rush: RushPlan | null;
 }
 
 /** ヒーローの攻撃 */
 export type AttackKind = 'charge' | 'punch' | 'stomp' | 'special';
 /**
  * 壊れる物。路地裏:ゴミ箱、窓、看板、自販機、止めてある車。
- * 地下駐車場:ギャングのワゴン、女ボスの高級車、柱、料金所のバー、三角コーン、消火器の箱(止めてある車も置く)
+ * 地下駐車場:ギャングのワゴン、女ボスの高級車、柱、料金所のバー、三角コーン、消火器の箱(止めてある車も置く)。
+ * ショッピングモール:ガチャガチャ、マネキン、ショーケース、噴水、エスカレーター、UFO(行けで落としたとき)、母艦(ボス戦だけ)
  */
 export type PropKind =
   | 'trash' | 'window' | 'sign' | 'vending' | 'car'
-  | 'van' | 'bosscar' | 'pillar' | 'barrier' | 'cone' | 'extinguisher';
+  | 'van' | 'bosscar' | 'pillar' | 'barrier' | 'cone' | 'extinguisher'
+  | 'gacha' | 'mannequin' | 'showcase' | 'fountain' | 'escalator' | 'ufo' | 'mothership';
 
 /**
  * 結果発表でヒーローがその人の前に来たときに起きること。
@@ -171,15 +223,19 @@ export type PropKind =
  */
 export type Encounter = 'hitBad' | 'hitCiv' | 'passCiv' | 'passBad' | 'bossFight' | 'bossRampage';
 
-/** 市民がけがをした理由 */
-export type HurtCause = 'hero' | 'collateral' | 'villain';
+/**
+ * 市民がけがをした理由。'abducted' はステージ3でUFOに連れ去られた買い物客
+ * (称号では「ワルにやられた」 'villain' と同じに扱う)
+ */
+export type HurtCause = 'hero' | 'collateral' | 'villain' | 'abducted';
 
 /**
- * いちばんひどかった場面の種類。SPECの1〜5の順で、上ほどひどい。
+ * いちばんひどかった場面の種類。SPECの1〜5の順に、ステージ3の「市民がさらわれた」を足した。上ほどひどい。
  * 1 grannyHit:おばあさんを殴った / 2 specialOnCiv:市民に必殺技を当てた /
- * 3 civHit:市民を殴った(巻きぞえを含む) / 4 bigPropBroken:車や自販機が壊れた / 5 bossDefeated:ボスを倒した
+ * 3 civHit:市民を殴った(巻きぞえ、タイムセールラッシュで殴ったのを含む) / 4 abducted:市民がUFOにさらわれた /
+ * 5 bigPropBroken:車や自販機が壊れた / 6 bossDefeated:ボスを倒した
  */
-export type WorstScene = 'grannyHit' | 'specialOnCiv' | 'civHit' | 'bigPropBroken' | 'bossDefeated';
+export type WorstScene = 'grannyHit' | 'specialOnCiv' | 'civHit' | 'abducted' | 'bigPropBroken' | 'bossDefeated';
 
 /** 称号の id */
 export type TitleId =
@@ -197,7 +253,11 @@ export type TitleId =
   | 'soSo'
   // ステージ2だけで取れる
   | 'roundUp'
-  | 'gangDriver';
+  | 'gangDriver'
+  // ステージ3だけで取れる
+  | 'ufoGuide'
+  | 'saleGuardian'
+  | 'ufoHunter';
 
 /** 勝利ポーズ(hero のアニメの名前) */
 export type WinPose = 'win_pose' | 'win_arms' | 'win_fist' | 'win_shy';
@@ -209,8 +269,14 @@ export interface StageStats {
   /** 悪党撃破数(仕分けで殴った + 行けで追い打ち + まとめて吹き飛ばした + ワゴンごと止めた + ボス) */
   defeated: number;
   defeatedBySort: number;
-  /** 行けで倒したワルの数 */
+  /** 行けで倒したワルの数(UFOごと倒した宇宙人を含む) */
   defeatedByGo: number;
+  /** UFOごと倒した宇宙人の数(ステージ3。defeatedByGo に入っている) */
+  defeatedByUfo: number;
+  /** 行けで落としたUFOの数(ステージ3。「UFOハンター」) */
+  ufosDowned: number;
+  /** UFOに乗って去った宇宙人の数(ステージ3。escaped に入っている) */
+  escapedByUfo: number;
   /** まとめて吹き飛ばした人数(ステージ2) */
   defeatedByWipe: number;
   /** ワゴンごと止めた人数(ステージ2) */
@@ -224,11 +290,13 @@ export interface StageStats {
   /** ワゴンを止めた回数(ステージ2) */
   vansStopped: number;
   bossDefeated: boolean;
-  /** 市民負傷数(ヒーローが殴った + 巻きぞえ + ワルに襲われた) */
+  /** 市民負傷数(ヒーローが殴った + 巻きぞえ + ワルに襲われた + UFOにさらわれた) */
   civHurt: number;
   civHurtByHero: number;
   civHurtByCollateral: number;
   civHurtByVillain: number;
+  /** UFOにさらわれた買い物客の数(ステージ3。「宇宙人の案内係」) */
+  civHurtByAbduction: number;
   /** 被害額(円) */
   damage: number;
   damageByProps: number;
@@ -236,7 +304,7 @@ export interface StageStats {
   damageByBoss: number;
   /** 壊れた物の数 */
   propsBroken: Record<PropKind, number>;
-  /** 逃がした数(画面の右から逃げた + 待てで止めたワル + 車で逃げた組の人数) */
+  /** 逃がした数(画面の右から逃げた + 待てで止めたワル + 車で逃げた組の人数 + UFOで去った宇宙人) */
   escaped: number;
   /** 待てで守った市民の数 */
   civSavedByStop: number;
@@ -266,6 +334,27 @@ export interface StageStats {
   sortByHeroCorrect: number;
   /** 波ごとの仕分けの数(答え合わせが済んだ波だけ。波1から順) */
   sortWaves: SortTally[];
+  /** タイムセールラッシュの数(ステージ3。ラッシュをしていなければ null)。ほかの数字には入れない */
+  rush: RushTally | null;
+}
+
+/**
+ * タイムセールラッシュの数(STAGE3「数え方」)。悪党を倒した、市民のけが、逃がした、仕分け正解、
+ * 「全員倒した」のもとの悪党の数には入れない。ラッシュだけの数
+ */
+export interface RushTally {
+  /** 走ってきた宇宙人の数 */
+  aliens: number;
+  /** セールで倒した宇宙人(待てを押さなかった) */
+  aliensDefeated: number;
+  /** セールで逃がした宇宙人(待てを押した) */
+  aliensSpared: number;
+  /** 走ってきた市民の数 */
+  civs: number;
+  /** セールで守った市民(待てを押した) */
+  civsSaved: number;
+  /** セールで殴った市民(待てを押さなかった) */
+  civsHit: number;
 }
 
 /** 1つの波の仕分けの当たり外れ(答え合わせの画面と結果画面で使う) */
@@ -284,7 +373,7 @@ export interface SortTally {
 /** 称号1つ */
 export interface TitleDef {
   id: TitleId;
-  /** 調べる順(1〜14) */
+  /** 調べる順(1〜17) */
   order: number;
   name: string;
   pose: WinPose;

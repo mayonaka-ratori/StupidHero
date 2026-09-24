@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShareText, shareCaption, xPostUrl } from './share';
+import { ABDUCTED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption, xPostUrl } from './share';
 
 describe('共有文', () => {
   it('見出し、ハッシュタグ、URLの3行だけ(数字や称号の数は入れない)', () => {
@@ -15,6 +15,15 @@ describe('共有文', () => {
     expect(shareCaption({ worstScene: 'civHit', caption: '市民に突撃!', titleName })).toBe('市民に突撃!');
     expect(shareCaption({ worstScene: 'bossDefeated', caption: 'ボスを倒した!', titleName })).toBe('称号「街のほんものヒーロー」');
     expect(shareCaption({ worstScene: null, caption: 'ひどいことはなかった!', titleName })).toBe('称号「街のほんものヒーロー」');
+  });
+
+  it('市民がさらわれた場面も見出しになる。大きな物が壊れた場面はステージごとの言い方', () => {
+    const titleName = '宇宙人の案内係';
+    expect(ABDUCTED_CAPTION).toBe('市民がさらわれた!');
+    expect(shareCaption({ worstScene: 'abducted', caption: ABDUCTED_CAPTION, titleName })).toBe('市民がさらわれた!');
+    expect(STAGE_WORST_CAPTIONS.mall?.bigPropBroken).toBe('モールがこわれた!');
+    expect(STAGE_WORST_CAPTIONS.garage?.bigPropBroken).toBe('駐車場ボロボロ!');
+    expect(STAGE_WORST_CAPTIONS.alley).toBeUndefined();
   });
 
   it('Xに投稿のURL', () => {

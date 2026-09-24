@@ -6,7 +6,9 @@
 // 共有カードは画面が出た時点で作っておく(result/card.ts)。共有の流れは result/share.ts。
 //
 // 下の数字の窓の並び:仕分け正解、悪党を倒した、市民のけが(その下に小さく内わけ)、逃がした、被害額(その下にたとえ)。
-// ステージ2は組ごと撃破と車で逃げた組を小さく1行足す。低い画面では、ボタンを小さくし、
+// ステージ2(def.mechanic が 'gang')は組ごと撃破と車で逃げた組を小さく1行足す。
+// ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、ラッシュのあるステージ(def.hasRush)はラッシュのまとめを、小さく1行ずつ足す。
+// 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
 
 import Phaser from 'phaser';
@@ -15,8 +17,8 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  buildShareText, damageAnalogy, decideTitle, formatYen, randomSeed, saveResult, say, shareCaption, STAGES, titleCommentFor,
-  type RecordField, type SaveOutcome, type StageStats, type TitleDef
+  buildShareText, damageAnalogy, decideTitle, formatYen, hurtBreakdown, randomSeed, rushSummary, saveResult, say, shareCaption, STAGES,
+  titleCommentFor, type RecordField, type SaveOutcome, type StageStats, type TitleDef
 } from '../logic';
 import {
   Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake
@@ -57,8 +59,10 @@ interface Fit {
   rowH: number;
   /** 「悪党を倒した」と「逃がした」を1行にまとめる */
   merge: boolean;
-  /** 小さな字の行の高さ(内わけ、たとえ、組の行) */
+  /** 小さな字の行の高さ(内わけ、たとえ、組の行、UFOとラッシュの行) */
   subH: number;
+  /** UFOを落とした数とラッシュのまとめを1行にまとめる(ステージ3) */
+  pack: boolean;
 }
 
 /** 開発用:window.resultDev から中身をさわれる(テスト用) */
@@ -144,25 +148,28 @@ export class ResultScene extends Phaser.Scene {
     const top = actionH;
     const boxY = top + 4;
     const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
-    const hurtParts = [
-      s.civHurtByHero > 0 ? `なぐった${s.civHurtByHero}` : '',
-      s.civHurtByCollateral > 0 ? `まきぞえ${s.civHurtByCollateral}` : '',
-      s.civHurtByVillain > 0 ? `ワルにやられた${s.civHurtByVillain}` : ''
-    ].filter(Boolean);
-    const subRows = (hurtParts.length ? 1 : 0) + 1 + (def.hasGangs ? 1 : 0);
+    const hurtParts = hurtBreakdown(s);
+    // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
+    const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
+    const rushText = def.hasRush && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
+    const extraRows = (f: Fit): number =>
+      (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
+    const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);
     const shareYOf = (f: Fit): number => bottom - f.smallH - f.gap - f.shareH;
-    const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRows;
+    const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRowsOf(f);
     const roomOf = (f: Fit): number => shareYOf(f) - 5 - (boxY + boxHOf(f) + 5);
     // 写真が入る並べ方を、ゆったりした順に探す。どれでも入らなければ、いちばん詰めたもの(写真なし)
+    // (UFOとラッシュの行をまとめる pack は、ステージ3のほかでは何も変えない)
     const fits: Fit[] = [
-      { smallH: 26, shareH: 30, gap: 5, rowH: 17, merge: false, subH: 13 },
-      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13 },
-      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: true, subH: 13 },
-      // いちばん低い画面(高さ384)のステージ2:写真なしで、窓がボタンにかぶらないところまで詰める
-      { smallH: 22, shareH: 24, gap: 3, rowH: 15, merge: true, subH: 12 }
+      { smallH: 26, shareH: 30, gap: 5, rowH: 17, merge: false, subH: 13, pack: false },
+      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: false },
+      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: false, subH: 13, pack: true },
+      { smallH: 24, shareH: 26, gap: 4, rowH: 16, merge: true, subH: 13, pack: true },
+      // いちばん低い画面(高さ384)のステージ2と3:写真なしで、窓がボタンにかぶらないところまで詰める
+      { smallH: 22, shareH: 24, gap: 3, rowH: 15, merge: true, subH: 12, pack: true }
     ];
     const fit = fits.find((f) => roomOf(f) >= THUMB_MIN) ?? fits.find((f) => roomOf(f) >= -6) ?? fits[fits.length - 1];
-    const { rowH, merge, subH } = fit;
+    const { rowH, merge, subH, pack } = fit;
     const boxH = boxHOf(fit);
     new WindowFrame(this, 4, boxY, W - 8, boxH, 'win');
 
@@ -187,7 +194,7 @@ export class ResultScene extends Phaser.Scene {
       if (i === 2 && hurtParts.length) { hurtSub.y = cy - 1; cy += subH; }
       if (i === DAMAGE) { analogyY.y = cy - 2; cy += subH; }
     });
-    const gangY = cy - 2;
+    const extraY = cy - 2;
     const values = rows.map((r, i) => {
       const p = place[i];
       // まとめた行は、見出しを小さい字にして数字は大きいまま
@@ -209,14 +216,24 @@ export class ResultScene extends Phaser.Scene {
       : null;
     const analogy = new PixelText(this, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.body, color: UI.gold, outline: true })
       .setOrigin(1, 0).setVisible(false);
-    const gangTexts: PixelText[] = [];
-    if (def.hasGangs) {
+    const extraTexts: PixelText[] = [];
+    if (def.mechanic === 'gang') {
       const byGroup = s.defeatedByWipe + s.defeatedByVan;
-      gangTexts.push(
-        new PixelText(this, 11, gangY, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),
-        new PixelText(this, W - 11, gangY, `車で逃げた{${s.groupsEscaped > 0 ? 'red' : 'gold'}}${s.groupsEscaped}{/}組`, { size: FS.body, color: UI.textDim })
+      extraTexts.push(
+        new PixelText(this, 11, extraY, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),
+        new PixelText(this, W - 11, extraY, `車で逃げた{${s.groupsEscaped > 0 ? 'red' : 'gold'}}${s.groupsEscaped}{/}組`, { size: FS.body, color: UI.textDim })
           .setOrigin(1, 0).setVisible(false)
       );
+    }
+    // UFOとラッシュ:ふだんは1行ずつ。まとめるときは小さい字で「UFO：2機・セール：…」の1行にする
+    // (「UFO2機」だと「UFO」と数字がつながって読みにくいので、ラッシュのまとめと同じく「：」で区切る)
+    if (pack && ufoText && rushText) {
+      const short = `UFO：{gold}${s.ufosDowned}{/}機・${rushText}`;
+      extraTexts.push(new PixelText(this, 11, extraY + 1, short, { size: FS.small, color: UI.textDim }).setVisible(false));
+    } else {
+      [ufoText, rushText].filter((x): x is string => !!x).forEach((x, k) => {
+        extraTexts.push(new PixelText(this, 11, extraY + subH * k, x, { size: FS.body, color: UI.textDim }).setVisible(false));
+      });
     }
 
     // ─── ボタン ───
@@ -357,7 +374,7 @@ export class ResultScene extends Phaser.Scene {
     });
     this.tl
       .wait(200)
-      .step(0, { end: () => { analogy.setVisible(true); for (const g of gangTexts) g.setVisible(true); sfx('sparkle'); } })
+      .step(0, { end: () => { analogy.setVisible(true); for (const g of extraTexts) g.setVisible(true); sfx('sparkle'); } })
       .wait(300)
       .step(0, {
         end: () => {
@@ -373,7 +390,12 @@ export class ResultScene extends Phaser.Scene {
       unlockPending = false;
       more.setVisible(false);
       const opened = saved.unlockedNow[0];
-      void banner(this, `${STAGES[opened].name}が遊べる!`, { y: 128, hold: 1500, band: UI.gold });
+      // 名前が長くて帯の字が画面の端につくとき(「ショッピングモール」)は、短い名前(「モール」)にする
+      const full = `${STAGES[opened].name}が遊べる!`;
+      const probe = new PixelText(this, 0, 0, full, { size: FS.big, outline: true });
+      const text = probe.width > W - 16 ? `${STAGES[opened].shortName}が遊べる!` : full;
+      probe.destroy();
+      void banner(this, text, { y: 128, hold: 1500, band: UI.gold });
       audio.sfx('fanfare');
       flash(this, 0xfff0c0, 2);
       const u = say('unlocked', undefined, opened);
@@ -424,7 +446,7 @@ export class ResultScene extends Phaser.Scene {
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: def };
     const texts = [
       ...cardTexts(cardIn), ...rows.map((r) => r.label), 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, hurtParts.join('・'),
-      worstCaption(s)
+      worstCaption(s), ufoText ?? '', rushText ?? '', 'UFO：機・'
     ];
     const alive = (): boolean => this.sys.isActive() || this.sys.isPaused() || this.sys.isSleeping();
     // 共有ボタンを使えるようにする(File が作れなかったときも、画像を大きく出す方で共有できる)

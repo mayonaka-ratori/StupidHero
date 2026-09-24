@@ -11,23 +11,38 @@
 //   仲間が誰も来なかった(1人だけ)ときは、画面はステージ1の見逃したワルと同じ流れにする
 //   (行けで defeatBad('go')、逃げたら escaped())。1人で groupWiped などを呼んでも、人数は数えるが
 //   組の数(称号「一網打尽」「ギャングの運転手」の数)には入れない(GANG.groupSize.min 人以上だけ組)
+//
+// ステージ3(STAGE3「数え方の追加」「タイムセールラッシュ」の数え方):
+//   宇宙人の空への合図(見逃した宇宙人)では stats.mischief を呼ばない(呼んでも何も足さない)。
+//   stats.ufoDowned()      // 行けでUFOを殴り落とした。宇宙人を撃破に数え(「行けで倒した」にも)、UFOの¥300万を足す。
+//                          // 真下の物は画面が別に stats.breakProp(kind) で壊す
+//   stats.ufoEscaped()     // 行けを押さずにUFOが去った。買い物客を「市民のけが」(さらわれた)に、宇宙人を「逃がした」に数える。
+//                          // いちばんひどい場面は stats.reportScene('abducted')
+//   タイムセールラッシュ:stats.startRush(stage.rush) で始め、1人ごとに
+//   stats.rushHit(truth)(待てを押さずに殴った)か stats.rushStopped(truth)(待てで止めた)。
+//   ラッシュの数はほかの数字(悪党を倒した、市民のけが、逃がした、仕分け正解、全員倒した)に入れない。
+//   ラッシュで市民を殴った場面は stats.reportScene('civHit', 'punch')(市民を殴った瞬間と同じ段)
 
 import { GANG, isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
 import { STAGES } from './stages';
 import type {
-  AttackKind, HurtCause, Look, Person, PropKind, SortChoice, SortTally, StageId, StageStats, Truth, WorstScene
+  AttackKind, HurtCause, Look, Person, PropKind, RushPlan, RushTally, SortChoice, SortTally, StageId, StageStats, Truth, WorstScene
 } from './types';
 
 /** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
 export const isGroup = (size: number): boolean => size >= GANG.groupSize.min;
 
-/** いちばんひどかった場面の段階。数が小さいほどひどい(SPECの1〜5) */
+/**
+ * いちばんひどかった場面の段階。数が小さいほどひどい(SPECの1〜5に、STAGE3の「市民がさらわれた」を
+ * 「市民を殴った瞬間」のすぐあと、「車や自販機が壊れた瞬間」の前に足した)
+ */
 export const WORST_SCENE_RANK: Readonly<Record<WorstScene, number>> = {
   grannyHit: 1,
   specialOnCiv: 2,
   civHit: 3,
-  bigPropBroken: 4,
-  bossDefeated: 5
+  abducted: 4,
+  bigPropBroken: 5,
+  bossDefeated: 6
 };
 
 /** 市民に攻撃が当たった瞬間は、どの段階の場面か */
@@ -65,6 +80,9 @@ export function tallySorts(
 export class StatsTracker {
   private defeatedBySort = 0;
   private defeatedByGo = 0;
+  private defeatedByUfo = 0;
+  private ufosDowned = 0;
+  private escapedByUfo = 0;
   private defeatedByWipe = 0;
   private defeatedByVan = 0;
   private groupsWiped = 0;
@@ -72,14 +90,11 @@ export class StatsTracker {
   private escapedByVan = 0;
   private vansStopped = 0;
   private bossDefeated = false;
-  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0 };
+  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0, abducted: 0 };
   private damageByProps = 0;
   private damageByMischief = 0;
   private damageByBoss = 0;
-  private propsBroken: Record<PropKind, number> = {
-    trash: 0, window: 0, sign: 0, vending: 0, car: 0,
-    van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0
-  };
+  private propsBroken = Object.fromEntries(Object.keys(PROP_COST).map((k) => [k, 0])) as Record<PropKind, number>;
   private escapedCount = 0;
   private civSavedByStop = 0;
   private badSparedByStop = 0;
@@ -89,6 +104,7 @@ export class StatsTracker {
   private worst: WorstScene | null = null;
   private worstAttack: AttackKind | null = null;
   private sortWaves = new Map<number, SortTally>();
+  private rush: RushTally | null = null;
 
   /**
    * @param villainTotal 倒すべき相手の総数(ワル全員とボス)。stage.villainTotal を渡す
@@ -135,6 +151,61 @@ export class StatsTracker {
     if (isGroup(size)) this.groupsEscaped++;
   }
 
+  // ─── ステージ3:UFO ───
+
+  /**
+   * 吸い上げている間に行けを押して、UFOを殴り落とした。乗せようとしていた宇宙人も一緒に倒れる
+   * (撃破に数え、「行けで倒した」にも数える)。UFOの被害額(¥300万)を足し、足した額を返す。
+   * 真下の物は画面が別に breakProp で壊す。落ちたUFOは市民を巻きこまない
+   */
+  ufoDowned(): number {
+    this.defeatedByGo++;
+    this.defeatedByUfo++;
+    this.ufosDowned++;
+    return this.breakProp('ufo');
+  }
+
+  /**
+   * 行けを押さないまま、UFOが買い物客と宇宙人を乗せて去った。
+   * 買い物客を「市民のけが」(さらわれた)に、宇宙人を「逃がした」に数える
+   */
+  ufoEscaped(): void {
+    this.hurtCiv('abducted');
+    this.escapedCount++;
+    this.escapedByUfo++;
+  }
+
+  // ─── ステージ3:タイムセールラッシュ ───
+
+  /** ラッシュを始める(stage.rush を渡す)。宇宙人と市民の数を覚える。2回呼んだら数え直す */
+  startRush(plan: Pick<RushPlan, 'alienCount' | 'civCount'>): void {
+    this.rush = { aliens: plan.alienCount, aliensDefeated: 0, aliensSpared: 0, civs: plan.civCount, civsSaved: 0, civsHit: 0 };
+  }
+
+  /** ラッシュで待てを押さず、ヒーローが殴った(宇宙人なら「セールで倒した」、市民なら「セールで殴った」) */
+  rushHit(truth: 'bad' | 'civ'): void {
+    const r = this.ensureRush();
+    if (truth === 'bad') r.aliensDefeated++;
+    else r.civsHit++;
+  }
+
+  /** ラッシュで待てを押して止めた(宇宙人なら「セールで逃がした」、市民なら「セールで守った」)。「待ての達人」には入れない */
+  rushStopped(truth: 'bad' | 'civ'): void {
+    const r = this.ensureRush();
+    if (truth === 'bad') r.aliensSpared++;
+    else r.civsSaved++;
+  }
+
+  /** ラッシュの今の数(始めていなければ null) */
+  get rushTally(): RushTally | null {
+    return this.rush ? { ...this.rush } : null;
+  }
+
+  private ensureRush(): RushTally {
+    if (!this.rush) this.rush = { aliens: 0, aliensDefeated: 0, aliensSpared: 0, civs: 0, civsSaved: 0, civsHit: 0 };
+    return this.rush;
+  }
+
   /** ボスを倒した。seconds はボス戦にかかった秒数(BossFight.seconds) */
   defeatBoss(seconds: number): void {
     this.bossDefeated = true;
@@ -145,13 +216,14 @@ export class StatsTracker {
 
   /**
    * 市民がけがをした。
-   * cause:'hero' はヒーローが殴った、'collateral' は巻きぞえ、'villain' はワルに襲われた。
+   * cause:'hero' はヒーローが殴った、'collateral' は巻きぞえ、'villain' はワルに襲われた、
+   * 'abducted' はUFOにさらわれた(ふつうは ufoEscaped から呼ぶ)。
    * look はけがをした市民の見た目(おばあさんかどうかを見る)。ヒーローの攻撃(殴った、巻きぞえ)で
    * おばあさんに当たったら「おばあさんを殴った」になる。
    */
   hurtCiv(cause: HurtCause, look?: Look): void {
     this.hurt[cause]++;
-    if (look === 'granny' && cause !== 'villain') this.grannyHit = true;
+    if (look === 'granny' && (cause === 'hero' || cause === 'collateral')) this.grannyHit = true;
   }
 
   /** そのステージでヒーローの攻撃が市民に当たった回数(ツッコミを短い版にするかを決めるのに使う) */
@@ -175,8 +247,8 @@ export class StatsTracker {
    */
   mischief(look: Look): number {
     const kind = MISCHIEF_BY_LOOK[look];
-    // ギャングの口笛は悪さではない(被害額も市民負傷も増えない)
-    if (kind === 'whistle') return 0;
+    // ギャングの口笛と宇宙人の空への合図は悪さではない(被害額も市民負傷も増えない)
+    if (kind === 'whistle' || kind === 'signal') return 0;
     this.damageByMischief += MISCHIEF_COST;
     if (kind && MISCHIEF_HURTS_CIV[kind]) this.hurtCiv('villain');
     return MISCHIEF_COST;
@@ -184,7 +256,8 @@ export class StatsTracker {
 
   /**
    * ボスを市民に仕分けて、素通りのあとボスが暴れた。足した額を返す。
-   * 額はステージごと(路地裏¥1,000万、地下駐車場は手下の車をけしかけて¥1,500万)
+   * 額はステージごと(路地裏¥1,000万、地下駐車場は手下の車をけしかけて¥1,500万、
+   * ショッピングモールは母艦の光線でモールを焼いて¥2,000万)
    */
   bossRampage(): number {
     const cost = STAGES[this.stageId].bossRampageCost;
@@ -257,7 +330,7 @@ export class StatsTracker {
   }
 
   get civHurt(): number {
-    return this.hurt.hero + this.hurt.collateral + this.hurt.villain;
+    return this.hurt.hero + this.hurt.collateral + this.hurt.villain + this.hurt.abducted;
   }
 
   /** 今の数字をまとめて返す(あとで変えても、返したものは変わらない) */
@@ -270,6 +343,9 @@ export class StatsTracker {
       defeated,
       defeatedBySort: this.defeatedBySort,
       defeatedByGo: this.defeatedByGo,
+      defeatedByUfo: this.defeatedByUfo,
+      ufosDowned: this.ufosDowned,
+      escapedByUfo: this.escapedByUfo,
       defeatedByWipe: this.defeatedByWipe,
       defeatedByVan: this.defeatedByVan,
       groupsWiped: this.groupsWiped,
@@ -281,6 +357,7 @@ export class StatsTracker {
       civHurtByHero: this.hurt.hero,
       civHurtByCollateral: this.hurt.collateral,
       civHurtByVillain: this.hurt.villain,
+      civHurtByAbduction: this.hurt.abducted,
       damage: this.damage,
       damageByProps: this.damageByProps,
       damageByMischief: this.damageByMischief,
@@ -300,12 +377,13 @@ export class StatsTracker {
       sortTotal: sum('total'),
       sortByHero: sum('byHero'),
       sortByHeroCorrect: sum('byHeroCorrect'),
-      sortWaves: waves
+      sortWaves: waves,
+      rush: this.rushTally
     };
   }
 }
 
-/** 物が壊れた瞬間がひどい場面になるか(車や自販機、ワゴン、柱なら 'bigPropBroken') */
+/** 物が壊れた瞬間がひどい場面になるか(車や自販機、ワゴン、柱、噴水、エスカレーターなら 'bigPropBroken') */
 export function sceneForProp(kind: PropKind): WorstScene | null {
   return isBigProp(kind) ? 'bigPropBroken' : null;
 }

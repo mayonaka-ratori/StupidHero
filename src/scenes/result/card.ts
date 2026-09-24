@@ -11,8 +11,8 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  STAGES, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
-  type TitleDef, type WorstScene
+  ABDUCTED_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome,
+  type StageDef, type StageId, type StageStats, type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
 import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
@@ -26,6 +26,7 @@ export const WORST_CAPTION: Record<WorstScene, string> = {
   grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
+  abducted: ABDUCTED_CAPTION,
   bigPropBroken: '街がこわれた!',
   bossDefeated: 'ボスを倒した!'
 };
@@ -46,10 +47,8 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
   }
 };
 
-/** ステージごとに言い方を変える見出し(地下駐車場は「街」ではない) */
-const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = {
-  garage: { bigPropBroken: '駐車場ボロボロ!' }
-};
+/** ステージごとに言い方を変える見出し(地下駐車場とショッピングモールは「街」ではない。logic/share.ts) */
+const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = STAGE_WORST_CAPTIONS;
 
 /** いちばんひどい場面の説明の文 */
 export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {
@@ -78,13 +77,13 @@ export interface CardInput {
 }
 
 /** 共有カードに使うステージの中身 */
-export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name'>;
+export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name' | 'shortName'>;
 
 /**
  * カードに出すステージの名前(「地下駐車場」)。
  * 「ステージ」はつけない(左の「いちばんひどい場面」と並べると、「地下駐車場ステージ」では幅が足りない)
  */
-const stageLabel = (st: CardStage): string => st.name;
+const stageLabel = (st: CardStage): string => st.shortName;
 
 export interface Card {
   /** 216×270 */
@@ -193,8 +192,10 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, 0x000000, [W - sz.w - 8, MID, sz.w + 8, sz.h + 4]);
     fill(ctx, UI.gold, [W - sz.w - 8, MID + sz.h + 3, sz.w + 8, 1]);
     drawText(ctx, scene, W - 4, MID + 2, sl, { size: 12, color: UI.gold }, [1, 0]);
+    // 説明の字は右下。さらわれた場面は写真の真ん中から右にUFOと浮いた買い物客がいるので、左下に置く
     const cap = worstCaption(s);
-    drawText(ctx, scene, W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [1, 1]);
+    const capLeft = s.worstScene === 'abducted';
+    drawText(ctx, scene, capLeft ? 4 : W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [capLeft ? 0 : 1, 1]);
   }
 
   // ─── 下:数字 ───

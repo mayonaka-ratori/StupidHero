@@ -1,6 +1,6 @@
 // 結果画面の共有ともう一回を、タッチで試す(result 担当)。
 // 使い方: npx vite --port 5204 --strictPort を動かしてから
-//   node tools/result_sharetest.mjs [出力フォルダ] [ポート] [ステージ(alley か garage)]
+//   node tools/result_sharetest.mjs [出力フォルダ] [ポート] [ステージ(alley、garage、mall)]
 // NG があれば exit code 1。
 import { checker, mobileContext, openBrowser, openPage, touchPad } from './lib.mjs';
 

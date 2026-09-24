@@ -3,14 +3,16 @@
 // 時間切れでヒーローが決めた人は「あなた」の代わりに「ヒーローの勘」と出す。ボスは化けた姿と偽名で、正体はボス。
 // 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result)。
 // 行はタップで一気に出せる。ステージ2の波3(6人と女ボスで7行)も、いちばん低い画面(高さ384)に入る高さにする。
+// タイムセールラッシュのあるステージ(def.hasRush)の波2は、人の行のあとにラッシュのまとめを1行出す
+// (「セール：撃破3/4・守った2/4」。ラッシュの数は仕分けの正解に入れない)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { reasonFor, sortIsCorrect, stripReasonMarkup, tallySorts, type SortChoice } from '../logic';
+import { RUSH, reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
 import { Button, DEPTH, FS, MuteButton, PixelText, goto, preloadFont } from '../ui';
-import { currentWave, getRun, nextAfterReview, recordWaveSorts } from '../run';
+import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
 import { Timeline } from './result/timeline';
 import { drawMark, personThumb } from './review/draw';
 
@@ -23,6 +25,11 @@ const HERO_GUESS = 0xe0c080;
 /** 顔の後ろ */
 const THUMB_BG = 0x1a1d3a;
 
+/** ラッシュのまとめの行の地 */
+const RUSH_BG = 0x2a2150;
+/** ラッシュのまとめの行の高さ */
+const RUSH_ROW_H = 16;
+
 /** 仕分けの呼び方と色 */
 const CHOICE_TEXT: Record<SortChoice | 'boss', string> = { bad: '{red}ワル{/}', civ: '{civ}市民{/}', boss: '{red}ボス{/}' };
 
@@ -30,7 +37,11 @@ const CHOICE_TEXT: Record<SortChoice | 'boss', string> = { bad: '{red}ワル{/}'
 const REVIEW_TEXTS = ['の答え合わせ', '人中', '人正解', '正解:', 'あなた:', 'ヒーローの勘:', 'ワル', '市民', 'ボス', '次へ▶'];
 
 /** 開発用:window.reviewDev から中身をさわれる(テスト用) */
-interface ReviewDev { scene?: WaveReviewScene; next?: Button; rows?: { id: string; ok: boolean; hero: boolean; reason: string }[] }
+interface ReviewDev {
+  scene?: WaveReviewScene; next?: Button; rows?: { id: string; ok: boolean; hero: boolean; reason: string }[];
+  /** ラッシュのまとめの行(出さないときは null) */
+  rush?: string | null;
+}
 const dev: ReviewDev = {};
 
 export class WaveReviewScene extends Phaser.Scene {
@@ -79,8 +90,12 @@ export class WaveReviewScene extends Phaser.Scene {
 
     // ─── 行 ───
     // 1人1つの箱。当たりは青、はずれは赤黒。箱の高さは人数で割って、広すぎないようにする
+    // ラッシュのまとめを出すときは、その1行ぶんを下にとっておく
+    const rush = wave.no === RUSH.afterWave && run.stage.def.hasRush ? rushTallyFor(run) : null;
+    const rushText = rush ? rushSummary(rush) : null;
+    dev.rush = rushText;
     const listTop = 42;
-    const listBottom = bottom - btnH - 5;
+    const listBottom = bottom - btnH - 5 - (rushText ? RUSH_ROW_H + 3 : 0);
     const n = people.length;
     const gap = n >= 7 ? 2 : 3;
     // 1行は3行の字(名前、仕分け、決め手)が入る高さ(40)から56まで。上につめて並べる
@@ -131,6 +146,20 @@ export class WaveReviewScene extends Phaser.Scene {
       rowParts.push(parts);
     });
 
+    // ラッシュのまとめ(人の行のすぐ下)。数字は金色
+    let rushParts: Phaser.GameObjects.GameObject[] = [];
+    if (rushText) {
+      const y = y0 + n * (rowH + gap);
+      const g = this.add.graphics().setDepth(DEPTH.ui - 1);
+      g.fillStyle(UI.black, 1).fillRect(3, y - 1, W - 6, RUSH_ROW_H + 2);
+      g.fillStyle(ROW_EDGE, 1).fillRect(4, y, W - 8, RUSH_ROW_H);
+      g.fillStyle(RUSH_BG, 1).fillRect(5, y + 1, W - 10, RUSH_ROW_H - 2);
+      const txt = new PixelText(this, Math.floor(W / 2), y + 2, rushText.replace(/(\d+\/\d+)/g, '{gold}$1{/}'), { size: FS.body, color: UI.text })
+        .setOrigin(0.5, 0);
+      rushParts = [g, txt];
+      for (const o of rushParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
+    }
+
     // ─── 流れ:1行ずつ出して、○×を押す ───
     const quiet = { v: false };
     this.tl.wait(250);
@@ -145,6 +174,10 @@ export class WaveReviewScene extends Phaser.Scene {
         })
         .wait(160);
     });
+    if (rushParts.length) {
+      this.tl.step(0, { end: () => { for (const o of rushParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(true); if (!quiet.v) audio.sfx('blip', { volume: 0.5 }); } })
+        .wait(200);
+    }
     this.tl.step(0, { end: () => { count.setVisible(true); if (!quiet.v) audio.sfx('stamp'); } });
 
     // タップで残りを一気に出す(ボタンの上は除く)
@@ -160,7 +193,7 @@ export class WaveReviewScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.UPDATE, onUpdate));
 
     // 字は先に読みこんでおく(決め手の文は日本語の字が多い)
-    void preloadFont([...REVIEW_TEXTS, ...people.map((p) => p.profile.name + stripReasonMarkup(reasonFor(p, wave)))], [12, 16]);
+    void preloadFont([...REVIEW_TEXTS, rushText ?? '', ...people.map((p) => p.profile.name + stripReasonMarkup(reasonFor(p, wave)))], [12, 16]);
   }
 
   /** 次へ:波1と波2は次の波の仕分け、波3は結果画面 */
@@ -171,4 +204,21 @@ export class WaveReviewScene extends Phaser.Scene {
     if (goto(this, to, undefined, { kind: 'wipe' })) this.leaving = true;
     else if (to === SCENES.sort) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す
   }
+}
+
+/**
+ * ラッシュの数。まだ数えていないとき(開発用に途中から始めてラッシュを通らなかったとき)は、
+ * 見本として宇宙人を1人だけ逃がし、市民を1人だけ殴ったことにする。ふつうに遊んでいれば数えてある
+ */
+function rushTallyFor(run: GameRun): RushTally | null {
+  const t = run.stats.rushTally;
+  if (t || !run.debug || !run.stage.rush) return t;
+  run.stats.startRush(run.stage.rush);
+  // 最初の宇宙人は待てで止め(逃がした)、最初の市民は殴った。ほかは正しく押した
+  const firsts = new Set(['bad', 'civ'].map((t) => run.stage.rush!.runners.findIndex((r) => r.truth === t)));
+  run.stage.rush.runners.forEach((r, i) => {
+    const miss = firsts.has(i);
+    if ((r.truth === 'bad') !== miss) run.stats.rushHit(r.truth); else run.stats.rushStopped(r.truth);
+  });
+  return run.stats.rushTally;
 }
