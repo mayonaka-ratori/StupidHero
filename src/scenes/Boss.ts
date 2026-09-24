@@ -253,9 +253,13 @@ export class BossScene extends Phaser.Scene {
     return say(key, rng, this.stageId);
   }
 
-  /** 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする */
+  /**
+   * 画面全体の揺れ。ボス戦は揺れる場面が多いので、ほかのシーンの半分の強さにする。
+   * 撃破したあと(爆発、車や母艦が壊れる、ボスが出てくる)は揺れが続くので、さらに半分にする
+   */
   private quake(px: number, ms: number): void {
-    shake(this, Math.max(1, Math.round(px / 2)), ms);
+    const div = this.phase === 'end' ? 4 : 2;
+    shake(this, Math.max(1, Math.round(px / div)), ms);
   }
 
   // ─── 始まり ───
