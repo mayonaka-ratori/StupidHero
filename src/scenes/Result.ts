@@ -149,7 +149,7 @@ export class ResultScene extends Phaser.Scene {
       s.civHurtByCollateral > 0 ? `まきぞえ${s.civHurtByCollateral}` : '',
       s.civHurtByVillain > 0 ? `ワルにやられた${s.civHurtByVillain}` : ''
     ].filter(Boolean);
-    const subRows = (hurtParts.length ? 1 : 0) + 1 + (def.hasGangs ? 1 : 0);
+    const subRows = (hurtParts.length ? 1 : 0) + 1 + (def.mechanic === 'gang' ? 1 : 0);
     const shareYOf = (f: Fit): number => bottom - f.smallH - f.gap - f.shareH;
     const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRows;
     const roomOf = (f: Fit): number => shareYOf(f) - 5 - (boxY + boxHOf(f) + 5);
@@ -210,7 +210,7 @@ export class ResultScene extends Phaser.Scene {
     const analogy = new PixelText(this, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.body, color: UI.gold, outline: true })
       .setOrigin(1, 0).setVisible(false);
     const gangTexts: PixelText[] = [];
-    if (def.hasGangs) {
+    if (def.mechanic === 'gang') {
       const byGroup = s.defeatedByWipe + s.defeatedByVan;
       gangTexts.push(
         new PixelText(this, 11, gangY, `組ごと撃破{gold}${byGroup}{/}人`, { size: FS.body, color: UI.textDim }).setVisible(false),

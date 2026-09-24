@@ -215,8 +215,9 @@ export function memoryStorage(stageId: StageId = 'alley'): RecordStorage {
     rec.stages[stageId] = { ...emptyStageRecord(), mostDefeated: 5, fewestHurt: 4, highestDamage: 12_000_000, fastestBossSec: 9, plays: 3, clears: 1 };
     for (const t of ['soSo', 'tooKind'] as const) if (!rec.titles.includes(t)) rec.titles.push(t);
   }
-  // 地下駐車場の見本は、路地裏をクリアしたことにしておく
-  if (stageId === 'garage') rec.stages.alley = { ...(rec.stages.alley ?? emptyStageRecord()), clears: Math.max(1, rec.stages.alley?.clears ?? 0) };
+  // 地下駐車場(とそのあと)の見本は、開くのに必要なステージをクリアしたことにしておく
+  const need = STAGES[stageId].unlockAfter;
+  if (need) rec.stages[need] = { ...(rec.stages[need] ?? emptyStageRecord()), clears: Math.max(1, rec.stages[need]?.clears ?? 0) };
   // ?unlock=1:路地裏をまだクリアしていないことにして、今回のクリアで地下駐車場が開くようにする
   if (q.get('unlock') === '1' && stageId === 'alley') rec.stages.alley = { ...(rec.stages.alley ?? emptyStageRecord()), clears: 0 };
   m.set(RECORDS_KEY, JSON.stringify(rec));

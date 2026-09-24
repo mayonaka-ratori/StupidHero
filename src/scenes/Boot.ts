@@ -4,7 +4,7 @@ import { generateArt } from '../art';
 import { IMAGES, SHEETS } from '../art/sheets';
 import { layout } from '../layout';
 import { allTexts, NAMES } from '../logic/content';
-import { stageTexts } from '../logic/stages';
+import { isStageId, stageTexts } from '../logic/stages';
 import { TITLES } from '../logic/titles';
 import { preloadFont } from '../ui/text';
 import { setSort, startRun } from '../run';
@@ -57,14 +57,15 @@ export class BootScene extends Phaser.Scene {
  * 開発用:URLで途中のシーンから始める(import.meta.env.DEV のときだけ使う)。
  *   ?scene=Sort&wave=2&seed=123
  *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
- *   ?scene=Boss   ?scene=Result   (&stage=garage でステージ2)
+ *   ?scene=Boss   ?scene=Result   (&stage=garage でステージ2、&stage=mall でステージ3)
  * 始める波より前の波と、Street以降なら始める波の仕分けも sorts の決め方で埋める。
  */
 function debugJump(scene: Phaser.Scene): string | null {
   const q = new URLSearchParams(location.search);
   const target = q.get('scene');
   if (!target || !(Object.values(SCENES) as string[]).includes(target) || target === SCENES.boot) return null;
-  const stageId = q.get('stage') === 'garage' ? 'garage' : 'alley';
+  const stageParam = q.get('stage');
+  const stageId = isStageId(stageParam) ? stageParam : 'alley';
   const run = startRun(scene, Number(q.get('seed') ?? 12345), true, stageId);
   const wave = Math.min(3, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? 3 : 1))));
   run.waveIndex = wave - 1;

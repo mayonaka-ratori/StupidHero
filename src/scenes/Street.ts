@@ -186,7 +186,7 @@ export class StreetScene extends Phaser.Scene {
     const wave = currentWave(this.run);
     const encOf = (id: string, truth: 'bad' | 'civ' | 'boss'): Encounter => resolveEncounter(truth, this.run.sorts[id] ?? 'civ');
     const passBad = new Set(wave.people.filter((p) => encOf(p.id, p.truth) === 'passBad').map((p) => p.id));
-    const plan = this.def.hasGangs
+    const plan = this.def.mechanic === 'gang'
       ? planGarage(wave.people, passBad, this.def.props, this.rng)
       : planStreet(wave.people, passBad, this.rng);
 
@@ -1018,7 +1018,7 @@ export class StreetScene extends Phaser.Scene {
     if (enc === 'passCiv') return false;
     if (enc === 'passBad') {
       // 地下駐車場のギャングは悪さの代わりに口笛で仲間を呼ぶ
-      if (this.def.hasGangs && a.person?.group) await this.gangCall(a);
+      if (this.def.mechanic === 'gang' && a.person?.group) await this.gangCall(a);
       else await this.mischief(a);
       return false;
     }
@@ -1593,7 +1593,7 @@ export class StreetScene extends Phaser.Scene {
     const cost = this.stats.bossRampage();
     this.pop(a.x, a.y - 80, formatYen(cost), true);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
-    if (this.def.hasGangs) {
+    if (this.def.mechanic === 'gang') {
       // 地下駐車場:女ボスは手下の車をけしかける。ワゴンが通りを走り抜けて、物を壊していく
       this.thugVans();
     } else {

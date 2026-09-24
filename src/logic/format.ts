@@ -42,21 +42,32 @@ export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: 
 };
 
 /**
+ * ステージごとのたとえの切りかえ。上から順に見て、被害額が below 未満なら unit(最後は below が Infinity)。
+ * 決め方は analogyUnitFor の説明
+ */
+export const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; unit: AnalogyUnit }[]>> = {
+  alley: [
+    { below: PROP_COST.vending, unit: 'trash' },
+    { below: 30_000_000, unit: 'vending' },
+    { below: 300_000_000, unit: 'car' },
+    { below: Infinity, unit: 'house' }
+  ],
+  garage: [
+    { below: 500_000, unit: 'cone' },
+    { below: 200_000_000, unit: 'van' },
+    { below: Infinity, unit: 'bosscar' }
+  ]
+};
+
+/**
  * どの物でたとえるか。
  * 路地裏:数が10〜40くらいに収まるように切りかえる。自販機1台に満たないときはゴミ箱(〜26個)、
  * ¥3,000万未満は自販機(1〜37台)、¥3億未満は車(10〜100台)、それより上は一軒家(10軒〜)。
  * 地下駐車場:¥50万未満は三角コーン(〜49個)、¥2億未満はワゴン(0.1〜39台)、それより上は高級車(10台〜)
  */
 export function analogyUnitFor(yen: number, stageId: StageId = 'alley'): AnalogyUnit {
-  if (stageId === 'garage') {
-    if (yen < 500_000) return 'cone';
-    if (yen < 200_000_000) return 'van';
-    return 'bosscar';
-  }
-  if (yen < PROP_COST.vending) return 'trash';
-  if (yen < 30_000_000) return 'vending';
-  if (yen < 300_000_000) return 'car';
-  return 'house';
+  const tiers = ANALOGY_TIERS[stageId];
+  return (tiers.find((t) => yen < t.below) ?? tiers[tiers.length - 1]).unit;
 }
 
 /** 数の書き方:10以上は整数、10未満は小数1けた(.0 は書かない)。0より大きければ最低0.1 */

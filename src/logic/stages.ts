@@ -8,28 +8,45 @@
 //   const fight = new BossFight(def.bossFight);
 //   for (const id of STAGE_IDS) ...         // ステージを選ぶ画面の並び(records.ts の stageSelectInfo も使える)
 
+import type { BgmName } from '../audio';
 import type { BossFightOptions } from './boss';
+import { BOSS2_AGES } from './garageContent';
 import {
   BOSS2, BOSS2_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, WAVES, type WavePlan
 } from './rules';
 import type { DisguiseLook, Look, PropKind, StageId, TitleId, Truth } from './types';
 
+/**
+ * ステージの仕組み(結果発表で見逃したワルが何をするか)。
+ * - none:ステージ1。悪さを始める(行けで追い打ち)
+ * - gang:ステージ2。口笛で仲間を呼んで集まり、車で逃げる(gang.ts)
+ * - ufo:ステージ3。空へ合図を送り、UFOが通りがかりの買い物客を連れ去る(ufo.ts)
+ */
+export type StageMechanic = 'none' | 'gang' | 'ufo';
+
 export interface StageDef {
   id: StageId;
   /** ステージの番号(1、2) */
   no: 1 | 2;
-  /** 表示用の名前。共有文は「◯◯ステージ」になる */
+  /** 表示用の名前(ステージを選ぶ画面、仕分けの画面など) */
   name: string;
+  /** 共有カードの「いちばんひどい場面」の右上に出す短い名前(幅が足りないときのため) */
+  shortName: string;
   /** 背景の画像のキー(src/art/sheets.ts の IMAGES) */
   bg: { far: string; wall: string; ground: string };
-  /** 曲の名前(src/audio の BgmName)。street は結果発表、boss はボス戦 */
-  bgm: { street: 'street' | 'street2'; boss: 'boss' | 'boss2' };
+  /** 曲の名前(src/audio の BgmName)。street は結果発表、boss はボス戦、rush はタイムセールラッシュ(なければ null) */
+  bgm: { street: BgmName; boss: BgmName; rush: BgmName | null };
   /** ボスの正体の絵のキー */
   bossSheet: 'boss' | 'boss2';
   /** ボスの化けた姿(この中から1つ選ばれる) */
   disguises: readonly DisguiseLook[];
   /** 化けた姿の絵のキー */
   disguiseSheets: Readonly<Partial<Record<DisguiseLook, string>>>;
+  /**
+   * ボスの年齢の幅。化けた姿の幅との重なりから選ぶ(地下駐車場の女ボス)。
+   * null なら化けた姿の市民と同じ幅から選ぶ
+   */
+  bossAges: readonly [number, number] | null;
   /** 出てくる人の見た目 */
   looks: readonly Look[];
   /**
@@ -39,10 +56,14 @@ export interface StageDef {
   props: readonly PropKind[];
   /** ボス戦だけに出す物(女ボスの高級車)。なければ null */
   bossProp: PropKind | null;
+  /** ボスを倒したときに壊れる物(被害額に足す)。なければ null */
+  bossDefeatProp: PropKind | null;
   /** 波の表 */
   waves: readonly WavePlan[];
-  /** ギャングの組があるか(仲間を呼ぶ、まとめて吹き飛ばす、車で逃げる) */
-  hasGangs: boolean;
+  /** 仕組み(none、gang、ufo)。画面は `def.mechanic === 'gang'` のように見て分ける */
+  mechanic: StageMechanic;
+  /** 波2の結果発表のあとにタイムセールラッシュがあるか */
+  hasRush: boolean;
   /** ボスを市民に仕分けていたとき、正体を現したあとに足す被害額 */
   bossRampageCost: number;
   /** ボス戦の設定。new BossFight(def.bossFight) */
@@ -62,18 +83,22 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     id: 'alley',
     no: 1,
     name: '路地裏',
+    shortName: '路地裏',
     bg: { far: 'bg_alley_far', wall: 'bg_alley_wall', ground: 'bg_alley_ground' },
-    bgm: { street: 'street', boss: 'boss' },
+    bgm: { street: 'street', boss: 'boss', rush: null },
     bossSheet: 'boss',
     disguises: ['suit', 'granny', 'shopper'],
     disguiseSheets: {
       suit: 'boss_disguise_suit', granny: 'boss_disguise_granny', shopper: 'boss_disguise_shopper'
     },
+    bossAges: null,
     looks: ['hoodie', 'suit', 'shopper', 'mohawk', 'granny'],
     props: ['trash', 'window', 'sign', 'vending', 'car'],
     bossProp: null,
+    bossDefeatProp: null,
     waves: WAVES,
-    hasGangs: false,
+    mechanic: 'none',
+    hasRush: false,
     bossRampageCost: BOSS_RAMPAGE_COST,
     bossFight: {},
     unlocks: 'garage',
@@ -85,18 +110,22 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     id: 'garage',
     no: 2,
     name: '地下駐車場',
+    shortName: '地下駐車場',
     bg: { far: 'bg_garage_far', wall: 'bg_garage_wall', ground: 'bg_garage_ground' },
-    bgm: { street: 'street2', boss: 'boss2' },
+    bgm: { street: 'street2', boss: 'boss2', rush: null },
     bossSheet: 'boss2',
     disguises: ['guard', 'mechanic', 'officelady'],
     disguiseSheets: {
       guard: 'boss2_disguise_guard', mechanic: 'boss2_disguise_mechanic', officelady: 'boss2_disguise_officelady'
     },
+    bossAges: BOSS2_AGES,
     looks: ['guard', 'mechanic', 'clubber', 'officelady'],
     props: ['cone', 'extinguisher', 'barrier', 'pillar', 'car', 'van'],
     bossProp: 'bosscar',
+    bossDefeatProp: null,
     waves: GARAGE_WAVES,
-    hasGangs: true,
+    mechanic: 'gang',
+    hasRush: false,
     bossRampageCost: BOSS2_RAMPAGE_COST,
     bossFight: {
       carAtHpRatio: BOSS2.carAtHpRatio, carIdleCostPerSec: BOSS2.carIdleCostPerSec,

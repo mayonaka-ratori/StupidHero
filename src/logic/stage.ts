@@ -32,7 +32,7 @@ export const STAGE_NAME = STAGES.alley.name;
 export function createStage(seed: number | string = randomSeed(), stageId: StageId = 'alley'): Stage {
   const rng = createRng(seed);
   const used: UsedTexts = { names: new Set(), texts: new Set() };
-  const waves = stageId === 'garage' ? buildGarageWaves(rng, used) : buildAlleyWaves(rng, used);
+  const waves = WAVE_BUILDERS[stageId](rng, used);
   const def = STAGES[stageId];
   const badTotal = waves.reduce((sum, w) => sum + w.badCount, 0);
   const bossTotal = waves.filter((w) => w.hasBoss).length;
@@ -46,6 +46,12 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
     peopleTotal: waves.reduce((sum, w) => sum + w.people.length, 0)
   };
 }
+
+/** ステージごとの波の作り方 */
+const WAVE_BUILDERS: Readonly<Record<StageId, (rng: Rng, used: UsedTexts) => Wave[]>> = {
+  alley: (rng, used) => buildAlleyWaves(rng, used),
+  garage: (rng, used) => buildGarageWaves(rng, used)
+};
 
 /** 路地裏の3つの波 */
 function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {

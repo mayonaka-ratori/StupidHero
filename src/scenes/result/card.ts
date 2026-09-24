@@ -78,13 +78,13 @@ export interface CardInput {
 }
 
 /** 共有カードに使うステージの中身 */
-export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name'>;
+export type CardStage = Pick<StageDef, 'bg' | 'bossSheet' | 'name' | 'shortName'>;
 
 /**
  * カードに出すステージの名前(「地下駐車場」)。
  * 「ステージ」はつけない(左の「いちばんひどい場面」と並べると、「地下駐車場ステージ」では幅が足りない)
  */
-const stageLabel = (st: CardStage): string => st.name;
+const stageLabel = (st: CardStage): string => st.shortName;
 
 export interface Card {
   /** 216×270 */

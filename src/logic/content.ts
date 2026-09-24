@@ -563,7 +563,36 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   ...GARAGE_TITLE_COMMENTS
 };
 
-const GARAGE_TITLE_COMMENT_LIST: Readonly<Partial<Record<TitleId, Speech>>> = GARAGE_TITLE_COMMENT_OVERRIDES;
+// ─── ステージごとの文 ─────────────────────────────
+
+/** 結果発表とボス戦のセリフの種類(全部のステージ)。GarageReactionKey は地下駐車場で足した種類 */
+export type AnyReactionKey = ReactionKey | GarageReactionKey;
+export type { GarageReactionKey };
+
+/** ステージごとに、路地裏と違う文(stageTexts で引く) */
+export interface StageTextSet {
+  /** ステージ前の掛け合い */
+  intro: readonly Speech[];
+  /** 波の始まりの一言 */
+  waveIntro: Readonly<Record<WaveNo, readonly Speech[]>>;
+  /** そのステージで足したセリフの種類と、言い方を変えた種類(ReactionKey)。ないものは路地裏の文 */
+  reactions: Readonly<Partial<Record<AnyReactionKey, readonly Speech[]>>>;
+  /** 言い方を変えた称号のひとこと。ないものは TITLE_COMMENTS */
+  titleComments: Readonly<Partial<Record<TitleId, Speech>>>;
+}
+
+const GARAGE_TEXTS: StageTextSet = {
+  intro: GARAGE_INTRO,
+  waveIntro: GARAGE_WAVE_INTRO,
+  reactions: { ...GARAGE_REACTIONS, ...GARAGE_OVERRIDES },
+  titleComments: GARAGE_TITLE_COMMENT_OVERRIDES
+};
+
+/** ステージごとの文の表 */
+export const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
+  alley: { intro: INTRO, waveIntro: WAVE_INTRO, reactions: {}, titleComments: {} },
+  garage: GARAGE_TEXTS
+};
 
 /**
  * 称号のひとことを、ステージに合った言い方で返す(結果画面と共有カード用)。
@@ -571,11 +600,7 @@ const GARAGE_TITLE_COMMENT_LIST: Readonly<Partial<Record<TitleId, Speech>>> = GA
  * 言い方を変えていない称号は title.comment(TITLE_COMMENTS)と同じ
  */
 export function titleCommentFor(id: TitleId, stageId: StageId = 'alley'): Speech {
-  if (stageId === 'garage') {
-    const o = GARAGE_TITLE_COMMENT_LIST[id];
-    if (o) return o;
-  }
-  return TITLE_COMMENTS[id];
+  return STAGE_TEXTS[stageId].titleComments[id] ?? TITLE_COMMENTS[id];
 }
 
 // ─── 選ぶための関数 ───────────────────────────────
@@ -586,20 +611,20 @@ export function pickSpeech(list: readonly Speech[], rng?: Rng): Speech {
   return rng ? rng.pick(list) : list[Math.floor(Math.random() * list.length)];
 }
 
-/** 結果発表とボス戦のセリフの種類(全部のステージ)。GarageReactionKey は地下駐車場だけで使う */
-export type AnyReactionKey = ReactionKey | GarageReactionKey;
-export type { GarageReactionKey };
-
-const GARAGE_OVERRIDE_LISTS: Readonly<Partial<Record<ReactionKey, readonly Speech[]>>> = GARAGE_OVERRIDES;
-
-/** そのステージで使うセリフの一覧 */
+/**
+ * そのステージで使うセリフの一覧。
+ * そのステージの文 → 路地裏の文 → ほかのステージで足した種類(例:路地裏の結果画面で出す 'unlocked')の順に探す
+ */
 export function reactionList(key: AnyReactionKey, stageId: StageId = 'alley'): readonly Speech[] {
-  if (key in GARAGE_REACTIONS) return GARAGE_REACTIONS[key as GarageReactionKey];
-  if (stageId === 'garage') {
-    const o = GARAGE_OVERRIDE_LISTS[key as ReactionKey];
-    if (o) return o;
+  const own = STAGE_TEXTS[stageId].reactions[key];
+  if (own) return own;
+  const base = (REACTIONS as Partial<Record<AnyReactionKey, readonly Speech[]>>)[key];
+  if (base) return base;
+  for (const id of Object.keys(STAGE_TEXTS) as StageId[]) {
+    const other = STAGE_TEXTS[id].reactions[key];
+    if (other) return other;
   }
-  return REACTIONS[key as ReactionKey];
+  throw new Error(`reactionList: 文がない ${key}`);
 }
 
 /**
@@ -610,14 +635,14 @@ export function say(key: AnyReactionKey, rng?: Rng, stageId: StageId = 'alley'):
   return pickSpeech(reactionList(key, stageId), rng);
 }
 
-/** ステージ前の掛け合い。replay が true なら2回目からの短い版 */
+/** ステージ前の掛け合い */
 export function introFor(stageId: StageId): readonly Speech[] {
-  return stageId === 'garage' ? GARAGE_INTRO : INTRO;
+  return STAGE_TEXTS[stageId].intro;
 }
 
 /** 波の始まりの一言 */
 export function waveIntroFor(stageId: StageId, no: WaveNo): readonly Speech[] {
-  return (stageId === 'garage' ? GARAGE_WAVE_INTRO : WAVE_INTRO)[no];
+  return STAGE_TEXTS[stageId].waveIntro[no];
 }
 
 /** 攻撃の叫びを1つ選ぶ */
@@ -673,7 +698,7 @@ export function allTexts(): string[] {
   addList(GARAGE_INTRO);
   for (const w of [1, 2, 3] as WaveNo[]) addList(GARAGE_WAVE_INTRO[w]);
   for (const k of Object.keys(GARAGE_REACTIONS) as GarageReactionKey[]) addList(GARAGE_REACTIONS[k]);
-  for (const l of Object.values(GARAGE_OVERRIDE_LISTS)) if (l) addList(l);
+  for (const l of Object.values(GARAGE_OVERRIDES)) addList(l);
   out.push(...allLinkTexts());
   addList(Object.values(GARAGE_TITLE_COMMENT_OVERRIDES));
   // 被害額のたとえの物の名前(フォントの読みこみ用。数字は別に読みこむ)
