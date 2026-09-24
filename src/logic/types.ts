@@ -393,7 +393,7 @@ export interface FreeTally {
   fixedRight: number;
   /** クリアまでの時間(秒)。足す秒を入れない。まだ終わっていなければ null */
   rawSec: number | null;
-  /** クリアまでの時間(秒)。逃がしたワルと市民のけがの分を足した記録。まだ終わっていなければ null */
+  /** クリアまでの時間(秒)。逃がしたワル、市民のけが、ワルへの待ての分を足した記録。まだ終わっていなければ null */
   clearSec: number | null;
   /** ゆっくりモードで遊んだか(途中で一度でもオンにしたら true) */
   slow: boolean;

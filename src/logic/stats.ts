@@ -548,7 +548,7 @@ export class StatsTracker {
       heroRight: f.heroRight,
       fixedRight,
       rawSec: f.rawSec,
-      clearSec: f.rawSec === null ? null : clearTimeSec(f.rawSec, this.escapedCount, this.civHurt),
+      clearSec: f.rawSec === null ? null : clearTimeSec(f.rawSec, this.escapedCount, this.civHurt, this.badSparedByStop),
       slow: f.slow,
       worst: f.worst,
       worstRule: f.worstRule

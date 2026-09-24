@@ -62,7 +62,9 @@ export const TITLE_THRESHOLDS = {
   /** ヒーローの通訳:行けで決めた場面がこれ以上(行けのチャンス8の8割) */
   interpreterGos: 7,
   /** ヒーローの通訳:空押しがこれ以下 */
-  interpreterDryMax: 3
+  interpreterDryMax: 3,
+  /** ヒーローの通訳:ワルへの待て(取り返しても数える)がこれ以下 */
+  interpreterVillainStopMax: 1
 } as const;
 
 const T = TITLE_THRESHOLDS;
@@ -225,12 +227,12 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'heroInterpreter', order: 19, name: 'ヒーローの通訳', pose: 'win_arms',
-    condition: 'フリープレイで、待てで8人以上守り、行けで7回以上決め、空押しが3回まで',
-    hint: 'フリープレイで、待ても行けもほとんど決める',
+    condition: 'フリープレイで、待てで8人以上守り、行けで7回以上決め、空押しが3回まで、ワルへの待てが1回まで',
+    hint: 'フリープレイで、ワルに待てを押さず、ほとんど決める',
     comment: TITLE_COMMENTS.heroInterpreter,
     modes: ['free'],
     test: (s) => s.free !== null && s.free.stopSaved >= T.interpreterStops && s.free.goScenes >= T.interpreterGos
-      && s.free.dryPresses <= T.interpreterDryMax
+      && s.free.dryPresses <= T.interpreterDryMax && s.badSparedByStop <= T.interpreterVillainStopMax
   },
   {
     id: 'letItBe', order: 20, name: 'なすがまま', pose: 'win_shy',
