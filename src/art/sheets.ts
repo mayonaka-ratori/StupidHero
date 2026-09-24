@@ -185,7 +185,7 @@ export const SHEETS: SheetDef[] = [
   prop('prop_showcase', 32, 32, 'bottom'),
   prop('prop_fountain', 64, 40, 'bottom'),
   prop('prop_escalator', 96, 64, 'bottom'),
-  // UFOの吸い上げる光。STAGE3.md では fx_beam だが、ヒーローの必殺技の光線と同じキーになるので fx_ufobeam にする
+  // UFOの吸い上げる光(fx_beam はヒーローの必殺技の光線が使っているので、別のキーにした)
   fx('fx_ufobeam', 32, 64, 4, 12, true, 'UFOの吸い上げる光。上の端をUFOの口に合わせる。ゲームの中で1コマおきに点滅させる'),
   fx('fx_glitch', 64, 64, 4, 20, true, 'くずれのノイズ(黄緑)。体全体に重ねる。ゲームの中で1コマおきに点滅させる'),
   fx('fx_hit', 32, 32, 4, 16, false, '殴ったときの火花'),
