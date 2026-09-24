@@ -15,7 +15,7 @@
 | `src/run.ts` | 1回のプレイの状態。シーンの間はこれで受け渡す。波のあとの行き先(`nextAfterStreet`、`nextAfterReview`)もここ |
 | `src/settings.ts` | 一時停止のメニューで切りかえる設定(光と揺れを弱くする、ゆっくりモード)。そのスマホの中に覚える |
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
-| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`) |
+| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`)。結果発表のギャング、UFO、タイムセールラッシュは`street/gang.ts`、`street/ufo.ts`、`street/rush.ts` |
 | `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)などの画面の部品 |
 | `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`、ステージ2の小物の塗り替えは`recolor.ts` |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
@@ -38,7 +38,7 @@ Boot→Title→StageSelect→Intro
 - まだどのステージも遊んでいない人は、`Title`から`StageSelect`をとばして路地裏へ行く
 - そのステージの掛け合いを見たか、一度遊んだことがあれば、`Intro`はとばしてすぐ`Sort`へ行く。`Title`と`StageSelect`は`src/scenes/Intro.ts`の`entrySceneFor`で行き先を決める。`Result`の「もう一回」は`Intro`へ行き、`Intro`が何も出さずに`Sort`へ進む(見たかどうかは記録の`introSeen`)
 - `Street`のあとの行き先は`nextAfterStreet`(波1と波2は`WaveReview`、波3は`Boss`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
-- ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/Street.ts`の`stepRush`など)
+- ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/street/rush.ts`の`stepRush`など)
 - `Result`から`TitleList`を開くと、`Result`は眠らせておき、もどると元のまま起こす
 
 | シーン | 画面 |

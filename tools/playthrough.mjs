@@ -90,10 +90,10 @@ while (Date.now() - t0 < 300000) {
     // 合図を見て押す。UFOは1機目だけ行けで落とす。ラッシュは市民にだけ待て。帯の説明はタップで送る
     const st = await page.evaluate(() => {
       const d = window.streetDev; if (!d) return null;
-      const u = d.ufos.current; const m = d.rushMen.find((x) => x.state === 'mark');
+      const u = d.ufoPart.ufos.current; const m = d.rushPart.rushMen.find((x) => x.state === 'mark');
       const b = (x) => ({ x: x.x + x.w / 2, y: x.y + x.h / 2 });
-      return { ufo: u ? u.alienId + ':' + u.phase : null, beam: u?.phase === 'beam' && !!d.goHandler, rushIntro: d.rushOn && !d.rushRunning,
-        rushCiv: d.rushRunning && !!d.stopHandler && m?.r.truth === 'civ', go: b(d.goBtn), stop: b(d.stopBtn) };
+      return { ufo: u ? u.alienId + ':' + u.phase : null, beam: u?.phase === 'beam' && !!d.goHandler, rushIntro: d.rushPart.rushOn && !d.rushPart.rushRunning,
+        rushCiv: d.rushPart.rushRunning && !!d.stopHandler && m?.r.truth === 'civ', go: b(d.goBtn), stop: b(d.stopBtn) };
     });
     if (st?.ufo && st.ufo.split(':')[0] !== lastUfo) { lastUfo = st.ufo.split(':')[0]; ufoSeen++; }
     if (st?.beam && ufoSeen === 1 && ufoGo === 0) { await page.waitForTimeout(500); await shot('ufo_beam'); await tap(st.go.x, st.go.y); ufoGo++; goTaps++; await page.waitForTimeout(1200); await shot('ufo_down'); }
