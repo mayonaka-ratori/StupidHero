@@ -114,6 +114,28 @@ const BOSS2: SheetDef = {
   ]
 };
 
+/** ステージ3の宇宙人:ワルの7行(行6の悪さは「空へ合図を送る」)に、行7「くずれ」を足した8行 */
+const alien = (key: string): SheetDef => ({
+  key, frameW: 64, frameH: 64, cols: 4, anchor: 'feet',
+  rows: [
+    ...civRows(),
+    a('mischief', 4, 8, false, '悪さ:空へ合図を送る(当たりで手の先が光る)', [3]),
+    a('glitch', 4, 20, false, 'くずれ。4コマとも正体が出ている(1:出はじめ、2〜3:いちばん強い、4:戻りかけ)。いつ出すかはコードが決める')
+  ]
+});
+
+const BOSS3: SheetDef = {
+  key: 'boss3', frameW: 96, frameH: 96, cols: 4, anchor: 'feet',
+  rows: [
+    a('reveal', 4, 10, false, '正体を現す。制服や着ぐるみが裂けて、触角と大きな目'),
+    a('idle', 2, 4, true, '待機。腕を組んで浮かぶように揺れる'),
+    a('rampage', 4, 10, true, '暴れる。目から光、腕を振り回す'),
+    a('hit', 2, 15, true, 'ラッシュを受ける'),
+    a('defeat', 4, 8, false, 'やられる。目を回して倒れる'),
+    a('board', 4, 10, false, '母艦に乗りこむ。天をさす → しゃがむ → 浮き上がる2コマ(3〜4コマは空中。体の真ん中をそろえる)')
+  ]
+};
+
 const fx = (key: string, w: number, h: number, frames: number, fps: number, loop: boolean, note: string): SheetDef => ({
   key, frameW: w, frameH: h, cols: frames, anchor: 'center', rows: [a('play', frames, fps, loop, note)]
 });
@@ -148,6 +170,24 @@ export const SHEETS: SheetDef[] = [
   prop('prop_barrier', 64, 32, 'bottom'),
   prop('prop_cone', 16, 16, 'bottom'),
   prop('prop_extinguisher', 16, 24, 'center'),
+  // ─── ステージ3(docs/STAGE3.md)───
+  // 宇宙人の行0〜5は、同じ見た目の市民とまったく同じ絵。違うのは行6と行7だけ
+  person('mascot_civ', false), alien('mascot_bad'),
+  person('clerk_civ', false), alien('clerk_bad'),
+  person('dancer_civ', false), alien('dancer_bad'),
+  person('uncle_civ', false), alien('uncle_bad'),
+  disguise('boss3_disguise_clerk'), disguise('boss3_disguise_uncle'), disguise('boss3_disguise_mascot'),
+  BOSS3,
+  propN('prop_ufo', 64, 32, 4, '0〜1:飛ぶ、2:吸い上げる(下のふたが開いて光る)、3:落ちた'),
+  propN('prop_mothership', 160, 64, 4, '0〜1:浮かぶ、2:光線(下の砲口が光る)、3:落ちた'),
+  prop('prop_gacha', 24, 32, 'bottom'),
+  prop('prop_mannequin', 24, 56, 'bottom'),
+  prop('prop_showcase', 32, 32, 'bottom'),
+  prop('prop_fountain', 64, 40, 'bottom'),
+  prop('prop_escalator', 96, 64, 'bottom'),
+  // UFOの吸い上げる光。STAGE3.md では fx_beam だが、ヒーローの必殺技の光線と同じキーになるので fx_ufobeam にする
+  fx('fx_ufobeam', 32, 64, 4, 12, true, 'UFOの吸い上げる光。上の端をUFOの口に合わせる。ゲームの中で1コマおきに点滅させる'),
+  fx('fx_glitch', 64, 64, 4, 20, true, 'くずれのノイズ(黄緑)。体全体に重ねる。ゲームの中で1コマおきに点滅させる'),
   fx('fx_hit', 32, 32, 4, 16, false, '殴ったときの火花'),
   fx('fx_hit_big', 48, 48, 4, 16, false, 'ボス戦の大きな火花'),
   fx('fx_dust', 32, 32, 4, 12, false, '砂ぼこり'),
@@ -177,7 +217,10 @@ export const IMAGES: ImageDef[] = [
   { key: 'logo', w: 200, h: 64, note: 'タイトルのロゴ' },
   { key: 'bg_garage_far', w: 216, h: 214, note: '地下駐車場の奥。暗い壁と遠くの柱。左右がつながる' },
   { key: 'bg_garage_wall', w: 648, h: 130, note: '手前の壁、蛍光灯、案内の矢印、番号の書いた柱(文字はなし)。左右がつながる' },
-  { key: 'bg_garage_ground', w: 648, h: 90, note: '駐車場の床。白い線。y=124〜214に置く。左右がつながる' }
+  { key: 'bg_garage_ground', w: 648, h: 90, note: '駐車場の床。白い線。y=124〜214に置く。左右がつながる' },
+  { key: 'bg_mall_far', w: 216, h: 214, note: '閉店まぎわのモールの吹き抜け。上の階の店と天窓の夜空。左右がつながる' },
+  { key: 'bg_mall_wall', w: 648, h: 130, note: '1階の店の並び。シャッター、ショーウィンドウ、天井の照明。上の吹き抜けは透明。左右がつながる' },
+  { key: 'bg_mall_ground', w: 648, h: 90, note: 'みがいたタイルの床。照明の映りこみ。y=124〜214に置く。左右がつながる' }
 ];
 
 export const sheetByKey = (key: string): SheetDef => {
