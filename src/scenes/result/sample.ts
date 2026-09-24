@@ -13,15 +13,24 @@
 //   ?scene=Result&sample=sale&stage=mall    タイムセールの守り神(セールで1人も間違えない)
 //   ?scene=Result&sample=hunter&stage=mall  UFOハンター(UFOを2機落とした。エスカレーターが壊れた)
 //   &unlock=1 で、そのステージのクリアで次のステージが開いた知らせを出す(路地裏なら地下駐車場、地下駐車場ならモール)
+// フリープレイ(?scene=Result&free=1。Boot の debugJump が startFreeRun する):
+//   ?scene=Result&free=1                 ふつう:『風船の人はワル!』でおばあちゃんを殴った(おばあちゃんの敵)
+//   ?scene=Result&free=1&sample=sitter   ヒーローのお守り役(だれも傷つけず、逃がさない。ギリギリセーフ)
+//   ?scene=Result&free=1&sample=interp   ヒーローの通訳(待ても行けもほとんど決めた。ナイフ男に手を振った。ゆっくりモード)
+//   ?scene=Result&free=1&sample=letitbe  なすがまま(待ても行けも押さない)
+//   &more=1 で、路地裏しかクリアしていない人の「ステージを進めると、出てくる人が増えるよ」を出す(タップで出る)
 
-import { emptyStageRecord } from '../../logic/records';
+import { emptyFreeRecord, emptyStageRecord } from '../../logic/records';
 import type Phaser from 'phaser';
 import type { RecordStorage, StageId, StatsTracker } from '../../logic';
 import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, loadRecords } from '../../logic';
 import { accessorySheet } from '../../art/recolor';
+import { FREE_ITEM_SHEETS, itemAnchor } from '../../art/free/items';
 import { drawAlley, drawSprite, frameOf, makeCanvas } from './draw';
 
-const SAMPLE_NAMES = ['granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter'] as const;
+const SAMPLE_NAMES = [
+  'granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter', 'sitter', 'interp', 'letitbe'
+] as const;
 export type SampleName = typeof SAMPLE_NAMES[number];
 
 export function sampleName(): SampleName {
@@ -186,8 +195,65 @@ function fillMallSample(stats: StatsTracker, name: SampleName): void {
   }
 }
 
+/**
+ * フリープレイの見本の数字(待てのチャンス9、行けのチャンス8、場面27)。
+ * 波1はみんなワル、波2はみんないい人、波3は風船の人はワル(6人目のあとで帽子に言い直す)
+ */
+function fillFreeSample(stats: StatsTracker, name: SampleName): void {
+  const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
+  const wave = (w: 1 | 2 | 3): void => stats.setFreeRule(
+    w === 1 ? { kind: 'allBad' } : w === 2 ? { kind: 'allCiv' } : { kind: 'item', item: 'balloon' }
+  );
+  switch (name) {
+    case 'sitter':
+      // だれも傷つけず、逃がさない。拳が当たる寸前に待てで止めた
+      wave(1); n(6, () => stats.stopped('civ')); n(2, () => stats.defeatBad('sort'));
+      stats.reportFreeScene('closeCall');
+      wave(2); n(3, () => stats.defeatBad('go')); stats.groupWiped(2); stats.breakProp('vending');
+      wave(3); n(2, () => stats.stopped('civ')); stats.defeatBad('go'); n(3, () => stats.defeatBad('sort'));
+      stats.breakProp('trash'); stats.breakProp('sign'); stats.dryPress();
+      stats.finishFree(92.6);
+      break;
+    case 'interp':
+      // 待て9人、行け7回、空押し2回。モヒカンを1人逃がした(財布をとられた)。ゆっくりモード
+      stats.setFreeSlow(true);
+      wave(1); n(6, () => stats.stopped('civ')); n(2, () => stats.defeatBad('sort'));
+      wave(2); n(4, () => stats.defeatBad('go')); stats.ufoDowned(); stats.breakProp('car');
+      stats.setFreeRule({ kind: 'item', item: 'hat' });
+      stats.reportFreeScene('waveKnife');
+      stats.escaped(true);
+      wave(3); n(3, () => stats.stopped('civ')); n(2, () => stats.defeatBad('go')); n(3, () => stats.defeatBad('sort'));
+      n(2, () => stats.dryPress()); stats.breakProp('vending');
+      stats.finishFree(131.4);
+      break;
+    case 'letitbe':
+      // 待ても行けも押さない。ヒーローは市民を全員殴り、素通りしたワルは全員逃げた
+      wave(1); n(6, () => stats.hurtCiv('hero', 'suit')); n(2, () => stats.defeatBad('sort'));
+      stats.reportScene('civHit', 'punch');
+      n(4, () => stats.breakProp('car')); n(6, () => stats.breakProp('vending'));
+      wave(2); n(3, () => stats.escaped(true)); stats.groupEscaped(2); stats.ufoEscaped();
+      wave(3); n(3, () => stats.hurtCiv('hero', 'shopper')); n(3, () => stats.defeatBad('sort')); n(3, () => stats.escaped(true));
+      n(5, () => stats.breakProp('sign'));
+      stats.finishFree(83.9);
+      break;
+    default:
+      // ふつう:波3の『風船の人はワル!』で、風船を持ったおばあちゃんに全力パンチ
+      wave(1); n(5, () => stats.stopped('civ')); stats.hurtCiv('hero', 'suit'); n(2, () => stats.defeatBad('sort'));
+      stats.breakProp('trash');
+      wave(2); n(3, () => stats.defeatBad('go')); stats.groupWiped(2); stats.escaped(true);
+      stats.breakProp('car'); stats.breakProp('vending');
+      wave(3); n(2, () => stats.stopped('civ')); stats.hurtCiv('hero', 'granny');
+      stats.reportScene('grannyHit', 'punch');
+      n(2, () => stats.defeatBad('go')); n(3, () => stats.defeatBad('sort')); stats.escaped();
+      n(4, () => stats.dryPress()); n(3, () => stats.breakProp('sign'));
+      stats.finishFree(104.2);
+      break;
+  }
+}
+
 /** 見本の数字を入れる(撃破、負傷、壊れた物など) */
 export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
+  if (stats.isFree) { fillFreeSample(stats, name); return; }
   if (stats.stageId === 'garage') { fillGarageSample(stats, name); return; }
   if (stats.stageId === 'mall') { fillMallSample(stats, name); return; }
   const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
@@ -312,8 +378,40 @@ function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElemen
   return canvas;
 }
 
-/** 見本の「いちばんひどかった場面」(216×214)。ヒーローが市民を殴った瞬間など */
-export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: StageId = 'alley'): HTMLCanvasElement | null {
+/**
+ * フリープレイの見本の場面(背景は stageId のステージ)。
+ * ふつうは風船を持ったおばあちゃんを殴った瞬間、お守り役は拳が当たる寸前、通訳はナイフ男に笑顔で手を振った瞬間
+ */
+function freeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: StageId): HTMLCanvasElement {
+  const { canvas, ctx } = makeCanvas(216, 214);
+  drawAlley(ctx, scene, 0, 0, 180, 216, STAGES[stageId].bg);
+  const feet = 196;
+  if (name === 'sitter') {
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 1), 70, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'suit_civ', frameOf('suit_civ', 'surprised'), 112, feet, { anchor: 'feet', flipX: true });
+  } else if (name === 'interp') {
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'pass', 1), 60, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fp_mohawk', frameOf('fp_mohawk', 'mischief', 2), 116, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'shopper_civ', frameOf('shopper_civ', 'surprised'), 172, feet, { anchor: 'feet', flipX: true });
+  } else if (name === 'letitbe') {
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 2), 86, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'suit_civ', frameOf('suit_civ', 'knocked', 1), 130, feet - 10, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_hit', frameOf('fx_hit', 'play', 1), 118, feet - 30, { anchor: 'center' });
+  } else {
+    // 風船を持ったおばあちゃん(ひもの下の端を手に合わせる)
+    const gx = 124;
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 2), 80, feet, { anchor: 'feet' });
+    const a = itemAnchor('granny_civ', 'balloon');
+    if (a) drawSprite(ctx, scene, FREE_ITEM_SHEETS.balloon, 0, gx - a.dx, feet + a.dy, { anchor: 'bottom', flipX: true });
+    drawSprite(ctx, scene, 'granny_civ', frameOf('granny_civ', 'surprised'), gx, feet, { anchor: 'feet', flipX: true });
+    drawSprite(ctx, scene, 'fx_hit', frameOf('fx_hit', 'play', 1), 110, feet - 30, { anchor: 'center' });
+  }
+  return canvas;
+}
+
+/** 見本の「いちばんひどかった場面」(216×214)。ヒーローが市民を殴った瞬間など。free ならフリープレイの見本 */
+export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: StageId = 'alley', free = false): HTMLCanvasElement | null {
+  if (free) return freeSampleShot(scene, name, stageId);
   if (stageId === 'garage') return garageSampleShot(scene, name);
   if (stageId === 'mall') return mallSampleShot(scene, name);
   if (name === 'kind') return null;
@@ -362,6 +460,30 @@ export function memoryStorage(stageId: StageId = 'alley'): RecordStorage {
   // (路地裏なら地下駐車場、地下駐車場ならショッピングモール。次のステージがなければ何もしない)
   const opens = STAGE_IDS.some((id) => STAGES[id].unlockAfter === stageId);
   if (q.get('unlock') === '1' && opens) rec.stages[stageId] = { ...(rec.stages[stageId] ?? emptyStageRecord()), clears: 0 };
+  m.set(RECORDS_KEY, JSON.stringify(rec));
+  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v); } };
+}
+
+/**
+ * フリープレイの見本の、その場かぎりの保存先。前の記録(ベスト 1:50 など)を入れておき、NEW が出るようにする(?new=0 で入れない)。
+ * 路地裏と地下駐車場をクリアした(全部のステージが開いている)ことにする。?more=1 なら路地裏だけクリアしたことにして、
+ * 「ステージを進めると、出てくる人が増えるよ」を出す
+ */
+export function memoryFreeStorage(): RecordStorage {
+  const m = new Map<string, string>();
+  const rec = loadRecords();
+  const q = new URLSearchParams(location.search);
+  rec.stages.alley = { ...(rec.stages.alley ?? emptyStageRecord()), plays: Math.max(1, rec.stages.alley?.plays ?? 0), clears: 1 };
+  if (q.get('more') === '1') {
+    rec.stages.garage = { ...(rec.stages.garage ?? emptyStageRecord()), clears: 0 };
+    rec.freeMoreHintShown = false;
+  } else {
+    rec.stages.garage = { ...(rec.stages.garage ?? emptyStageRecord()), clears: Math.max(1, rec.stages.garage?.clears ?? 0) };
+  }
+  if (q.get('new') !== '0') {
+    rec.free = { ...emptyFreeRecord(), bestSec: 110.5, bestSlowSec: 140.2, mostStopSaved: 6, mostGoScenes: 5, highestDamage: 4_000_000, plays: 4 };
+    for (const t of ['soSo', 'grannyFoe'] as const) if (!rec.titles.includes(t)) rec.titles.push(t);
+  }
   m.set(RECORDS_KEY, JSON.stringify(rec));
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v); } };
 }

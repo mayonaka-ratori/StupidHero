@@ -6,6 +6,10 @@
 // カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。掛け合いを見たか遊んだことが
 // あるステージは、すぐ仕分け(Sort)へ(entrySceneFor)。「◀タイトルへ」でタイトルへ。
 // 結果画面でステージが開いたとき(stageselect/state.ts の印)は、鍵がこわれて開く演出をする。
+// 下の「◀タイトルへ」の右に「フリープレイ▶」のボタン(stageselect/freeButton.ts。docs/FREEPLAY.md「始め方」)。
+// カードは増やさない(低い画面に入らないため)。路地裏のボスを倒すと開き、押すと startFreeRun をして
+// 初回だけ掛け合い(Intro)、2回目からはすぐ Street へ(freeEntryScene)。路地裏をクリアした直後は、
+// カードの鍵のあとにボタンの鍵もこわれて開く。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -13,14 +17,16 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { purgeAccessorySheets } from '../art/recolor';
-import { randomSeed, say, stageSelectInfo, type StageId } from '../logic';
-import { startRun } from '../run';
+import { freeSelectInfo, randomSeed, say, stageSelectInfo, type StageId } from '../logic';
+import { startFreeRun, startRun } from '../run';
+import { settings } from '../settings';
 import { px } from '../hires';
 import { Button, CutIn, FS, PixelText, banner, flash, goto, shake } from '../ui';
 import { addMute, devHook, unlockOnTap } from './sort/common';
 import { drawHand } from './sort/introDemo';
-import { entrySceneFor } from './Intro';
+import { entrySceneFor, freeEntryScene } from './Intro';
 import { StageCard } from './stageselect/card';
+import { FreeButton } from './stageselect/freeButton';
 import { takeJustUnlocked } from './stageselect/state';
 
 const HEADER_H = 38;
@@ -49,6 +55,7 @@ export class StageSelectScene extends Phaser.Scene {
   private bgTile!: Phaser.GameObjects.TileSprite;
   private bgT = 0;
   private hand?: Phaser.GameObjects.Graphics;
+  private free!: FreeButton;
 
   constructor() { super(SCENES.stageSelect); }
 
@@ -105,6 +112,9 @@ export class StageSelectScene extends Phaser.Scene {
     const bottom = H - Math.max(6, layout.safeBottom + 4);
     const backH = 26;
     const backBtn = new Button(this, 6, bottom - backH, 96, backH, '◀タイトルへ', { color: 0x4a3f78, size: FS.body, onPress: () => this.back() });
+    // その右に「フリープレイ▶」
+    const freeInfo = freeSelectInfo();
+    this.free = new FreeButton(this, 108, bottom - backH, W - 114, backH, freeInfo, () => this.chooseFree());
 
     // ─── カード ───
     const entries = stageSelectInfo();
@@ -145,11 +155,14 @@ export class StageSelectScene extends Phaser.Scene {
 
     // 開いたばかりのステージ:鍵がこわれて開く
     const opening = this.cards.filter((c) => c.entry.unlocked && justUnlocked.includes(c.entry.id));
-    if (opening.length) void this.playUnlock(opening);
+    // 路地裏をクリアした直後(地下駐車場が開いた)は、フリープレイのボタンも鍵の見た目から開く
+    const freeOpening = freeInfo.unlocked && !freeInfo.record && justUnlocked.includes('garage');
+    if (freeOpening) this.free.setLockedLook(true);
+    if (opening.length) void this.playUnlock(opening, freeOpening);
 
     // ─── タップ ───
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.some((o) => o.parentContainer === backBtn) || this.leaving || this.busy) return;
+      if (over.some((o) => o.parentContainer === backBtn || o.parentContainer === this.free.btn) || this.leaving || this.busy) return;
       const { x, y } = px(p);
       const card = this.cards.find((c) => c.contains(x, y));
       if (card) this.choose(card);
@@ -159,10 +172,13 @@ export class StageSelectScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-TWO', () => this.cards[1] && this.choose(this.cards[1]));
     this.input.keyboard?.on('keydown-THREE', () => this.cards[2] && this.choose(this.cards[2]));
     this.input.keyboard?.on('keydown-ENTER', () => this.cards[0] && this.choose(this.cards[0]));
+    this.input.keyboard?.on('keydown-F', () => this.chooseFree());
 
     devHook(this, {
       select: (id: StageId) => { const c = this.cards.find((k) => k.entry.id === id); if (c) this.choose(c); },
       back: () => this.back(),
+      free: () => this.chooseFree(),
+      freeButton: () => ({ x: this.free.x, y: this.free.y, w: this.free.w, h: this.free.h, locked: this.free.locked }),
       cards: () => this.cards.map((c) => ({
         id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2, top: c.box.y, h: c.box.h, thumbH: c.box.thumbH
       }))
@@ -175,6 +191,7 @@ export class StageSelectScene extends Phaser.Scene {
     this.bgTile.tilePositionX = -step;
     this.bgTile.tilePositionY = -step;
     for (const c of this.cards) c.update(dt);
+    this.free.update(dt);
     if (this.hand && this.cards[0]) {
       const c = this.cards[0];
       const bob = Math.floor(this.bgT / 180) % 2;
@@ -209,6 +226,32 @@ export class StageSelectScene extends Phaser.Scene {
     });
   }
 
+  /** 「フリープレイ▶」:開いていなければ鍵が揺れて開き方を出す。開いていれば startFreeRun をして掛け合いか Street へ */
+  private chooseFree(): void {
+    if (this.leaving || this.busy) return;
+    audio.unlock();
+    if (this.free.locked) {
+      audio.sfx('oops', { volume: 0.7 });
+      this.free.shakeLock();
+      shake(this, 2, 120);
+      return;
+    }
+    this.leaving = true;
+    audio.sfx('button');
+    audio.sfx('go', { volume: 0.8 });
+    flash(this, 0xffffff, 2);
+    this.hand?.setVisible(false);
+    // 新しいプレイは、切り替えを受け付けてから作る(ステージのカードと同じ)
+    this.time.delayedCall(200, () => {
+      window.setTimeout(() => {
+        const ok = goto(this, freeEntryScene(), undefined, {
+          kind: 'wipe', onCovered: () => startFreeRun(this, randomSeed(), { slow: settings.slowMode })
+        });
+        if (!ok) this.leaving = false;
+      }, 0);
+    });
+  }
+
   private back(): void {
     if (this.leaving) return;
     this.leaving = true;
@@ -219,7 +262,7 @@ export class StageSelectScene extends Phaser.Scene {
 
   // ─── ステージが開く ─────────────────────────────
 
-  private async playUnlock(cards: StageCard[]): Promise<void> {
+  private async playUnlock(cards: StageCard[], freeToo = false): Promise<void> {
     this.busy = true;
     await this.wait(750);
     for (const card of cards) {
@@ -247,6 +290,22 @@ export class StageSelectScene extends Phaser.Scene {
       const s = say('unlocked', undefined, card.entry.id);
       void cut.say(s.text, s.face, { who: s.who });
       this.time.delayedCall(2600, () => cut.destroy());
+    }
+    if (freeToo) {
+      await this.wait(1400);
+      audio.sfx('tick');
+      await this.free.unlock((x, y) => {
+        audio.sfx('explosion', { volume: 0.6 });
+        audio.sfx('fanfare', { volume: 0.5 });
+        flash(this, 0xfff0c0, 2);
+        shake(this, 4, 200);
+        for (let i = 0; i < 5; i++) {
+          const s = this.add.sprite(x + Phaser.Math.Between(0, this.free.w - 10), y + Phaser.Math.Between(-10, 8), 'fx_sparkle').setDepth(1200);
+          s.play({ key: animKey('fx_sparkle', 'play'), delay: i * 60 });
+          s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => s.destroy());
+        }
+      });
+      void banner(this, 'フリープレイが開いた!', { y: this.free.y - 20, hold: 900 });
     }
     this.busy = false;
   }

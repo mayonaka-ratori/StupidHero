@@ -4,13 +4,15 @@
 // ステージを選ぶ画面とタイトルは entrySceneFor(stage.id) で行き先を決める。結果画面の「もう一回」でここへ来たときも、
 // 見たことがあれば create ですぐ仕分けへ行く。開発用に途中から始めたとき(run.debug)は毎回見せる。
 // タップで次へ(文字送りの途中なら全部出す)。下の「とばす」で仕分けへ(片手で届くように「次へ」の横)。
+// フリープレイ(run.mode === 'free')は、初めて遊ぶときだけ FREE_INTRO の3枚を出して markFreeIntroSeen。
+// 行き先は仕分けではなく Street(波1)。2回目からは何も出さずに Street へ(freeEntryScene)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { introFor, markIntroSeen, needsIntro, type Speech, type StageId } from '../logic';
+import { FREE_INTRO, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
 import { getRun } from '../run';
 import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect } from '../ui';
 import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
@@ -24,6 +26,11 @@ export function entrySceneFor(stageId: StageId): string {
   return needsIntro(stageId) ? SCENES.intro : SCENES.sort;
 }
 
+/** フリープレイを始めるときの最初のシーン。初回だけ掛け合い、2回目からはすぐ Street */
+export function freeEntryScene(): string {
+  return needsFreeIntro() ? SCENES.intro : SCENES.street;
+}
+
 export class IntroScene extends Phaser.Scene {
   private lines: readonly Speech[] = [];
   private index = -1;
@@ -35,6 +42,8 @@ export class IntroScene extends Phaser.Scene {
   private leaving = false;
   /** 見たことがあって、すぐ仕分けへ行ったとき(何も作っていない) */
   private skipped = false;
+  /** 掛け合いのあとのシーン(ステージは仕分け、フリープレイは Street) */
+  private nextScene: string = SCENES.sort;
 
   constructor() { super(SCENES.intro); }
 
@@ -44,16 +53,19 @@ export class IntroScene extends Phaser.Scene {
     this.index = -1;
     this.leaving = false;
     this.skipped = false;
+    const free = run.mode === 'free';
+    this.nextScene = free ? SCENES.street : SCENES.sort;
     // もう見たステージなら、何も出さずに仕分けへ(ワイプで隠れている間に切り替わる)
-    if (!run.debug && !needsIntro(run.stage.id)) {
+    if (!run.debug && !(free ? needsFreeIntro() : needsIntro(run.stage.id))) {
       this.leaving = true;
       this.skipped = true;
-      this.scene.start(SCENES.sort);
+      this.scene.start(this.nextScene);
       return;
     }
-    this.lines = introFor(run.stage.id);
+    this.lines = free ? FREE_INTRO : introFor(run.stage.id);
     // 見せ始めたら「見た」にする(途中でとばしても、閉じても、次からは出さない)
-    markIntroSeen(run.stage.id);
+    if (free) markFreeIntroSeen();
+    else markIntroSeen(run.stage.id);
     unlockOnTap(this);
     // 「もう一回」から来たときに結果画面の曲が残らないように(タイトルから来たときは同じ曲なので何もしない)
     audio.playBgm('title');
@@ -155,6 +167,6 @@ export class IntroScene extends Phaser.Scene {
     this.leaving = true;
     audio.sfx('button');
     // 切り替えの途中で受け付けられなかったら、また入力を受け付ける
-    gotoSafe(this, SCENES.sort, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
+    gotoSafe(this, this.nextScene, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
   }
 }

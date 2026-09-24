@@ -478,7 +478,9 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   records.free = next;
   const titleIsNew = !records.titles.includes(titleId);
   addUnique(records.titles, [titleId]);
-  const showMoreStagesHint = !records.freeMoreHintShown && unlockedStages(records).length === 1;
+  // 「路地裏しか開いていない」は、路地裏しかクリアしていない(まだ開いていないステージがある)こと。
+  // フリープレイは路地裏のボスを倒すと開き、そのとき地下駐車場も開くので、開いているステージの数では数えない
+  const showMoreStagesHint = !records.freeMoreHintShown && unlockedStages(records).length < STAGE_IDS.length;
   if (showMoreStagesHint) records.freeMoreHintShown = true;
   const persisted = writeRecords(records, storage);
   return {
