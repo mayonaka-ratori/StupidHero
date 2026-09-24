@@ -17,7 +17,7 @@
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
 | `src/scenes/` | 場面ごとの画面。大きい場面は同じ名前のフォルダに部品を分けている |
 | `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、光と揺れ(`fx.ts`)などの画面の部品 |
-| `src/art/` | 絵。いまは全部コードで描いている。`world/`がステージ1、`world2/`がステージ2 |
+| `src/art/` | 絵。いまは全部コードで描いている。`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3 |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
 | `src/dev/`、`dev/` | 開発用のページ(絵、音、UI、文字の一覧)。公開するゲームには入らない |
 | `tools/` | ブラウザでゲームを動かして確かめるスクリプト |
@@ -83,6 +83,9 @@ Boot→Title→StageSelect→Intro
 - `http://localhost:5173/?scene=Street&wave=3&sorts=civ`(ボスを市民にした波3の結果発表)
 - `http://localhost:5173/?scene=Boss&stage=garage`(女ボスとのボス戦)
 - `http://localhost:5173/?scene=WaveReview&wave=2&sorts=random`(波2の答え合わせ)
+- `http://localhost:5173/?scene=Street&stage=mall&wave=1&sorts=civ`(宇宙人を見逃して、UFOが来るモールの結果発表)
+- `http://localhost:5173/?scene=Street&stage=mall&wave=2&sorts=truth`(波2の結果発表のあとにタイムセールラッシュ)
+- `http://localhost:5173/?scene=Boss&stage=mall`(宇宙人の親玉とのボス戦。体力が半分を切ると母艦に乗りこむ)
 
 結果画面には見本の数字があります(`src/scenes/result/sample.ts`)。
 
@@ -95,8 +98,11 @@ Boot→Title→StageSelect→Intro
 | `?scene=Result&sample=kind` | やさしすぎるヒーロー |
 | `?scene=Result&sample=roundup&stage=garage` | 一網打尽 |
 | `?scene=Result&sample=driver&stage=garage` | ギャングの運転手 |
+| `?scene=Result&sample=guide&stage=mall` | 宇宙人の案内係 |
+| `?scene=Result&sample=sale&stage=mall` | タイムセールの守り神 |
+| `?scene=Result&sample=hunter&stage=mall` | UFOハンター |
 
-路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。
+路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。地下駐車場の見本に足すと「モールが開いた」です(例:`?scene=Result&sample=roundup&stage=garage&unlock=1`)。
 
 開発用のサーバーでは、ブラウザの開発ツールから`window.__game`でゲームの中身を見られます。一時停止のメニューのボタンは`window.pauseDev`、答え合わせは`window.reviewDev`、称号の一覧は`window.titleListDev`からさわれます(`tools/`のスクリプトが使う)。
 
@@ -116,7 +122,7 @@ Boot→Title→StageSelect→Intro
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは22ファイル、241件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは23ファイル、253件)
 npm run typecheck   # tsc
 ```
 
@@ -137,10 +143,10 @@ NGが1つでもあると、終了コード1で終わります。ブラウザの�
 
 | スクリプト | すること |
 |---|---|
-| `playthrough.mjs` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、波1〜3の3回とも通ったかも見る |
+| `playthrough.mjs` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、波1〜3の3回とも通ったかも見る。ステージ(`alley`、`garage`、`mall`)と仕分けの決め方(`random`、`truth`、宇宙人を見逃してUFOを呼ぶ`ufo`、ボスを市民にする`bossciv`)を選べる。地下駐車場とモールは、前のステージを倒した記録を入れてからステージを選ぶ画面で選ぶ。結果画面の共有カードと、いちばんひどい場面の写真も書き出す |
 | `sort_drive.mjs` | 手順を並べて指で動かし、撮ったり式を調べたりする |
-| `street_tap.mjs` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す |
-| `boss_test.mjs` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る |
+| `street_tap.mjs` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て)も試す |
+| `boss_test.mjs` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る。地下駐車場とモールは、体力が半分を切ると車(母艦)に乗りこむところと、手が止まったときの被害額(乗る前¥50万、車¥100万、母艦¥150万が1秒ごと)、モールは倒すと噴水の¥150万が足されるかも見る |
 | `result_sharetest.mjs` | 結果画面の共有ともう一回を試す(共有メニューがあるとき、ないとき、キャンセルされたとき、失敗したとき、パソコン)。共有の文が見出し、#StupidHero、URLの3行か、「画像を保存」でPNGを保存できるかも見る |
 | `result_shot.mjs` | 結果画面と共有カードの画像を書き出す |
 | `result_og.mjs` | 共有用の画像`public/og.png`をゲームの絵で作り直す |
