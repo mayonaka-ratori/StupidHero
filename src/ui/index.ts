@@ -14,3 +14,4 @@ export * from './iconButton';
 export * from './pause';
 export * from './transition';
 export * from './fx';
+export * from './particles';

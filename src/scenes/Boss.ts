@@ -23,7 +23,7 @@ import {
 } from '../logic';
 import { getRun, type GameRun } from '../run';
 import {
-  Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
+  Button, CurlSmoke, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
   addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg } from './sort/common';
@@ -121,6 +121,8 @@ export class BossScene extends Phaser.Scene {
   private carRampages = 0;
   private boardAt = 0;
   private lastHoodSmokeAt = -1e9;
+  /** 体力が少ないときにボンネットから上る細かい煙(渦を巻いて流れる) */
+  private hoodSmoke: CurlSmoke | null = null;
   private boardTweens: Phaser.Tweens.Tween[] = [];
   // ─── ステージ3の母艦 ───
   /** 光線で焼けた床のあと(母艦のステージだけ) */
@@ -158,6 +160,7 @@ export class BossScene extends Phaser.Scene {
     this.riding = false;
     this.carTaps = this.carRampages = this.boardAt = 0;
     this.lastHoodSmokeAt = -1e9;
+    this.hoodSmoke = null;
     this.boardTweens = [];
     this.scorch = null;
     this.shipShadow = null;
@@ -477,6 +480,10 @@ export class BossScene extends Phaser.Scene {
     if (this.carMode === 'car' && this.fight.hpRatio < 0.3 && this.time.now - this.lastHoodSmokeAt > 220) {
       this.lastHoodSmokeAt = this.time.now;
       spawnFx(this, 'fx_dust', car.frontX + Phaser.Math.Between(4, 24), car.smokeY, { depth: DEPTH_OF.car + 0.5 });
+      // 砂ぼこりの絵のすき間から、細かい煙が渦を巻いて上る(車が動いてもついて行く)
+      this.hoodSmoke ??= new CurlSmoke(this, {
+        x: () => car.frontX + 14, y: () => car.smokeY, depth: DEPTH_OF.car + 0.4, spread: 9, rate: 55
+      });
     }
   }
 
@@ -986,6 +993,8 @@ export class BossScene extends Phaser.Scene {
     this.tweens.killTweensOf(v.lunge);
     v.frozen = true;
     v.clearDents();
+    this.hoodSmoke?.stop();
+    this.hoodSmoke = null;
     this.riding = false;
     this.boss.setVisible(false).setCrop();
   }
@@ -1057,7 +1066,11 @@ export class BossScene extends Phaser.Scene {
       audio.sfx('bigHit', { pitch: 0.8 });
       this.quake(9, 500);
       hitStop(this, 80);
-      // そのあとも車は燃えている
+      // そのあとも車は燃えている。黒い煙が渦を巻いて上り、火の粉が飛ぶ
+      new CurlSmoke(this, {
+        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car + 0.4,
+        spread: 30, rate: 120, life: [1.3, 2.3], rise: 24, embers: 0.15, max: 300
+      }).stopAfter(4500);
       for (let i = 0; i < 8; i++) {
         this.time.delayedCall(200 + i * 260, () => spawnFx(this, i % 2 ? 'fx_dust' : 'fx_hit', s.x + Phaser.Math.Between(-40, 40), s.y - 22 + Phaser.Math.Between(-4, 6), { depth: DEPTH_OF.car + 0.5 }));
       }

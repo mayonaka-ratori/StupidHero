@@ -7,7 +7,7 @@ import { layout } from '../../layout';
 import { audio } from '../../audio';
 import { animKey, originFor } from '../../art/sheets';
 import { UfoQueue, formatYen, mischiefLine, MALL_PROP_SIZE, type UfoEvent } from '../../logic';
-import { hitStop, impact, shake, waitMs } from '../../ui';
+import { HermiteSparks, hitStop, impact, shake, waitMs } from '../../ui';
 import { Actor, HEAD } from './actor';
 import { UFO_DX, UFO_HALF, UFO_UNDER_KINDS } from './plan';
 import type { StreetScene } from '../Street';
@@ -42,6 +42,8 @@ export interface UfoRun {
   bottom: number;
   sprite?: Phaser.GameObjects.Sprite;
   beam?: Phaser.GameObjects.Sprite;
+  /** 吸い上げる光の中を、UFOの口へ吸いこまれていく光の粒 */
+  sparks?: HermiteSparks;
   mark?: Phaser.GameObjects.Sprite;
   /** 吸い上げる音を次に鳴らすまでのミリ秒 */
   tractorMs: number;
@@ -160,6 +162,18 @@ export class UfoPart {
     u.beam = this.s.add.sprite(u.x, u.bottom - 4, 'fx_ufobeam').setOrigin(...originFor('fx_ufobeam')).setDepth((s?.y ?? u.bottom + UFO_HOVER) + 0.5);
     u.beam.play(animKey('fx_ufobeam', 'play'));
     this.s.flickers.add(u.beam);
+    // 光の粒が買い物客の体のまわりから出て、横へふくらんでから、UFOの口へまっすぐ上から吸いこまれる。
+    // 色は宇宙人の黄緑(UFOの光なので使ってよい)。暗い色から明るい色へ変わる
+    u.sparks = new HermiteSparks(this.s, {
+      from: () => {
+        const sh = u.shopper?.standing ? u.shopper : null;
+        const feet = sh ? sh.y - sh.lift : u.bottom + UFO_HOVER;
+        return { x: (sh?.x ?? u.x) + (Math.random() * 2 - 1) * 12, y: feet - 4 - Math.random() * 44 };
+      },
+      to: () => ({ x: u.x, y: u.bottom - 3 }),
+      depth: (s?.y ?? u.bottom + UFO_HOVER) + 0.6,
+      colors: [0x49b600, 0x92ff00, 0xdbff92], rate: 60, bulge: 140, pull: 110
+    });
     u.mark = this.s.bigMark(u.x, u.bottom - 32 - 18, 2);
     u.tractorMs = 0;
     // 吹き出しが大きな合図に重ならないように消す
@@ -176,6 +190,8 @@ export class UfoPart {
     this.s.goAlarm.stop();
     u.mark?.destroy(); u.mark = undefined;
     u.beam?.destroy(); u.beam = undefined;
+    // 出ている粒は、そのままUFOに吸いこまれて消える
+    u.sparks?.stop(); u.sparks = undefined;
     u.sprite?.setFrame(0);
     for (const m of [u.shopper, u.alien]) {
       if (!m || !m.standing) continue;
@@ -266,6 +282,7 @@ export class UfoPart {
     audio.sfx('punch');
     audio.sfx('ufoFall');
     u.beam?.destroy(); u.beam = undefined;
+    u.sparks?.destroy(); u.sparks = undefined;
     ufo.setFrame(3);
     this.s.fx('fx_hit', u.x - 26, u.bottom - 16, { scale: 2, depth: 960 });
     this.s.fx('fx_hit', u.x - 8, u.bottom - 24, { depth: 960 });

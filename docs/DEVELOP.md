@@ -16,7 +16,7 @@
 | `src/settings.ts` | 一時停止のメニューで切りかえる設定(光と揺れを弱くする、ゆっくりモード)。そのスマホの中に覚える |
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
 | `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`)。結果発表のギャング、UFO、タイムセールラッシュは`street/gang.ts`、`street/ufo.ts`、`street/rush.ts` |
-| `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)などの画面の部品 |
+| `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)、煙や光の粒(`particles.ts`。動きの計算は`flow.ts`)などの画面の部品 |
 | `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`、ステージ2の小物の塗り替えは`recolor.ts` |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
 | `src/dev/`、`dev/` | 開発用のページ(絵、音、UI、文字の一覧)。公開するゲームには入らない |
