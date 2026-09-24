@@ -138,7 +138,7 @@ export const FREE_DECLARES: Readonly<Record<StageId, FreeDeclareSet>> = {
         pair('明るい所で風船！\n{item}の人はワル！', 'ここ、{item}\nいっぱいあるよ！')
       ],
       hat: [
-        pair('パーティー気分！\n{item}の人はワル！', 'パーティーは\n悪くない！'),
+        pair('パーティー気分！\n{item}の人はワル！', 'お祝いは\n悪くない！'),
         pair('マネキンと同じ帽子！\n{item}の人はワル！', 'マネキンも\nワルなの！？', 'panic')
       ],
       bag: [

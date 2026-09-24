@@ -7,7 +7,11 @@
 //   none  何も押さない(ヒーローにまかせる)
 //   late  市民への待ては、ためのいちばん最後(ギリギリセーフ)に押す。最初に殴りかかられるワルにも1回だけ待てを押し、
 //         悪さを始めたら行けで取り返す。行けのマークは出たらすぐ指で押す(待ては、遅れないようにページの中から押す)
-//   both  good と none を続けて(all は good、none、late)
+//   two   行けのマークが2つ同時に出る場面をわざと作る。波3から始め、モヒカンが逃げるまでを開発用に8秒にのばす(?threat=8)。
+//         種は、波3で素通りされるモヒカンのすぐあと(3人以内)に、もう1つ行けの場面がある種を、指定した種から探す。
+//         (a) 行けのマークが2つあるときに行けを押し、先に出たほうだけに効くか
+//         (b) 待てのマークのため(前半)の最中に行けを押し、その場から光の拳が飛んで、ためが続くか
+//   both  good と none を続けて(all は good、none、late、two)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
@@ -17,8 +21,8 @@ import { checker, openBrowser, openPage, touchPad } from './lib.mjs';
 
 const [url, outDir, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 if (!url || !outDir) { console.error('usage: node tools/free_play.mjs <url> <outDir> [good|none|both] [seed] [unlocked]'); process.exit(2); }
-const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late'] : [policyArg];
-if (policies.some((p) => !['good', 'none', 'late'].includes(p))) { console.error(`押し方は good、none、late、both、all のどれか(${policyArg})`); process.exit(2); }
+const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late', 'two'] : [policyArg];
+if (policies.some((p) => !['good', 'none', 'late', 'two'].includes(p))) { console.error(`押し方は good、none、late、two、both、all のどれか(${policyArg})`); process.exit(2); }
 mkdirSync(outDir, { recursive: true });
 const browser = await openBrowser();
 const { check, done } = checker();
@@ -227,6 +231,106 @@ async function play(policy) {
   await page.close();
 }
 
-for (const p of policies) await play(p);
+/**
+ * two の見張り(ページの中で毎コマ)。市民への待ては、ためが6割まで進んだら押す(前半は (b) を試すため)。
+ * 行けは、(a) と (b) を試し終わるまでは、2つそろうか、ための前半になるまで待つ(モヒカンは6秒まで)。試し終わったら、すぐ押す
+ */
+const twoWatcher = () => {
+  const r = { a: null, b: null };
+  window.__two = r;
+  const stopped = new Set();
+  const targets = (sd, f) => [...f.threats.map((t) => t.since), ...(sd.goHandler ? [sd.goSince] : [])];
+  const tick = () => {
+    const sd = window.streetDev;
+    const f = sd?.free;
+    if (f && sd.sys.isActive() && f.inputOpen) {
+      const now = sd.time.now;
+      const marked = sd.queue.find((q) => q.markKind === 'stop' && q.standing);
+      const w = f.windupProgress;
+      if (marked && marked.civ && w !== null && w >= 0.6 && !stopped.has(marked.person.id)) { stopped.add(marked.person.id); f.pressStop(); }
+      const list = targets(sd, f);
+      if (list.length >= 2 && !r.a) {
+        const before = [...list];
+        const oldest = Math.min(...before);
+        f.pressGo();
+        const after = targets(sd, f);
+        r.a = { before, after, oldest, ok: !after.includes(oldest) && after.length === before.length - 1 };
+      } else if (list.length >= 1 && !r.b && marked && w !== null && w < 0.5 && f.threats.length > 0
+        && (r.a || now - Math.min(...list) > 5000)) {
+        // (b) は (a) のあと(先にためで行けを使うと、2つそろう前にモヒカンを倒してしまうため)
+        const fist0 = f.seen.fist;
+        const p0 = w;
+        f.pressGo();
+        const probe = (n) => {
+          if (n > 0) { requestAnimationFrame(() => probe(n - 1)); return; }
+          r.b = { p0, p1: f.windupProgress, mode: f.heroMode, fist: f.seen.fist - fist0, stillMarked: marked.markKind === 'stop' };
+        };
+        probe(6);
+      } else if (list.length >= 1) {
+        const oldest = Math.min(...list);
+        const threat = f.threats.some((t) => t.since === oldest);
+        const tested = r.a && r.b;
+        const wait = tested ? 150 : threat ? 6000 : 800;
+        if (now - oldest > wait) f.pressGo();
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
+/** 波3で、素通りされるモヒカンのすぐあと(3人以内)に、もう1つ行けの場面があるか */
+const twoReady = () => {
+  const run = window.__game.registry.get('run');
+  const fw = run.free.plan.waves[2];
+  const people = run.free.plan.stage.waves[2].people;
+  const goAt = people.filter((p) => {
+    const rule = fw.redeclare && p.index >= fw.redeclare.after ? fw.redeclare.rule : fw.rule;
+    const attack = rule.kind === 'item' && p.item === rule.item;
+    return p.truth === 'bad' && !attack && (!p.group || run.free.plan.stage.waves[2].groups.find((g) => g.id === p.group)?.memberIds[0] === p.id);
+  }).map((p) => ({ i: p.index, look: p.look }));
+  return goAt.some((g, k) => g.look === 'fp_mohawk' && goAt[k + 1] && goAt[k + 1].i - g.i <= 3);
+};
+
+async function playTwo() {
+  const errors = [];
+  const page = await openPage(browser, { errors });
+  let found = null;
+  for (let sd = Number(seed); sd < Number(seed) + 60 && found === null; sd++) {
+    const u = new URL(url);
+    u.search = '';
+    for (const [k, v] of Object.entries({ scene: 'Street', free: '1', wave: '3', seed: String(sd), unlocked, threat: '8' })) u.searchParams.set(k, v);
+    await page.goto(u.toString());
+    await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
+    if (await page.evaluate(twoReady)) found = sd;
+  }
+  if (!check('[two] 行けの場面が続く種がある', found !== null)) { await page.close(); return; }
+  console.log(`[two] 種 ${found}`);
+  await page.evaluate(twoWatcher);
+  const t0 = Date.now();
+  let reached = false;
+  let shotA = false;
+  while (Date.now() - t0 < 200000) {
+    const st = await page.evaluate(() => ({ keys: window.__game.scene.getScenes(true).map((x) => x.scene.key), two: window.__two }));
+    if (st.keys.includes('Result')) { reached = true; break; }
+    if (st.two.a && !shotA) { shotA = true; await page.screenshot({ path: `${outDir}/two_a.png` }); }
+    await page.waitForTimeout(100);
+  }
+  const two = await page.evaluate(() => window.__two);
+  console.log(`[two] (a) ${JSON.stringify(two.a)}`);
+  console.log(`[two] (b) ${JSON.stringify(two.b)}`);
+  check('[two] 結果画面まで行く', reached);
+  check('[two] (a) 行けのマークが2つ出た', !!two.a);
+  check('[two] (a) 行けは先に出たほうだけに効いた', !!two.a?.ok);
+  check('[two] (b) ためのときに行けを押した', !!two.b);
+  check('[two] (b) その場から光の拳が飛んだ', two.b?.fist === 1, String(two.b?.fist));
+  check('[two] (b) ためは続いた(待てのマークのまま、ためが進む)', !!two.b && two.b.mode === 'mark' && two.b.stillMarked && two.b.p1 !== null && two.b.p1 > two.b.p0,
+    JSON.stringify(two.b));
+  const real = errors.filter((e) => !e.startsWith('console: Failed to load resource'));
+  check('[two] エラーが出ない', real.length === 0, real.slice(0, 3).join(' / '));
+  await page.close();
+}
+
+for (const p of policies) await (p === 'two' ? playTwo() : play(p));
 await browser.close();
 done();

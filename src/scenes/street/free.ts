@@ -126,6 +126,18 @@ export class FreeStreet {
   private passerPool: PasserLook[];
   private auras: Partial<Record<'attack' | 'pass' | 'attackLine' | 'passLine', Phaser.GameObjects.Sprite>> = {};
   private bubbleIcon: Phaser.GameObjects.Container | null = null;
+  /** 小物の絵を付けた吹き出し(ヒーローの吹き出しが替わったら、絵を消す) */
+  private iconBubble: Phaser.GameObjects.Container | null = null;
+  /** 始まったが、まだ終わっていないモヒカンの悪さの数(相手の所へ走っている間も数える) */
+  private pendingMischief = 0;
+  /** 行けで殴りに行っている途中の数(走って殴る、光の拳) */
+  private pendingGo = 0;
+  /** 一時停止の間は進まない時計(ミリ秒)。空押しの効かない間を数える */
+  private playMs = 0;
+  /** 言い直しで止めている間 true(悪さの時計も止め、ボタンも閉じる) */
+  held = false;
+  /** 開発用:モヒカンが逃げるまでの秒数を決める(?threat=8。行けのマークが2つ出る場面を作るため)。ふつうは null */
+  private threatSecDebug: number | null = null;
   private offSettings: (() => void) | null = null;
   /** ためを数えている時計(ためのときだけ) */
   private windupEv: Phaser.Time.TimerEvent | null = null;
@@ -147,6 +159,13 @@ export class FreeStreet {
     this.items = new FreeItems(s);
     this.timing = freeTiming(this.fw.no, settings.slowMode);
     this.passerPool = passerLooks(run.free!.plan.unlocked);
+    // 前の波までの、逃がしたワルと市民のけがの数(時間に足す分)から始める
+    const snap = s.stats.snapshot();
+    this.penaltyUnits = snap.escaped + snap.civHurt;
+    if (run.debug) {
+      const t = Number(new URLSearchParams(location.search).get('threat'));
+      if (t > 0) this.threatSecDebug = t;
+    }
     // ヒーローが決めた通りの仕分けを残す(結果画面と共有の文が使う。fillUnsorted は使わない)
     for (const p of s.run.stage.waves[run.waveIndex].people) setSort(run, p, heroChoice(ruleAt(this.fw, p.index), p));
     // 途中でゆっくりモードにしたら、ゆっくりの記録にし、これからの時間を1.5倍にする
@@ -236,7 +255,10 @@ export class FreeStreet {
   update(deltaMs: number): void {
     const s = this.s;
     const f = this.run.free;
-    if (f && this.clockRunning && !s.leaving) f.clockMs += Math.min(deltaMs, 100);
+    // 1コマは長くても50ミリ秒で切る(ヒーローの歩みと同じ。遅い端末で時計だけが進みすぎないように)
+    const ms = Math.min(deltaMs, 50);
+    this.playMs += ms;
+    if (f && this.clockRunning && !s.leaving) f.clockMs += ms;
     // 逃がしたワルと市民のけがの分(1人3秒)も足した時間を出す。増えたら「+3」を飛ばす
     if (s.frameN % 10 === 0 || !this.sign) {
       const snap = s.stats.snapshot();
@@ -270,7 +292,7 @@ export class FreeStreet {
   /** ボタンの見た目(押せるか、空押しで効かない間は暗く、マークがあればゆっくり光る) */
   updateButtons(): void {
     const s = this.s;
-    const now = s.time.now;
+    const now = this.playMs;
     const pairs: [typeof s.stopBtn, DryPress, boolean, number][] = [
       [s.stopBtn, this.dryStop, s.stopHandler !== null, UI.stop],
       [s.goBtn, this.dryGo, this.goTarget() !== null, UI.go]
@@ -292,14 +314,14 @@ export class FreeStreet {
     if (!this.inputOpen) return;
     const s = this.s;
     const has = s.stopHandler !== null;
-    if (!this.dryStop.press(s.time.now, has)) { if (!has) this.dry('stop'); return; }
+    if (!this.dryStop.press(this.playMs, has)) { if (!has) this.dry('stop'); return; }
     s.stopHandler?.();
   }
 
   pressGo(): void {
     if (!this.inputOpen) return;
     const t = this.goTarget();
-    if (!this.dryGo.press(this.s.time.now, t !== null)) { if (!t) this.dry('go'); return; }
+    if (!this.dryGo.press(this.playMs, t !== null)) { if (!t) this.dry('go'); return; }
     if (t) this.fireGo(t);
   }
 
@@ -338,7 +360,7 @@ export class FreeStreet {
     h.faceLeft(true);
     const ms = kind === 'stop' ? DRY_STOP_MS : DRY_GO_MS;
     if (kind === 'stop') {
-      s.holdUntil = s.time.now + ms;
+      s.holdMs = ms;
       if (s.walker) h.play('idle');
     }
     s.time.delayedCall(ms, () => {
@@ -465,10 +487,10 @@ export class FreeStreet {
     return { skipped: () => skipped, off };
   }
 
-  /** ms たつか、タップされるまで待つ */
+  /** ms たつか、タップされるまで待つ(シーンの時計で数えるので、一時停止の間は進まない) */
   private async waitOrSkip(ms: number, skipped: () => boolean): Promise<void> {
-    const until = this.s.time.now + ms;
-    while (!skipped() && this.s.time.now < until && !this.s.leaving) await this.s.wait(50);
+    const step = 50;
+    for (let left = ms; left > 0 && !skipped() && !this.s.leaving; left -= step) await this.s.wait(step);
   }
 
   /** 波の始め:「WAVE1」の帯、ヒーローの決めつけとオペレーターのツッコミ、ルールの札。時計は止めておく */
@@ -505,6 +527,8 @@ export class FreeStreet {
     const from = this.rule;
     this.clockRunning = false;
     this.heroMode = 'busy';
+    // 止めている間は、悪さの時計(モヒカンが逃げるまで、ギャング、UFO)も止め、待てと行けのボタンも閉じる
+    this.hold(true);
     h.faceLeft(false).play('win_arms', true);
     if (from.kind === 'item' && next.kind === 'item') {
       const d = this.lines.redeclare(from.item, next.item);
@@ -519,7 +543,15 @@ export class FreeStreet {
     this.lastOpAt = s.time.now;
     await s.wait(this.timing.redeclarePauseSec * 1000);
     h.play('idle');
+    this.hold(false);
     this.clockRunning = true;
+  }
+
+  /** 言い直しの間、悪さの時計を止める(on=false で動かし直す) */
+  private hold(on: boolean): void {
+    this.held = on;
+    this.inputOpen = !on;
+    for (const t of this.threats) if (t.timer) t.timer.paused = on;
   }
 
   /** 次の人へ歩く(行けで走って殴るときは、途中で止めて、あとで続きを歩く) */
@@ -536,6 +568,8 @@ export class FreeStreet {
     const look = a.look!;
     this.auraKind = 'attack';
     await this.walkTo(a.x - MARK.showDistance, s.laneFor(a));
+    // 歩いている間に、行けの巻きぞえで倒れていたら、とばす
+    if (!a.standing) { this.auraKind = null; return; }
     s.showMark(a, 'stop');
     s.stopAlarm.start();
     s.slow = this.timing.markSlowmo;
@@ -568,7 +602,10 @@ export class FreeStreet {
         if (done) return;
         done = true;
         s.stopHandler = null;
+        // 近づいている途中なら、その歩きを終わったことにする(下の then は done を見て何もしない)
+        const w = s.walker;
         s.walker = null;
+        w?.resolve();
         ev?.remove();
         this.windupEv = null;
         resolve({ stop, close });
@@ -594,6 +631,7 @@ export class FreeStreet {
     this.bubbleIcon = null;
     const key = item ? FREE_ITEM_ICONS[item] : null;
     const b = s.heroBubble;
+    this.iconBubble = b ?? null;
     if (!key || !b || !s.textures.exists(key)) return;
     const c = s.add.container(0, 0).setScrollFactor(0).setDepth(b.depth);
     const g = s.add.graphics();
@@ -609,7 +647,8 @@ export class FreeStreet {
     const c = this.bubbleIcon;
     if (!c) return;
     const b = this.s.heroBubble;
-    if (!b || !b.active) { c.destroy(); this.bubbleIcon = null; return; }
+    // ほかの一言(叫び、素通りの一言など)に替わったら、絵も消す
+    if (!b || !b.active || b !== this.iconBubble) { c.destroy(); this.bubbleIcon = null; this.iconBubble = null; return; }
     const r = b.boxRect();
     const x = r.x >= 24 ? r.x - 21 : r.right + 1;
     c.setPosition(Math.round(x), Math.round(r.centerY - 10)).setVisible(b.visible).setScale(b.scaleX);
@@ -683,6 +722,7 @@ export class FreeStreet {
     this.auraKind = 'pass';
     const passY = a.y < 190 ? a.y + 12 : a.y - 12;
     await this.walkTo(a.x - 22, passY);
+    if (!a.standing) { this.auraKind = null; return; }
     h.play('pass', true);
     audio.sfx('sparkle');
     s.heroSay(this.lines.heroPass(look), 1000);
@@ -728,7 +768,11 @@ export class FreeStreet {
    */
   private threaten(a: Actor, recovered: boolean): Promise<void> {
     const s = this.s;
-    return new Promise((resolve) => {
+    // 呼んだ時点から終わるまでを数える(相手の所へ走っている間も、波を終えないように)
+    this.pendingMischief++;
+    return new Promise((done) => {
+      let over = false;
+      const resolve = (): void => { if (over) return; over = true; this.pendingMischief--; done(); };
       void (async () => {
         let v = s.passers.find((p) => p.standing && p.x > a.x + 24 && p.x < a.x + 110);
         let meetX = v?.x ?? 0;
@@ -742,6 +786,9 @@ export class FreeStreet {
           void s.moveTo(nv, meetX, vy, 700, 'Linear').then(() => { if (nv.standing) nv.play('idle'); });
         }
         const victim = v;
+        // 脅されている相手は、巻きぞえにしない(助かったあとも。UFOの買い物客と同じ)
+        s.passers = s.passers.filter((p) => p !== victim);
+        s.safeWalkers.push(victim);
         a.faceLeft(false).play('walk', true, 2.4);
         s.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
         await s.moveTo(a, Math.max(a.x, meetX - 18), victim.y, 620);
@@ -755,7 +802,8 @@ export class FreeStreet {
         s.showMark(a, 'go');
         s.goAlarm.start();
         this.goMarkShown();
-        t.timer = s.time.delayedCall(this.timing.escapeSec * 1000, () => this.threatEscape(t));
+        t.timer = s.time.delayedCall((this.threatSecDebug ?? this.timing.escapeSec) * 1000, () => this.threatEscape(t));
+        if (this.held) t.timer.paused = true;
       })();
     });
   }
@@ -775,12 +823,14 @@ export class FreeStreet {
     if (!this.threats.includes(t)) return;
     this.endThreat(t);
     const { a, victim: v } = t;
-    if (v.standing) {
+    // 相手がもう倒れていれば、けがはもう数えてあるので、逃がしただけを数える
+    const robbed = v.standing;
+    if (robbed) {
       s.fx('fx_hit', v.x - 4, v.y - 30, { depth: 950 });
       audio.sfx('hit', { pitch: 0.7 });
       s.knock(v, 20, 10, 1);
     }
-    s.stats.escaped(true);
+    s.stats.escaped(robbed);
     a.faceLeft(false).play('walk', true, 2.8);
     const escX = s.L.right + 50;
     s.tweens.add({ targets: a, x: escX, duration: Math.max(500, (escX - a.x) * 6), onComplete: () => a.destroy() });
@@ -799,7 +849,10 @@ export class FreeStreet {
     const canRun = (this.heroMode === 'walk' || this.heroMode === 'wait') && t.a.x - ATTACK_GAP >= s.hero.x - 2;
     if (canRun) this.seen.runHit++;
     else this.seen.fist++;
+    // 殴り終わるまでを数える(波の終わりの歩きと重ならないように)
+    this.pendingGo++;
     void (canRun ? this.runAndHit(t) : this.fistShot(t)).then(() => {
+      this.pendingGo--;
       const v = t.victim;
       if (v.standing) {
         v.play('idle');
@@ -868,8 +921,8 @@ export class FreeStreet {
   private async settle(): Promise<void> {
     const s = this.s;
     this.heroMode = 'wait';
-    if (this.threats.length > 0) s.hero.play('idle');
-    while (!s.leaving && (this.threats.length > 0 || s.gang || s.ufo)) await s.wait(100);
+    if (this.pendingMischief > 0) s.hero.play('idle');
+    while (!s.leaving && (this.pendingMischief > 0 || this.pendingGo > 0 || this.threats.length > 0 || s.gang || s.ufo)) await s.wait(100);
     this.heroMode = 'busy';
   }
 

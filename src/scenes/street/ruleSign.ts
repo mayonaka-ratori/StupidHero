@@ -12,6 +12,7 @@ import Phaser from 'phaser';
 import { UI } from '../../config';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
 import { ruleSignText, type FreeRule } from '../../logic';
+import { settings } from '../../settings';
 import { FS, PixelText, popText } from '../../ui';
 
 const X = 4;
@@ -47,8 +48,13 @@ export class RuleSign {
       onComplete: () => {
         this.build(rule);
         this.scene.tweens.add({ targets: b, scaleY: 1, duration: 140, ease: 'Back.easeOut' });
-        // ふちを何回か光らせて、変わったことを見せる
-        for (let i = 0; i < 6; i++) this.scene.time.delayedCall(i * 110, () => this.drawBg(i % 2 === 0 ? UI.text : UI.gold));
+        // ふちを何回か光らせて、変わったことを見せる(光と揺れを弱くするときは点滅させず、1回だけ白くする)
+        if (settings.reduceFx) {
+          this.drawBg(UI.text);
+          this.scene.time.delayedCall(700, () => this.drawBg(UI.gold));
+        } else {
+          for (let i = 0; i < 6; i++) this.scene.time.delayedCall(i * 110, () => this.drawBg(i % 2 === 0 ? UI.text : UI.gold));
+        }
       }
     });
   }
