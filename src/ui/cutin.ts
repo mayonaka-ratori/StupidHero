@@ -12,7 +12,7 @@
 import Phaser from 'phaser';
 import { frameIndex, sheetByKey } from '../art/sheets';
 import { FRAME_PAD, WindowFrame } from './frame';
-import { PixelText } from './text';
+import { PixelText, countLines, stripMarkup } from './text';
 import { DEPTH, FS, NAMES, UIX } from './theme';
 
 export type Speaker = 'operator' | 'hero';
@@ -206,7 +206,7 @@ export class CutIn extends Phaser.GameObjects.Container {
     this.line.setVisibleChars(0);
     this.setExpression(this.expr, true);
     this.typing = true;
-    const plain = Array.from(page.replace(/\{(\/|#[0-9a-fA-F]{6}|[a-z]+)\}/g, '').replace(/\n/g, ''));
+    const plain = Array.from(stripMarkup(page).replace(/\n/g, ''));
     let n = 0;
     let wait = 0;
     const tick = 1000 / speed;
@@ -233,16 +233,14 @@ export class CutIn extends Phaser.GameObjects.Container {
   /** 箱に入る行数ごとにページに分ける */
   private paginate(text: string): string[] {
     const max = this.maxLines;
-    const probe = this.line;
-    probe.setText(text);
-    if (probe.lineCount <= max) return [text];
+    const lines = (t: string): number => countLines(t, this.line.style);
+    if (lines(text) <= max) return [text];
     // 1文字ずつ足していき、行があふれたところで切る(色の書き方はページをまたがない前提)
     const chars = Array.from(text);
     const pages: string[] = [];
     let cur = '';
     for (const ch of chars) {
-      probe.setText(cur + ch);
-      if (probe.lineCount > max && cur) { pages.push(cur); cur = ch === '\n' ? '' : ch; } else cur += ch;
+      if (lines(cur + ch) > max && cur) { pages.push(cur); cur = ch === '\n' ? '' : ch; } else cur += ch;
     }
     if (cur) pages.push(cur);
     return pages;

@@ -31,6 +31,11 @@ export interface P2 extends Pose {
 const P = (p: Pose): P2 => p as P2;
 const tag = (p: Pose, extra: Partial<P2>): P2 => Object.assign(clonePose(p), extra) as P2;
 
+/** ギャングの6行。仕分けの行(2)だけが市民とちがうので、ほかの行は市民の絵を使い回す */
+function badRows(look: Look, civ: PixelGrid[][], badSort: Pose[]): PixelGrid[][] {
+  return [civ[0], civ[1], badSort.map((p) => drawPerson(look, p)), ...civ.slice(3)];
+}
+
 // ---------------------------------------------------------------------
 // 共通の小さな道具
 // ---------------------------------------------------------------------
@@ -309,7 +314,7 @@ function guardSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[
     tag(vArm(withFace(moveUpper(base, 0, 1), 'sly')), { gest: 'v' })
   ];
   const civ = civRows(look, base, civSort);
-  const bad = civRows(look, base, badSort);
+  const bad = badRows(look, civ, badSort);
   bad.push(whistleRow(base).map((p) => drawPerson(look, p)));
   return { civ, bad, civSort };
 }
@@ -383,7 +388,7 @@ function mechSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[]
     tag(side(withFace(moveUpper(base, 0, 1), 'grin')), { gest: 'thumb' })
   ];
   const civ = civRows(look, base, civSort);
-  const bad = civRows(look, base, badSort);
+  const bad = badRows(look, civ, badSort);
   bad.push(whistleRow(base).map((p) => drawPerson(look, p)));
   return { civ, bad, civSort };
 }
@@ -480,7 +485,7 @@ function clubSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][] } {
     tag(tap(withFace(moveUpper(base, 0, 1), 'grin'), 0), { gest: 'tap' })
   ];
   const civ = civRows(look, base, civSort);
-  const bad = civRows(look, base, badSort);
+  const bad = badRows(look, civ, badSort);
   bad.push(whistleRow(base).map((p) => drawPerson(look, p)));
   return { civ, bad };
 }
@@ -578,7 +583,7 @@ function olSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] }
     tag(beck(withFace(moveUpper(base, 0, 1), 'sly')), { gest: 'beckon1' })
   ];
   const civ = civRows(look, base, civSort);
-  const bad = civRows(look, base, badSort);
+  const bad = badRows(look, civ, badSort);
   bad.push(whistleRow(base).map((p) => drawPerson(look, p)));
   return { civ, bad, civSort };
 }

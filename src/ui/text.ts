@@ -207,6 +207,11 @@ function wrapParagraph(chars: Ch[], st: FullTextStyle): Ch[][] {
   return lines.length ? lines : [[]];
 }
 
+/** style で並べたときの行の数(描かずに数える。ページ分けに使う) */
+export function countLines(text: string, style: Readonly<FullTextStyle>): number {
+  return layoutText(text, style).lines.length;
+}
+
 function layoutText(text: string, st: FullTextStyle): Laid {
   const chars = parse(text, st.color);
   const ls = st.letterSpacing;
@@ -290,6 +295,9 @@ export class PixelText extends Phaser.GameObjects.Image {
   }
 
   setStyle(style: TextStyle): this {
+    // 変わらないなら描き直さない(ボタンは押すたびに色を決め直すので)
+    const keys = Object.keys(style) as (keyof TextStyle)[];
+    if (this.laid.glyphs.length && keys.every((k) => style[k] === undefined || style[k] === this.st[k])) return this;
     this.st = { ...this.st, ...style };
     this.relayout();
     return this;

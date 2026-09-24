@@ -75,15 +75,57 @@ export class PixelGrid {
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) g.cells[y][this.w - 1 - x] = this.cells[y][x];
     return g;
   }
-  /** キャンバスの (ox, oy) に書き写す */
+  /**
+   * キャンバスの (ox, oy) に書き写す(null のところは元の絵のまま)。
+   * 1ドットずつ fillRect すると遅いので、その範囲の画素をまとめて読んで書きかえ、まとめて戻す
+   */
   drawTo(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
-      const c = this.cells[y][x];
-      if (!c) continue;
-      ctx.fillStyle = c;
-      ctx.fillRect(ox + x, oy + y, 1, 1);
+    const x0 = Math.max(0, ox), y0 = Math.max(0, oy);
+    const x1 = Math.min(ctx.canvas.width, ox + this.w), y1 = Math.min(ctx.canvas.height, oy + this.h);
+    if (x1 <= x0 || y1 <= y0) return;
+    const w = x1 - x0;
+    const img = ctx.getImageData(x0, y0, w, y1 - y0);
+    const d = img.data;
+    for (let y = y0; y < y1; y++) {
+      const row = this.cells[y - oy];
+      for (let x = x0; x < x1; x++) {
+        const c = row[x - ox];
+        if (!c) continue;
+        const [r, g, b, a] = colorBytes(c);
+        const i = ((y - y0) * w + (x - x0)) * 4;
+        if (a === 255) { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255; continue; }
+        // 半透明の色は、今までの fillRect と同じように上に重ねる
+        const k = a / 255, rest = (d[i + 3] / 255) * (1 - k), out = k + rest;
+        if (out <= 0) continue;
+        d[i] = Math.round((r * k + d[i] * rest) / out);
+        d[i + 1] = Math.round((g * k + d[i + 1] * rest) / out);
+        d[i + 2] = Math.round((b * k + d[i + 2] * rest) / out);
+        d[i + 3] = Math.round(out * 255);
+      }
     }
+    ctx.putImageData(img, x0, y0);
   }
+}
+
+/** 色の文字列 → [R, G, B, A](0〜255)。同じ色は1回だけ調べる */
+const colorCache = new Map<string, readonly [number, number, number, number]>();
+let colorProbe: CanvasRenderingContext2D | null = null;
+function colorBytes(c: string): readonly [number, number, number, number] {
+  let v = colorCache.get(c);
+  if (v) return v;
+  const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(c);
+  if (m) v = [Number(m[1]), Number(m[2]), Number(m[3]), 255];
+  else {
+    // md() 以外の書き方の色は、1ドットのキャンバスに塗って読む
+    colorProbe ??= createCanvas(1, 1).ctx;
+    colorProbe.clearRect(0, 0, 1, 1);
+    colorProbe.fillStyle = c;
+    colorProbe.fillRect(0, 0, 1, 1);
+    const p = colorProbe.getImageData(0, 0, 1, 1).data;
+    v = [p[0], p[1], p[2], p[3]];
+  }
+  colorCache.set(c, v);
+  return v;
 }
 
 /** シートの中の、row行目 i番目のコマの左上 */
