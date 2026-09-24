@@ -15,6 +15,7 @@ import {
   renderWorstCase,
   renderWorstCaseBoss2,
   renderWorstCaseBoss3,
+  renderWorstCaseFree,
   renderWorstCaseSale3,
   renderWorstCaseStreet2,
   renderWorstCaseStreet3,
@@ -26,6 +27,8 @@ import {
 const STAGE2_SFX: SfxName[] = ['whistle', 'engine', 'skid', 'horn', 'crash'];
 /** ステージ3で足した効果音のうち、何度も続けて鳴らすもの */
 const STAGE3_SFX: SfxName[] = ['tractor', 'shipBeam', 'beep', 'glitch'];
+/** フリープレイで足した効果音(空押しは何度も鳴る) */
+const FREE_SFX: SfxName[] = ['declareBad', 'declarePass', 'dryPress'];
 
 const engine = audio as unknown as Engine;
 
@@ -97,7 +100,7 @@ async function check(): Promise<{ rows: Row[]; backlog: number }> {
   for (const n of SFX_NAMES) {
     rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n as SfxName), SFX_START), raw: analyze(await renderSfx(n as SfxName, false), SFX_START) });
   }
-  for (const n of [...STAGE2_SFX, ...STAGE3_SFX]) {
+  for (const n of [...STAGE2_SFX, ...STAGE3_SFX, ...FREE_SFX]) {
     rows.push({ kind: 'rep', name: n + '×', final: analyze(await renderSfxRepeat(n), SFX_START), raw: analyze(await renderSfxRepeat(n, false), SFX_START) });
   }
   rows.push({ kind: 'mix', name: 'boss+sfx', final: analyze(await renderWorstCase()), raw: analyze(await renderWorstCase(false)) });
@@ -106,6 +109,7 @@ async function check(): Promise<{ rows: Row[]; backlog: number }> {
   rows.push({ kind: 'mix', name: 'boss3+sfx', final: analyze(await renderWorstCaseBoss3()), raw: analyze(await renderWorstCaseBoss3(false)) });
   rows.push({ kind: 'mix', name: 'street3+sfx', final: analyze(await renderWorstCaseStreet3()), raw: analyze(await renderWorstCaseStreet3(false)) });
   rows.push({ kind: 'mix', name: 'sale3+sfx', final: analyze(await renderWorstCaseSale3()), raw: analyze(await renderWorstCaseSale3(false)) });
+  rows.push({ kind: 'mix', name: 'free3+sfx', final: analyze(await renderWorstCaseFree()), raw: analyze(await renderWorstCaseFree(false)) });
   return { rows, backlog: backlogSteps() };
 }
 
