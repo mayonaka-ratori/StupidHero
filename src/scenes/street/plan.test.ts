@@ -1,9 +1,9 @@
-// 結果発表の通りの並べ方(planStreet と planGarage)。画面には頼らない計算だけを確かめる。
+// 結果発表の通りの並べ方(planStreet、planGarage、planMall)。画面には頼らない計算だけを確かめる。
 // Phaser は読みこまない(読みこんだら失敗にする)。
 
 import { describe, expect, it, vi } from 'vitest';
 import { createRng, createStage, STAGES, type Person, type Stage, type StageId } from '../../logic';
-import { FIRST_X, GAP, GATHER_ROOM, VAN_Y, planGarage, planStreet, type StreetPlan } from './plan';
+import { FIRST_X, GAP, GATHER_ROOM, RUSH_DX, UFO_DX, VAN_Y, planGarage, planMall, planStreet, type StreetPlan } from './plan';
 
 vi.mock('phaser', () => {
   throw new Error('plan.ts のテストで Phaser を読みこんだ');
@@ -24,14 +24,16 @@ function cases(stageId: StageId, n: number): Case[] {
       const passBad = new Set(w.people.filter((p) => p.truth === 'bad' && rng.chance(0.5)).map((p) => p.id));
       const plan = stageId === 'garage'
         ? planGarage(w.people, passBad, STAGES.garage.props, rng)
-        : planStreet(w.people, passBad, rng);
+        : stageId === 'mall'
+          ? planMall(w.people, passBad, STAGES.mall.props, rng, w.no === 2)
+          : planStreet(w.people, passBad, rng);
       out.push({ stage, people: w.people, passBad, plan });
     }
   }
   return out;
 }
 
-/** 両方のステージで同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
+/** どのステージでも同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
 function commonRules({ stage, people, plan }: Case): string[] {
   const bad: string[] = [];
   const at = `seed ${stage.seed} 波${people[0].wave}`;
@@ -147,6 +149,49 @@ describe('planGarage(地下駐車場)', () => {
       const plan = planGarage(w.people, new Set(), STAGES.garage.props, createRng(1));
       expect(plan.gathers).toEqual([]);
       expect(plan.props.some((p) => p.kind === 'van')).toBe(false);
+    }
+  });
+});
+
+describe('planMall(ショッピングモール)', () => {
+  const all = cases('mall', 60);
+
+  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
+    expect(all.flatMap(commonRules)).toEqual([]);
+  });
+
+  it('物はモールの物だけで、奥の列の物は重ならない。エスカレーターは必ずある', () => {
+    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
+    expect([...kinds].filter((k) => !STAGES.mall.props.includes(k))).toEqual([]);
+    const half: Record<string, number> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
+    const bad: string[] = [];
+    for (const { plan, stage } of all) {
+      const back = plan.props.filter((p) => p.y < 200).sort((a, b) => a.x - b.x);
+      for (let i = 1; i < back.length; i++) {
+        const a = back[i - 1];
+        const b = back[i];
+        if (b.x - half[b.kind] < a.x + half[a.kind]) bad.push(`seed ${stage.seed}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
+      }
+      if (!plan.props.some((p) => p.kind === 'escalator')) bad.push(`seed ${stage.seed}: エスカレーターがない`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('ラッシュのある波(波2)だけ、ヒーローが立つ所の後ろにエスカレーター', () => {
+    for (const { plan, people } of all) {
+      const last = plan.people[plan.people.length - 1];
+      if (people[0].wave !== 2) { expect(plan.rushX).toBeUndefined(); continue; }
+      expect(plan.rushX).toBe(last.x + RUSH_DX);
+      expect(plan.props.some((p) => p.kind === 'escalator' && Math.abs(p.x - plan.rushX!) <= 12)).toBe(true);
+    }
+  });
+
+  it('UFOが下りてくる所(見逃した宇宙人の先)には、通りがかりの市民を置かない', () => {
+    for (const { plan, passBad } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        expect(plan.passers.some((p) => Math.abs(p.x - (s.x + UFO_DX)) < 20), s.person.id).toBe(false);
+      }
     }
   });
 });
