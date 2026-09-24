@@ -79,6 +79,37 @@ const MOTOR: FmPatch = {
   out: [0, 2]
 };
 
+/** ビブラフォン風のやわらかいベル(館内放送のチャイム) */
+const VIBE: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.24, env: E(0.002, 1.0, 0, 0.15) },
+    { ratio: 4, lvl: 0.45, env: E(0.001, 0.2, 0, 0.1) },
+    { ratio: 1, det: 6, lvl: 0.08, env: E(0.002, 0.8, 0, 0.15) }
+  ],
+  mods: [[1, 0]],
+  out: [0, 2]
+};
+
+/** UFOのうなり(少しずらした2倍の変調で、ゆれる低い音) */
+const HUM: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.3, env: E(0.3, 0.8, 0.8, 0.12) },
+    { ratio: 2.01, lvl: 1.0, env: E(0.3, 0.8, 0.7, 0.12) }
+  ],
+  mods: [[1, 0]],
+  out: [0]
+};
+
+/** 宇宙人の声(整数倍でない変調で、どこかよその星っぽいピッ) */
+const ALIEN: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.2, env: E(0.001, 0.1, 0.8, 0.02) },
+    { ratio: 2.5, lvl: 0.7, env: E(0.001, 0.08, 0.5, 0.02) }
+  ],
+  mods: [[1, 0]],
+  out: [0]
+};
+
 export const SFX: Record<SfxName, Sfx> = {
   // ボタン:ピコッ(2音)
   button: (c, o, t, p) => max(blipTone(c, o, t, 1047 * p, 0.035, 0.15), blipTone(c, o, t + 0.035, 1568 * p, 0.05, 0.13)),
@@ -319,5 +350,73 @@ export const SFX: Record<SfxName, Sfx> = {
       end = max(end, tone(c, o, t + 0.06 + i * 0.06, { f: f * p, gate: 0.04, env: E(0.001, 0.06, 0, 0.03), vol: 0.04, wave: 'triangle' }));
     });
     return end;
-  }
+  },
+
+  // ---------------------------------------------------------------- ステージ3
+
+  // 館内放送のチャイム:ピンポンパンポン(上がる4つのやわらかいベル。約1.3秒)
+  chime: (c, o, t, p) => {
+    let end = 0;
+    [72, 76, 79, 84].forEach((m, i) => {
+      const gate = i === 3 ? 0.55 : 0.2;
+      end = max(end, fm(c, o, t + i * 0.2, hz(m) * p, gate, VIBE, 0.75), fm(c, o, t + i * 0.2, hz(m - 12) * p, gate, VIBE, 0.3));
+    });
+    return end;
+  },
+
+  // UFOが下りてくる:ヒュイイーン(ふるえながら下がる高い音 + だんだん大きくなる低いうなり。約1秒)
+  ufoDown: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 1500 * p, f2: 520 * p, gate: 0.85, env: E(0.05, 0.8, 0.7, 0.12), vol: 0.1, wave: 'triangle', vib: [11, 70] }),
+      tone(c, o, t, { f: 750 * p, f2: 260 * p, gate: 0.85, env: E(0.1, 0.8, 0.6, 0.12), vol: 0.025, wave: 'square', vib: [11, 70] }),
+      fm(c, o, t, 70 * p, 0.85, HUM, 0.6)
+    ),
+
+  // UFOの吸い上げる光:ウィン(上がるうなり + シュワー)。0.5秒ごとに鳴らし続けると、つながって「ウィンウィン…」とふるえる
+  tractor: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 420 * p, f2: 640 * p, gate: 0.45, env: E(0.06, 0.4, 0.8, 0.1), vol: 0.09, wave: 'sine', vib: [14, 40] }),
+      tone(c, o, t, { f: 840 * p, f2: 1280 * p, gate: 0.45, env: E(0.06, 0.4, 0.8, 0.1), vol: 0.03, wave: 'triangle', vib: [14, 40] }),
+      noise(c, o, t, { gate: 0.45, env: E(0.1, 0.3, 0.7, 0.1), vol: 0.08, type: 'bandpass', f: 800 * p, f2: 2400 * p, q: 2 })
+    ),
+
+  // UFOが殴り落とされる:ヒュルルル…ドガシャン(ふるえながら下がる音のあと、0.5秒で地面にぶつかる)
+  ufoFall: (c, o, t, p) => {
+    let end = max(
+      tone(c, o, t, { f: 1300 * p, f2: 180 * p, gate: 0.5, env: E(0.005, 0.5, 0.8, 0.05), vol: 0.1, wave: 'triangle', vib: [16, 90] }),
+      tone(c, o, t, { f: 650 * p, f2: 90 * p, gate: 0.5, env: E(0.005, 0.5, 0.7, 0.05), vol: 0.025, wave: 'square', vib: [16, 90] })
+    );
+    const hitAt = t + 0.5;
+    end = max(
+      end,
+      drop(c, o, hitAt, 120 * p, 30 * p, 0.2, 0.8, 0.3),
+      noise(c, o, hitAt, { gate: 0.3, env: E(0.001, 0.28, 0, 0.06), vol: 0.35, type: 'lowpass', f: 3000 * p, f2: 250, rate: 0.6 }),
+      fm(c, o, hitAt, hz(40) * p, 0.15, GAAN, 0.4, { from: 0, to: -500, time: 0.25 })
+    );
+    [2794, 3520, 2349].forEach((f, i) => {
+      end = max(end, tone(c, o, hitAt + 0.03 + i * 0.05, { f: f * p, gate: 0.04, env: E(0.001, 0.06, 0, 0.03), vol: 0.035, wave: 'triangle' }));
+    });
+    return end;
+  },
+
+  // 宇宙人の本性ちらり:ピピッ(よその星っぽい短い2つ)
+  beep: (c, o, t, p) =>
+    max(fm(c, o, t, 1319 * p, 0.04, ALIEN, 0.7, { from: 0, to: -60, time: 0.04 }), fm(c, o, t + 0.08, 1319 * p, 0.07, ALIEN, 0.7, { from: 0, to: -120, time: 0.07 })),
+
+  // 動きのくずれ:ジジッ(とても小さい0.2秒のノイズ。仕分けの画面で何度も鳴るので目立たせない)
+  glitch: (c, o, t, p) =>
+    max(
+      noise(c, o, t, { gate: 0.05, env: E(0.002, 0.05, 0.6, 0.01), vol: 0.07, type: 'bandpass', f: 1800 * p, q: 1.2, rate: 0.3 }),
+      noise(c, o, t + 0.1, { gate: 0.08, env: E(0.002, 0.07, 0.5, 0.02), vol: 0.06, type: 'bandpass', f: 2600 * p, q: 1.2, rate: 0.3 }),
+      tone(c, o, t, { f: 180 * p, gate: 0.18, env: E(0.002, 0.15, 0.5, 0.02), vol: 0.012, wave: 'square', vib: [40, 300] })
+    ),
+
+  // 母艦の光線:ブィーーン + ジュワー(床を焼く太い光線。1秒ごとに鳴らし続けてよい)
+  shipBeam: (c, o, t, p) =>
+    max(
+      fm(c, o, t, 330 * p, 0.72, LASER, 0.6, { from: 0, to: -500, time: 0.8 }),
+      tone(c, o, t, { f: 660 * p, f2: 520 * p, gate: 0.72, env: E(0.01, 0.6, 0.6, 0.1), vol: 0.025, wave: 'square', vib: [25, 60] }),
+      noise(c, o, t, { gate: 0.72, env: E(0.05, 0.6, 0.6, 0.1), vol: 0.1, type: 'highpass', f: 2500, rate: 0.8 }),
+      drop(c, o, t, 160 * p, 60 * p, 0.1, 0.35, 0.15)
+    )
 };
