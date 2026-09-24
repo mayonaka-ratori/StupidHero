@@ -56,12 +56,13 @@ npm run dev        # 開発用のサーバー。表示されたURLをスマホ�
 | [docs/STAGE2.md](docs/STAGE2.md) | ステージ2で足したり変えたりしたこと |
 | [docs/STAGE3.md](docs/STAGE3.md)、[docs/STAGE3_TEXT.md](docs/STAGE3_TEXT.md) | ステージ3で足したり変えたりしたことと、ステージ3の文 |
 | [docs/ART_SPEC.md](docs/ART_SPEC.md) | 絵の決まり(大きさ、色、並べ方)と、ChatGPTで絵を作る手順 |
-| [docs/DEVELOP.md](docs/DEVELOP.md) | 開発の手引き(フォルダの中身、途中の場面から始める方法、確かめ用のスクリプト、公開のしかた) |
+| [docs/DEVELOP.md](docs/DEVELOP.md) | 開発の手引き(フォルダの中身、途中の場面から始める方法、確かめ用のスクリプト、煙と光の粒の足し方、公開のしかた) |
 
 ## 作り
 
 - TypeScriptとPhaser 3。組み立てはVite
 - 絵は、いまは全部コードで描いている。PNGを`public/art/`に置いて`public/art/manifest.json`に書けば差し替わる(`docs/DEVELOP.md`の「絵を差し替える」)
+- 煙、火の粉、UFOの光の粒も、コードで点を打って描いている。こちらはPNGでは差し替えない(`docs/DEVELOP.md`の「煙と光の粒を足す、変える」)
 - 音はWeb Audioでその場で作る(メガドライブ風のFM音源とPSG)
 - 記録と設定はそのスマホの中(localStorage)だけに残す
 - pushすると、GitHub Actionsで型の確かめとテストが動く
