@@ -191,7 +191,7 @@ export class ResultScene extends Phaser.Scene {
       place.push({ x: 11, right: W - 11, y: cy, small: false });
       cy += rowH;
       if (i === 2 && hurtParts.length) { hurtSub.y = cy - 1; cy += subH; }
-      if (i === DAMAGE) { analogyY.y = cy - 2; cy += subH; }
+      if (i === DAMAGE) { analogyY.y = cy; cy += subH; }
     });
     const extraY = cy - 2;
     const values = rows.map((r, i) => {
@@ -213,7 +213,7 @@ export class ResultScene extends Phaser.Scene {
     const hurtLine = hurtParts.length
       ? new PixelText(this, W - 11, hurtSub.y, hurtParts.join('・'), { size: FS.small, color: UI.textDim }).setOrigin(1, 0).setVisible(false)
       : null;
-    const analogy = new PixelText(this, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.body, color: UI.gold, outline: true })
+    const analogy = new PixelText(this, W - 11, analogyY.y, `(${damageAnalogy(s.damage, run.stage.id).text})`, { size: FS.small, color: UI.gold, outline: true })
       .setOrigin(1, 0).setVisible(false);
     const extraTexts: PixelText[] = [];
     if (def.mechanic === 'gang') {
