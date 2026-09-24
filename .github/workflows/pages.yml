@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1からステージ3)
-        default: 5e589983fb170c6b4a97edf7b535e312f8cd6e38
+        # いま公開している版(ステージ1からステージ3。コードの見直し、起動を速くする、共有用の画像の作り直しまで)
+        default: 31c4005a0d1e84e899d45c176dcd9a8da1ff6ffe
 
 permissions:
   contents: read
