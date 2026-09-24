@@ -465,7 +465,83 @@ const SALE3: SongDef = {
   }
 };
 
+// ================================================================ free1 / free2 / free3
+// ト長調。G E7 Am D7 / G B7 Em C / G E7 Am D7 / C Cm G D7。フリープレイ(ヒーローのおバカな決めつけ)の曲。
+// ブンチャッ(1・3拍に低いベース、2・4拍にブラスの和音)の楽隊のノリに、鼻にかかったラッパ風のリードが
+// 半音下からすくい上げて跳ね回る。ポクッという木魚、スライドホイッスル、半音でくねる節、
+// 14小節目の Cm(「おっと」の和音)で少しとぼける。最後の C#5 から頭の D5 へ半音で戻る。
+// 同じ曲を波ごとに少しずつ速くする(free1 → free2 → free3。テンポだけ変える)。
+const FREE_ROOTS = ['G1', 'E1', 'A1', 'D2', 'G1', 'B1', 'E1', 'C2', 'G1', 'E1', 'A1', 'D2', 'C2', 'C2', 'G1', 'D2'];
+const FREE_CHORDS = [
+  'B3 D4 G4', 'B3 D4 G#4', 'C4 E4 A4', 'C4 F#4 A4', 'B3 D4 G4', 'A3 D#4 F#4', 'B3 E4 G4', 'C4 E4 G4',
+  'B3 D4 G4', 'B3 D4 G#4', 'C4 E4 A4', 'C4 F#4 A4', 'C4 E4 G4', 'C4 Eb4 G4', 'B3 D4 G4', 'C4 F#4 A4'
+];
+const FREE_BEAT = 'k . h . s . h b k . h . s b h .';
+const FREE1: SongDef = {
+  bpm: 150,
+  loop: {
+    bars: 16,
+    tracks: [
+      {
+        inst: 'toot',
+        vol: 1.1,
+        notes: [
+          'D5 . . B4 . . G4 . A4 . B4 . D5 . . .',
+          'E5 . G#4 . B4 . E5 . D5 - - - . . . .',
+          'C5 . . A4 . . E4 . G#4 . A4 . C5 . E5 .',
+          'D5 - C5 . A4 . F#4 . D4 . . . . . . .',
+          'D5 . . B4 . . G4 . A4 . B4 . D5 . G5 .',
+          'F#5 . D#5 . B4 . D#5 . F#5 - - - A5 - - -',
+          'G5 . . F#5 . . E5 . B4 . . . E5 . G5 .',
+          'E5 . . C5 . . G4 . A4 - - - . . . .',
+          // 半音でくねる、とぼけた節(2小節ずらして同じ形)
+          'B4 . B4 . C5 . B4 . A#4 B4 . . G4 . . .',
+          'G#4 . G#4 . A4 . G#4 . G4 G#4 . . E4 . . .',
+          'A4 . C5 . E5 . A5 . G#5 . A5 . E5 . C5 .',
+          'D5 . F#5 . A5 . C6 . B5 . A5 . F#5 . D5 .',
+          'E5 - - - G5 . E5 . C5 - - - . . . .',
+          'Eb5 - - - G5 . Eb5 . C5 - - - . . . .',
+          'D5 . B4 . G4 . D5 . B4 . G4 . D4 . . .',
+          'C5 . . . A4 . . . F#4 . A4 . C5 . C#5 .'
+        ].join(' ')
+      },
+      // 合いの手:リードが休むところでスライドホイッスル(ヒューイッ)とベル
+      {
+        inst: 'slide',
+        vol: 0.9,
+        notes: [rep('.', 58), 'D5 - - - - -', rep('.', 60), 'G5 - - -', rep('.', 128)].join(' ')
+      },
+      {
+        inst: 'bell',
+        vol: 0.6,
+        notes: [rep('.', 204), 'G5 . C6 .', rep('.', 12), 'G5 . Eb6 .', rep('.', 32)].join(' ')
+      },
+      { inst: 'bass', vol: 1.05, notes: bars('r . . . f . . . r . . . f . r .', FREE_ROOTS) },
+      // ブンチャッの「チャッ」(2拍目と4拍目)
+      { inst: 'brass', vol: 0.48, notes: arp(FREE_CHORDS, '. . . . 1 . . . . . . . 1 . . .') },
+      { inst: 'brass', vol: 0.48, notes: arp(FREE_CHORDS, '. . . . 2 . . . . . . . 2 . . .') },
+      { inst: 'sq', vol: 0.55, notes: arp(FREE_CHORDS, '. . 5 . . . . . . . 5 . . . 3 .') },
+      {
+        inst: 'drums',
+        notes: [
+          'kc . h . s . h b k . h . s b h .',
+          rep(FREE_BEAT, 6),
+          'k . h . s . h b k . s s T . t .',
+          'kc . h . s . h b k . h . s b h .',
+          rep(FREE_BEAT, 6),
+          'k . h b s . b b s s s s T t l l'
+        ].join(' ')
+      }
+    ]
+  }
+};
+/** 波2:少し速く */
+const FREE2: SongDef = { ...FREE1, bpm: 158 };
+/** 波3:さらに少し速く */
+const FREE3: SongDef = { ...FREE1, bpm: 166 };
+
 export const SONGS = {
   title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT, street2: STREET2, boss2: BOSS2,
-  street3: STREET3, boss3: BOSS3, sale3: SALE3
+  street3: STREET3, boss3: BOSS3, sale3: SALE3,
+  free1: FREE1, free2: FREE2, free3: FREE3
 } as const;

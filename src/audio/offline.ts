@@ -201,6 +201,29 @@ export async function renderWorstCaseBoss3(limit = true): Promise<AudioBuffer> {
   return ctx.startRendering();
 }
 
+/**
+ * フリープレイでいちばんうるさい場面(波3の速い曲):決めつけのドン → 空押しの連打(何度も振り向く)→
+ * 行けで殴りかかって倒す → 言い直しのポワン。空押しはゲームで鳴らせるいちばん短い間隔で鳴らす
+ */
+export async function renderWorstCaseFree(limit = true): Promise<AudioBuffer> {
+  const seconds = 4;
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  const mix = createMixer(ctx, ctx.destination, limit);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.free3), 'free3', 0.01);
+  player.pump(seconds, 0, false, 1e6);
+  SFX.declareBad(ctx, mix.sfx, 0.1, 1);
+  for (let t = 0.6; t < 1.6; t += SFX_GAP.dryPress ?? SFX_GAP_DEFAULT) SFX.dryPress(ctx, mix.sfx, t, 1);
+  SFX.mark(ctx, mix.sfx, 1.6, 1);
+  SFX.go(ctx, mix.sfx, 1.8, 1);
+  SFX.charge(ctx, mix.sfx, 1.9, 1);
+  SFX.punch(ctx, mix.sfx, 2.3, 1);
+  SFX.hit(ctx, mix.sfx, 2.32, 1);
+  SFX.bigHit(ctx, mix.sfx, 2.35, 1);
+  SFX.declarePass(ctx, mix.sfx, 2.6, 1);
+  SFX.stop(ctx, mix.sfx, 3.0, 1);
+  return ctx.startRendering();
+}
+
 /** ルックアヘッドが遅れたとき、たまった音をまとめて鳴らさないことを確かめる。遅れて1回呼んだときに予約したマスの数を返す */
 export function backlogSteps(): number {
   const ctx = new OfflineAudioContext(1, RATE, RATE);
@@ -211,5 +234,5 @@ export function backlogSteps(): number {
   return player.pump(10.15, 10, true);
 }
 
-export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2', 'street3', 'boss3', 'sale3'];
+export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2', 'street3', 'boss3', 'sale3', 'free1', 'free2', 'free3'];
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];

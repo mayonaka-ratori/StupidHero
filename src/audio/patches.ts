@@ -137,6 +137,19 @@ export const SPACE: FmPatch = {
   vib: [5, 22, 0.15]
 };
 
+/** 鼻にかかったラッパ風のリード(フリープレイ用。持続する強めの変調でブーッとした、少しまぬけな音) */
+export const TOOT: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.24, env: E(0.008, 0.2, 0.7, 0.04) },
+    { ratio: 1, lvl: 2.0, env: E(0.01, 0.15, 0.6, 0.04) },
+    { ratio: 2, lvl: 0.08, env: E(0.008, 0.2, 0.6, 0.04) },
+    { ratio: 3, lvl: 0.7, env: E(0.005, 0.1, 0.3, 0.04) }
+  ],
+  mods: [[1, 0], [3, 2]],
+  out: [0, 2],
+  vib: [6, 16, 0.12]
+};
+
 // ---------------------------------------------------------------- 楽器
 
 export type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
@@ -164,6 +177,14 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   /** PSGののばす矩形波(ビブラートつき) */
   sqlong: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate, env: E(0.004, 0.3, 0.7, 0.06), vol: 0.09 * vol, vib: [5.5, 10] });
+  },
+  /** ラッパ風のリード(フリープレイ用)。半音より少し下からすくい上げて、とぼけた感じに */
+  toot: (ctx, out, t, midi, gate, vol) => {
+    fm(ctx, out, t, hz(midi), gate, TOOT, vol, { from: -70, to: 0, time: 0.05 });
+  },
+  /** スライドホイッスル(フリープレイの合いの手)。1オクターブ下から音の高さまでヒューイッと上がる */
+  slide: (ctx, out, t, midi, gate, vol) => {
+    tone(ctx, out, t, { f: hz(midi - 12), f2: hz(midi), slide: gate * 0.8, gate, env: E(0.02, 0.3, 0.8, 0.05), vol: 0.12 * vol, wave: 'triangle', vib: [7, 20] });
   },
   /** テルミン風(ステージ3用)。半音下からすくい上げ、ゆっくりふくらむ三角波に深いビブラート */
   theremin: (ctx, out, t, midi, gate, vol) => {
@@ -202,6 +223,12 @@ export const DRUMS: Record<string, Drum> = {
   T: (ctx, out, t, v) => { drop(ctx, out, t, 330, 200, 0.12, 0.5 * v, 0.16); },
   t: (ctx, out, t, v) => { drop(ctx, out, t, 240, 140, 0.12, 0.5 * v, 0.18); },
   l: (ctx, out, t, v) => { drop(ctx, out, t, 170, 95, 0.14, 0.55 * v, 0.2); },
+  // 木魚/ウッドブロック:ポクッ(フリープレイ用。とぼけた合いの手)
+  b: (ctx, out, t, v) => {
+    drop(ctx, out, t, 1250, 1100, 0.02, 0.28 * v, 0.05, 'triangle');
+    drop(ctx, out, t, 1900, 1800, 0.01, 0.07 * v, 0.025);
+    noise(ctx, out, t, { gate: 0.01, env: E(0.001, 0.01, 0, 0.005), vol: 0.1 * v, type: 'bandpass', f: 2200, q: 3 });
+  },
   // 指パッチン/リム(静かな曲用)
   r: (ctx, out, t, v) => {
     noise(ctx, out, t, { gate: 0.03, env: E(0.001, 0.03, 0, 0.01), vol: 0.3 * v, type: 'bandpass', f: 3200, q: 2 });

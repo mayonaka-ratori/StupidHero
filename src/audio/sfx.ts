@@ -418,5 +418,31 @@ export const SFX: Record<SfxName, Sfx> = {
       tone(c, o, t, { f: 660 * p, f2: 520 * p, gate: 0.72, env: E(0.01, 0.6, 0.6, 0.1), vol: 0.025, wave: 'square', vib: [25, 60] }),
       noise(c, o, t, { gate: 0.72, env: E(0.05, 0.6, 0.6, 0.1), vol: 0.1, type: 'highpass', f: 2500, rate: 0.8 }),
       drop(c, o, t, 160 * p, 60 * p, 0.1, 0.35, 0.15)
+    ),
+
+  // ---------------------------------------------------------------- フリープレイ
+
+  // 殴りかかるルールを決めつけた:ドン!(低いブラスの短い和音 + 太い太鼓)
+  declareBad: (c, o, t, p) =>
+    max(
+      drop(c, o, t, 120 * p, 36 * p, 0.14, 1, 0.3),
+      fm(c, o, t, hz(43) * p, 0.14, HORN, 0.8, { from: 0, to: -150, time: 0.3 }),
+      fm(c, o, t, hz(50) * p, 0.14, HORN, 0.55, { from: 0, to: -150, time: 0.3 }),
+      noise(c, o, t, { gate: 0.1, env: E(0.001, 0.09, 0, 0.03), vol: 0.35, type: 'lowpass', f: 1800, f2: 300 })
+    ),
+
+  // 素通りのルールを決めつけた:ポワン(下からふくらんで上がるやわらかいベル + ふるえる丸い音)
+  declarePass: (c, o, t, p) =>
+    max(
+      fm(c, o, t, hz(84) * p, 0.3, VIBE, 0.8, { from: -700, to: 0, time: 0.09 }),
+      fm(c, o, t, hz(72) * p, 0.3, VIBE, 0.35, { from: -700, to: 0, time: 0.09 }),
+      tone(c, o, t, { f: 520 * p, f2: 1050 * p, slide: 0.1, gate: 0.3, env: E(0.01, 0.35, 0.3, 0.1), vol: 0.07, wave: 'sine', vib: [9, 35] })
+    ),
+
+  // 空押しでヒーローが振り向く:ピュイ?(語尾が上がる小さな音。何度も鳴るのでとても短く小さく)
+  dryPress: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 660 * p, f2: 990 * p, slide: 0.07, gate: 0.07, env: E(0.004, 0.08, 0.6, 0.02), vol: 0.07, wave: 'triangle' }),
+      tone(c, o, t + 0.08, { f: 1320 * p, gate: 0.025, env: E(0.002, 0.03, 0.3, 0.015), vol: 0.035, wave: 'triangle' })
     )
 };
