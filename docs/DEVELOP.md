@@ -1,6 +1,6 @@
 # 開発の手引き
 
-ゲームの中身の決まりは`docs/SPEC.md`(ステージ1)と`docs/STAGE2.md`(ステージ2)、絵の決まりは`docs/ART_SPEC.md`にあります。ここには、コードをさわるときに知っておくと早いことを書きます。
+ゲームの中身の決まりは`docs/SPEC.md`(ステージ1)、`docs/STAGE2.md`(ステージ2)、`docs/STAGE3.md`(ステージ3)、絵の決まりは`docs/ART_SPEC.md`にあります。ここには、コードをさわるときに知っておくと早いことを書きます。
 
 コードの説明は、それぞれのファイルの先頭にくわしく書いてあります。ここはその地図です。
 
@@ -57,7 +57,7 @@ Boot→Title→StageSelect→Intro
 画面の担当は、数字や文章を自分で書かずに`src/logic/`から読みます。
 
 - 数字:`rules.ts`(ステージごとの違いは`stages.ts`)
-- 文章:`content.ts`(ステージ2の文は`garageContent.ts`)
+- 文章:`content.ts`(ステージ2の文は`garageContent.ts`、ステージ3の文は`mallContent.ts`)
 - 称号:`titles.ts`
 - 数え方:`stats.ts`
 - 答え合わせの決め手:`reasons.ts`
@@ -73,7 +73,7 @@ Boot→Title→StageSelect→Intro
 | 書き方 | 意味 |
 |---|---|
 | `?scene=Sort` | 始める場面。`Intro`、`Sort`、`Street`、`Boss`、`WaveReview`、`Result`、`TitleList`など。`Intro`は見たことがあっても毎回出る |
-| `&stage=garage` | ステージ2で始める(鍵が開いていなくてもよい)。書かなければ路地裏 |
+| `&stage=garage` | ステージ2で始める(鍵が開いていなくてもよい)。`&stage=mall`でステージ3。書かなければ路地裏 |
 | `&wave=2` | 始める波(1〜3)。書かなければ1、`Boss`と`Result`のときは3 |
 | `&seed=123` | 人の並びを決める種。同じ種なら毎回同じ並びになる |
 | `&sorts=truth` | 飛ばした波の仕分けの決め方。`truth`全部正しく、`random`でたらめ(書かないときはこれ)、`bad`全員ワル、`civ`全員市民 |
@@ -116,7 +116,7 @@ Boot→Title→StageSelect→Intro
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは19ファイル、179件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは22ファイル、241件)
 npm run typecheck   # tsc
 ```
 

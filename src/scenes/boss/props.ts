@@ -19,9 +19,10 @@ interface PropPlace {
  * 壊れる順(ボスに近い物から)に並べる。
  * 路地裏:窓と看板は壁、ゴミ箱と自販機は歩道。
  * 地下駐車場:奥の列に柱と止めてある車、手前にコーンと料金所のバー、柱に消火器の箱。
- * 右の奥(x=148 あたり)は女ボスの高級車を止める場所なので空けておく
+ * 右の奥(x=148 あたり)は女ボスの高級車を止める場所なので空けておく。
+ * 表にないステージ(ショッピングモールはまだ)は路地裏の並びを使い、そのステージの物でないものは置かない
  */
-const PLACES: Record<StageId, PropPlace[]> = {
+const PLACES: Partial<Record<StageId, PropPlace[]>> = {
   alley: [
     { kind: 'trash', x: 196, y: 150 },
     { kind: 'window', x: 178, y: 64 },
@@ -48,7 +49,7 @@ export class BossProps {
 
   /** kinds はそのステージに置いてよい物(stage.def.props)。表にあっても kinds にない物は置かない */
   constructor(scene: Phaser.Scene, stageId: StageId = 'alley', kinds?: readonly PropKind[]) {
-    const places = PLACES[stageId] ?? PLACES.alley;
+    const places = PLACES[stageId] ?? PLACES.alley ?? [];
     // 柱に付ける消火器の箱は、柱より手前に描く(同じ深さなら後から足した物が手前)
     const sorted = [...places].sort((a, b) => (a.kind === 'extinguisher' ? 1 : 0) - (b.kind === 'extinguisher' ? 1 : 0));
     const made = new Map<PropPlace, Phaser.GameObjects.Sprite>();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { StatsTracker, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
+import { StatsTracker, WORST_SCENE_RANK, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
 
 describe('StatsTracker', () => {
   it('撃破は仕分け、行け、ボスの合計', () => {
@@ -223,5 +223,79 @@ describe('仕分けの答え合わせ', () => {
     const r = s.snapshot();
     expect([r.sortCorrect, r.sortTotal, r.sortByHero, r.sortByHeroCorrect]).toEqual([9, 9, 1, 1]);
     expect(r.sortWaves.map((w) => w.wave)).toEqual([1, 2]);
+  });
+});
+
+describe('StatsTracker(ステージ3)', () => {
+  it('いちばんひどい場面の順:市民を殴った瞬間のすぐあとに「市民がさらわれた」、そのあと大きな物', () => {
+    expect(Object.entries(WORST_SCENE_RANK).sort((a, b) => a[1] - b[1]).map(([k]) => k))
+      .toEqual(['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'bigPropBroken', 'bossDefeated']);
+    const s = new StatsTracker(8, 'mall');
+    expect(s.reportScene('bigPropBroken')).toBe(true);
+    expect(s.reportScene('abducted')).toBe(true);
+    expect(s.reportScene('bigPropBroken')).toBe(false);
+    expect(s.reportScene('civHit', 'punch')).toBe(true);
+    expect(s.reportScene('abducted')).toBe(false);
+  });
+
+  it('UFOを落とすと、宇宙人を撃破と「行けで倒した」に数え、UFOの¥300万を足す', () => {
+    const s = new StatsTracker(3, 'mall');
+    expect(s.ufoDowned()).toBe(3_000_000);
+    s.defeatBad('go');
+    const r = s.snapshot();
+    expect(r.defeated).toBe(2);
+    expect(r.defeatedByGo).toBe(2);
+    expect(r.defeatedByUfo).toBe(1);
+    expect(r.ufosDowned).toBe(1);
+    expect(r.damage).toBe(3_000_000);
+    expect(r.propsBroken.ufo).toBe(1);
+    // 落ちたUFOは「大きな物が壊れた」場面にはしない。噴水とエスカレーターはする
+    expect(sceneForProp('ufo')).toBeNull();
+    expect(sceneForProp('fountain')).toBe('bigPropBroken');
+    expect(sceneForProp('escalator')).toBe('bigPropBroken');
+    expect(sceneForProp('showcase')).toBeNull();
+  });
+
+  it('UFOが去ると、買い物客は市民のけが(さらわれた)、宇宙人は逃がした。空への合図は悪さに数えない', () => {
+    const s = new StatsTracker(3, 'mall');
+    expect(s.mischief('clerk')).toBe(0);
+    s.ufoEscaped();
+    s.ufoEscaped();
+    const r = s.snapshot();
+    expect(r.civHurt).toBe(2);
+    expect(r.civHurtByAbduction).toBe(2);
+    expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain]).toEqual([0, 0, 0]);
+    expect(r.escaped).toBe(2);
+    expect(r.escapedByUfo).toBe(2);
+    expect(r.damage).toBe(0);
+    expect(s.heroMistakes).toBe(0);
+  });
+
+  it('タイムセールラッシュの数は、ほかの数字と全員撃破に入らない', () => {
+    const s = new StatsTracker(1, 'mall');
+    expect(s.snapshot().rush).toBeNull();
+    s.startRush({ alienCount: 3, civCount: 5 });
+    s.rushHit('bad');
+    s.rushHit('bad');
+    s.rushStopped('bad');
+    s.rushHit('civ');
+    for (let i = 0; i < 4; i++) s.rushStopped('civ');
+    const r = s.snapshot();
+    expect(r.rush).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs: 5, civsSaved: 4, civsHit: 1 });
+    expect(r.defeated).toBe(0);
+    expect(r.allDefeated).toBe(false);
+    expect(r.civHurt).toBe(0);
+    expect(r.escaped).toBe(0);
+    expect(r.civSavedByStop).toBe(0);
+    expect(r.badSparedByStop).toBe(0);
+    // snapshot は写し
+    s.rushHit('bad');
+    expect(r.rush!.aliensDefeated).toBe(2);
+  });
+
+  it('親玉を市民に仕分けたときの額は¥2,000万', () => {
+    const s = new StatsTracker(8, 'mall');
+    expect(s.bossRampage()).toBe(20_000_000);
+    expect(s.snapshot().bossSortedCiv).toBe(true);
   });
 });

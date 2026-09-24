@@ -7,9 +7,11 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
   civHurt: 1, civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 0,
   damage: 8_000_000, damageByProps: 8_000_000, damageByMischief: 0, damageByBoss: 0,
   propsBroken: {
-    trash: 0, window: 0, sign: 0, vending: 0, car: 0, van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0
+    trash: 0, window: 0, sign: 0, vending: 0, car: 0, van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0,
+    gacha: 0, mannequin: 0, showcase: 0, fountain: 0, escalator: 0, ufo: 0, mothership: 0
   },
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
+  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null,
   escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
@@ -18,18 +20,19 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
 });
 
 describe('称号', () => {
-  it('14個、順番と名前とポーズがSPECとSTAGE2の通り', () => {
-    expect(TITLES).toHaveLength(14);
-    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  it('17個、順番と名前とポーズがSPECとSTAGE2とSTAGE3の通り', () => {
+    expect(TITLES).toHaveLength(17);
+    expect(TITLES.map((t) => t.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     expect(TITLES.map((t) => t.name)).toEqual([
-      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの運転手', 'おばあちゃんの敵', '正義の暴走機関車',
-      '街のほんものヒーロー', '連打の申し子', '待ての達人', '一網打尽', '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
+      '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの運転手', '宇宙人の案内係', 'おばあちゃんの敵',
+      '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神', '連打の申し子', '待ての達人', 'UFOハンター', '一網打尽',
+      '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
     ]);
     expect(TITLES.map((t) => t.pose)).toEqual([
-      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
-      'win_pose', 'win_fist', 'win_pose', 'win_arms', 'win_arms', 'win_pose', 'win_arms'
+      'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
+      'win_pose', 'win_pose', 'win_fist', 'win_pose', 'win_fist', 'win_arms', 'win_arms', 'win_pose', 'win_arms'
     ]);
-    expect(new Set(TITLES.map((t) => t.id)).size).toBe(14);
+    expect(new Set(TITLES.map((t) => t.id)).size).toBe(17);
     expect(titleById('demolition').name).toBe('歩く解体工事');
   });
 
@@ -142,8 +145,10 @@ describe('称号(ステージ2)', () => {
     expect(titleById('grannyFoe').stages).toEqual(['alley']);
     expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
     expect(titlesFor('alley').map((t) => t.id)).toContain('grannyFoe');
-    // どちらかのステージでは必ず取れる
-    for (const t of TITLES) expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t), t.id).toBe(true);
+    // どれかのステージでは必ず取れる
+    for (const t of TITLES) {
+      expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t) || titlesFor('mall').includes(t), t.id).toBe(true);
+    }
   });
 
   it('一網打尽:まとめて吹き飛ばした組が2組以上', () => {
@@ -162,5 +167,70 @@ describe('称号(ステージ2)', () => {
     expect(decideTitle({ ...s, bossSortedCiv: true }).id).toBe('bossBuddy');
     expect(decideTitle({ ...s, grannyHit: true }).id).toBe('gangDriver');
     expect(decideTitle({ ...s, groupsWiped: 2 }).id).toBe('gangDriver');
+  });
+});
+
+describe('称号(ステージ3)', () => {
+  const mall = (over: Partial<StageStats> = {}): StageStats => base({ stageId: 'mall', ...over });
+  const perfectRush = { aliens: 4, aliensDefeated: 4, aliensSpared: 0, civs: 4, civsSaved: 4, civsHit: 0 };
+
+  it('宇宙人の案内係は ギャングの運転手 のすぐあと、タイムセールの守り神は 街のほんものヒーロー のすぐあと、UFOハンターは 待ての達人 のすぐあと', () => {
+    const ids = TITLES.map((t) => t.id);
+    expect(ids.indexOf('ufoGuide')).toBe(ids.indexOf('gangDriver') + 1);
+    expect(ids.indexOf('saleGuardian')).toBe(ids.indexOf('realHero') + 1);
+    expect(ids.indexOf('ufoHunter')).toBe(ids.indexOf('stopMaster') + 1);
+    for (const id of ['ufoGuide', 'saleGuardian', 'ufoHunter'] as const) expect(titleById(id).stages).toEqual(['mall']);
+    expect(titleById('ufoGuide').pose).toBe('win_shy');
+    expect(titleById('saleGuardian').pose).toBe('win_pose');
+    expect(titleById('ufoHunter').pose).toBe('win_fist');
+  });
+
+  it('ステージごとに取れる数:路地裏12、地下駐車場13、ショッピングモール14', () => {
+    expect(titlesFor('alley')).toHaveLength(12);
+    expect(titlesFor('garage')).toHaveLength(13);
+    expect(titlesFor('mall')).toHaveLength(14);
+    const mallIds = titlesFor('mall').map((t) => t.id);
+    for (const id of ['grannyFoe', 'roundUp', 'gangDriver'] as const) expect(mallIds).not.toContain(id);
+    for (const id of ['ufoGuide', 'saleGuardian', 'ufoHunter'] as const) {
+      expect(titlesFor('alley').map((t) => t.id)).not.toContain(id);
+      expect(titlesFor('garage').map((t) => t.id)).not.toContain(id);
+    }
+  });
+
+  it('宇宙人の案内係:連れ去られた買い物客が2人以上。ボスの親友より後', () => {
+    const s = mall({ civHurt: 2, civHurtByHero: 0, civHurtByAbduction: 2, escaped: 2 });
+    expect(decideTitle(s).id).toBe('ufoGuide');
+    expect(decideTitle({ ...s, civHurtByAbduction: 1, civHurt: 1 }).id).not.toBe('ufoGuide');
+    expect(decideTitle({ ...s, bossSortedCiv: true }).id).toBe('bossBuddy');
+  });
+
+  it('さらわれた市民は「ワルにやられた」と同じ:完全無欠とほんものヒーローが取れず、天敵と暴走機関車とやさしすぎるには入れない', () => {
+    const allDown = mall({ allDefeated: true, defeated: 9, damage: 1_000_000, bossFightSec: 9, escaped: 0, civHurt: 0, civHurtByHero: 0 });
+    expect(decideTitle(allDown).id).toBe('flawless');
+    expect(decideTitle({ ...allDown, civHurt: 1, civHurtByAbduction: 1 }).id).toBe('soSo');
+    // 市民の天敵には数えない(ヒーローがけがさせた市民だけ)
+    const nemesis = mall({ civHurt: 5, civHurtByHero: 3, civHurtByAbduction: 2, defeated: 3, bossDefeated: false, bossFightSec: null });
+    expect(decideTitle(nemesis).id).not.toBe('civNemesis');
+    // やさしすぎるヒーローは、なぐった市民だけを見る
+    const kind = mall({ civHurt: 1, civHurtByHero: 0, civHurtByAbduction: 1, escaped: 3 });
+    expect(decideTitle(kind).id).toBe('tooKind');
+  });
+
+  it('タイムセールの守り神:市民を全員守り、宇宙人を全員倒した。ラッシュをしていなければ入らない', () => {
+    expect(decideTitle(mall({ rush: perfectRush })).id).toBe('saleGuardian');
+    expect(decideTitle(mall({ rush: { ...perfectRush, civsSaved: 3, civsHit: 1 } })).id).toBe('soSo');
+    expect(decideTitle(mall({ rush: { ...perfectRush, aliensDefeated: 3, aliensSpared: 1 } })).id).toBe('soSo');
+    expect(decideTitle(mall({ rush: null })).id).toBe('soSo');
+    // 街のほんものヒーローより後、連打の申し子より先
+    expect(decideTitle(mall({ rush: perfectRush, bossFightSec: 5 })).id).toBe('saleGuardian');
+    const real = mall({ rush: perfectRush, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 6_000_000 });
+    expect(decideTitle(real).id).toBe('realHero');
+  });
+
+  it('UFOハンター:UFOを2機以上落とした。待ての達人より後、一網打尽と追い打ちの鬼より先', () => {
+    const s = mall({ ufosDowned: 2, defeatedByUfo: 2, defeatedByGo: 3 });
+    expect(decideTitle(s).id).toBe('ufoHunter');
+    expect(decideTitle({ ...s, ufosDowned: 1 }).id).toBe('chaseDemon');
+    expect(decideTitle({ ...s, civSavedByStop: 3 }).id).toBe('stopMaster');
   });
 });

@@ -5,13 +5,31 @@
 // https://(ゲームのURL)
 //
 // 使い方:buildShareText({ caption: shareCaption({ worstScene, caption: worstCaption(s), titleName }), url })
+// いちばんひどい場面の見出しのうち、ステージで言い方を変えるもの(STAGE_WORST_CAPTIONS)と、
+// 「市民がさらわれた!」(ABDUCTED_CAPTION)はここに置く。共有カード(src/scenes/result/card.ts)が使う。
+// 見出しは共有カードの今の文に合わせて「!」を半角で書く。
 
-import type { WorstScene } from './types';
+import type { StageId, WorstScene } from './types';
 
 export const SHARE_HASHTAG = '#StupidHero';
 
-/** 見出しにして目を引く場面(市民やおばあさんに当たった、街がこわれた)。ボスを倒しただけ、何もなかったは弱い */
-const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit', 'bigPropBroken'];
+/**
+ * 見出しにして目を引く場面(市民やおばあさんに当たった、市民がさらわれた、街がこわれた)。
+ * ボスを倒しただけ、何もなかったは弱い
+ */
+const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'bigPropBroken'];
+
+/** 買い物客がUFOに連れ去られた場面の見出し(ステージ3) */
+export const ABDUCTED_CAPTION = '市民がさらわれた!';
+
+/**
+ * ステージごとに言い方を変える見出し(路地裏の文は「街」なので、ほかのステージは変える)。
+ * 大きな物が壊れた場面:地下駐車場「駐車場ボロボロ!」、ショッピングモール「モールがこわれた!」
+ */
+export const STAGE_WORST_CAPTIONS: Readonly<Partial<Record<StageId, Partial<Record<WorstScene, string>>>>> = {
+  garage: { bigPropBroken: '駐車場ボロボロ!' },
+  mall: { bigPropBroken: 'モールがこわれた!' }
+};
 
 export interface ShareCaptionInput {
   /** いちばんひどかった場面(stats.worstScene) */

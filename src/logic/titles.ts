@@ -1,10 +1,13 @@
-// 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)を足した14個。
+// 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)と、
+// ステージ3だけで取れる3つ(STAGE3「称号」)を足した17個。
 // 上から順に調べ、最初に当てはまったものを出す。ステージ2の2つは
 // 「ボスの親友」のすぐあとに「ギャングの運転手」、「追い打ちの鬼」のすぐ前に「一網打尽」。
+// ステージ3の3つは「ギャングの運転手」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
+// 「タイムセールの守り神」、「待ての達人」のすぐあとに「UFOハンター」。
 // 条件の数字は遊びながら直すので、ここの TITLE_THRESHOLDS にまとめておく。
 //
 // 市民のけがの数え方は称号ごとに分ける(けがの理由は StageStats の civHurtByHero / ByCollateral / ByVillain)。
-// - 完全無欠、街のほんものヒーロー:なぐった + ワルにやられた。巻きぞえは数えない
+// - 完全無欠、街のほんものヒーロー:なぐった + ワルにやられた + さらわれた。巻きぞえは数えない
 //   (巻きぞえは技の当たり方で運で起きる。仕分けが全部正しくても運で取れなくなるのを防ぐ)。
 //   ただし巻きぞえでもおばあさんに当たったら完全無欠にはしない(おばあちゃんの敵のほうが先に出る)。
 //   ボスを市民に仕分けたときも完全無欠にはしない(ふつうは暴れた分の被害額で入らないが、念のため)。
@@ -12,6 +15,9 @@
 //   (ほんものヒーローは暴走機関車より後に調べるので、同じことになる)
 // - 市民の天敵、正義の暴走機関車:なぐった + 巻きぞえ(ヒーローの攻撃が当たった人。暴れっぷりの称号なので巻きぞえも入れる)
 // - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)
+// UFOにさらわれた買い物客(ステージ3)は「ワルにやられた」と同じに扱う(完全無欠と街のほんものヒーローが取れなくなり、
+// 市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
+// タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない
 //
 // 使い方:const title = decideTitle(stats.snapshot());  // どのステージでも同じ関数
 
@@ -38,15 +44,23 @@ export const TITLE_THRESHOLDS = {
   /** 一網打尽:まとめて吹き飛ばした組がこれ以上 */
   roundUpGroups: 2,
   /** ギャングの運転手:車で逃げられた組がこれ以上 */
-  gangDriverGroups: 2
+  gangDriverGroups: 2,
+  /** 宇宙人の案内係:UFOに連れ去られた買い物客がこれ以上 */
+  ufoGuideAbducted: 2,
+  /** UFOハンター:行けで殴り落としたUFOがこれ以上 */
+  ufoHunterDowned: 2
 } as const;
 
 const T = TITLE_THRESHOLDS;
 
 /** ヒーローの攻撃でけがをした市民の数(殴った、巻きぞえ)。ワルに襲われた人は入れない */
 const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollateral;
-/** 仕分けのまちがいでけがをした市民の数(殴った、ワルに襲われた)。運で起きる巻きぞえは入れない */
-const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain;
+/** 仕分けのまちがいでけがをした市民の数(殴った、ワルに襲われた、UFOにさらわれた)。運で起きる巻きぞえは入れない */
+const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction;
+/** タイムセールラッシュで、市民を全員守り、宇宙人を全員倒したか */
+const perfectRush = (s: StageStats): boolean =>
+  s.rush !== null && s.rush.aliens + s.rush.civs > 0
+  && s.rush.civsSaved === s.rush.civs && s.rush.aliensDefeated === s.rush.aliens;
 
 /** 称号の一覧(調べる順) */
 export const TITLES: readonly TitleDef[] = [
@@ -88,44 +102,68 @@ export const TITLES: readonly TitleDef[] = [
     test: (s) => s.groupsEscaped >= T.gangDriverGroups
   },
   {
-    id: 'grannyFoe', order: 6, name: 'おばあちゃんの敵', pose: 'win_shy',
+    id: 'ufoGuide', order: 6, name: '宇宙人の案内係', pose: 'win_shy',
+    condition: '買い物客を2人以上、UFOに連れ去られた',
+    hint: 'UFOに2人連れていかれる',
+    comment: TITLE_COMMENTS.ufoGuide,
+    stages: ['mall'],
+    test: (s) => s.civHurtByAbduction >= T.ufoGuideAbducted
+  },
+  {
+    id: 'grannyFoe', order: 7, name: 'おばあちゃんの敵', pose: 'win_shy',
     condition: 'おばあさんをなぐった(まきぞえも)',
     hint: 'おばあさんを…',
     comment: TITLE_COMMENTS.grannyFoe,
-    // 地下駐車場にはおばあさんが出ないので、路地裏だけ
+    // 地下駐車場とショッピングモールにはおばあさんが出ないので、路地裏だけ
     stages: ['alley'],
     test: (s) => s.grannyHit
   },
   {
-    id: 'runawayTrain', order: 7, name: '正義の暴走機関車', pose: 'win_arms',
+    id: 'runawayTrain', order: 8, name: '正義の暴走機関車', pose: 'win_arms',
     condition: '全員倒して、市民を3人以上けがさせた(まきぞえも)',
     hint: '全員倒すけど、市民も3人以上',
     comment: TITLE_COMMENTS.runawayTrain,
     test: (s) => s.allDefeated && heroHurt(s) >= T.runawayHurt
   },
   {
-    id: 'realHero', order: 8, name: '街のほんものヒーロー', pose: 'win_pose',
+    id: 'realHero', order: 9, name: '街のほんものヒーロー', pose: 'win_pose',
     condition: '全員倒して、市民のけが0(まきぞえは2人まで)',
     hint: '全員倒して、市民のけが0',
     comment: TITLE_COMMENTS.realHero,
     test: (s) => s.allDefeated && mistakeHurt(s) === 0
   },
   {
-    id: 'tapProdigy', order: 9, name: '連打の申し子', pose: 'win_fist',
+    id: 'saleGuardian', order: 10, name: 'タイムセールの守り神', pose: 'win_pose',
+    condition: 'タイムセールで、市民を全員守り、宇宙人を全員倒した',
+    hint: 'タイムセールで1人も間違えない',
+    comment: TITLE_COMMENTS.saleGuardian,
+    stages: ['mall'],
+    test: perfectRush
+  },
+  {
+    id: 'tapProdigy', order: 11, name: '連打の申し子', pose: 'win_fist',
     condition: 'ボス戦を7秒以内で終えた',
     hint: 'ボスを7秒以内に倒す',
     comment: TITLE_COMMENTS.tapProdigy,
     test: (s) => s.bossFightSec !== null && s.bossFightSec <= T.tapProdigySec
   },
   {
-    id: 'stopMaster', order: 10, name: '待ての達人', pose: 'win_pose',
+    id: 'stopMaster', order: 12, name: '待ての達人', pose: 'win_pose',
     condition: '待てで市民を3人以上守った',
     hint: '待てで市民を3人守る',
     comment: TITLE_COMMENTS.stopMaster,
     test: (s) => s.civSavedByStop >= T.stopMasterSaved
   },
   {
-    id: 'roundUp', order: 11, name: '一網打尽', pose: 'win_arms',
+    id: 'ufoHunter', order: 13, name: 'UFOハンター', pose: 'win_fist',
+    condition: 'UFOを2機以上、行けで殴り落とした',
+    hint: 'UFOを2機落とす',
+    comment: TITLE_COMMENTS.ufoHunter,
+    stages: ['mall'],
+    test: (s) => s.ufosDowned >= T.ufoHunterDowned
+  },
+  {
+    id: 'roundUp', order: 14, name: '一網打尽', pose: 'win_arms',
     condition: 'ギャングの組を2組以上、まとめて吹き飛ばした',
     hint: 'ギャングの組を2回まとめて倒す',
     comment: TITLE_COMMENTS.roundUp,
@@ -133,21 +171,21 @@ export const TITLES: readonly TitleDef[] = [
     test: (s) => s.groupsWiped >= T.roundUpGroups
   },
   {
-    id: 'chaseDemon', order: 12, name: '追い打ちの鬼', pose: 'win_arms',
+    id: 'chaseDemon', order: 15, name: '追い打ちの鬼', pose: 'win_arms',
     condition: '行けでワルを3人以上倒した',
     hint: '行けでワルを3人倒す',
     comment: TITLE_COMMENTS.chaseDemon,
     test: (s) => s.defeatedByGo >= T.chaseDemonGo
   },
   {
-    id: 'tooKind', order: 13, name: 'やさしすぎるヒーロー', pose: 'win_pose',
+    id: 'tooKind', order: 16, name: 'やさしすぎるヒーロー', pose: 'win_pose',
     condition: '市民を一度もなぐらず、ワルを3人以上逃がした',
     hint: 'だれもなぐらず3人逃がす',
     comment: TITLE_COMMENTS.tooKind,
     test: (s) => s.civHurtByHero === 0 && s.escaped >= T.tooKindEscaped
   },
   {
-    id: 'soSo', order: 14, name: 'まあまあヒーロー', pose: 'win_arms',
+    id: 'soSo', order: 17, name: 'まあまあヒーロー', pose: 'win_arms',
     condition: 'どれにも当てはまらない',
     hint: 'どれにも当てはまらない',
     comment: TITLE_COMMENTS.soSo,
@@ -156,8 +194,9 @@ export const TITLES: readonly TitleDef[] = [
 ];
 
 /**
- * 称号の全体の数(全部のステージを合わせて14)。
- * 路地裏で取れるのは12(一網打尽、ギャングの運転手を除く)、地下駐車場は13(おばあちゃんの敵を除く)
+ * 称号の全体の数(全部のステージを合わせて17)。
+ * 路地裏で取れるのは12(ステージ2と3だけの5つを除く)、地下駐車場は13(おばあちゃんの敵とステージ3だけの3つを除く)、
+ * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの運転手を除く)
  */
 export const TITLE_COUNT = TITLES.length;
 

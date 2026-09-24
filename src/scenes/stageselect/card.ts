@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
-import { animKey, originFor } from '../../art/sheets';
+import { SHEETS, animKey, originFor } from '../../art/sheets';
 import { accessorySheet } from '../../art/recolor';
 import { ACCESSORY_COLORS, STAGES, formatYen, titlesFor, type StageSelectEntry } from '../../logic';
 import { FS, PixelText } from '../../ui';
@@ -117,6 +117,8 @@ export class StageCard {
     this.actors = scene.add.container(tx, ty);
     const feet = thumbH - 7;
     for (const a of actorsFor(entry)) {
+      // まだ絵のないキー(作っている途中のステージのボスなど)は立たせない
+      if (!SHEETS.some((d) => d.key === a.key)) continue;
       const x = a.x < 0 ? tw + a.x : Math.round(tw * a.x);
       const key = a.color !== undefined ? accessorySheet(scene, a.key, a.color) : a.key;
       const s = scene.add.sprite(x, a.anim ? feet : feet + 3, key, a.frame ?? 0).setOrigin(...originFor(a.key)).setFlipX(!!a.flip);

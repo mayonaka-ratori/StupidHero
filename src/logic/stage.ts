@@ -3,13 +3,15 @@
 // 使い方:
 //   const stage = createStage(seed);            // 路地裏(ステージ1)
 //   const stage = createStage(seed, 'garage');  // 地下駐車場(ステージ2)
+//   const stage = createStage(seed, 'mall');    // ショッピングモール(ステージ3)。stage.rush にタイムセールラッシュの並び
 //   stage.id、stage.def(STAGES の定義)、stage.waves[i].people、stage.waves[i].groups(ギャングの組)
 //
 // 路地裏の決まり:SPECの波の表の通り。1つの波のワルは2〜3人。波1にはモヒカンを必ず1人。波3にはボスが1人紛れる。
 // 同じ見た目の市民とワルがなるべく同じ波に両方出るようにし、名前と文は同じものを2回出さない。
-// 地下駐車場の決まりは garage.ts。
+// 地下駐車場の決まりは garage.ts、ショッピングモールの決まりは mall.ts。
 
 import { buildGarageWaves } from './garage';
+import { buildMallWaves, buildRush } from './mall';
 import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
@@ -36,6 +38,8 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
   const def = STAGES[stageId];
   const badTotal = waves.reduce((sum, w) => sum + w.badCount, 0);
   const bossTotal = waves.filter((w) => w.hasBoss).length;
+  // タイムセールラッシュの並びは波を作ったあとに決める(ラッシュのないステージの乱数の引き方は変わらない)
+  const rush = def.hasRush ? buildRush(rng) : null;
   return {
     id: stageId,
     def,
@@ -43,14 +47,16 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
     seed: rng.seed,
     waves,
     villainTotal: badTotal + bossTotal,
-    peopleTotal: waves.reduce((sum, w) => sum + w.people.length, 0)
+    peopleTotal: waves.reduce((sum, w) => sum + w.people.length, 0),
+    rush
   };
 }
 
 /** ステージごとの波の作り方 */
 const WAVE_BUILDERS: Readonly<Record<StageId, (rng: Rng, used: UsedTexts) => Wave[]>> = {
   alley: (rng, used) => buildAlleyWaves(rng, used),
-  garage: (rng, used) => buildGarageWaves(rng, used)
+  garage: (rng, used) => buildGarageWaves(rng, used),
+  mall: (rng, used) => buildMallWaves(rng, used)
 };
 
 /** 路地裏の3つの波 */

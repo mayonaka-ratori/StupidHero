@@ -1,26 +1,31 @@
 // そのスマホの中の自分の記録(localStorage)。
 // ステージごとに、最多撃破、最少負傷、最高被害額、最速ボス戦、遊んだ回数、ボスを倒した回数、取った称号を残す。
 // ステージ前の掛け合いを見たステージ(introSeen)も残す。見たか、1回遊んだステージは、次から掛け合いをとばす。
-// 称号の数は全部のステージを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は14)。
+// タイムセールラッシュを見たステージ(rushSeen)も同じ形で残す。見たことがあれば、ラッシュの説明を1つにする。
+// 称号の数は全部のステージを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は17)。
 // localStorage が使えないとき(プライベートモード、容量いっぱい、設定で止めている)も落ちないよう、
 // 読み書きは必ず try/catch で囲み、使えなければその場かぎりのメモリに残す。
 //
 // 保存の形:
-//   v2(今):キー 'stupidhero.records.v2'。{ version: 2, stages: { alley: {...,titles,clears}, garage: {...} }, titles, introSeen }
-//   introSeen はあとから足した。ない記録は空として読む(version は2のまま)。
+//   v2(今):キー 'stupidhero.records.v2'。
+//     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...} }, titles, introSeen, rushSeen }
+//   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
 //
 // 使い方:
 //   const saved = saveResult(stage.id, stats, title.id);   // 結果画面が出たときに1回だけ
-//   saved.titlesCollected / saved.titlesTotal               // 「称号5/14」
-//   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」)
+//   saved.titlesCollected / saved.titlesTotal               // 「称号5/17」
+//   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
+//                                                           // ['mall'] なら「モールが開いた」。say('unlocked', rng, id))
 //   stageSelectInfo()                                       // ステージを選ぶ画面:開いているか、いちばん良い記録、称号の数
-//   isStageUnlocked('garage')                               // ステージ2が開いているか
+//   isStageUnlocked('garage')                               // ステージ2が開いているか(ステージ3は地下駐車場のボスを倒すと開く)
 //   needsIntro('alley')                                     // 掛け合いを見せるか(見たことも遊んだこともなければ true)
 //   markIntroSeen('alley')                                  // 掛け合いを見せたときに呼ぶ
 //   hasAnyRecord()                                          // どれかのステージを1回でも遊んだか(初めての人はステージ選びをとばす)
+//   hasSeenRush('mall')                                     // タイムセールラッシュを見たことがあるか(説明を短くする。rushIntroFor)
+//   markRushSeen('mall')                                    // ラッシュの帯を出したときに呼ぶ
 
 import { STAGE_IDS, STAGES, isStageId } from './stages';
 import { TITLES } from './titles';
@@ -54,10 +59,12 @@ export interface StageRecord {
 export interface Records {
   version: 2;
   stages: Partial<Record<StageId, StageRecord>>;
-  /** 全部のステージで取った称号(取った順、重なりなし)。数は「称号5/14」の5 */
+  /** 全部のステージで取った称号(取った順、重なりなし)。数は「称号5/17」の5 */
   titles: TitleId[];
   /** ステージ前の掛け合いを見たステージ */
   introSeen: StageId[];
+  /** タイムセールラッシュを見たステージ */
+  rushSeen: StageId[];
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -78,7 +85,7 @@ export interface SaveOutcome {
   titleIsNew: boolean;
   /** 集めた称号の数(全部のステージを合わせて。今回の分を含む) */
   titlesCollected: number;
-  /** 称号の全体の数(14) */
+  /** 称号の全体の数(17) */
   titlesTotal: number;
   /** そのステージで集めた称号の数 */
   stageTitlesCollected: number;
@@ -88,7 +95,7 @@ export interface SaveOutcome {
   persisted: boolean;
 }
 
-const emptyRecords = (): Records => ({ version: 2, stages: {}, titles: [], introSeen: [] });
+const emptyRecords = (): Records => ({ version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [] });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
 });
@@ -117,6 +124,14 @@ function titleList(v: unknown): TitleId[] {
   return out;
 }
 
+/** ステージの id の一覧を読む(知らない id と重なりは捨てる) */
+function stageList(v: unknown): StageId[] {
+  const out: StageId[] = [];
+  if (!Array.isArray(v)) return out;
+  for (const id of v) if (isStageId(id) && !out.includes(id)) out.push(id);
+  return out;
+}
+
 const addUnique = (list: TitleId[], items: readonly TitleId[]): void => {
   for (const t of items) if (!list.includes(t)) list.push(t);
 };
@@ -125,7 +140,7 @@ const addUnique = (list: TitleId[], items: readonly TitleId[]): void => {
 function sanitize(raw: unknown): Records {
   const out = emptyRecords();
   if (!raw || typeof raw !== 'object') return out;
-  const r = raw as { version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown };
+  const r = raw as { version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
     for (const [id, v] of Object.entries(r.stages as Record<string, unknown>)) {
@@ -153,9 +168,8 @@ function sanitize(raw: unknown): Records {
   }
   addUnique(out.titles, top);
   for (const id of STAGE_IDS) addUnique(out.titles, out.stages[id]?.titles ?? []);
-  if (Array.isArray(r.introSeen)) {
-    for (const id of r.introSeen) if (typeof id === 'string' && isStageId(id) && !out.introSeen.includes(id)) out.introSeen.push(id);
-  }
+  out.introSeen = stageList(r.introSeen);
+  out.rushSeen = stageList(r.rushSeen);
   return out;
 }
 
@@ -192,7 +206,10 @@ function writeRecords(records: Records, storage: RecordStorage | null): boolean 
   }
 }
 
-/** そのステージが開いているか(路地裏はいつも。地下駐車場は路地裏のボスを一度倒すと開く) */
+/**
+ * そのステージが開いているか(路地裏はいつも。地下駐車場は路地裏のボスを、
+ * ショッピングモールは地下駐車場のボスを一度倒すと開く)
+ */
 export function isStageUnlocked(stageId: StageId, records: Records = loadRecords()): boolean {
   const need = STAGES[stageId].unlockAfter;
   if (!need) return true;
@@ -215,6 +232,19 @@ export function markIntroSeen(stageId: StageId, storage: RecordStorage | null = 
   const records = loadRecords(storage);
   if (records.introSeen.includes(stageId)) return;
   records.introSeen.push(stageId);
+  writeRecords(records, storage);
+}
+
+/** タイムセールラッシュを見たことがあるか(見たことがあれば、始まりの説明を1つにする) */
+export function hasSeenRush(stageId: StageId, records: Records = loadRecords()): boolean {
+  return records.rushSeen.includes(stageId);
+}
+
+/** タイムセールラッシュを見たことを残す(帯を出したときに呼ぶ)。書けなくても、その場では覚えている */
+export function markRushSeen(stageId: StageId, storage: RecordStorage | null = defaultStorage()): void {
+  const records = loadRecords(storage);
+  if (records.rushSeen.includes(stageId)) return;
+  records.rushSeen.push(stageId);
   writeRecords(records, storage);
 }
 

@@ -11,8 +11,8 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  STAGES, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome, type StageDef, type StageId, type StageStats,
-  type TitleDef, type WorstScene
+  ABDUCTED_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome,
+  type StageDef, type StageId, type StageStats, type TitleDef, type WorstScene
 } from '../../logic';
 import { NAMES } from '../../ui/theme';
 import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
@@ -26,6 +26,7 @@ export const WORST_CAPTION: Record<WorstScene, string> = {
   grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
+  abducted: ABDUCTED_CAPTION,
   bigPropBroken: '街がこわれた!',
   bossDefeated: 'ボスを倒した!'
 };
@@ -46,10 +47,8 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
   }
 };
 
-/** ステージごとに言い方を変える見出し(地下駐車場は「街」ではない) */
-const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = {
-  garage: { bigPropBroken: '駐車場ボロボロ!' }
-};
+/** ステージごとに言い方を変える見出し(地下駐車場とショッピングモールは「街」ではない。logic/share.ts) */
+const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = STAGE_WORST_CAPTIONS;
 
 /** いちばんひどい場面の説明の文 */
 export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {

@@ -15,8 +15,8 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  buildShareText, damageAnalogy, decideTitle, formatYen, randomSeed, saveResult, say, shareCaption, STAGES, titleCommentFor,
-  type RecordField, type SaveOutcome, type StageStats, type TitleDef
+  buildShareText, damageAnalogy, decideTitle, formatYen, hurtBreakdown, randomSeed, saveResult, say, shareCaption, STAGES,
+  titleCommentFor, type RecordField, type SaveOutcome, type StageStats, type TitleDef
 } from '../logic';
 import {
   Button, CutIn, DEPTH, FS, MuteButton, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake
@@ -144,11 +144,7 @@ export class ResultScene extends Phaser.Scene {
     const top = actionH;
     const boxY = top + 4;
     const bottom = layout.H - Math.max(6, layout.safeBottom + 4);
-    const hurtParts = [
-      s.civHurtByHero > 0 ? `なぐった${s.civHurtByHero}` : '',
-      s.civHurtByCollateral > 0 ? `まきぞえ${s.civHurtByCollateral}` : '',
-      s.civHurtByVillain > 0 ? `ワルにやられた${s.civHurtByVillain}` : ''
-    ].filter(Boolean);
+    const hurtParts = hurtBreakdown(s);
     const subRows = (hurtParts.length ? 1 : 0) + 1 + (def.mechanic === 'gang' ? 1 : 0);
     const shareYOf = (f: Fit): number => bottom - f.smallH - f.gap - f.shareH;
     const boxHOf = (f: Fit): number => 8 + f.rowH * (f.merge ? 4 : 5) + f.subH * subRows;
