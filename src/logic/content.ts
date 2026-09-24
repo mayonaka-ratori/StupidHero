@@ -25,6 +25,7 @@ import {
   MALL_TITLE_COMMENT_OVERRIDES, MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST, type MallReactionKey
 } from './mallContent';
 import { ANALOGY_UNITS } from './format';
+import { allFreeTexts } from './freeContent';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
 import type { Rng } from './rng';
@@ -778,5 +779,7 @@ export function allTexts(): string[] {
   // 小物の色と名前(プロフィールの横などに出すとき用)
   for (const c of Object.values(ACCESSORY_COLORS)) out.push(c.name);
   for (const i of Object.values(ACCESSORY_ITEM)) out.push(i.civ, i.bad);
+  // フリープレイ(freeContent.ts)
+  out.push(...allFreeTexts());
   return out;
 }
