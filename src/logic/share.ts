@@ -8,8 +8,15 @@
 // いちばんひどい場面の見出しのうち、ステージで言い方を変えるもの(STAGE_WORST_CAPTIONS)と、
 // 「市民がさらわれた!」(ABDUCTED_CAPTION)はここに置く。共有カード(src/scenes/result/card.ts)が使う。
 // 見出しは共有カードの今の文に合わせて「!」を半角で書く。
+//
+// フリープレイ:1行目はルールと場面をつなげる(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)。
+//   const s = stats.snapshot();
+//   const caption = freeShareCaption({ worstScene: s.worstScene, caption: worstCaption(s), free: s.free!, titleName });
+//   buildShareText({ caption, url })
+//   結果画面の小さな1行:heroAccuracyText(s.free!)(「ヒーローだけなら10/27人、あなたが直して25/27人」)
 
-import type { StageId, WorstScene } from './types';
+import { FREE_ITEMS, FREE_ITEM_NAME } from './freeNames';
+import type { FreeRule, FreeTally, FreeWorstScene, StageId, WorstScene } from './types';
 
 export const SHARE_HASHTAG = '#StupidHero';
 
@@ -61,4 +68,61 @@ export function buildShareText(i: ShareInput): string {
 /** 「Xに投稿」ボタン用のURL(共有メニューが使えないとき) */
 export function xPostUrl(text: string): string {
   return `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
+// ─── フリープレイ ─────────────────────────────────
+
+/** フリープレイだけの、いちばんひどい場面の見出し(ワルごとに変える) */
+export const FREE_WORST_CAPTION: Readonly<Record<FreeWorstScene, string>> = {
+  waveKnife: 'ナイフ男に笑顔で手を振った!',
+  waveGang: 'ギャングの車に手を振って見送った!',
+  waveUfo: 'UFOに手を振った!',
+  closeCall: 'ギリギリセーフ!'
+};
+
+/**
+ * ルールを共有の文に入れるときの言い方(かぎかっこの中身)。
+ * 小物のルールは「風船の人はワル!」、みんなワルは「みんなワル!」、みんないい人は「みんないい人!」
+ * (ルールの札の「みんなワル」「みんないいひと」と同じ言い方)
+ */
+export function ruleQuote(rule: FreeRule): string {
+  if (rule.kind === 'allBad') return 'みんなワル!';
+  if (rule.kind === 'allCiv') return 'みんないい人!';
+  return `${FREE_ITEM_NAME[rule.item]}の人はワル!`;
+}
+
+export interface FreeShareCaptionInput {
+  /** ステージの場面(stats.worstScene) */
+  worstScene: WorstScene | null;
+  /** ステージの場面の見出し(worstCaption(stats)。ステージの場面がないときは使わない) */
+  caption: string;
+  /** フリープレイの数(stats.free)。worst と worstRule を見る */
+  free: Pick<FreeTally, 'worst' | 'worstRule'>;
+  /** 称号の名前 */
+  titleName: string;
+}
+
+/**
+ * フリープレイの共有文の1行目。ステージの場面(市民を殴った、など)があればその見出し、
+ * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の見出しにし、
+ * そのときのルールを前につける(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)。
+ * どちらもなければ称号(ルールはつけない)
+ */
+export function freeShareCaption(i: FreeShareCaptionInput): string {
+  let scene = '';
+  if (i.worstScene && STRONG_SCENES.includes(i.worstScene) && i.caption) scene = i.caption;
+  else if (i.free.worst) scene = FREE_WORST_CAPTION[i.free.worst];
+  if (!scene) return `称号「${i.titleName}」`;
+  return i.free.worstRule ? `『${ruleQuote(i.free.worstRule)}』で${scene}` : scene;
+}
+
+/** 「ヒーローだけなら10/27人、あなたが直して25/27人」(結果画面のいちばん下の小さな1行) */
+export function heroAccuracyText(t: Pick<FreeTally, 'heroRight' | 'fixedRight' | 'units'>): string {
+  return `ヒーローだけなら${t.heroRight}/${t.units}人、あなたが直して${t.fixedRight}/${t.units}人`;
+}
+
+/** フリープレイの共有と結果画面の文の全部(字を先に読みこむため。数字は別に読みこむ) */
+export function freeShareTexts(): string[] {
+  const rules: FreeRule[] = [{ kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))];
+  return [...Object.values(FREE_WORST_CAPTION), ...rules.map((r) => `『${ruleQuote(r)}』で`), 'ヒーローだけなら人、あなたが直して人'];
 }

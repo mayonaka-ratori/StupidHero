@@ -142,7 +142,12 @@ export const MISCHIEF_BY_LOOK: Readonly<Partial<Record<Look, MischiefKind>>> = {
   mascot: 'signal',
   clerk: 'signal',
   dancer: 'signal',
-  uncle: 'signal'
+  uncle: 'signal',
+  // フリープレイのワル(docs/FREEPLAY.md「待てと行け」)。モヒカンはナイフで脅す(けがはさせない)、
+  // ギャングは口笛で仲間を呼ぶ、宇宙人は空へ合図を送ってUFOを呼ぶ
+  fp_mohawk: 'threaten',
+  fp_gang: 'whistle',
+  fp_alien: 'signal'
 };
 
 /**

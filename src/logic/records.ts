@@ -2,7 +2,10 @@
 // ステージごとに、最多撃破、最少負傷、最高被害額、最速ボス戦、遊んだ回数、ボスを倒した回数、取った称号を残す。
 // ステージ前の掛け合いを見たステージ(introSeen)も残す。見たか、1回遊んだステージは、次から掛け合いをとばす。
 // タイムセールラッシュを見たステージ(rushSeen)も同じ形で残す。見たことがあれば、ラッシュの説明を1つにする。
-// 称号の数は全部のステージを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は17)。
+// 称号の数は全部のステージとフリープレイを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は20)。
+// フリープレイの記録(free)も残す:いちばん速いクリアまでの時間(ふつうとゆっくりで別)、待てで守った数と
+// 行けで決めた数のいちばん良いもの、最高被害額、遊んだ回数、取った称号。初回の掛け合いを見たか(freeIntroSeen)、
+// 「ステージを進めると、出てくる人が増えるよ」を出したか(freeMoreHintShown)も残す。
 // localStorage が使えないとき(プライベートモード、容量いっぱい、設定で止めている)も落ちないよう、
 // 読み書きは必ず try/catch で囲み、使えなければその場かぎりのメモリに残す。
 //
@@ -10,13 +13,14 @@
 //   v2(今):キー 'stupidhero.records.v2'。
 //     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...} }, titles, introSeen, rushSeen }
 //   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
+//   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
 //
 // 使い方:
 //   const saved = saveResult(stage.id, stats, title.id);   // 結果画面が出たときに1回だけ
-//   saved.titlesCollected / saved.titlesTotal               // 「称号5/17」
+//   saved.titlesCollected / saved.titlesTotal               // 「称号5/20」
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
 //                                                           // ['mall'] なら「モールが開いた」。say('unlocked', rng, id))
 //   stageSelectInfo()                                       // ステージを選ぶ画面:開いているか、いちばん良い記録、称号の数
@@ -26,6 +30,14 @@
 //   hasAnyRecord()                                          // どれかのステージを1回でも遊んだか(初めての人はステージ選びをとばす)
 //   hasSeenRush('mall')                                     // タイムセールラッシュを見たことがあるか(説明を短くする。rushIntroFor)
 //   markRushSeen('mall')                                    // ラッシュの帯を出したときに呼ぶ
+//
+// フリープレイ:
+//   isFreeUnlocked()                                        // 開いているか(路地裏のボスを一度倒したか)
+//   freeSelectInfo()                                        // ステージを選ぶ画面のボタン:開いているか、ベストの時間
+//   needsFreeIntro() / markFreeIntroSeen()                  // 初回の掛け合い3枚を出すか / 出したときに呼ぶ
+//   const saved = saveFreeResult(stats, title.id);          // 結果画面が出たときに1回だけ
+//   saved.newRecords                                        // 新記録の項目(['bestSec'] など)
+//   saved.showMoreStagesHint                                // 「ステージを進めると、出てくる人が増えるよ」を出すか(一度だけ)
 
 import { STAGE_IDS, STAGES, isStageId } from './stages';
 import { TITLES } from './titles';
@@ -56,15 +68,41 @@ export interface StageRecord {
   titles: TitleId[];
 }
 
+/** フリープレイの記録 */
+export interface FreeRecord {
+  /** いちばん速いクリアまでの時間(秒。足した秒を含む)。ゆっくりモードでない回だけ */
+  bestSec: number | null;
+  /** いちばん速いクリアまでの時間(秒)。ゆっくりモードで遊んだ回だけ */
+  bestSlowSec: number | null;
+  /** 待てで守った数のいちばん良いもの */
+  mostStopSaved: number | null;
+  /** 行けで決めた数のいちばん良いもの */
+  mostGoScenes: number | null;
+  /** 最高被害額 */
+  highestDamage: number | null;
+  /** 遊んだ回数 */
+  plays: number;
+  /** フリープレイで取った称号(取った順) */
+  titles: TitleId[];
+}
+
+export type FreeRecordField = 'bestSec' | 'bestSlowSec' | 'mostStopSaved' | 'mostGoScenes' | 'highestDamage';
+
 export interface Records {
   version: 2;
   stages: Partial<Record<StageId, StageRecord>>;
-  /** 全部のステージで取った称号(取った順、重なりなし)。数は「称号5/17」の5 */
+  /** 全部のステージとフリープレイで取った称号(取った順、重なりなし)。数は「称号5/20」の5 */
   titles: TitleId[];
   /** ステージ前の掛け合いを見たステージ */
   introSeen: StageId[];
   /** タイムセールラッシュを見たステージ */
   rushSeen: StageId[];
+  /** フリープレイの記録 */
+  free: FreeRecord;
+  /** フリープレイの初回の掛け合いを見たか */
+  freeIntroSeen: boolean;
+  /** 「ステージを進めると、出てくる人が増えるよ」を出したか */
+  freeMoreHintShown: boolean;
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -85,7 +123,7 @@ export interface SaveOutcome {
   titleIsNew: boolean;
   /** 集めた称号の数(全部のステージを合わせて。今回の分を含む) */
   titlesCollected: number;
-  /** 称号の全体の数(17) */
+  /** 称号の全体の数(20) */
   titlesTotal: number;
   /** そのステージで集めた称号の数 */
   stageTitlesCollected: number;
@@ -95,7 +133,12 @@ export interface SaveOutcome {
   persisted: boolean;
 }
 
-const emptyRecords = (): Records => ({ version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [] });
+export const emptyFreeRecord = (): FreeRecord => ({
+  bestSec: null, bestSlowSec: null, mostStopSaved: null, mostGoScenes: null, highestDamage: null, plays: 0, titles: []
+});
+const emptyRecords = (): Records => ({
+  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false
+});
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
 });
@@ -140,7 +183,10 @@ const addUnique = (list: TitleId[], items: readonly TitleId[]): void => {
 function sanitize(raw: unknown): Records {
   const out = emptyRecords();
   if (!raw || typeof raw !== 'object') return out;
-  const r = raw as { version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown };
+  const r = raw as {
+    version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown;
+    free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown;
+  };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
     for (const [id, v] of Object.entries(r.stages as Record<string, unknown>)) {
@@ -166,10 +212,25 @@ function sanitize(raw: unknown): Records {
     addUnique(alley.titles, top);
     out.stages.alley = alley;
   }
+  if (r.free && typeof r.free === 'object') {
+    const f = r.free as Record<string, unknown>;
+    out.free = {
+      bestSec: numOrNull(f.bestSec),
+      bestSlowSec: numOrNull(f.bestSlowSec),
+      mostStopSaved: numOrNull(f.mostStopSaved),
+      mostGoScenes: numOrNull(f.mostGoScenes),
+      highestDamage: numOrNull(f.highestDamage),
+      plays: numOrNull(f.plays) ?? 0,
+      titles: titleList(f.titles)
+    };
+  }
   addUnique(out.titles, top);
   for (const id of STAGE_IDS) addUnique(out.titles, out.stages[id]?.titles ?? []);
+  addUnique(out.titles, out.free.titles);
   out.introSeen = stageList(r.introSeen);
   out.rushSeen = stageList(r.rushSeen);
+  out.freeIntroSeen = r.freeIntroSeen === true;
+  out.freeMoreHintShown = r.freeMoreHintShown === true;
   return out;
 }
 
@@ -331,6 +392,98 @@ export function saveResult(
     stageTitlesCollected: next.titles.length,
     unlockedNow,
     persisted
+  };
+}
+
+// ─── フリープレイ ─────────────────────────────────
+
+/** フリープレイが開いているか(路地裏のボスを一度倒すと開く) */
+export function isFreeUnlocked(records: Records = loadRecords()): boolean {
+  return (records.stages.alley?.clears ?? 0) > 0;
+}
+
+/** フリープレイの初回の掛け合いを見せるか(見たことがあるか、1回でも遊んでいれば false) */
+export function needsFreeIntro(records: Records = loadRecords()): boolean {
+  return !records.freeIntroSeen && records.free.plays === 0;
+}
+
+/** フリープレイの掛け合いを見たことを残す */
+export function markFreeIntroSeen(storage: RecordStorage | null = defaultStorage()): void {
+  const records = loadRecords(storage);
+  if (records.freeIntroSeen) return;
+  records.freeIntroSeen = true;
+  writeRecords(records, storage);
+}
+
+/** ステージを選ぶ画面の「フリープレイ▶」のボタンに出すもの */
+export interface FreeSelectInfo {
+  /** 押せるか。false なら暗くして鍵のマーク(押すと STAGES.garage.lockedText と同じ「路地裏をクリアすると遊べる」) */
+  unlocked: boolean;
+  /** いちばん速い時間(ふつう)。まだなければ null。ボタンの「ベスト 1:38」は formatClearTime(bestSec) */
+  bestSec: number | null;
+  /** いちばん速い時間(ゆっくり) */
+  bestSlowSec: number | null;
+  /** フリープレイの記録(遊んでいなければ null) */
+  record: FreeRecord | null;
+}
+
+export function freeSelectInfo(records: Records = loadRecords()): FreeSelectInfo {
+  const rec = records.free.plays > 0 ? records.free : null;
+  return { unlocked: isFreeUnlocked(records), bestSec: rec?.bestSec ?? null, bestSlowSec: rec?.bestSlowSec ?? null, record: rec };
+}
+
+export interface FreeSaveOutcome {
+  records: Records;
+  /** 保存したあとのフリープレイの記録 */
+  free: FreeRecord;
+  /** 新記録だった項目(前の記録より良かったものだけ。初めて遊んだときは空) */
+  newRecords: FreeRecordField[];
+  firstPlay: boolean;
+  titleIsNew: boolean;
+  titlesCollected: number;
+  titlesTotal: number;
+  /** 「ステージを進めると、出てくる人が増えるよ」を出すか(路地裏しか開いていない人に、一度だけ) */
+  showMoreStagesHint: boolean;
+  persisted: boolean;
+}
+
+/**
+ * フリープレイを1回遊んだ結果を記録する。結果画面が出たときに1回だけ呼ぶ。
+ * @param stats StatsTracker.snapshot()(stats.free がある)
+ * @param titleId decideTitle(stats).id
+ */
+export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: RecordStorage | null = defaultStorage()): FreeSaveOutcome {
+  const records = loadRecords(storage);
+  const prev = records.free;
+  const firstPlay = prev.plays === 0;
+  const next: FreeRecord = { ...prev, plays: prev.plays + 1, titles: [...prev.titles] };
+  const newRecords: FreeRecordField[] = [];
+  const better = (field: FreeRecordField, value: number | null | undefined, wantLarger: boolean): void => {
+    if (value === null || value === undefined) return;
+    const old = prev[field];
+    if (old === null || (wantLarger ? value > old : value < old)) {
+      next[field] = value;
+      if (old !== null) newRecords.push(field);
+    }
+  };
+  const f = stats.free;
+  if (f) {
+    better(f.slow ? 'bestSlowSec' : 'bestSec', f.clearSec, false);
+    better('mostStopSaved', f.stopSaved, true);
+    better('mostGoScenes', f.goScenes, true);
+  }
+  better('highestDamage', stats.damage, true);
+
+  addUnique(next.titles, [titleId]);
+  records.free = next;
+  const titleIsNew = !records.titles.includes(titleId);
+  addUnique(records.titles, [titleId]);
+  const showMoreStagesHint = !records.freeMoreHintShown && unlockedStages(records).length === 1;
+  if (showMoreStagesHint) records.freeMoreHintShown = true;
+  const persisted = writeRecords(records, storage);
+  return {
+    records, free: next, newRecords, firstPlay, titleIsNew,
+    titlesCollected: records.titles.length, titlesTotal: TITLES.length, showMoreStagesHint, persisted
   };
 }
 

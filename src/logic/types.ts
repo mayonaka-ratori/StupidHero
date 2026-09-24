@@ -12,13 +12,13 @@ export type GangLook = 'guard' | 'mechanic' | 'clubber' | 'officelady';
  * (着ぐるみのバイト、寝不足の店員、ロボットダンスの学生、買い物客のおじさん)
  */
 export type MallLook = 'mascot' | 'clerk' | 'dancer' | 'uncle';
-/** 見た目の種類(全部のステージ) */
-export type Look = AlleyLook | GangLook | MallLook;
 /**
  * フリープレイの、一目で分かるワルの見た目(docs/FREEPLAY.md)。
  * ナイフを振りかざしたモヒカン、バンダナで顔を隠して金属バットを持ったギャング、触角の出た緑の宇宙人
  */
 export type FreeVillainLook = 'fp_mohawk' | 'fp_gang' | 'fp_alien';
+/** 見た目の種類(全部のステージと、フリープレイのワル) */
+export type Look = AlleyLook | GangLook | MallLook | FreeVillainLook;
 /** フリープレイの波3の小物(風船、とんがり帽子、大きな紙袋) */
 export type FreeItem = 'balloon' | 'hat' | 'bag';
 /**
@@ -142,6 +142,8 @@ export interface Person {
   link?: PersonLink;
   /** ステージ3の宇宙人だけ:動きのくずれの時間。市民と親玉にはない(親玉はくずれない) */
   glitch?: GlitchTiming;
+  /** フリープレイの波3の人だけ:持っている小物(風船、とんがり帽子、大きな紙袋)。持っていない人もいる */
+  item?: FreeItem;
 }
 
 /** ステージ2のギャングの組 */
@@ -270,7 +272,11 @@ export type TitleId =
   // ステージ3だけで取れる
   | 'ufoGuide'
   | 'saleGuardian'
-  | 'ufoHunter';
+  | 'ufoHunter'
+  // フリープレイだけで取れる
+  | 'heroSitter'
+  | 'heroInterpreter'
+  | 'letItBe';
 
 /** 勝利ポーズ(hero のアニメの名前) */
 export type WinPose = 'win_pose' | 'win_arms' | 'win_fist' | 'win_shy';
@@ -349,6 +355,52 @@ export interface StageStats {
   sortWaves: SortTally[];
   /** タイムセールラッシュの数(ステージ3。ラッシュをしていなければ null)。ほかの数字には入れない */
   rush: RushTally | null;
+  /** フリープレイの数(フリープレイでなければ null) */
+  free: FreeTally | null;
+}
+
+/**
+ * フリープレイだけの、いちばんひどい場面の候補(ボスがいないので足した)。
+ * ステージの場面(WorstScene)のどれよりも弱い。上ほどひどい。
+ * waveKnife:ナイフ男に笑顔で手を振った / waveGang:ギャングの車に手を振って見送った / waveUfo:UFOに手を振った /
+ * closeCall:拳が当たる寸前に待てで止めた(ギリギリセーフ)
+ */
+export type FreeWorstScene = 'waveKnife' | 'waveGang' | 'waveUfo' | 'closeCall';
+
+/** フリープレイの数(docs/FREEPLAY.md「数え方」)。StageStats.free に入る */
+export interface FreeTally {
+  /** 待てで守った市民(殴りかかったヒーローを待てで止めた人数。stopChances まで) */
+  stopSaved: number;
+  /** 待てのチャンスの数(殴りかかられる市民。9) */
+  stopChances: number;
+  /** 行けで決めた場面の数(ギャングの組をまとめて吹き飛ばしても、UFOを落としても1回。取り返しは入れない) */
+  goScenes: number;
+  /** 行けのチャンスの数(素通りされるワルの場面。ギャングの組は1場面。8) */
+  goChances: number;
+  /** ワルに待てを押したあと、行けで倒して取り返した数(行けで決めたには入れない) */
+  recovered: number;
+  /** マークがないときに待てか行けを押した回数(効かない間に押し直した分も数える) */
+  dryPresses: number;
+  /** 効いた待ての数(市民でもワルでも) */
+  effectiveStops: number;
+  /** 効いた行けの数(取り返しも入れる) */
+  effectiveGos: number;
+  /** 当たりを数える場面の数(人。ただしギャングの組は1つ。27) */
+  units: number;
+  /** ヒーローだけならいくつ当たっていたか(10) */
+  heroRight: number;
+  /** プレイヤーが直したあと、いくつ当たったか */
+  fixedRight: number;
+  /** クリアまでの時間(秒)。足す秒を入れない。まだ終わっていなければ null */
+  rawSec: number | null;
+  /** クリアまでの時間(秒)。逃がしたワルと市民のけがの分を足した記録。まだ終わっていなければ null */
+  clearSec: number | null;
+  /** ゆっくりモードで遊んだか(途中で一度でもオンにしたら true) */
+  slow: boolean;
+  /** フリープレイだけの、いちばんひどい場面(ステージの場面 worstScene があればそちらが先) */
+  worst: FreeWorstScene | null;
+  /** いちばんひどい場面(worstScene か worst)が起きたときのルール。共有の文の1行目に使う */
+  worstRule: FreeRule | null;
 }
 
 /**
@@ -386,7 +438,7 @@ export interface SortTally {
 /** 称号1つ */
 export interface TitleDef {
   id: TitleId;
-  /** 調べる順(1〜17) */
+  /** 調べる順(1〜20。フリープレイでは、フリープレイだけの称号(18〜20)を先に調べる) */
   order: number;
   name: string;
   pose: WinPose;
@@ -398,6 +450,11 @@ export interface TitleDef {
   comment: Speech;
   /** 取れるステージ(省略するとどのステージでも取れる) */
   stages?: readonly StageId[];
+  /**
+   * 取れる遊び方('stage' はステージ1〜3、'free' はフリープレイ)。省略するとどちらでも取れる。
+   * フリープレイだけの称号は ['free']、フリープレイで調べない称号は ['stage']
+   */
+  modes?: readonly ('stage' | 'free')[];
   /** 条件に当てはまるか */
   test: (s: StageStats) => boolean;
 }

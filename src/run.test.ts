@@ -4,8 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { SCENES } from './config';
 import { createStage } from './logic';
 import {
-  currentWave, fillUnsorted, getRun, nextAfterReview, nextAfterStreet, recordAllSorts, setSort, startRun
+  currentFreeWave, currentWave, fillUnsorted, getRun, nextAfterFreeStreet, nextAfterReview, nextAfterStreet, recordAllSorts, setSort,
+  startFreeRun, startRun
 } from './run';
+import { createFreePlay } from './logic/freeplay';
 import type Phaser from 'phaser';
 
 vi.mock('phaser', () => {
@@ -98,5 +100,44 @@ describe('場面の流れ', () => {
       return run.sorts;
     };
     expect(pick()).toEqual(pick());
+  });
+});
+
+describe('フリープレイ', () => {
+  it('startFreeRun:mode は free、run.stage はフリープレイの並び。ステージの startRun は mode が stage', () => {
+    const scene = fakeScene();
+    const stageRun = startRun(scene, 1);
+    expect([stageRun.mode, stageRun.free]).toEqual(['stage', null]);
+    const run = startFreeRun(scene, 42, { unlocked: ['alley', 'garage'], slow: true });
+    expect(getRun(scene)).toBe(run);
+    expect(run.mode).toBe('free');
+    expect(run.playCount).toBe(2);
+    const plan = createFreePlay(42, ['alley', 'garage']);
+    expect(run.stage).toEqual(plan.stage);
+    expect(run.free!.plan).toEqual(plan);
+    expect(run.free!.slow).toBe(true);
+    expect(run.free!.clockMs).toBe(0);
+    expect(run.stage.id).toBe(plan.waves[0].bgStage);
+    const s = run.stats.snapshot();
+    expect(s.free).toMatchObject({ stopChances: 9, goChances: 8, units: 27, heroRight: 10, slow: true });
+  });
+
+  it('Street のあと、波1と波2は次の波の Street、波3は Result(時計を stats に渡す)', () => {
+    const run = startFreeRun(fakeScene(), 7, { unlocked: ['alley'] });
+    const seen: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      expect(currentWave(run).no).toBe(i + 1);
+      expect(currentFreeWave(run).no).toBe(i + 1);
+      run.free!.clockMs += 30_000;
+      seen.push(nextAfterFreeStreet(run));
+    }
+    expect(seen).toEqual([SCENES.street, SCENES.street, SCENES.result]);
+    expect(run.waveIndex).toBe(2);
+    expect(run.stats.snapshot().free).toMatchObject({ rawSec: 90, clearSec: 90 });
+    // もう一度呼んでも、波は進まない
+    expect(nextAfterFreeStreet(run)).toBe(SCENES.result);
+    expect(run.waveIndex).toBe(2);
+    // ステージの run でフリープレイの波を聞くと投げる
+    expect(() => currentFreeWave(startRun(fakeScene(), 1))).toThrow();
   });
 });

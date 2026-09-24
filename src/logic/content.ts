@@ -29,13 +29,54 @@ import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, RushTally, Speech, StageId,
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, FreeVillainLook, HeroFace, Look, OperatorFace, OperatorHint, RushTally, Speech, StageId,
   TitleId, WaveNo
 } from './types';
 
 const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
 const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
 const hint = (face: OperatorFace, text: string): OperatorHint => ({ face, text });
+
+// ─── フリープレイのワル ───────────────────────────
+// フリープレイ(docs/FREEPLAY.md)は仕分けの画面を出さないので、プロフィールと一言は
+// ほかの表の形を満たすためのかんたんなものにする(ワルの文だけ)。
+
+/** フリープレイのワルの名前(ほかの見た目と重ならない) */
+const FREE_VILLAIN_NAMES: Readonly<Record<FreeVillainLook, readonly string[]>> = {
+  fp_mohawk: [
+    '荒木ザン', '剛田バン', '鉄尾ギン', '猛田ライ', '骨川ドク', '爪田ガイ', '針山トゲオ', '刃金ジョウ', '棘本ガク', '鋼田ザック'
+  ],
+  fp_gang: ['黒田ジョー', '影山テツ', '夜野ダイ', '闇田ユウ', '裏木ケン', '墨田サブ'],
+  fp_alien: ['ゾルグ', 'ピポパ', 'ズババ', 'ギギル', 'ノノモ', 'ワポポ', 'ベベロ', 'ムニョン']
+};
+
+/** フリープレイのワルの年齢の幅(宇宙人は地球の年齢ではない) */
+const FREE_VILLAIN_AGES: Readonly<Record<FreeVillainLook, readonly [number, number]>> = {
+  fp_mohawk: [19, 29],
+  fp_gang: [20, 35],
+  fp_alien: [120, 300]
+};
+
+/** フリープレイのワルのプロフィールの一文(見た目で分かるワルなので、かくさない) */
+const FREE_VILLAIN_PROFILE_LINES: Readonly<Record<FreeVillainLook, { bad: readonly string[] }>> = {
+  fp_mohawk: { bad: ['ナイフを\n見せびらかしたい', '今日も\nトゲトゲ頭', '財布を\nさがしている'] },
+  fp_gang: { bad: ['バットは\n野球用ではない', '顔を見られたくない', '口笛で\n仲間を呼べる'] },
+  fp_alien: { bad: ['地球の\n見学に来た', '触角は\n本物', 'UFOを\n近くに止めている'] }
+};
+
+/** フリープレイのワルのオペレーターの一言 */
+const FREE_VILLAIN_HINTS: Readonly<Record<FreeVillainLook, { bad: readonly OperatorHint[] }>> = {
+  fp_mohawk: { bad: [hint('panic', 'ナイフ持ってる！'), hint('deadpan', 'どう見ても\nワルだよね'), hint('panic', 'ナイフを\n振り回してる！')] },
+  fp_gang: { bad: [hint('panic', 'バット持ってる！'), hint('deadpan', '顔を\n隠してるね'), hint('normal', '口笛の練習\nしてる…')] },
+  fp_alien: { bad: [hint('panic', '触角が\n出てる！'), hint('deadpan', '肌、緑だよね'), hint('normal', '空ばかり\n見てる')] }
+};
+
+/** フリープレイのワルに向かうときの決めつけ(ほかの見た目と同じく「ワルで間違いない!」で終わる) */
+const FREE_VILLAIN_JUDGE_LINES: Readonly<Record<FreeVillainLook, readonly Speech[]>> = {
+  fp_mohawk: [hero('smug', 'ナイフを持ってる！\nワルで間違いない！'), hero('smug', 'トゲトゲ頭！\nワルで間違いない！')],
+  fp_gang: [hero('smug', 'バットを持ってる！\nワルで間違いない！'), hero('smug', '顔を隠してる！\nワルで間違いない！')],
+  fp_alien: [hero('smug', '触角が出てる！\nワルで間違いない！'), hero('smug', '肌が緑色！\nワルで間違いない！')]
+};
 
 // ─── プロフィール ─────────────────────────────────
 
@@ -47,7 +88,8 @@ export const NAMES: Readonly<Record<Look, readonly string[]>> = {
   mohawk: ['鬼塚リュウジ', '権田ゴウ', '黒岩ダン', '毒島ケン', '赤城トオル', '牙野ジン'],
   granny: ['梅田ハナ', '松井トメ', '竹内キヨ', '菊池フミ', '小川ウメ', '杉山チヨ', '野口タマ', '村上シズ', '大野スエ', '今井キク'],
   ...GARAGE_NAMES,
-  ...MALL_NAMES
+  ...MALL_NAMES,
+  ...FREE_VILLAIN_NAMES
 };
 
 /** 見た目ごとの年齢の幅(両端を含む)。市民とワルで同じ */
@@ -58,7 +100,8 @@ export const AGES: Readonly<Record<Look, readonly [number, number]>> = {
   mohawk: [19, 27],
   granny: [71, 89],
   ...GARAGE_AGES,
-  ...MALL_AGES
+  ...MALL_AGES,
+  ...FREE_VILLAIN_AGES
 };
 
 /**
@@ -180,7 +223,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
   // ステージ2(garageContent.ts)
   ...GARAGE_PROFILE_LINES,
   // ステージ3(mallContent.ts)
-  ...MALL_PROFILE_LINES
+  ...MALL_PROFILE_LINES,
+  ...FREE_VILLAIN_PROFILE_LINES
 };
 
 /**
@@ -296,7 +340,8 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
   // ステージ2(garageContent.ts)
   ...GARAGE_OPERATOR_HINTS,
   // ステージ3(mallContent.ts)
-  ...MALL_OPERATOR_HINTS
+  ...MALL_OPERATOR_HINTS,
+  ...FREE_VILLAIN_HINTS
 };
 
 /** ボスの化けた姿の一言。どれも「どこか1か所おかしい」ところを指す */
@@ -545,7 +590,8 @@ const ALLEY_JUDGE_LINES: Readonly<Record<AlleyLook, readonly Speech[]>> = {
 export const JUDGE_LINES: Readonly<Record<Look, readonly Speech[]>> = {
   ...ALLEY_JUDGE_LINES,
   ...GARAGE_JUDGE_LINES,
-  ...MALL_JUDGE_LINES
+  ...MALL_JUDGE_LINES,
+  ...FREE_VILLAIN_JUDGE_LINES
 };
 
 /** 結果発表の画面に出る短い文(始まりの帯と、本性ちらりの小さな吹き出し) */
@@ -581,7 +627,11 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   tooKind: op('deadpan', 'やさしいのはいいけど\nワルは逃げたよ'),
   soSo: op('normal', 'まあまあ…\nだったかな'),
   ...GARAGE_TITLE_COMMENTS,
-  ...MALL_TITLE_COMMENTS
+  ...MALL_TITLE_COMMENTS,
+  // フリープレイだけの称号(docs/FREEPLAY.md「称号」)。通訳はヒーローが言う
+  heroSitter: op('hype', 'おバカ、全部止めたね！'),
+  heroInterpreter: hero('smile', 'ぼくの言いたいこと、\n分かってたんだね！'),
+  letItBe: op('deadpan', '…もう知らない')
 };
 
 // ─── ステージごとの文 ─────────────────────────────
@@ -705,7 +755,9 @@ export function mischiefLine(look: Look, rng?: Rng): Speech {
   const kind = MISCHIEF_BY_LOOK[look];
   if (kind === 'whistle') return pickSpeech(GARAGE_REACTIONS.whistle, rng);
   if (kind === 'signal') return pickSpeech(MALL_REACTIONS.ufoSignal, rng);
-  const key = look in MISCHIEF_LINES ? (look as keyof typeof MISCHIEF_LINES) : 'hoodie';
+  // フリープレイのモヒカンは、路地裏のモヒカンと同じ「ナイフで脅す」
+  const own = look === 'fp_mohawk' ? 'mohawk' : look;
+  const key = own in MISCHIEF_LINES ? (own as keyof typeof MISCHIEF_LINES) : 'hoodie';
   return pickSpeech(MISCHIEF_LINES[key], rng);
 }
 
