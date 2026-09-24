@@ -28,15 +28,7 @@ export function makeCanvas(w: number, h: number, scale = 1): Canvas2D {
   return { canvas, ctx };
 }
 
-export const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
-
-/** ぼかさずに整数倍に拡大する */
-export function upscale(src: HTMLCanvasElement, k: number): HTMLCanvasElement {
-  const { canvas, ctx } = makeCanvas(src.width * k, src.height * k);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-  return canvas;
-}
+const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
 export interface SpriteOpt {
   scale?: number;

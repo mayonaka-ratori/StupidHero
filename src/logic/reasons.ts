@@ -15,7 +15,7 @@ import type { AlleyDisguise, AlleyLook, GarageDisguise, MallDisguise, MallLook, 
 export const REASON_MAX = 14;
 
 /** 路地裏の見た目と正体ごとの決め手(出てこない組み合わせは書かない) */
-export const ALLEY_REASONS: Readonly<Record<AlleyLook, Partial<Record<'bad' | 'civ', string>>>> = {
+const ALLEY_REASONS: Readonly<Record<AlleyLook, Partial<Record<'bad' | 'civ', string>>>> = {
   // ワル:後ろのポケットから黄色いナイフの柄。市民:同じ場所に茶色い財布
   hoodie: { bad: 'ポケットに黄色いナイフの柄', civ: 'ポケットの茶色い物は財布' },
   // ワル:赤い女物のバッグを抱える。市民:金色の腕時計を見てあせる
@@ -27,14 +27,14 @@ export const ALLEY_REASONS: Readonly<Record<AlleyLook, Partial<Record<'bad' | 'c
 };
 
 /** 路地裏のボス:少し背が高く、腕に水色の入れ墨 */
-export const ALLEY_BOSS_REASONS: Readonly<Record<AlleyDisguise, string>> = {
+const ALLEY_BOSS_REASONS: Readonly<Record<AlleyDisguise, string>> = {
   suit: 'スーツがぱつぱつ。腕に入れ墨',
   granny: '肩幅が広い。腕に水色の入れ墨',
   shopper: '重い袋を小指で。腕に入れ墨'
 };
 
-/** 地下駐車場の女ボス:どこか1か所おかしい(garageContent の BOSS2_ODD_POINT)と、金色の小物 */
-export const GARAGE_BOSS_REASONS: Readonly<Record<GarageDisguise, string>> = {
+/** 地下駐車場の女ボス:どこか1か所おかしい所(docs/STAGE2.md)と、金色の小物 */
+const GARAGE_BOSS_REASONS: Readonly<Record<GarageDisguise, string>> = {
   guard: '夜なのにサングラス。金の腕章',
   mechanic: 'つなぎにヒール。金のタオル',
   officelady: 'ギラギラの金の腕輪とスカーフ'
@@ -48,8 +48,8 @@ export const MALL_REASONS: Readonly<Record<MallLook, Record<'bad' | 'civ', strin
   uncle: { bad: '体の色がちらついた', civ: '腰をさすっていただけ' }
 };
 
-/** ショッピングモールの親玉:化けた姿のどこか1か所おかしい所(mallContent の BOSS3_ODD_POINT) */
-export const MALL_BOSS_REASONS: Readonly<Record<MallDisguise, string>> = {
+/** ショッピングモールの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE3.md) */
+const MALL_BOSS_REASONS: Readonly<Record<MallDisguise, string>> = {
   clerk: '店員なのに名札が逆さ',
   uncle: 'おじさんの耳がとがっていた',
   mascot: '着ぐるみから触角'

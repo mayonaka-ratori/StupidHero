@@ -52,7 +52,7 @@ export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: 
  * ステージごとのたとえの切りかえ。上から順に見て、被害額が below 未満なら unit(最後は below が Infinity)。
  * 決め方は analogyUnitFor の説明
  */
-export const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; unit: AnalogyUnit }[]>> = {
+const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; unit: AnalogyUnit }[]>> = {
   alley: [
     { below: PROP_COST.vending, unit: 'trash' },
     { below: 30_000_000, unit: 'vending' },
@@ -78,7 +78,7 @@ export const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; u
  * 地下駐車場:¥50万未満は三角コーン(〜49個)、¥2億未満はワゴン(0.1〜39台)、それより上は高級車(10台〜)。
  * ショッピングモール:¥50万未満はガチャガチャ(〜9.9台)、¥2億未満は噴水(0.3〜133基)、それより上はエスカレーター(25基〜)
  */
-export function analogyUnitFor(yen: number, stageId: StageId = 'alley'): AnalogyUnit {
+function analogyUnitFor(yen: number, stageId: StageId = 'alley'): AnalogyUnit {
   const tiers = ANALOGY_TIERS[stageId];
   return (tiers.find((t) => yen < t.below) ?? tiers[tiers.length - 1]).unit;
 }

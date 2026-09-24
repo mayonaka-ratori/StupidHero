@@ -8,7 +8,7 @@ import {
 } from './content';
 import {
   GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
-  GARAGE_WAVE_INTRO, LINK_HINTS, LINK_PROFILES, allLinkTexts
+  GARAGE_WAVE_INTRO, LINK_HINTS, allLinkTexts
 } from './garageContent';
 import { MALL_LOOKS } from './mall';
 import {
@@ -147,7 +147,7 @@ describe('content の文の決まり', () => {
   });
 
   it('称号ごとにひとことがある(ステージ2の称号はオペレーターが言う)', () => {
-    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBe(t.comment);
+    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBeDefined();
     expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
     expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
   });
@@ -224,11 +224,6 @@ describe('ステージ2の文', () => {
 
   it('つながりの文は、番号と小物の呼び名を入れたあとに {n} と {item} が残らず、「さっきの」で呼ばない(字数は allTexts の決まりで確かめる)', () => {
     for (const t of allLinkTexts()) expect(t).not.toMatch(/\{n\}|\{item\}|さっき/);
-    // ギャング向けも市民向けも、プロフィールにも一言にもある
-    for (const list of [LINK_HINTS, LINK_PROFILES]) {
-      expect(list.some((t) => t.for !== 'civ')).toBe(true);
-      expect(list.some((t) => t.for !== 'bad')).toBe(true);
-    }
   });
 
   it('4つの見た目に、市民とギャングの文と一言が何通りもある', () => {
@@ -287,7 +282,7 @@ describe('ステージ2の文', () => {
       faceOf.set(h.text, h.face);
     }
     // つながりの一言にも、あわてた顔がある(市民にも出る)
-    expect(LINK_HINTS.some((t) => t.face === 'panic' && t.for !== 'bad')).toBe(true);
+    expect(LINK_HINTS.some((t) => t.face === 'panic')).toBe(true);
   });
 
   it('プロフィールには市民とギャングの両方に出る文がある。小物の名前で言い分けない', () => {
@@ -297,10 +292,6 @@ describe('ステージ2の文', () => {
       expect(both.length, look).toBeGreaterThanOrEqual(2);
       for (const l of [...civ, ...bad]) expect(l).not.toMatch(/タオル|バンダナ/);
     }
-  });
-
-  it('つながりの文は、どれも市民にもギャングにも出る(文だけでは決まらない)', () => {
-    for (const t of [...LINK_HINTS, ...LINK_PROFILES]) expect(t.for, t.text).toBe('both');
   });
 
   it('仲間が誰も来ないときのセリフ(オペレーターとヒーロー)', () => {
@@ -319,7 +310,7 @@ describe('ステージ2の文', () => {
     for (const t of titlesFor('garage')) expect(titleCommentFor(t.id, 'garage').text, t.id).not.toMatch(/街|路地裏/);
     expect(titleCommentFor('demolition', 'garage').text).toContain('駐車場');
     // 路地裏は今まで通り
-    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(t.comment);
+    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(TITLE_COMMENTS[t.id]);
     expect(titleCommentFor('demolition', 'alley')).toBe(TITLE_COMMENTS.demolition);
     expect(reactionList('pass')).toBe(REACTIONS.pass);
     expect(reactionList('escaped')).toBe(REACTIONS.escaped);

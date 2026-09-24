@@ -38,13 +38,6 @@ import { UFO } from './rules';
  */
 export type UfoPhase = 'signal' | 'descend' | 'beam' | 'leave' | 'downed' | 'abducted';
 
-export interface UfoCallOptions {
-  signalSec?: number;
-  descendSec?: number;
-  beamSec?: number;
-  leaveSec?: number;
-}
-
 type TimedPhase = 'signal' | 'descend' | 'beam' | 'leave';
 
 /** UFO1機ぶん(合図を送った宇宙人1人ぶん) */
@@ -55,14 +48,9 @@ export class UfoCall {
   /** 今の段階に入ってからの秒数 */
   private t = 0;
 
-  constructor(alienId: string, opts: UfoCallOptions = {}) {
+  constructor(alienId: string) {
     this.alienId = alienId;
-    this.sec = {
-      signal: opts.signalSec ?? UFO.signalSec,
-      descend: opts.descendSec ?? UFO.descendSec,
-      beam: opts.beamSec ?? UFO.beamSec,
-      leave: opts.leaveSec ?? UFO.leaveSec
-    };
+    this.sec = { signal: UFO.signalSec, descend: UFO.descendSec, beam: UFO.beamSec, leave: UFO.leaveSec };
   }
 
   get phase(): UfoPhase {
@@ -83,11 +71,6 @@ export class UfoCall {
   get progress(): number {
     if (this.isOver) return 1;
     return Math.min(1, this.t / this.sec[this.p as TimedPhase]);
-  }
-
-  /** 連れ去られるまでの残り秒数(beam のときだけ。ほかは null) */
-  get secondsToAbduct(): number | null {
-    return this.p === 'beam' ? Math.max(0, this.sec.beam - this.t) : null;
   }
 
   /** 行けが押された。吸い上げている間なら殴り落として true。それ以外は何も起きない(false) */
@@ -142,12 +125,6 @@ export interface UfoEvent {
 export class UfoQueue {
   private waiting: string[] = [];
   private cur: UfoCall | null = null;
-  private readonly opts: UfoCallOptions;
-
-  constructor(opts: UfoCallOptions = {}) {
-    this.opts = opts;
-  }
-
   /** 見逃した宇宙人を並べる(ヒーローが素通りしたとき)。同じ人は1回だけ */
   add(alienId: string): void {
     if (this.cur?.alienId === alienId || this.waiting.includes(alienId)) return;
@@ -185,7 +162,7 @@ export class UfoQueue {
       if (!this.cur) {
         const next = this.waiting.shift();
         if (next === undefined) break;
-        this.cur = new UfoCall(next, this.opts);
+        this.cur = new UfoCall(next);
         events.push({ alienId: next, phase: 'signal' });
       }
       const c = this.cur;

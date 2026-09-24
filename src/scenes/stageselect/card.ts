@@ -44,7 +44,7 @@ const LOCK = [
   '..22222222..'
 ];
 
-export function drawLock(g: Phaser.GameObjects.Graphics, cx: number, cy: number, scale = 1): void {
+function drawLock(g: Phaser.GameObjects.Graphics, cx: number, cy: number, scale = 1): void {
   const colors: Record<string, number> = { 1: UI.gold, 2: 0x000000, 3: 0xa8781c, 4: 0x3a2a08 };
   const w = LOCK[0].length, h = LOCK.length;
   const x0 = Math.round(cx - (w * scale) / 2), y0 = Math.round(cy - (h * scale) / 2);

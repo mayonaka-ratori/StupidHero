@@ -22,7 +22,7 @@ export interface BarOptions {
   ticks?: number;
 }
 
-export class Bar extends Phaser.GameObjects.Container {
+class Bar extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h: number;
   value = 1;

@@ -16,9 +16,7 @@ export const STAND: Pose = {
 export const withFace = (p: Pose, face: Face, extra: Partial<Pose> = {}): Pose => ({ ...clonePose(p), face, ...extra });
 
 export function idleFrames(base: Pose): Pose[] {
-  const b = moveUpper(base, 0, 1);
-  b.aB.h[1] += 0; b.aF.h[1] += 0;
-  return [clonePose(base), b];
+  return [clonePose(base), moveUpper(base, 0, 1)];
 }
 
 /** 歩く4コマ。base の腕と脚を振る */
@@ -45,7 +43,7 @@ export function walkFrames(base: Pose, opts: { swing?: number; armSwing?: number
 }
 
 /** 驚く:のけぞって両手を上げる */
-export function surprisedPose(base: Pose): Pose {
+function surprisedPose(base: Pose): Pose {
   const p = moveUpper(base, -2, 0);
   p.head = [base.head[0] - 3, base.head[1] - 1];
   p.neck = [base.neck[0] - 2, base.neck[1]];
@@ -59,7 +57,7 @@ export function surprisedPose(base: Pose): Pose {
 }
 
 /** 吹っ飛ぶ1コマ目:のけぞる */
-export function knockedPose0(base: Pose): Pose {
+function knockedPose0(base: Pose): Pose {
   const p = clonePose(base);
   p.face = 'hurt';
   p.head = [base.head[0] - 6, base.head[1] + 1];
@@ -73,7 +71,7 @@ export function knockedPose0(base: Pose): Pose {
 }
 
 /** 吹っ飛ぶ2コマ目:手足を投げ出して宙を舞う(あとで回す) */
-export function knockedPose1(base: Pose): Pose {
+function knockedPose1(base: Pose): Pose {
   const p = clonePose(base);
   p.face = 'ko';
   p.aF = { e: [p.neck[0] + 4, p.neck[1] + 7], h: [p.neck[0] + 9, p.neck[1] + 12] };
@@ -84,7 +82,7 @@ export function knockedPose1(base: Pose): Pose {
 }
 
 /** のびている:あおむけ(あとで回す)。片ひざを立てる */
-export function downPose(base: Pose): Pose {
+function downPose(base: Pose): Pose {
   const p = clonePose(base);
   p.face = 'ko';
   p.aF = { e: [p.neck[0] - 3, p.neck[1] - 4], h: [p.neck[0] - 3, p.neck[1] - 11] };
@@ -95,12 +93,12 @@ export function downPose(base: Pose): Pose {
 }
 
 /** 立ち姿を回して、宙に浮いたコマにする(体の真ん中を (32, 33) にそろえる) */
-export function airborne(g: PixelGrid, angle: number): PixelGrid {
+function airborne(g: PixelGrid, angle: number): PixelGrid {
   return rotateGrid(g, angle, 32, 33, 32, 33);
 }
 
 /** あおむけに倒す:左へ90度回して、体の下側を足の裏の線(y=59)にそろえる */
-export function lieDown(g: PixelGrid): PixelGrid {
+function lieDown(g: PixelGrid): PixelGrid {
   const r = rotateGrid(g, -Math.PI / 2, 32, 32, 32, 32);
   const b = bbox(r);
   if (!b) return r;

@@ -16,7 +16,7 @@ export interface Settings {
 
 const KEY = 'stupidhero.settings.v1';
 /** ゆっくりモードのときの仕分けの時間の倍率 */
-export const SLOW_MODE_SCALE = 1.5;
+const SLOW_MODE_SCALE = 1.5;
 
 function prefersReducedMotion(): boolean {
   try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -36,7 +36,6 @@ function load(): Settings {
 }
 
 let cur = load();
-const listeners = new Set<(s: Readonly<Settings>) => void>();
 
 export const settings = {
   get reduceFx(): boolean { return cur.reduceFx; },
@@ -46,11 +45,5 @@ export const settings = {
   set<K extends keyof Settings>(key: K, value: Settings[K]): void {
     cur = { ...cur, [key]: value };
     try { globalThis.localStorage?.setItem(KEY, JSON.stringify(cur)); } catch { /* 覚えられなくても、その場では使える */ }
-    for (const fn of listeners) fn(cur);
-  },
-  /** 変わったときに呼ばれる。戻り値を呼ぶと止まる */
-  onChange(fn: (s: Readonly<Settings>) => void): () => void {
-    listeners.add(fn);
-    return () => listeners.delete(fn);
   }
 };

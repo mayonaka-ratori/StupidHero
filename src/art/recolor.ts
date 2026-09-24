@@ -69,9 +69,6 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
   return key;
 }
 
-/** そのシートに塗り替える小物があるか(一度 accessorySheet を呼んだあとで分かる) */
-export const sheetHasAccessory = (sheetKey: string): boolean => hasKey.get(sheetKey) ?? false;
-
 /**
  * 塗り替えたシート(キーに # がつくもの)とそのアニメを全部消す。ステージ2を離れたとき
  * (タイトルやステージを選ぶ画面に来たとき)に呼び、遊ぶたびに絵がたまり続けないようにする。

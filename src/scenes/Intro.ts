@@ -73,8 +73,7 @@ export class IntroScene extends Phaser.Scene {
 
     // 右上:音
     const mute = addMute(this, W - 13, 13);
-    const pause = new PauseControl(this);
-    void pause;
+    new PauseControl(this);
 
     // 下:セリフ
     addPanel(this);

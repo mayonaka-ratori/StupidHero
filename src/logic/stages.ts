@@ -14,7 +14,7 @@ import { BOSS2_AGES } from './garageContent';
 import {
   BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, WAVES, type WavePlan
 } from './rules';
-import type { DisguiseLook, Look, PropKind, StageId, TitleId, Truth } from './types';
+import type { DisguiseLook, Look, PropKind, StageId, Truth } from './types';
 
 /**
  * ステージの仕組み(結果発表で見逃したワルが何をするか)。
@@ -72,14 +72,10 @@ export interface StageDef {
   bossRampageCost: number;
   /** ボス戦の設定。new BossFight(def.bossFight) */
   bossFight: BossFightOptions;
-  /** このステージのボスを一度倒すと開くステージ(なければ null) */
-  unlocks: StageId | null;
   /** 開くのに必要なステージ(最初から選べるなら null) */
   unlockAfter: StageId | null;
   /** 開いていないときに出す文(最初から選べるなら null)。セリフではないので12文字の決まりの外 */
   lockedText: string | null;
-  /** このステージだけで取れる称号 */
-  onlyTitles: readonly TitleId[];
 }
 
 export const STAGES: Readonly<Record<StageId, StageDef>> = {
@@ -105,10 +101,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     hasRush: false,
     bossRampageCost: BOSS_RAMPAGE_COST,
     bossFight: {},
-    unlocks: 'garage',
     unlockAfter: null,
-    lockedText: null,
-    onlyTitles: ['grannyFoe']
+    lockedText: null
   },
   garage: {
     id: 'garage',
@@ -135,10 +129,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
       carAtHpRatio: BOSS2.carAtHpRatio, carIdleCostPerSec: BOSS2.carIdleCostPerSec,
       carHoldSec: BOSS2.carHoldSec, carMinSec: BOSS2.carMinSec
     },
-    unlocks: 'mall',
     unlockAfter: 'alley',
-    lockedText: '路地裏をクリアすると遊べる',
-    onlyTitles: ['roundUp', 'gangDriver']
+    lockedText: '路地裏をクリアすると遊べる'
   },
   mall: {
     id: 'mall',
@@ -165,10 +157,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
       carAtHpRatio: BOSS3.carAtHpRatio, carIdleCostPerSec: BOSS3.carIdleCostPerSec,
       carHoldSec: BOSS3.carHoldSec, carMinSec: BOSS3.carMinSec
     },
-    unlocks: null,
     unlockAfter: 'garage',
-    lockedText: '地下駐車場をクリアすると遊べる',
-    onlyTitles: ['ufoGuide', 'saleGuardian', 'ufoHunter']
+    lockedText: '地下駐車場をクリアすると遊べる'
   }
 };
 
@@ -190,8 +180,6 @@ export const MALL_SHEETS = {
   /** くずれのノイズ 64×64(タイムセールラッシュで体全体に重ねる) */
   glitch: 'fx_glitch'
 } as const;
-
-export const stageDef = (id: StageId): StageDef => STAGES[id];
 
 /** 文字列がステージの id か(URL の ?stage= などを読むとき) */
 export const isStageId = (v: unknown): v is StageId => typeof v === 'string' && v in STAGES;

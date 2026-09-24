@@ -661,7 +661,6 @@ export class StreetScene extends Phaser.Scene {
     a.mark?.destroy();
     a.mark = this.add.sprite(a.x, a.y, kind === 'stop' ? 'fx_mark_stop' : 'fx_mark_go')
       .play(animKey(kind === 'stop' ? 'fx_mark_stop' : 'fx_mark_go', 'play')).setScale(2).setDepth(1200);
-    a.markKind = kind;
     a.sync();
     // ぴょんと出る
     const m = a.mark;
@@ -673,7 +672,6 @@ export class StreetScene extends Phaser.Scene {
   private hideMark(a: Actor): void {
     a.mark?.destroy();
     a.mark = undefined;
-    a.markKind = undefined;
   }
 
   /** 画面に見えている、まだ壊れていない物(攻撃で壊れうる物) */

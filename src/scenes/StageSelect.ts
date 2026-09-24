@@ -36,7 +36,7 @@ const THUMB_MAX = 118;
  * n 枚のカードを高さ room に並べるときの、1枚の高さと絵の高さ(0なら絵なし)。
  * 絵のないカードは STAGE の番号、名前、記録の2行で、高さ60あれば入る
  */
-export function cardLayout(room: number, n: number, gap: number): { cardH: number; thumbH: number } {
+function cardLayout(room: number, n: number, gap: number): { cardH: number; thumbH: number } {
   const cardH = Math.min(186, Math.floor((room - gap * (n - 1)) / n));
   const thumbH = Math.min(THUMB_MAX, cardH - (cardH >= 176 ? INFO_H_TALL : INFO_H));
   return { cardH, thumbH: thumbH >= THUMB_MIN ? thumbH : 0 };

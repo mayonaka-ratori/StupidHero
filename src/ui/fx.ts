@@ -71,7 +71,7 @@ export function flash(scene: Phaser.Scene, color = 0xffffff, frames = 2): void {
 }
 
 /** 画面全体の光(flash)が出ているか */
-export const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
+const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
 
 /**
  * 画面全体の光が出ていないコマになったら fn を呼ぶ(ワーストシーンを撮るときなど)。

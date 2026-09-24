@@ -155,7 +155,7 @@ Boot→Title→StageSelect→Intro
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは24ファイル、271件)
+npm test            # vitest。src/の*.test.tsを全部動かす
 npm run typecheck   # tsc
 ```
 

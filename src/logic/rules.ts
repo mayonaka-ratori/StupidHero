@@ -75,7 +75,7 @@ export const BAD_PER_WAVE = { min: 2, max: 3 } as const;
 export const HURRY_AT_SEC = 5;
 
 /** 時間切れで仕分けていない人を、ヒーローがワルにする確率(半々) */
-export const TIMEOUT_BAD_CHANCE = 0.5;
+const TIMEOUT_BAD_CHANCE = 0.5;
 
 /** 時間切れの人の仕分けを、ヒーローが気まぐれで決める */
 export function decideUnsorted(rng: Rng): SortChoice {
@@ -107,23 +107,9 @@ export const MARK = {
   showDistance: 48,
   /** マークが出ている間の動きの速さ(ゆっくりにする) */
   slowmo: 0.6,
-  /** マークが出てから殴るまでのおおよその秒数(ゆっくりの時間を含む)。画面の歩く速さはこれに合わせる */
-  windowSec: 1.5,
   /** 悪さを始めたワルが、行けを押されなければ画面の右から逃げるまでの秒数 */
   escapeSec: 3
 } as const;
-
-/**
- * マークが2人に出ているときの対象を決める。ヒーローに近い方(x が小さい方ではなく、距離が近い方)。
- * 候補がなければ null(押しても何も起きない)。
- */
-export function pickMarkTarget<T extends { x: number }>(candidates: readonly T[], heroX: number): T | null {
-  let best: T | null = null;
-  for (const c of candidates) {
-    if (!best || Math.abs(c.x - heroX) < Math.abs(best.x - heroX)) best = c;
-  }
-  return best;
-}
 
 // ─── ワルの悪さ ───────────────────────────────────
 
@@ -317,7 +303,7 @@ export function pickAttack(rng: Rng): AttackKind {
 }
 
 /** dx が攻撃の届く範囲に入っているか */
-export function inReach(kind: AttackKind, dx: number): boolean {
+function inReach(kind: AttackKind, dx: number): boolean {
   const { from, to } = ATTACKS[kind].reach;
   return dx >= from && dx <= to;
 }
@@ -341,7 +327,7 @@ export function rollCivHit(kind: AttackKind, dx: number, rng: Rng): boolean {
 }
 
 /** 物が壊れるかの判定(壊れれば true) */
-export function rollPropBreak(kind: AttackKind, prop: PropKind, dx: number, rng: Rng): boolean {
+function rollPropBreak(kind: AttackKind, prop: PropKind, dx: number, rng: Rng): boolean {
   const p = propBreakChanceAt(kind, prop, dx);
   return p > 0 && rng.chance(p);
 }
@@ -520,9 +506,6 @@ export const GLITCH = {
   practice: { firstSec: 1.5, everySec: 2, showSec: 0.3 }
 } as const;
 
-/** ステージ3の宇宙人の数(1つの波)。STAGE3「1つの波の宇宙人は2〜3人」 */
-export const ALIENS_PER_WAVE = { min: 2, max: 3 } as const;
-
 /**
  * UFOの時間と被害額(STAGE3「UFOで連れ去る」の表)。
  * 合図0.8秒 → 下りてくる1秒 → 吸い上げる3秒(行けのマークが出る。この間の行けで殴り落とす)→ 去る1秒
@@ -535,9 +518,7 @@ export const UFO = {
   /** 買い物客を光で吸い上げる。UFOの上に行けのマーク */
   beamSec: 3,
   /** 行けを押さなかったら、買い物客と宇宙人を乗せて去る */
-  leaveSec: 1,
-  /** 落ちたUFOの被害額(PROP_COST.ufo と同じ) */
-  cost: PROP_COST.ufo
+  leaveSec: 1
 } as const;
 
 /** ステージ3の店の物の大きさ(STAGE3「店が壊れる」の表)と、UFOと母艦の絵の大きさ */

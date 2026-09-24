@@ -139,7 +139,7 @@ const SHOPS: [number, number, 'window' | 'half' | 'closed' | 'fashion'][] = [
   [0, 108, 'window'], [108, 108, 'half'], [216, 108, 'fashion'], [324, 108, 'closed'], [432, 108, 'window'], [540, 108, 'half']
 ];
 /** 明かりがもれて床に映る場所(床の絵と合わせる) */
-export const MALL_LIGHTS = [20, 128, 236, 452, 560];
+const MALL_LIGHTS = [20, 128, 236, 452, 560];
 
 export function drawWall(): PixelGrid {
   const W = 648, H = 130;

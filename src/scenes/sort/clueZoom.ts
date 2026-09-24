@@ -12,10 +12,10 @@ import { frameIndex, sheetByKey } from '../../art/sheets';
 import { FRAME_PAD, FS, PixelText, UIX, drawFrame } from '../../ui';
 
 /** 何倍で見せるか */
-export const ZOOM = 3;
+const ZOOM = 3;
 /** 窓の大きさ */
-export const ZOOM_W = CLUE_W * ZOOM + FRAME_PAD * 2 + 2;
-export const ZOOM_H = FRAME_PAD * 2 + 2 + FS.body + 3 + CLUE_H * ZOOM + 1;
+const ZOOM_W = CLUE_W * ZOOM + FRAME_PAD * 2 + 2;
+const ZOOM_H = FRAME_PAD * 2 + 2 + FS.body + 3 + CLUE_H * ZOOM + 1;
 
 export class ClueZoom {
   private g: Phaser.GameObjects.Graphics;

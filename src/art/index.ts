@@ -88,7 +88,7 @@ function fillPlaceholders(ctx: ReturnType<typeof makeArtContext>): void {
 }
 
 /** SHEETS の表から、すべてのアニメーションを登録する */
-export function registerAnims(scene: Phaser.Scene): void {
+function registerAnims(scene: Phaser.Scene): void {
   for (const def of SHEETS) {
     def.rows.forEach((row, r) => {
       const key = animKey(def.key, row.name);

@@ -212,28 +212,7 @@ export const MALL_OPERATOR_HINTS: Readonly<Record<MallLook, { civ: readonly Oper
   }
 };
 
-/**
- * 宇宙人だけに出る動きのくずれ(STAGE3「見た目」の表)。絵(行7)と答え合わせの決め手に合わせる。
- * 「持ち物」の窓に映す場所も書いておく(同じ見た目の人は市民でも宇宙人でも親玉でも同じ場所を映す)
- */
-export const MALL_GLITCH_KIND: Readonly<Record<MallLook, { glitch: string; awkward: string; clueSpot: string }>> = {
-  mascot: { glitch: '着ぐるみの首が一回転する', awkward: '前が見えずにふらつく', clueSpot: '頭' },
-  clerk: { glitch: 'まばたきが横に閉じる', awkward: 'かくっと船をこぐ', clueSpot: '目' },
-  dancer: { glitch: '腕がのびて戻る', awkward: 'カクカク踊る', clueSpot: '腕のつけね' },
-  uncle: { glitch: '一瞬、体の色がちらつく', awkward: '腰をさする', clueSpot: '胴' }
-};
-
 // ─── 親玉(化けた姿) ───────────────────────────────
-
-/**
- * 親玉の化けた姿の「どこか1か所おかしい」ところ(絵の担当と合わせる)。
- * 親玉は化けた姿の市民と同じぎこちない動きをするが、くずれは出ない
- */
-export const BOSS3_ODD_POINT: Readonly<Record<MallDisguise, string>> = {
-  clerk: '名札が逆さ',
-  uncle: '耳がとがっている',
-  mascot: '着ぐるみから触角がのぞく'
-};
 
 /** 親玉の化けた姿のプロフィール。「どこか1か所おかしい」と気づける一文にする */
 export const BOSS3_PROFILE_LINES: Readonly<Record<MallDisguise, readonly string[]>> = {

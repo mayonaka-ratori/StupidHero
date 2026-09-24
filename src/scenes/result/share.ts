@@ -185,12 +185,12 @@ function isTouchDevice(): boolean {
 }
 
 /** 画像の下に出す、保存のしかたの一言 */
-export function saveHint(touch = isTouchDevice()): string {
+function saveHint(touch = isTouchDevice()): string {
   return touch ? '長押しで写真に保存' : '右クリックか長押しで保存';
 }
 
 /** 画像(data URL)をファイルとしてダウンロードする */
-export function downloadImage(dataUrl: string, name: string): void {
+function downloadImage(dataUrl: string, name: string): void {
   if (!dataUrl) return;
   const a = document.createElement('a');
   a.href = dataUrl;

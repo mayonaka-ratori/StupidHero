@@ -6,8 +6,8 @@
 import type { Ctx } from './synth';
 
 /** 全体の音量。控えめにしてある */
-export const BGM_VOL = 0.4;
-export const SFX_VOL = 0.8;
+const BGM_VOL = 0.4;
+const SFX_VOL = 0.8;
 /** コンプレッサーが自動で足す音量(メイクアップゲイン、約+6dB)をおおよそ打ち消す */
 const POST_GAIN = 0.6;
 

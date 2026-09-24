@@ -6,7 +6,7 @@ export type Pt = [number, number];
 /** 明るい、ふつう、暗い の3段 */
 export type Ramp = [string, string, string];
 
-export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const add = (p: Pt, dx: number, dy: number): Pt => [p[0] + dx, p[1] + dy];
 export const mix = (a: Pt, b: Pt, t: number): Pt => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 

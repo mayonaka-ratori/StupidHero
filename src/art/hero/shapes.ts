@@ -21,7 +21,7 @@ export function ellipse(g: PixelGrid, cx: number, cy: number, rx: number, ry: nu
     [Math.floor(cx - rx - 1), Math.floor(cy - ry - 1), Math.ceil(cx + rx + 1), Math.ceil(cy + ry + 1)]);
 }
 
-export function insidePoly(pts: readonly Pt[], px: number, py: number): boolean {
+function insidePoly(pts: readonly Pt[], px: number, py: number): boolean {
   let inside = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
     const [xi, yi] = pts[i], [xj, yj] = pts[j];
@@ -58,14 +58,6 @@ export function line1(g: PixelGrid, x0: number, y0: number, x1: number, y1: numb
     const e2 = 2 * err;
     if (e2 >= dy) { err += dy; x0 += sx; }
     if (e2 <= dx) { err += dx; y0 += sy; }
-  }
-}
-
-/** 別の格子を重ねる(null は透明) */
-export function over(dst: PixelGrid, src: PixelGrid, ox = 0, oy = 0): void {
-  for (let y = 0; y < src.h; y++) for (let x = 0; x < src.w; x++) {
-    const c = src.cells[y][x];
-    if (c) dst.px(x + ox, y + oy, c);
   }
 }
 

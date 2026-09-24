@@ -125,8 +125,8 @@ async function open(mode, extra = '') {
   const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
   // 掛け合いを見たことがあれば、Intro を通らずに仕分けへ直行する
   check('もう一回で Intro か仕分けへ', active.includes('Intro') || active.includes('Sort'), active.join(','));
-  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, count: r.playCount, wave: r.waveIndex, stage: r.stage.id }; });
-  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.count === 2 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
+  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id }; });
+  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.sorted === 0 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
   await page.goto(BASE);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);

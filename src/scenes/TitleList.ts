@@ -85,7 +85,6 @@ export class TitleListScene extends Phaser.Scene {
     let y = top + 1;
     for (const t of TITLES) {
       const b = this.card(t, 2, y, cw, wrap, earned.has(t.id), t.id === data.current);
-      b.draw(b.h);
       cards.push(...b.objs);
       y += b.h + gap;
     }
@@ -133,9 +132,9 @@ export class TitleListScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.cameras.remove(cam); });
   }
 
-  /** カード1枚を作る。高さを返し、draw(h) で枠を描く(となりのカードと高さをそろえるため、あとで描く) */
+  /** カード1枚を作って描く。高さを返す */
   private card(t: TitleDef, x: number, y: number, w: number, wrap: number, got: boolean, current: boolean):
-  { h: number; objs: Phaser.GameObjects.GameObject[]; draw: (h: number) => void } {
+  { h: number; objs: Phaser.GameObjects.GameObject[] } {
     const g = this.add.graphics().setDepth(DEPTH.ui - 1);
     const objs: Phaser.GameObjects.GameObject[] = [g];
     const tx = x + 5;
@@ -147,14 +146,12 @@ export class TitleListScene extends Phaser.Scene {
     objs.push(body);
     ty += Math.ceil(body.height);
     const h = ty - y + 5;
-    const draw = (hh: number): void => {
-      // 取った称号は青に金色のふち(今回の称号は少し明るく)、まだの称号は暗い灰色
-      const c = got ? { edge: UI.gold, fill: current ? CURRENT_FILL : UI.winFill } : LOCKED;
-      g.fillStyle(UI.black, 1).fillRect(x + 1, y, w - 2, hh).fillRect(x, y + 1, w, hh - 2);
-      g.fillStyle(c.edge, 1).fillRect(x + 1, y + 1, w - 2, hh - 2);
-      g.fillStyle(c.fill, 1).fillRect(x + 2, y + 2, w - 4, hh - 4);
-    };
-    return { h, objs, draw };
+    // 取った称号は青に金色のふち(今回の称号は少し明るく)、まだの称号は暗い灰色
+    const c = got ? { edge: UI.gold, fill: current ? CURRENT_FILL : UI.winFill } : LOCKED;
+    g.fillStyle(UI.black, 1).fillRect(x + 1, y, w - 2, h).fillRect(x, y + 1, w, h - 2);
+    g.fillStyle(c.edge, 1).fillRect(x + 1, y + 1, w - 2, h - 2);
+    g.fillStyle(c.fill, 1).fillRect(x + 2, y + 2, w - 4, h - 4);
+    return { h, objs };
   }
 
   /** もどる:開いたシーンを起こす */

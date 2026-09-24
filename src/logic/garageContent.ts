@@ -216,16 +216,6 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
   }
 };
 
-/**
- * 女ボスの化けた姿の「どこか1か所おかしい」ところ(ここで決めた。絵の担当と合わせる)。
- * どの姿でも、小物は金色(ギャングの組の色とも市民の色とも違う)
- */
-export const BOSS2_ODD_POINT: Readonly<Record<GarageDisguise, string>> = {
-  guard: 'サングラス',
-  mechanic: '高いヒールの靴',
-  officelady: '金の腕輪'
-};
-
 /** 女ボスの化けた姿のプロフィール。「どこか1か所おかしい」と気づける一文にする */
 export const BOSS2_PROFILE_LINES: Readonly<Record<GarageDisguise, readonly string[]>> = {
   guard: [
@@ -276,7 +266,7 @@ export const BOSS2_HINTS: Readonly<Record<GarageDisguise, readonly OperatorHint[
  * つながりの文で、その人の小物を指す言葉({item})。整備士は市民がタオル、ギャングがバンダナなので、
  * 名前で正体が分からないように「首の布」とまとめて呼ぶ
  */
-export const LINK_ITEM_NOUN: Readonly<Record<GangLook, string>> = {
+const LINK_ITEM_NOUN: Readonly<Record<GangLook, string>> = {
   guard: '腕章',
   mechanic: '首の布',
   clubber: 'ヘアバンド',
@@ -289,13 +279,12 @@ const MAX_ORDINAL = 7;
 /**
  * つながりの文のひな形。{n} に前の人が波の何人目か(「2人目」)、{item} にその人の小物の呼び名が入る。
  * 「さっきの警備員」のような呼び方だと、同じ見た目の人が前に2人いるとどちらか分からないので、番号で呼ぶ。
- * for:'bad' はギャング(同じ組の前の仲間とのつながり)、'civ' は市民(どちらとも取れるつながり)、'both' は両方。
+ * どの文も市民にもギャングにも出す(文だけではどちらか決まらないように)。
  * sameColor:true の文は、前の人と小物の色が本当に同じときだけ使う(嘘にならないように)
  */
 export interface LinkTemplate {
   text: string;
   face: OperatorFace;
-  for: 'bad' | 'civ' | 'both';
   sameColor?: boolean;
 }
 
@@ -304,27 +293,27 @@ export interface LinkTemplate {
  * (ちがいは相手:ギャングは同じ組の前の仲間、市民は前の誰か)
  */
 export const LINK_HINTS: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'both', text: '{n}と\n目で合図した？' },
-  { face: 'panic', for: 'both', text: '{n}を\n目で追ってる' },
-  { face: 'normal', for: 'both', text: '{n}に\nうなずいた…？' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ指輪…？' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ時計してる…' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ車のカギ…？' },
-  { face: 'normal', for: 'both', text: '{n}と同じ色の\n{item}…？', sameColor: true },
-  { face: 'normal', for: 'both', text: '{n}と\n目が合った？' },
-  { face: 'normal', for: 'both', text: '{n}を\nちらっと見た' },
-  { face: 'deadpan', for: 'both', text: '{n}と\n同じ駐車券…？' },
-  { face: 'panic', for: 'both', text: '{n}から\n目をそらした！' }
+  { face: 'normal', text: '{n}と\n目で合図した？' },
+  { face: 'panic', text: '{n}を\n目で追ってる' },
+  { face: 'normal', text: '{n}に\nうなずいた…？' },
+  { face: 'normal', text: '{n}と\n同じ指輪…？' },
+  { face: 'normal', text: '{n}と\n同じ時計してる…' },
+  { face: 'normal', text: '{n}と\n同じ車のカギ…？' },
+  { face: 'normal', text: '{n}と同じ色の\n{item}…？', sameColor: true },
+  { face: 'normal', text: '{n}と\n目が合った？' },
+  { face: 'normal', text: '{n}を\nちらっと見た' },
+  { face: 'deadpan', text: '{n}と\n同じ駐車券…？' },
+  { face: 'panic', text: '{n}から\n目をそらした！' }
 ];
 
 /** プロフィールに出すつながり(どれも市民にもギャングにも出す) */
 export const LINK_PROFILES: readonly LinkTemplate[] = [
-  { face: 'normal', for: 'both', text: '{n}とは\n古い付き合い' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ車で来た' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ店の常連' },
-  { face: 'normal', for: 'both', text: '{n}とは\n同じマンション' },
-  { face: 'normal', for: 'both', text: '{n}と\n同じ会社…らしい' },
-  { face: 'normal', for: 'both', text: '{n}とは\n前に会った気がする' }
+  { face: 'normal', text: '{n}とは\n古い付き合い' },
+  { face: 'normal', text: '{n}と\n同じ車で来た' },
+  { face: 'normal', text: '{n}と\n同じ店の常連' },
+  { face: 'normal', text: '{n}とは\n同じマンション' },
+  { face: 'normal', text: '{n}と\n同じ会社…らしい' },
+  { face: 'normal', text: '{n}とは\n前に会った気がする' }
 ];
 
 /** 波の中の番号(0始まり)を「2人目」のような呼び方に */

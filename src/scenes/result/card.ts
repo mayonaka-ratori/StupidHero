@@ -17,12 +17,12 @@ import {
 import { NAMES } from '../../ui/theme';
 import { drawAlley, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
-export const CARD_W = 216;
-export const CARD_H = 270;
-export const CARD_SCALE = 5;
+const CARD_W = 216;
+const CARD_H = 270;
+const CARD_SCALE = 5;
 
 /** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
-export const WORST_CAPTION: Record<WorstScene, string> = {
+const WORST_CAPTION: Record<WorstScene, string> = {
   grannyHit: 'おばあちゃんをなぐった!',
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',

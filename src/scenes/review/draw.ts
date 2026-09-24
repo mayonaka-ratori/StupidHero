@@ -60,8 +60,8 @@ export function personThumb(scene: Phaser.Scene, p: Pick<Person, 'sheetKey' | 'a
 }
 
 /** ○(当たり)の色と×(はずれ)の色 */
-export const MARK_OK = UI.gold;
-export const MARK_NG = UI.danger;
+const MARK_OK = UI.gold;
+const MARK_NG = UI.danger;
 
 /** 点ごとに塗る(1ドットの四角) */
 function dots(g: Phaser.GameObjects.Graphics, color: number, pts: [number, number][]): void {
