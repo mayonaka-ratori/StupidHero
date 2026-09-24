@@ -44,6 +44,12 @@ const HIT_X = BOSS_X - 12;
 const HIT_Y = FEET_Y - 52;
 /** 最後の連打からこの時間がたったら、ラッシュの動きをやめる(ms) */
 const RUSH_HOLD_MS = 380;
+/** 連打で出す技の順番(くり返す)。10連打ごとは飛び蹴りをはさむ */
+const RUSH_MOVES = ['punch', 'punch', 'kick', 'punch', 'uppercut', 'punch', 'kick'] as const;
+type RushMove = (typeof RUSH_MOVES)[number] | 'flykick';
+const RUSH_MOVE_KEYS = new Set<string>([...RUSH_MOVES, 'flykick'].map((m) => animKey('hero', m)));
+/** 技ごとの当たる高さのずれ(蹴りは低め、アッパーは高め) */
+const MOVE_HIT_DY: Record<RushMove, number> = { punch: 0, kick: 14, uppercut: -10, flykick: 6 };
 
 // ─── ステージ2:女ボスの高級車 ───
 /** 奥の列に止めてある場所(下の真ん中) */
@@ -111,6 +117,8 @@ export class BossScene extends Phaser.Scene {
   private lastRushLineAt = -1e9;
   private shownTime = '';
   private punchSide = 0;
+  /** 次に出す技(RUSH_MOVES の何番目か) */
+  private moveIdx = 0;
   private fightStartAt = 0;
   // ─── ステージ2の車(ステージ3は母艦) ───
   private car: BossCar | null = null;
@@ -188,6 +196,12 @@ export class BossScene extends Phaser.Scene {
     this.playAnim(this.aura, 'fx_aura', 'play');
     this.hero = this.add.sprite(HERO_X, FEET_Y, 'hero', 0).setOrigin(...originFor('hero')).setDepth(DEPTH_OF.hero);
     this.playAnim(this.hero, 'hero', 'idle');
+    // 連打の技が1つ終わったとき、まだ連打していれば次の技へつなぐ。止まっていれば待機にもどる
+    this.hero.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim: Phaser.Animations.Animation) => {
+      if (this.phase !== 'fight' || !RUSH_MOVE_KEYS.has(anim.key)) return;
+      if (this.time.now - this.lastTapAt < RUSH_HOLD_MS) this.startMove();
+      else { this.hero.anims.timeScale = 1; this.playAnim(this.hero, 'hero', 'idle'); }
+    });
     this.boss = this.add.sprite(BOSS_X, FEET_Y, this.bossKey, 0).setOrigin(...originFor(this.bossKey)).setDepth(DEPTH_OF.boss).setFlipX(true);
     this.playAnim(this.boss, this.bossKey, 'idle');
 
@@ -311,13 +325,12 @@ export class BossScene extends Phaser.Scene {
     this.combo++;
     this.lastTapAt = this.time.now;
 
-    // ヒーローのラッシュ:押すほど速く、前へ出る
-    if (this.hero.anims.currentAnim?.key !== animKey('hero', 'punch')) {
-      const key = animKey('hero', 'punch');
-      if (this.anims.exists(key)) this.hero.play({ key, repeat: -1 });
-    }
+    // ヒーローのラッシュ:パンチ、蹴り、アッパーを順に出す。押すほど速く、前へ出る。10連打ごとに飛び蹴り
+    if (this.combo % 10 === 0) this.startMove('flykick');
+    else if (!this.currentMove()) this.startMove();
     this.hero.anims.timeScale = 1.2 + power * 3.3;
-    this.heroPush = Math.min(12, this.heroPush + 3);
+    const move = this.currentMove() ?? 'punch';
+    this.heroPush = Math.min(move === 'flykick' ? 20 : 12, this.heroPush + (move === 'flykick' ? 8 : 3));
     // 車に飛び乗っている途中は、跳ぶ動きを続ける
     if (this.carMode !== 'boarding' || this.riding) this.playAnim(this.boss, this.bossKey, 'hit');
     this.whiteFrames = 2;
@@ -333,7 +346,7 @@ export class BossScene extends Phaser.Scene {
         if (this.carTaps % 2 === 0) car.addDent();
       }
       this.punchSide ^= 1;
-      fy = this.vehicleHitY() + (this.punchSide ? -8 : 5) + Phaser.Math.Between(-3, 3);
+      fy = this.vehicleHitY() + (this.punchSide ? -8 : 5) + Math.round(MOVE_HIT_DY[move] / 2) + Phaser.Math.Between(-3, 3);
       hx = car.frontX;
       flyPunch(this, this.hero.x + 24, hx - 6, fy, 50);
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-4, 8), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
@@ -341,10 +354,10 @@ export class BossScene extends Phaser.Scene {
       if (tps >= 8 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(-30, 30), Phaser.Math.Between(0, 30), 360);
       if (this.combo % 4 === 0) audio.sfx('crash', { volume: 0.35 + power * 0.3, pitch: 1.1 + Math.random() * 0.3 });
     } else {
-      this.bossPush = Math.min(8, this.bossPush + 2);
+      this.bossPush = Math.min(move === 'punch' ? 8 : 12, this.bossPush + (move === 'punch' ? 2 : 4));
       // 光の拳と火花
       this.punchSide ^= 1;
-      fy = HIT_Y + (this.punchSide ? -8 : 6) + Phaser.Math.Between(-3, 3);
+      fy = HIT_Y + (this.punchSide ? -8 : 6) + MOVE_HIT_DY[move] + Phaser.Math.Between(-3, 3);
       hx = HIT_X + this.bossPush;
       if (this.carMode === 'boarding') hx = this.boss.x - 12;
       // 母艦へ浮き上がっている親玉は、体の高さに当てる
@@ -353,6 +366,12 @@ export class BossScene extends Phaser.Scene {
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-6, 6), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
       if (tps >= 6) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-18, 14), HIT_Y + Phaser.Math.Between(-24, 22), { depth: DEPTH_OF.fxTop });
       if (tps >= 9 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(20, 50), Phaser.Math.Between(10, 40), 360);
+    }
+    // 蹴りとアッパーは、火花を1つ多く出す。アッパーは破片を上へ、飛び蹴りは砂ぼこりも
+    if (move !== 'punch') {
+      spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-4, 10), fy + (move === 'uppercut' ? -10 : 4), { depth: DEPTH_OF.fxTop });
+      if (move === 'uppercut') throwDebris(this, hx, fy, Phaser.Math.Between(0, 30), Phaser.Math.Between(-10, 10), 420);
+      if (move === 'flykick') spawnFx(this, 'fx_dust', this.hero.x, FEET_Y - 8, { depth: DEPTH_OF.fx });
     }
 
     // 音と揺れ
@@ -415,7 +434,6 @@ export class BossScene extends Phaser.Scene {
     this.flushIdleLine();
 
     // ヒーロー
-    if (!rushing && !idle && this.hero.anims.currentAnim?.key === animKey('hero', 'punch')) this.playAnim(this.hero, 'hero', 'idle');
     if (!rushing) this.heroPush = Math.max(0, this.heroPush - 0.6);
     else this.heroPush = Math.max(0, this.heroPush - 0.35);
     // 連打中は前後に細かく揺れて、止まって見えないようにする
@@ -675,12 +693,34 @@ export class BossScene extends Phaser.Scene {
     this.finishBoarding();
   }
 
+  // ─── 連打の技 ───
+
+  /** いま出している連打の技(待機などのときは null) */
+  private currentMove(): RushMove | null {
+    const key = this.hero.anims.currentAnim?.key;
+    // 10連打の止め(hitStop)で一瞬止まっている間も、出している途中の技として数える
+    if (!key || !RUSH_MOVE_KEYS.has(key) || !(this.hero.anims.isPlaying || this.hero.anims.isPaused)) return null;
+    return key.slice(key.indexOf('.') + 1) as RushMove;
+  }
+
+  /** 連打の技を1つ流す。move を省くと RUSH_MOVES の次の技 */
+  private startMove(move?: RushMove): void {
+    const m = move ?? RUSH_MOVES[this.moveIdx++ % RUSH_MOVES.length];
+    const key = animKey('hero', m);
+    if (!this.anims.exists(key)) return;
+    const ts = this.hero.anims.timeScale;
+    this.hero.play(key);
+    this.hero.anims.timeScale = ts;
+    if (m === 'flykick') audio.sfx('charge', { volume: 0.6, pitch: 1.2 });
+  }
+
   // ─── 手が止まっているとき ───
 
   private startIdle(): void {
     this.wasIdle = true;
     const inCar = this.carMode !== 'foot';
     if (this.carMode !== 'boarding') this.playAnim(this.boss, this.bossKey, 'rampage');
+    this.hero.anims.timeScale = 1;
     this.playAnim(this.hero, 'hero', 'idle');
     this.alarm.start();
     audio.sfx(inCar ? (this.car?.flies ? 'shipBeam' : 'horn') : 'rampage');
@@ -919,7 +959,9 @@ export class BossScene extends Phaser.Scene {
     flash(this, 0xffffff, 3);
     hitStop(this, 160);
     this.quake(7, 500);
-    this.playAnim(this.hero, 'hero', 'punch', false);
+    // とどめはアッパー
+    this.hero.anims.timeScale = 1;
+    this.playAnim(this.hero, 'hero', 'uppercut', false);
     if (this.car) {
       if (this.car.flies) this.wreckShip();
       else this.wreckCar();
