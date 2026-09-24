@@ -398,7 +398,7 @@ export class StreetScene extends Phaser.Scene {
 
   // ─── 毎フレーム ───────────────────────────────
 
-  update(_t: number, delta: number): void {
+  override update(_t: number, delta: number): void {
     this.frameN++;
     const frozen = isFrozen(this);
     if (!frozen) {

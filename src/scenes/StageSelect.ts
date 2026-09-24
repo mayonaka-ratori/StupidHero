@@ -169,7 +169,7 @@ export class StageSelectScene extends Phaser.Scene {
     });
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     this.bgT += dt;
     const step = Math.floor(this.bgT / 40);
     this.bgTile.tilePositionX = -step;

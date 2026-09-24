@@ -519,7 +519,7 @@ export class SortScene extends Phaser.Scene {
 
   // ─── 時間 ───────────────────────────────────────
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     this.drawGlow();
     this.zoom.sync(this.card, this.idle);
     const stopped = this.clockStopped() && this.idx < this.people.length;

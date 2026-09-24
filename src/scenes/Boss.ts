@@ -399,7 +399,7 @@ export class BossScene extends Phaser.Scene {
     if (res.defeated) this.onDefeated();
   }
 
-  update(_time: number, delta: number): void {
+  override update(_time: number, delta: number): void {
     this.frame++;
     if (this.phase !== 'fight') {
       if (this.phase === 'end') this.lines.update(0);

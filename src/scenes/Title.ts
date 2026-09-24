@@ -143,7 +143,7 @@ export class TitleScene extends Phaser.Scene {
     return c;
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     this.beamT += dt;
     this.drawBeams();
   }

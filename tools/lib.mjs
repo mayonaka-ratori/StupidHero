@@ -12,9 +12,12 @@
 //   const pad = await touchPad(page);                    // pad.tap(108, 300)、pad.touch('touchStart', [...])、pad.css(x, y)
 //   const { check, done } = checker();  check('名前', ok, '補足');  await browser.close(); done();
 
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
-export const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// ブラウザの置き場所。環境変数 CHROME で変えられる。置き場所に何もなければ playwright-core が自分で探す
+const DEFAULT_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+export const CHROME = process.env.CHROME ?? (existsSync(DEFAULT_CHROME) ? DEFAULT_CHROME : undefined);
 /** 論理画面の横幅(src/config.ts の GAME_W) */
 export const GAME_W = 216;
 

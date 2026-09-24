@@ -48,7 +48,7 @@ const FACE = 32;
 const PAUSE_AFTER = new Set(Array.from('、。…!?!?'));
 
 export class CutIn extends Phaser.GameObjects.Container {
-  readonly w: number;
+  override readonly w: number;
   readonly h: number;
   who: Speaker;
   private frameG: WindowFrame;
@@ -121,12 +121,6 @@ export class CutIn extends Phaser.GameObjects.Container {
   setWho(who: Speaker): this {
     this.who = who;
     this.nameText.setText(NAMES[who]);
-    return this;
-  }
-
-  /** 名前の表示を変える(2人以外が話すときなど) */
-  setName(name: string): this {
-    this.nameText.setText(name);
     return this;
   }
 

@@ -111,7 +111,7 @@ export class IntroScene extends Phaser.Scene {
     this.time.delayedCall(260, () => this.next());
   }
 
-  update(_t: number, dt: number): void {
+  override update(_t: number, dt: number): void {
     if (this.skipped) return;
     this.demo.update(dt);
     this.nextMark.setVisible(!this.cut.isTyping && this.index >= 0);
