@@ -10,7 +10,7 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
+import { RUSH, reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
 import { Button, DEPTH, FS, MuteButton, PixelText, goto, preloadFont } from '../ui';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
 import { Timeline } from './result/timeline';
@@ -29,8 +29,6 @@ const THUMB_BG = 0x1a1d3a;
 const RUSH_BG = 0x2a2150;
 /** ラッシュのまとめの行の高さ */
 const RUSH_ROW_H = 16;
-/** タイムセールラッシュがある波(STAGE3「ゲームの流れ」。波2の結果発表のあと) */
-const RUSH_WAVE = 2;
 
 /** 仕分けの呼び方と色 */
 const CHOICE_TEXT: Record<SortChoice | 'boss', string> = { bad: '{red}ワル{/}', civ: '{civ}市民{/}', boss: '{red}ボス{/}' };
@@ -93,7 +91,7 @@ export class WaveReviewScene extends Phaser.Scene {
     // ─── 行 ───
     // 1人1つの箱。当たりは青、はずれは赤黒。箱の高さは人数で割って、広すぎないようにする
     // ラッシュのまとめを出すときは、その1行ぶんを下にとっておく
-    const rush = wave.no === RUSH_WAVE && run.stage.def.hasRush ? rushTallyFor(run) : null;
+    const rush = wave.no === RUSH.afterWave && run.stage.def.hasRush ? rushTallyFor(run) : null;
     const rushText = rush ? rushSummary(rush) : null;
     dev.rush = rushText;
     const listTop = 42;

@@ -3,7 +3,9 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { createRng, createStage, STAGES, type Person, type Stage, type StageId } from '../../logic';
-import { FIRST_X, GAP, GATHER_ROOM, RUSH_DX, UFO_DX, VAN_Y, planGarage, planMall, planStreet, type StreetPlan } from './plan';
+import {
+  FIRST_X, GAP, GATHER_ROOM, RUSH_DX, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y, planGarage, planMall, planStreet, type StreetPlan
+} from './plan';
 
 vi.mock('phaser', () => {
   throw new Error('plan.ts のテストで Phaser を読みこんだ');
@@ -193,5 +195,40 @@ describe('planMall(ショッピングモール)', () => {
         expect(plan.passers.some((p) => Math.abs(p.x - (s.x + UFO_DX)) < 20), s.person.id).toBe(false);
       }
     }
+  });
+
+  it('UFOの落ちる真下に置く物は、UFO_DX の所(UFOの幅の中)に置く', () => {
+    // 画面(Street.ts)は見逃した宇宙人の x + UFO_DX にUFOを下ろし、UFOの幅の中の UFO_UNDER_KINDS の物を壊す。
+    // 並べ方が同じ所に物を置いていれば、見逃した宇宙人の多く(7割)で真下に物がある
+    let ufos = 0, under = 0;
+    for (const { plan, passBad } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        ufos++;
+        if (plan.props.some((p) => UFO_UNDER_KINDS.includes(p.kind) && p.y < 200 && Math.abs(p.x - (s.x + UFO_DX)) < UFO_HALF)) under++;
+      }
+    }
+    expect(ufos).toBeGreaterThan(50);
+    expect(under / ufos).toBeGreaterThan(0.6);
+  });
+
+  it('UFOの落ちる真下に、エスカレーターと噴水は来ない(ラッシュのエスカレーターは壊れる物に入らない)', () => {
+    expect(UFO_UNDER_KINDS).not.toContain('escalator');
+    expect(UFO_UNDER_KINDS).not.toContain('fountain');
+    const half: Record<string, number> = { fountain: 32, escalator: 48 };
+    const bad: string[] = [];
+    for (const { plan, passBad, stage } of all) {
+      for (const s of plan.people) {
+        if (!passBad.has(s.person.id)) continue;
+        const ux = s.x + UFO_DX;
+        for (const p of plan.props) {
+          if (!(p.kind in half) || Math.abs(p.x - ux) >= UFO_HALF + half[p.kind]) continue;
+          // ラッシュのエスカレーター(ヒーローが立つ所の後ろ)は動かせないので、画面が壊さない
+          if (p.kind === 'escalator' && plan.rushX !== undefined && Math.abs(p.x - plan.rushX) <= 12) continue;
+          bad.push(`seed ${stage.seed}: UFO ${ux} の下に ${p.kind} ${p.x}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
   });
 });

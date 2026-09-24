@@ -26,6 +26,7 @@ import {
 } from './mallContent';
 import { ANALOGY_UNITS } from './format';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
+import { STAGES } from './stages';
 import type { Rng } from './rng';
 import type {
   AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, HeroFace, Look, OperatorFace, OperatorHint, RushTally, Speech, StageId,
@@ -708,9 +709,12 @@ export function mischiefLine(look: Look, rng?: Rng): Speech {
   return pickSpeech(MISCHIEF_LINES[key], rng);
 }
 
-/** 結果発表の画面に出る短い文(始まりの帯と、本性ちらり)。ショッピングモールは宇宙人のちらりが「ピピッ…」 */
+/**
+ * 結果発表の画面に出る短い文(始まりの帯と、本性ちらり)。宇宙人のステージ(仕組みが 'ufo'。ショッピングモール)は
+ * 宇宙人のちらりが「ピピッ…」
+ */
 export function streetTextsFor(stageId: StageId): { band: string; peekBad: string; peekCiv: string } {
-  return stageId === 'mall' ? MALL_STREET_TEXTS : STREET_TEXTS;
+  return STAGES[stageId].mechanic === 'ufo' ? MALL_STREET_TEXTS : STREET_TEXTS;
 }
 
 /** タイムセールラッシュの帯の文(ステージ3) */

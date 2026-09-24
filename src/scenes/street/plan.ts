@@ -188,8 +188,15 @@ export function planGarage(people: readonly Person[], passBadIds: ReadonlySet<st
 
 // ─── ステージ3(ショッピングモール)────────────────────
 
-/** 見逃した宇宙人から、UFOが下りてくる所(連れ去られる買い物客が立つ所)まで。画面はヒーローの位置から決めるので、だいたいの値 */
+/** 見逃した宇宙人から、UFOが下りてくる所(連れ去られる買い物客が立つ所)まで。画面(Street.ts)も同じ数字を使う */
 export const UFO_DX = 70;
+/** UFOの横の半分の幅(64×32)。物の真ん中がUFOの真ん中からこれより近ければ、UFOの真下 */
+export const UFO_HALF = 32;
+/**
+ * 落ちたUFOが壊す物(真下にあれば1つ)。エスカレーターと噴水は大きな据え付けの物なので入れない
+ * (ラッシュの波ではヒーローの後ろのエスカレーターがUFOの真下に来ることがあるが、壊れない)
+ */
+export const UFO_UNDER_KINDS: readonly PropKind[] = ['gacha', 'mannequin', 'showcase'];
 /** タイムセールラッシュで、最後の人からヒーローが立つ所まで(ステージ1の「WAVE CLEAR」で止まる所と同じ) */
 export const RUSH_DX = 70;
 /** 店の物を置く奥の列(下の端の y) */
@@ -202,7 +209,8 @@ const MALL_HALF: Partial<Record<PropKind, number>> = { gacha: 12, mannequin: 12,
  * - 通りがかりの市民はときどき置くだけ(UFOに連れ去られる買い物客は、UFOが来たときに画面が歩かせる)。
  *   見逃した宇宙人の先(UFOが下りてくる所)には置かない
  * - 物は奥の列にガチャガチャ、マネキン、ショーケース。噴水とエスカレーターを1つずつ。手前にガチャガチャを1つ。
- *   見逃した宇宙人の先には、UFOが落ちる真下になるように物を置くことが多い
+ *   見逃した宇宙人の先には、UFOが落ちる真下になるように小さな物(UFO_UNDER_KINDS)を置くことが多い。
+ *   エスカレーターと噴水は、UFOの落ちる所から離す
  * - rush:タイムセールラッシュのある波。ヒーローが立つ所(rushX)の後ろにエスカレーターを置き、まわりはあける
  */
 export function planMall(people: readonly Person[], passBadIds: ReadonlySet<string>, props: readonly PropKind[], rng: Rng, rush = false): StreetPlan {
@@ -244,17 +252,20 @@ export function planMall(people: readonly Person[], passBadIds: ReadonlySet<stri
   };
   // ラッシュのエスカレーター(まわりは広めにあける)
   if (rushX !== undefined && put('escalator', rushX + 8, 146)) used.push([rushX - 70, rushX + 90]);
+  // エスカレーターと噴水は、UFOの落ちる所にかからないようにする(見た目で重ならないように、少しあける)
+  const nearUfo = (x: number, kind: PropKind): boolean => ufoXs.some((u) => Math.abs(u - x) < UFO_HALF + (MALL_HALF[kind] ?? 12) + 4);
+  const putBig = (kind: 'escalator' | 'fountain', x: number, y: number): boolean => !nearUfo(x, kind) && put(kind, x, y);
   // (ラッシュのない波は)エスカレーターを人と人の間に1つ。空いていなければ最後の人の先
   const between = (): number => FIRST_X + rng.int(0, Math.max(0, spots.length - 2)) * GAP + 52 + rng.int(-6, 6);
   if (rushX === undefined) {
     let ok = false;
-    for (let t = 0; t < 4 && !ok; t++) ok = put('escalator', between(), 146);
+    for (let t = 0; t < 4 && !ok; t++) ok = putBig('escalator', between(), 146);
     if (!ok) put('escalator', endX + 40, 146);
   }
   // UFOの落ちる真下
-  for (const ux of ufoXs) if (rng.chance(0.7)) put(rng.pick(['gacha', 'mannequin', 'showcase', 'fountain'] as const), ux + rng.int(-6, 6));
+  for (const ux of ufoXs) if (rng.chance(0.7)) put(rng.pick(UFO_UNDER_KINDS), ux + rng.int(-6, 6));
   // 噴水を人と人の間に1つ
-  for (let t = 0; t < 4 && !put('fountain', between(), 152); t++);
+  for (let t = 0; t < 4 && !putBig('fountain', between(), 152); t++);
   // 残りの奥の列:ガチャガチャ、マネキン、ショーケース
   for (let x = 110 + rng.int(0, 20); x < endX + 160; x += rng.int(52, 80)) {
     const r = rng.next();
