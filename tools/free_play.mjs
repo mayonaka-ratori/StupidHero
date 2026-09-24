@@ -11,6 +11,7 @@
 //         種は、波3で素通りされるモヒカンのすぐあと(3人以内)に、もう1つ行けの場面がある種を、指定した種から探す。
 //         (a) 行けのマークが2つあるときに行けを押し、先に出たほうだけに効くか
 //         (b) 待てのマークのため(前半)の最中に行けを押し、その場から光の拳が飛んで、ためが続くか
+//         (c) 言い直しで止めている間に行けのマークがあれば行けを押し、止めが終わってから効くか(空押しに数えないか)
 //   both  good と none を続けて(all は good、none、late、two)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
@@ -202,7 +203,10 @@ async function play(policy) {
     check(`[${policy}] チャンスの数(待て9、行け8、場面27)`, f.stopChances === 9 && f.goChances === 8 && f.units === 27 && exp.stop === 9 && exp.goScenes === 8);
     check(`[${policy}] ゆっくりモードの印`, f.slow === slow, String(f.slow));
     check(`[${policy}] 時計が進んで止まった`, f.rawSec !== null && f.rawSec > 30 && f.rawSec < 400, String(f.rawSec));
-    check(`[${policy}] クリアの時間は、逃がしたワルと市民のけが1人につき3秒を足す`, Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt) * 3)) < 1e-6);
+    check(`[${policy}] クリアの時間は、逃がしたワル、市民のけが、ワルへの待て1つにつき3秒を足す`,
+      Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt + snap.badSparedByStop) * 3)) < 1e-6);
+    check(`[${policy}] 待てと行けのチャンスは巻きぞえで消えない(ヒーローが殴った市民と守った市民で9人)`,
+      policy === 'two' || snap.civHurtByHero + f.stopSaved === 9, `${snap.civHurtByHero}+${f.stopSaved}`);
     if (policy === 'good') {
       check('[good] 待てで市民を全員守った', f.stopSaved === 9, String(f.stopSaved));
       check('[good] 行けを全部決めた', f.goScenes === 8, String(f.goScenes));
@@ -232,30 +236,44 @@ async function play(policy) {
 }
 
 /**
- * two の見張り(ページの中で毎コマ)。市民への待ては、ためが6割まで進んだら押す(前半は (b) を試すため)。
+ * two の見張り(ページの中で毎コマ)。kind が 'ab' なら (a) と (b)、'c' なら (c) を試す。
+ * 市民への待ては、ためが6割まで進んだら押す(前半は (b) を試すため)。
  * 行けは、(a) と (b) を試し終わるまでは、2つそろうか、ための前半になるまで待つ(モヒカンは6秒まで)。試し終わったら、すぐ押す
  */
-const twoWatcher = () => {
-  const r = { a: null, b: null };
+const twoWatcher = (kind) => {
+  const r = { a: null, b: null, c: null };
+  const skipAB = kind === 'c';
   window.__two = r;
   const stopped = new Set();
   const targets = (sd, f) => [...f.threats.map((t) => t.since), ...(sd.goHandler ? [sd.goSince] : [])];
   const tick = () => {
     const sd = window.streetDev;
     const f = sd?.free;
-    if (f && sd.sys.isActive() && f.inputOpen) {
+    // (c) 言い直しで止めている間に行けを押す:止めが終わったら効き、空押しに数えない
+    if (kind === 'c' && f && sd.sys.isActive() && f.held && f.threats.length > 0 && !r.c) {
+      const run = window.__game.registry.get('run');
+      const dry0 = run.stats.snapshot().free.dryPresses;
+      const n0 = f.threats.length;
+      const oldest = Math.min(...f.threats.map((t) => t.since));
+      f.pressGo();
+      r.c = { pending: true, n0, dry0, oldest, heldAfterPress: f.threats.some((t) => t.since === oldest) };
+    } else if (f && r.c?.pending && !f.held) {
+      const run = window.__game.registry.get('run');
+      r.c = { ...r.c, pending: false, n1: f.threats.length, hit: !f.threats.some((t) => t.since === r.c.oldest), dry1: run.stats.snapshot().free.dryPresses };
+    }
+    if (f && sd.sys.isActive() && f.inputOpen && !f.held) {
       const now = sd.time.now;
       const marked = sd.queue.find((q) => q.markKind === 'stop' && q.standing);
       const w = f.windupProgress;
       if (marked && marked.civ && w !== null && w >= 0.6 && !stopped.has(marked.person.id)) { stopped.add(marked.person.id); f.pressStop(); }
       const list = targets(sd, f);
-      if (list.length >= 2 && !r.a) {
+      if (list.length >= 2 && !r.a && !skipAB) {
         const before = [...list];
         const oldest = Math.min(...before);
         f.pressGo();
         const after = targets(sd, f);
         r.a = { before, after, oldest, ok: !after.includes(oldest) && after.length === before.length - 1 };
-      } else if (list.length >= 1 && !r.b && marked && w !== null && w < 0.5 && f.threats.length > 0
+      } else if (list.length >= 1 && !r.b && !skipAB && marked && w !== null && w < 0.5 && f.threats.length > 0
         && (r.a || now - Math.min(...list) > 5000)) {
         // (b) は (a) のあと(先にためで行けを使うと、2つそろう前にモヒカンを倒してしまうため)
         const fist0 = f.seen.fist;
@@ -269,7 +287,8 @@ const twoWatcher = () => {
       } else if (list.length >= 1) {
         const oldest = Math.min(...list);
         const threat = f.threats.some((t) => t.since === oldest);
-        const tested = r.a && r.b;
+        // (c) では、言い直しまでモヒカンを残しておく(試し終わったら、すぐ押す)
+        const tested = skipAB ? !!r.c : r.a && r.b;
         const wait = tested ? 150 : threat ? 6000 : 800;
         if (now - oldest > wait) f.pressGo();
       }
@@ -289,10 +308,16 @@ const twoReady = () => {
     const attack = rule.kind === 'item' && p.item === rule.item;
     return p.truth === 'bad' && !attack && (!p.group || run.free.plan.stage.waves[2].groups.find((g) => g.id === p.group)?.memberIds[0] === p.id);
   }).map((p) => ({ i: p.index, look: p.look }));
-  return goAt.some((g, k) => g.look === 'fp_mohawk' && goAt[k + 1] && goAt[k + 1].i - g.i <= 3);
+  const a = goAt.some((g, k) => g.look === 'fp_mohawk' && goAt[k + 1] && goAt[k + 1].i - g.i <= 3);
+  // (c) 言い直しの直前(2人以内)に、素通りされるモヒカンがいる
+  const after = fw.redeclare?.after ?? 99;
+  const c = goAt.some((g) => g.look === 'fp_mohawk' && g.i < after && after - g.i <= 2);
+  return { a, c };
 };
 
-async function playTwo() {
+/** two を1回遊ぶ。kind 'ab' は (a) と (b)、'c' は (c) を試せる種を探して遊ぶ */
+async function playTwo(kind) {
+  const tag = `[two ${kind}]`;
   const errors = [];
   const page = await openPage(browser, { errors });
   let found = null;
@@ -302,11 +327,12 @@ async function playTwo() {
     for (const [k, v] of Object.entries({ scene: 'Street', free: '1', wave: '3', seed: String(sd), unlocked, threat: '8' })) u.searchParams.set(k, v);
     await page.goto(u.toString());
     await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
-    if (await page.evaluate(twoReady)) found = sd;
+    const ready = await page.evaluate(twoReady);
+    if (kind === 'ab' ? ready.a : ready.c) found = sd;
   }
-  if (!check('[two] 行けの場面が続く種がある', found !== null)) { await page.close(); return; }
-  console.log(`[two] 種 ${found}`);
-  await page.evaluate(twoWatcher);
+  if (!check(`${tag} 試せる並びの種がある`, found !== null)) { await page.close(); return; }
+  console.log(`${tag} 種 ${found}`);
+  await page.evaluate(twoWatcher, kind);
   const t0 = Date.now();
   let reached = false;
   let shotA = false;
@@ -317,20 +343,29 @@ async function playTwo() {
     await page.waitForTimeout(100);
   }
   const two = await page.evaluate(() => window.__two);
-  console.log(`[two] (a) ${JSON.stringify(two.a)}`);
-  console.log(`[two] (b) ${JSON.stringify(two.b)}`);
-  check('[two] 結果画面まで行く', reached);
-  check('[two] (a) 行けのマークが2つ出た', !!two.a);
-  check('[two] (a) 行けは先に出たほうだけに効いた', !!two.a?.ok);
-  check('[two] (b) ためのときに行けを押した', !!two.b);
-  check('[two] (b) その場から光の拳が飛んだ', two.b?.fist === 1, String(two.b?.fist));
-  check('[two] (b) ためは続いた(待てのマークのまま、ためが進む)', !!two.b && two.b.mode === 'mark' && two.b.stillMarked && two.b.p1 !== null && two.b.p1 > two.b.p0,
-    JSON.stringify(two.b));
+  check(`${tag} 結果画面まで行く`, reached);
+  if (kind === 'ab') {
+    console.log(`${tag} (a) ${JSON.stringify(two.a)}`);
+    console.log(`${tag} (b) ${JSON.stringify(two.b)}`);
+    check(`${tag} (a) 行けのマークが2つ出た`, !!two.a);
+    check(`${tag} (a) 行けは先に出たほうだけに効いた`, !!two.a?.ok);
+    check(`${tag} (b) ためのときに行けを押した`, !!two.b);
+    check(`${tag} (b) その場から光の拳が飛んだ`, two.b?.fist === 1, String(two.b?.fist));
+    check(`${tag} (b) ためは続いた(待てのマークのまま、ためが進む)`, !!two.b && two.b.mode === 'mark' && two.b.stillMarked && two.b.p1 !== null && two.b.p1 > two.b.p0,
+      JSON.stringify(two.b));
+  } else {
+    console.log(`${tag} (c) ${JSON.stringify(two.c)}`);
+    check(`${tag} (c) 言い直しの間に行けのマークが出ていて、行けを押した`, !!two.c);
+    check(`${tag} (c) 押した行けは止めている間は効かず、止めが終わってから先に出たマークに効き、空押しに数えない`,
+      !!two.c && two.c.heldAfterPress && two.c.hit && two.c.dry1 === two.c.dry0, JSON.stringify(two.c));
+  }
   const real = errors.filter((e) => !e.startsWith('console: Failed to load resource'));
-  check('[two] エラーが出ない', real.length === 0, real.slice(0, 3).join(' / '));
+  check(`${tag} エラーが出ない`, real.length === 0, real.slice(0, 3).join(' / '));
   await page.close();
 }
 
-for (const p of policies) await (p === 'two' ? playTwo() : play(p));
+for (const p of policies) {
+  if (p === 'two') { await playTwo('ab'); await playTwo('c'); } else await play(p);
+}
 await browser.close();
 done();

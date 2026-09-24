@@ -37,6 +37,13 @@ export class FreeItems {
     this.place(this.worn[this.worn.length - 1]);
   }
 
+  /** その人が持っている風船のいちばん上の y(風船がなければ null)。吹き出しを重ねないために使う */
+  topOf(a: Actor): number | null {
+    const w = this.worn.find((x) => x.a === a && !x.loose && x.item === 'balloon');
+    if (!w) return null;
+    return Math.round(a.y - a.lift + w.at.dy) - w.s.height;
+  }
+
   /** その人の小物(なければ null) */
   itemOf(a: Actor): FreeItem | null {
     return this.worn.find((w) => w.a === a && !w.loose)?.item ?? null;

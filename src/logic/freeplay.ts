@@ -9,7 +9,8 @@
 //   freeRoleOf(fw, person)                                 // 'stop' 待てのチャンス / 'go' 行けのチャンス / 'heroBad' 'heroCiv' ヒーローが正しい
 //   const t = freeTiming(fw.no, slow);                     // 人と人の間、ため、マークのゆっくり、逃げるまでの秒数など
 //   const dry = new DryPress();                            // 空押し。押すたびに dry.press(nowMs, マークがあるか)
-//   clearTimeSec(rawSec, stats.escaped, stats.civHurt)     // クリアまでの時間(逃がしたワルと市民のけがの分を足す)
+//                                                          // マークが消えたら dry.markGone(nowMs)(直後の押しは空押しにしない)
+//   clearTimeSec(rawSec, escaped, civHurt, badSparedByStop) // クリアまでの時間(逃がしたワル、市民のけが、ワルへの待ての分を足す)
 //
 // 配り方(毎回同じ数のチャンスが来るように、山札のように配る):
 // - 波1は8場面(待て6、殴られるワル2)、波2は7場面(行け5、素通りされる市民2)、
@@ -79,8 +80,8 @@ export const FREE = {
   total: { scenes: 27, stop: 9, go: 8, heroRight: 10 },
   /** 人と人の間(ドット)。波3は悪さの相手(72ドット先)と重ならないように狭くする */
   gapPx: { 1: 104, 2: 104, 3: 96 } as Readonly<Record<WaveNo, number>>,
-  /** ため(殴りかかる前に構える秒数)。波1と波2は今のステージと同じ1.08秒、波3は0.8秒 */
-  windupSec: { 1: 1.08, 2: 1.08, 3: 0.8 } as Readonly<Record<WaveNo, number>>,
+  /** ため(殴りかかる前に構える秒数)。波1と波2は今のステージと同じ1.08秒、波3は0.9秒(マークは約1.1秒) */
+  windupSec: { 1: 1.08, 2: 1.08, 3: 0.9 } as Readonly<Record<WaveNo, number>>,
   /** マークが出ている間の動きの速さ。波1と波2は今と同じゆっくり(0.6倍)、波3はゆっくりにしない */
   markSlowmo: { 1: MARK.slowmo, 2: MARK.slowmo, 3: 1 } as Readonly<Record<WaveNo, number>>,
   /** 波3で、何場面目のあとにルールを言い直すか(前の半分の場面の数) */
@@ -88,10 +89,15 @@ export const FREE = {
   /** 言い直す瞬間に時計を止める秒数(ゆっくりモードは3秒) */
   redeclarePauseSec: 1.5,
   redeclarePauseSlowSec: 3,
-  /** 逃がしたワル1人、市民のけが1人につき、クリアまでの時間に足す秒数 */
+  /**
+   * 逃がしたワル1人、市民のけが1人、ワルへの待て1回につき、クリアまでの時間に足す秒数。
+   * ワルへの待ては、行けで取り返しても足す(ルールを読まずにマークに反射で押すと損をするように)
+   */
   penaltySec: 3,
   /** 空押しのあと、待てや行けが効かない秒数(押し直すと数え直す) */
   dryPressLockSec: 1.0,
+  /** マークが消えた直後のこの秒数の押しは、空押しに数えず、効かない時間も始めない(遅れた人に二重の罰をしない) */
+  lateGraceSec: 0.15,
   /** ゆっくりモードの倍率(人と人の間、マークの長さ、逃げるまで、車、UFOの吸い上げ) */
   slowScale: 1.5,
   /** ギャングの組の人数(フリープレイは2人組だけ) */
@@ -204,9 +210,12 @@ export function freeTiming(no: WaveNo, slow = false): FreeTiming {
   };
 }
 
-/** クリアまでの時間(秒)。rawSec(止めている時間を除いた時計)に、逃がしたワルと市民のけが1人につき3秒を足す */
-export function clearTimeSec(rawSec: number, escaped: number, hurt: number): number {
-  return rawSec + (Math.max(0, escaped) + Math.max(0, hurt)) * FREE.penaltySec;
+/**
+ * クリアまでの時間(秒)。rawSec(止めている時間を除いた時計)に、逃がしたワル、市民のけが、ワルへの待て
+ * (villainStops。取り返しても数える)1つにつき3秒を足す
+ */
+export function clearTimeSec(rawSec: number, escaped: number, hurt: number, villainStops = 0): number {
+  return rawSec + (Math.max(0, escaped) + Math.max(0, hurt) + Math.max(0, villainStops)) * FREE.penaltySec;
 }
 
 /** クリアまでの時間の書き方(「1:38」。秒は切り捨て) */
@@ -219,18 +228,33 @@ export function formatClearTime(sec: number): string {
  * 空押しの判定(待てと行けで1つずつ持つ)。時刻は外から渡す(テストしやすいように)。
  * マークがないときに押すと、1.0秒だけ効かない。効かない間に押し直すと、そこから1.0秒を数え直す
  * (連打すると一度も効かない。見て押す人は困らない)。
+ * マークが消えた直後(FREE.lateGraceSec の間)の押しは、遅れて押しただけなので、空押しに数えず、効かない時間も始めない
+ * (画面はマークが消えたときに markGone(nowMs) を呼ぶ)。
  */
 export class DryPress {
   private lockUntil = Number.NEGATIVE_INFINITY;
+  private goneAt = Number.NEGATIVE_INFINITY;
   private dry = 0;
 
-  constructor(private readonly lockMs = FREE.dryPressLockSec * 1000) {}
+  constructor(private readonly lockMs = FREE.dryPressLockSec * 1000, private readonly graceMs = FREE.lateGraceSec * 1000) {}
+
+  /** そのボタンのマークが消えた(このあと少しの間の押しは、遅れた押しとして空押しにしない) */
+  markGone(nowMs: number): void {
+    this.goneAt = nowMs;
+  }
+
+  /** マークが消えた直後の、遅れた押しか(マークがないときだけ) */
+  late(nowMs: number, hasMark = false): boolean {
+    return !hasMark && nowMs - this.goneAt <= this.graceMs;
+  }
 
   /**
    * ボタンが押された。hasMark はそのボタンのマークが出ているか。
-   * 効いたら true。マークがない(空押し)か、効かない間なら false で、そこから効かない時間を数え直す
+   * 効いたら true。マークがない(空押し)か、効かない間なら false で、そこから効かない時間を数え直す。
+   * マークが消えた直後の遅れた押しは、何もせずに false(空押しに数えず、効かない時間も始めない)
    */
   press(nowMs: number, hasMark = true): boolean {
+    if (this.late(nowMs, hasMark)) return false;
     const locked = nowMs < this.lockUntil;
     if (!hasMark) this.dry++;
     if (locked || !hasMark) {

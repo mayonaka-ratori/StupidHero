@@ -738,11 +738,14 @@ export class StreetScene extends Phaser.Scene {
     return this.props.filter((p) => !p.broken && p.kind !== 'van' && p !== this.rushGuard && p.x >= l && p.x <= r);
   }
 
-  /** 巻きぞえになりうる市民(画面の中で立っている人) */
+  /**
+   * 巻きぞえになりうる市民(画面の中で立っている人)。
+   * フリープレイでは通りがかりの市民だけ(並んだ人は巻きぞえで倒れない。待てのチャンスの数がいつも同じになるように)
+   */
   private civsNear(except: Actor): Actor[] {
     const l = this.L.left - 8;
     const r = this.L.right + 8;
-    return [...this.queue, ...this.passers].filter((a) => a !== except && a.civ && a.standing && a.x >= l && a.x <= r);
+    return [...(this.free ? [] : this.queue), ...this.passers].filter((a) => a !== except && a.civ && a.standing && a.x >= l && a.x <= r);
   }
 
   // ─── 流れ ─────────────────────────────────────

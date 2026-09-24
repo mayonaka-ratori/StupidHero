@@ -293,18 +293,18 @@ describe('時間と空押し', () => {
     expect(FREE.waves.map((w) => w.scenes)).toEqual([8, 7, 12]);
     expect(FREE.total).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
     expect(FREE.gapPx).toEqual({ 1: 104, 2: 104, 3: 96 });
-    expect(FREE.windupSec[3]).toBe(0.8);
+    expect(FREE.windupSec[3]).toBe(0.9);
     expect(FREE.markSlowmo[3]).toBe(1);
     expect(FREE.markSlowmo[1]).toBe(MARK.slowmo);
-    expect([FREE.penaltySec, FREE.dryPressLockSec, FREE.redeclarePauseSec, FREE.slowScale]).toEqual([3, 1, 1.5, 1.5]);
+    expect([FREE.penaltySec, FREE.dryPressLockSec, FREE.redeclarePauseSec, FREE.slowScale, FREE.lateGraceSec]).toEqual([3, 1, 1.5, 1.5, 0.15]);
   });
 
   it('ゆっくりモードは間、ため、マーク、逃げるまで、車、UFOを1.5倍。言い直しで止める時間は3秒', () => {
     const n = freeTiming(3);
     const s = freeTiming(3, true);
-    expect(n).toMatchObject({ gapPx: 96, windupSec: 0.8, markSlowmo: 1, escapeSec: 3, redeclarePauseSec: 1.5 });
+    expect(n).toMatchObject({ gapPx: 96, windupSec: 0.9, markSlowmo: 1, escapeSec: 3, redeclarePauseSec: 1.5 });
     expect(s.gapPx).toBe(144);
-    expect(s.windupSec).toBeCloseTo(1.2);
+    expect(s.windupSec).toBeCloseTo(1.35);
     expect(s.markSlowmo).toBeCloseTo(1 / 1.5);
     expect(s.escapeSec).toBeCloseTo(4.5);
     expect(s.gangEscapeSec).toBeCloseTo(n.gangEscapeSec * 1.5);
@@ -314,9 +314,10 @@ describe('時間と空押し', () => {
     expect(freeTiming(1).gapPx).toBe(104);
   });
 
-  it('クリアまでの時間は、逃がしたワルと市民のけが1人につき3秒を足す', () => {
+  it('クリアまでの時間は、逃がしたワル、市民のけが、ワルへの待て1つにつき3秒を足す', () => {
     expect(clearTimeSec(95.5, 0, 0)).toBe(95.5);
     expect(clearTimeSec(95.5, 2, 1)).toBe(104.5);
+    expect(clearTimeSec(95.5, 2, 1, 2)).toBe(110.5);
     expect(formatClearTime(98.9)).toBe('1:38');
     expect(formatClearTime(59)).toBe('0:59');
     expect(formatClearTime(600)).toBe('10:00');
@@ -342,5 +343,18 @@ describe('時間と空押し', () => {
     expect(m.dryCount).toBe(7);
     m.reset();
     expect(m.press(5000, true)).toBe(true);
+  });
+
+  it('マークが消えた直後(0.15秒まで)の押しは、空押しに数えず、効かない時間も始めない', () => {
+    const d = new DryPress();
+    d.markGone(1000);
+    expect(d.press(1150, false)).toBe(false);
+    expect(d.dryCount).toBe(0);
+    expect(d.locked(1200)).toBe(false);
+    expect(d.press(1200, true)).toBe(true);
+    // 0.15秒をすぎたら、ふつうの空押し
+    expect(d.press(1151 + 200, false)).toBe(false);
+    expect(d.dryCount).toBe(1);
+    expect(d.locked(1400)).toBe(true);
   });
 });

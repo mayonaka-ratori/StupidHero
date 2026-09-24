@@ -134,8 +134,13 @@ export class FreeStreet {
   private pendingGo = 0;
   /** 一時停止の間は進まない時計(ミリ秒)。空押しの効かない間を数える */
   private playMs = 0;
-  /** 言い直しで止めている間 true(悪さの時計も止め、ボタンも閉じる) */
+  /** 言い直しで止めている間 true(悪さの時計も止める。押した待てと行けは覚えておき、止めが終わったら効かせる) */
   held = false;
+  /** 言い直しの間に押した待てと行け(マークが出ていたときだけ) */
+  private queued = { stop: false, go: false };
+  /** 前のコマで待てと行けのマークがあったか(消えた瞬間を知るため) */
+  private hadStop = false;
+  private hadGo = false;
   /** 開発用:モヒカンが逃げるまでの秒数を決める(?threat=8。行けのマークが2つ出る場面を作るため)。ふつうは null */
   private threatSecDebug: number | null = null;
   private offSettings: (() => void) | null = null;
@@ -159,9 +164,8 @@ export class FreeStreet {
     this.items = new FreeItems(s);
     this.timing = freeTiming(this.fw.no, settings.slowMode);
     this.passerPool = passerLooks(run.free!.plan.unlocked);
-    // 前の波までの、逃がしたワルと市民のけがの数(時間に足す分)から始める
-    const snap = s.stats.snapshot();
-    this.penaltyUnits = snap.escaped + snap.civHurt;
+    // 前の波までの、逃がしたワル、市民のけが、ワルへの待ての数(時間に足す分)から始める
+    this.penaltyUnits = this.penaltyNow();
     if (run.debug) {
       const t = Number(new URLSearchParams(location.search).get('threat'));
       if (t > 0) this.threatSecDebug = t;
@@ -259,14 +263,26 @@ export class FreeStreet {
     const ms = Math.min(deltaMs, 50);
     this.playMs += ms;
     if (f && this.clockRunning && !s.leaving) f.clockMs += ms;
-    // 逃がしたワルと市民のけがの分(1人3秒)も足した時間を出す。増えたら「+3」を飛ばす
+    // マークが消えたら覚えておく(直後の押しは、遅れた押しとして空押しにしない)
+    const stopMark = s.stopHandler !== null;
+    const goMark = this.goTarget() !== null;
+    if (this.hadStop && !stopMark) this.dryStop.markGone(this.playMs);
+    if (this.hadGo && !goMark) this.dryGo.markGone(this.playMs);
+    this.hadStop = stopMark;
+    this.hadGo = goMark;
+    // 逃がしたワル、市民のけが、ワルへの待ての分(1つ3秒)も足した時間を出す。増えたら「+3」を飛ばす
     if (s.frameN % 10 === 0 || !this.sign) {
-      const snap = s.stats.snapshot();
-      const units = snap.escaped + snap.civHurt;
+      const units = this.penaltyNow();
       if (units > this.penaltyUnits && this.sign) this.sign.penalty((units - this.penaltyUnits) * FREE.penaltySec);
       this.penaltyUnits = units;
     }
     this.sign?.setTime(formatClearTime(this.clockSec + this.penaltyUnits * FREE.penaltySec));
+  }
+
+  /** 時間に足す分の数(逃がしたワル、市民のけが、ワルへの待て。stats の clearSec と同じ数え方) */
+  private penaltyNow(): number {
+    const snap = this.s.stats.snapshot();
+    return snap.escaped + snap.civHurt + snap.badSparedByStop;
   }
 
   /** 人を合わせたあとに呼ぶ(小物) */
@@ -314,6 +330,8 @@ export class FreeStreet {
     if (!this.inputOpen) return;
     const s = this.s;
     const has = s.stopHandler !== null;
+    // 言い直しの間は、マークが出ていれば覚えておき、止めが終わったら効かせる(空押しには数えない)
+    if (this.held) { if (has) this.queued.stop = true; return; }
     if (!this.dryStop.press(this.playMs, has)) { if (!has) this.dry('stop'); return; }
     s.stopHandler?.();
   }
@@ -321,6 +339,7 @@ export class FreeStreet {
   pressGo(): void {
     if (!this.inputOpen) return;
     const t = this.goTarget();
+    if (this.held) { if (t) this.queued.go = true; return; }
     if (!this.dryGo.press(this.playMs, t !== null)) { if (!t) this.dry('go'); return; }
     if (t) this.fireGo(t);
   }
@@ -527,7 +546,7 @@ export class FreeStreet {
     const from = this.rule;
     this.clockRunning = false;
     this.heroMode = 'busy';
-    // 止めている間は、悪さの時計(モヒカンが逃げるまで、ギャング、UFO)も止め、待てと行けのボタンも閉じる
+    // 止めている間は、悪さの時計(モヒカンが逃げるまで、ギャング、UFO)も止める。押した待てと行けは、止めが終わってから効かせる
     this.hold(true);
     h.faceLeft(false).play('win_arms', true);
     if (from.kind === 'item' && next.kind === 'item') {
@@ -547,11 +566,15 @@ export class FreeStreet {
     this.clockRunning = true;
   }
 
-  /** 言い直しの間、悪さの時計を止める(on=false で動かし直す) */
+  /** 言い直しの間、悪さの時計を止める(on=false で動かし直し、その間に押された待てと行けを効かせる) */
   private hold(on: boolean): void {
     this.held = on;
-    this.inputOpen = !on;
     for (const t of this.threats) if (t.timer) t.timer.paused = on;
+    if (on) { this.queued = { stop: false, go: false }; return; }
+    const q = this.queued;
+    this.queued = { stop: false, go: false };
+    if (q.stop) this.pressStop();
+    if (q.go) this.pressGo();
   }
 
   /** 次の人へ歩く(行けで走って殴るときは、途中で止めて、あとで続きを歩く) */
@@ -575,7 +598,7 @@ export class FreeStreet {
     s.slow = this.timing.markSlowmo;
     h.sprite.anims.timeScale = this.timing.markSlowmo;
     const item = rule.kind === 'item' ? rule.item : undefined;
-    this.heroSayItem(this.lines.heroAttack(look, rule), item);
+    this.heroSayItem(this.lines.heroAttack(look, rule), item, a);
     if (a.civ) this.opEvent('hitCivRule', { look, item });
     const k = s.pickAttack();
     const res = await this.markWindow(a, k);
@@ -622,11 +645,19 @@ export class FreeStreet {
   }
 
   /** 決めつけの一言。波3は吹き出しの左に小物の絵も出す(「風船だからワル!」) */
-  private heroSayItem(sp: { text: string }, item?: FreeItem): void {
+  private heroSayItem(sp: { text: string }, item: FreeItem | undefined, target: Actor): void {
     const s = this.s;
     // マークが出ている間(近づく間とため)は出しておく
     const markMs = ((MARK.showDistance - ATTACK_GAP) / (RUN * this.timing.markSlowmo) + this.timing.windupSec) * 1000;
-    s.heroSay(sp.text, Math.max(1600, Math.round(markMs) + 200), JUDGE_RISE);
+    // 相手が風船を持っていたら、吹き出しを風船の上まで上げる(風船に重ならないように)
+    let rise = JUDGE_RISE;
+    const top = this.items.topOf(target);
+    if (top !== null) {
+      const h = s.hero;
+      // 吹き出しの下の端(しっぽの付け根)は、頭の上 HEAD + 2 からさらに rise 上、しっぽの長さ5ドットの上
+      rise = Math.max(rise, Math.ceil(h.y - h.lift - HEAD - 2 - 5 - (top - 2)));
+    }
+    s.heroSay(sp.text, Math.max(1600, Math.round(markMs) + 200), rise);
     this.bubbleIcon?.destroy();
     this.bubbleIcon = null;
     const key = item ? FREE_ITEM_ICONS[item] : null;

@@ -83,7 +83,7 @@ describe('フリープレイの数え方', () => {
       // 行けのチャンスは全部逃げた。ギャングの組は2人を逃がしたに数える
       const goPeople = plan.stage.waves.flatMap((w, i) => w.people.filter((p) => freeRoleOf(plan.waves[i], p) === 'go')).length;
       expect(s.escaped).toBe(goPeople);
-      expect(f.clearSec).toBe(100 + (s.escaped + s.civHurt) * 3);
+      expect(f.clearSec).toBe(100 + (s.escaped + s.civHurt + s.badSparedByStop) * 3);
       expect(decideTitle(s).id).toBe('letItBe');
     }
   });
@@ -204,10 +204,12 @@ describe('フリープレイの称号', () => {
     expect(decideTitle({ ...base, civHurt: 1, civHurtByVillain: 1 }).id).toBe('heroInterpreter');
   });
 
-  it('通訳:待て8人以上、行け7回以上、空押し3回まで', () => {
+  it('通訳:待て8人以上、行け7回以上、空押し3回まで、ワルへの待て1回まで', () => {
     const base = { ...s(), escaped: 1 };
     const f = base.free!;
     expect(decideTitle({ ...base, free: { ...f, stopSaved: 8, goScenes: 7, dryPresses: 3 } }).id).toBe('heroInterpreter');
+    expect(decideTitle({ ...base, badSparedByStop: 1, free: { ...f, stopSaved: 8, goScenes: 7 } }).id).toBe('heroInterpreter');
+    expect(decideTitle({ ...base, badSparedByStop: 2, free: { ...f, stopSaved: 8, goScenes: 7 } }).id).not.toBe('heroInterpreter');
     expect(decideTitle({ ...base, free: { ...f, stopSaved: 7, goScenes: 8 } }).id).not.toBe('heroInterpreter');
     expect(decideTitle({ ...base, free: { ...f, stopSaved: 9, goScenes: 6 } }).id).not.toBe('heroInterpreter');
   });
