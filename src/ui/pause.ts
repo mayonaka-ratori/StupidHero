@@ -248,7 +248,9 @@ export class PauseOverlay extends Phaser.Scene {
     const bw = Math.floor((MENU_W - 12 * 2 - 8) / 2);
     const ready = (): boolean => performance.now() - this.shownAt >= 300;
     const resumeBtn = new Button(this, x + 12, by, bw, btnH, 'つづける', { color: 'civ', size: FS.body });
-    const titleBtn = new Button(this, x + MENU_W - 12 - bw, by, bw, btnH, 'タイトルへ', { color: 0x4a3f78, size: FS.body });
+    // 「タイトルへ」はそのプレイを記録せずに終わるので、当たり判定を狭くする(ふつうの4ドットだと、
+    // 2つのボタンの当たり判定がすき間の真ん中でくっつき、境目を押すと「タイトルへ」になっていた)
+    const titleBtn = new Button(this, x + MENU_W - 12 - bw, by, bw, btnH, 'タイトルへ', { color: 0x4a3f78, size: FS.body, pad: 1 });
     // 止めたときと同じタップで押さないように、少し待つ
     resumeBtn.on('press', () => { if (ready()) { audio.sfx('button'); data.control.resume(); } });
     titleBtn.on('press', () => { if (ready()) { audio.unlock(); audio.sfx('button'); data.control.quit(SCENES.title); } });
