@@ -71,6 +71,7 @@ const withoutChanged = (s: FixtureStage) => ({
  * - 完全無欠、街のほんものヒーロー:巻きぞえの市民は数えない(運で取れなくなるのを防ぐ)
  * - 正義の暴走機関車:ワルに襲われた市民は数えない(ヒーローが傷つけた市民だけ)
  * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
+ * - おばあちゃんの敵:おばあさんを直接なぐったときだけ(巻きぞえは数えない)
  */
 const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
   13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
@@ -79,9 +80,12 @@ const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why:
   23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  46: { was: 'grannyFoe', now: 'soSo', why: 'ヒーローがなぐった市民がいないので、おばあさんはなぐっていない' },
   48: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  63: { was: 'grannyFoe', now: 'stopMaster', why: 'おばあさんに当たったのは巻きぞえだけ' },
   66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
   70: { was: 'runawayTrain', now: 'tapProdigy', why: 'ヒーローが傷つけたのは巻きぞえ1人だけ' },
+  72: { was: 'grannyFoe', now: 'chaseDemon', why: 'おばあさんに当たったのは巻きぞえだけ' },
   75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' }
 };
 
@@ -126,7 +130,10 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
     alleyV1.titles.forEach(({ stats, title, name }, i) => {
-      const s = { ...zero, ...stats, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
+      // 公開版の記録には、おばあさんを直接なぐったか巻きぞえかの区別がない。
+      // ヒーローがなぐった市民がいれば、なぐったのはおばあさんだったことにする
+      const grannyPunched = stats.grannyHit && stats.civHurtByHero > 0;
+      const s = { ...zero, ...stats, grannyPunched, propsBroken: { ...zero.propsBroken, ...stats.propsBroken } } as StageStats;
       const t = decideTitle(s);
       const changed = CHANGED_TITLES[i];
       if (changed) {

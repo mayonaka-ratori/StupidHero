@@ -283,7 +283,7 @@ export interface StageStats {
   defeatedByVan: number;
   /** まとめて吹き飛ばした組の数(ステージ2。「一網打尽」) */
   groupsWiped: number;
-  /** 車で逃げられた組の数(ステージ2。「ギャングの運転手」) */
+  /** 車で逃げられた組の数(ステージ2。「ギャングの見送り係」) */
   groupsEscaped: number;
   /** 車で逃げられた人数(escaped に入っている) */
   escapedByVan: number;
@@ -312,6 +312,8 @@ export interface StageStats {
   badSparedByStop: number;
   /** おばあさんを殴ったか(巻きぞえを含む) */
   grannyHit: boolean;
+  /** おばあさんをワルに仕分けて殴ったか(巻きぞえは含まない。「おばあちゃんの敵」) */
+  grannyPunched: boolean;
   /** ボスを市民に仕分けたか */
   bossSortedCiv: boolean;
   /** ボス戦にかかった秒数。ボス戦をしていなければ null */

@@ -29,6 +29,10 @@ describe('StatsTracker', () => {
     expect(r.civHurt).toBe(3);
     expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain]).toEqual([1, 1, 1]);
     expect(r.grannyHit).toBe(true);
+    // 巻きぞえだけなら「直接なぐった」にはしない(おばあちゃんの敵)
+    expect(r.grannyPunched).toBe(false);
+    s.hurtCiv('hero', 'granny');
+    expect(s.snapshot().grannyPunched).toBe(true);
   });
 
   it('被害額は物、悪さ、ボスの合計', () => {
@@ -135,7 +139,7 @@ describe('StatsTracker(ステージ2)', () => {
     expect(r.civHurt).toBe(0);
   });
 
-  it('1人だけの組は、人数は数えるが組の数(一網打尽、ギャングの運転手)には入れない', () => {
+  it('1人だけの組は、人数は数えるが組の数(一網打尽、ギャングの見送り係)には入れない', () => {
     const s = new StatsTracker(9, 'garage');
     s.groupWiped(1);
     s.groupWiped(2);

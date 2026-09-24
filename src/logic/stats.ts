@@ -10,7 +10,7 @@
 //   組が市民を襲うことはないので、市民負傷は増えない。
 //   仲間が誰も来なかった(1人だけ)ときは、画面はステージ1の見逃したワルと同じ流れにする
 //   (行けで defeatBad('go')、逃げたら escaped())。1人で groupWiped などを呼んでも、人数は数えるが
-//   組の数(称号「一網打尽」「ギャングの運転手」の数)には入れない(GANG.groupSize.min 人以上だけ組)
+//   組の数(称号「一網打尽」「ギャングの見送り係」の数)には入れない(GANG.groupSize.min 人以上だけ組)
 //
 // ステージ3(STAGE3「数え方の追加」「タイムセールラッシュ」の数え方):
 //   宇宙人の空への合図(見逃した宇宙人)では stats.mischief を呼ばない(呼んでも何も足さない)。
@@ -99,6 +99,7 @@ export class StatsTracker {
   private civSavedByStop = 0;
   private badSparedByStop = 0;
   private grannyHit = false;
+  private grannyPunched = false;
   private bossSortedCiv = false;
   private bossFightSec: number | null = null;
   private worst: WorstScene | null = null;
@@ -224,6 +225,7 @@ export class StatsTracker {
   hurtCiv(cause: HurtCause, look?: Look): void {
     this.hurt[cause]++;
     if (look === 'granny' && (cause === 'hero' || cause === 'collateral')) this.grannyHit = true;
+    if (look === 'granny' && cause === 'hero') this.grannyPunched = true;
   }
 
   /** そのステージでヒーローの攻撃が市民に当たった回数(ツッコミを短い版にするかを決めるのに使う) */
@@ -367,6 +369,7 @@ export class StatsTracker {
       civSavedByStop: this.civSavedByStop,
       badSparedByStop: this.badSparedByStop,
       grannyHit: this.grannyHit,
+      grannyPunched: this.grannyPunched,
       bossSortedCiv: this.bossSortedCiv,
       bossFightSec: this.bossFightSec,
       villainTotal: this.villainTotal,
