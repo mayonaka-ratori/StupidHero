@@ -68,7 +68,8 @@ export class IntroScene extends Phaser.Scene {
     this.hero = this.add.sprite(HERO_X, FEET_Y, 'hero').setOrigin(...originFor('hero')).setScale(2).setDepth(Z.actor);
     this.hero.play(animKey('hero', 'idle'));
     this.hero.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.hero.play(animKey('hero', 'idle')));
-    this.demo = new IntroDemo(this, 116, 34, 96, 122);
+    // お手本の人は、そのステージの人にする(路地裏と地下駐車場はパーカーの男のまま)
+    this.demo = new IntroDemo(this, 116, 34, 96, 122, run.stage.def.mechanic === 'ufo' ? 'uncle_bad' : undefined);
 
     // 右上:音
     const mute = addMute(this, W - 13, 13);
