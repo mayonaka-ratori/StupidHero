@@ -698,7 +698,8 @@ export class BossScene extends Phaser.Scene {
   /** いま出している連打の技(待機などのときは null) */
   private currentMove(): RushMove | null {
     const key = this.hero.anims.currentAnim?.key;
-    if (!key || !RUSH_MOVE_KEYS.has(key) || !this.hero.anims.isPlaying) return null;
+    // 10連打の止め(hitStop)で一瞬止まっている間も、出している途中の技として数える
+    if (!key || !RUSH_MOVE_KEYS.has(key) || !(this.hero.anims.isPlaying || this.hero.anims.isPaused)) return null;
     return key.slice(key.indexOf('.') + 1) as RushMove;
   }
 
@@ -719,6 +720,7 @@ export class BossScene extends Phaser.Scene {
     this.wasIdle = true;
     const inCar = this.carMode !== 'foot';
     if (this.carMode !== 'boarding') this.playAnim(this.boss, this.bossKey, 'rampage');
+    this.hero.anims.timeScale = 1;
     this.playAnim(this.hero, 'hero', 'idle');
     this.alarm.start();
     audio.sfx(inCar ? (this.car?.flies ? 'shipBeam' : 'horn') : 'rampage');
