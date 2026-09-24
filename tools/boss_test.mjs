@@ -105,11 +105,12 @@ if (mode === 'idle') {
     st = await fight();
     check('体力が半分を切ると車に乗る', st.inCar && st.hpRatio <= 0.5 + 1e-9, JSON.stringify(st));
     check('飛び乗る動きが始まる', st.carMode === 'boarding' || st.carMode === 'car', st.carMode);
-    // 車が手前に出てくる間(乗ってから1.3秒)は、押しても体力が減らない
-    const boardAt = await S(() => window.bossScene.fight.carBoardedAt);
+    // 車が手前に出てくる間(乗ってから1.3秒)は、押しても体力が減らない。
+    // 1.3秒をすぎると体力はまた減るので、乗ったのを見つけたらすぐに1回だけ押して、その前後を比べる
     const hold0 = await fight();
-    await mash(2, 90);
+    await mash(1, 60);
     const hold1 = await fight();
+    const boardAt = await S(() => window.bossScene.fight.carBoardedAt);
     const inHold = hold1.sec - boardAt < 1.3;
     check('手前に出てくるまで体力が減らない', inHold && hold1.taps > hold0.taps && Math.abs(hold1.hp - hold0.hp) < 1e-6,
       `乗ったのは${boardAt.toFixed(2)}s ${hold0.hp.toFixed(2)}@${hold0.sec.toFixed(2)}s -> ${hold1.hp.toFixed(2)}@${hold1.sec.toFixed(2)}s 連打${hold0.taps}->${hold1.taps}`);
@@ -127,9 +128,12 @@ if (mode === 'idle') {
   const perSec = hasCar ? perSecCar : perSecFoot;
   check('止まると被害額が増える', dmg1 - dmg0 >= perSec && (dmg1 - dmg0) % perSec === 0, `${dmg0} -> ${dmg1}(1秒 ${perSec})`);
   if (hasCar) {
+    // 体力は時間でも減るので、押している途中で倒れることがある。数えた押しが全部、車に当たったかを見る
+    const c0 = await fight();
     await mash(6, 90);
     const c = await fight();
-    check('車ごと殴る(車に当たった数)', c.carTaps >= 4, JSON.stringify(c));
+    const hits = c.carTaps - c0.carTaps, counted = c.taps - c0.taps;
+    check('車ごと殴る(車に当たった数)', hits >= 2 && hits === counted, `車に当たった${hits}回 / 数えた${counted}回 ${JSON.stringify(c)}`);
     await shot('06g_car_hit');
   }
   await wait(1200);
