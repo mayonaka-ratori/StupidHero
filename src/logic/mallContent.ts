@@ -287,7 +287,7 @@ export const BOSS3_HINTS: Readonly<Record<MallDisguise, readonly OperatorHint[]>
  */
 export const MALL_INTRO: readonly Speech[] = [
   hero('smug', '次はショッピングモール！\n宇宙人退治だ！'),
-  op('normal', '宇宙人は人間のふり。でも\nときどき動きがくずれる'),
+  op('normal', '宇宙人は人間に化けてる。\nときどき動きがくずれる'),
   op('deadpan', 'ぎこちない市民もいるよ。\n少し待って、よく見てね'),
   op('panic', '見逃すとUFOを呼んで、\n人を連れていく'),
   op('normal', '全員は待てないから、\nほかの手がかりも見てね')
@@ -340,7 +340,7 @@ export const MALL_REACTIONS: Readonly<Record<MallReactionKey, readonly Speech[]>
   ufoGo: [hero('smug', 'UFOごと\nぶっ飛ばす！'), hero('smug', '空まで\n届けーっ！')],
   ufoDowned: [op('deadpan', '落ちた…けど\n床がへこんだ'), op('deadpan', 'ナイス…\nUFOは弁償？')],
   ufoAbducted: [op('deadpan', '連れていかれた…'), op('deadpan', 'あーあ、\n空に消えた')],
-  rushMark: [hero('smug', 'セール荒らしめ！')],
+  rushMark: [hero('smug', 'セールを荒らすなーっ！')],
   rushCivHit: [hero('smile', 'あれ？')],
   rushEndGood: [op('hype', 'セール終了！\nばっちり！')],
   rushEndBad: [op('deadpan', 'セール終了…\nつかれた')]
@@ -418,7 +418,7 @@ export const RUSH_BAND = 'タイムセール開始！';
 
 /** 初めてのラッシュの説明(オペレーター、2つ続けて) */
 export const RUSH_INTRO_FIRST: readonly Speech[] = [
-  op('panic', '人がどっと来る！\n全員殴っちゃう！'),
+  op('panic', '人がどっと来る！\n全員殴られちゃう！'),
   op('normal', 'くずれてたら宇宙人！\n市民にだけ待て！')
 ];
 
@@ -440,6 +440,6 @@ export const MALL_TITLE_COMMENT_OVERRIDES = {
 /** 称号のひとこと(ステージ3の3つ) */
 export const MALL_TITLE_COMMENTS = {
   ufoGuide: op('deadpan', 'UFOの前で\n手をふってたよね'),
-  saleGuardian: op('hype', 'セールの人ごみで\n一人も間違えない！'),
+  saleGuardian: op('hype', 'セールの人ごみで\n一人も間違えなかった！'),
   ufoHunter: op('hype', 'UFO落とすの、\nくせになってない？')
 } as const;

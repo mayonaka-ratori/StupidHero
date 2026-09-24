@@ -59,7 +59,7 @@ describe('答え合わせの決め手', () => {
     expect(reasonFor(p('dancer', 'civ'))).toBe('ダンスの練習でカクカク');
     expect(reasonFor(p('uncle', 'civ'))).toBe('腰をさすっていただけ');
     expect(reasonFor(p('clerk', 'boss', 'clerk'))).toBe('店員なのに名札が逆さ');
-    expect(reasonFor(p('uncle', 'boss', 'uncle'))).toBe('おじさんの耳がとがる');
+    expect(reasonFor(p('uncle', 'boss', 'uncle'))).toBe('おじさんの耳がとがっていた');
     expect(reasonFor(p('mascot', 'boss', 'mascot'))).toBe('着ぐるみから触角');
     for (const r of Object.values(MALL_REASONS)) for (const t of Object.values(r)) expect(widthOf(t)).toBeLessThanOrEqual(REASON_MAX);
   });

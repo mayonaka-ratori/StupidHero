@@ -435,7 +435,7 @@ describe('ステージ3の文', () => {
     for (const look of MALL_LOOKS) expect(MALL_REACTIONS.ufoSignal).toContain(mischiefLine(look, rng));
     expect(say('teachUfo', rng, 'mall').text).toContain('行け');
     expect(say('ufoGo', rng, 'mall').who).toBe('hero');
-    expect(say('rushMark', rng, 'mall').text).toBe('セール荒らしめ！');
+    expect(say('rushMark', rng, 'mall').text).toBe('セールを荒らすなーっ！');
     expect(say('rushCivHit', rng, 'mall').text).toBe('あれ？');
   });
 
