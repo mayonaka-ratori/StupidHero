@@ -92,7 +92,8 @@ export interface Look {
   sweat?: string | null;
 }
 
-const dark = (r: Ramp): Ramp => [r[1], r[2], r[2]];
+/** 奥の手足の暗い色(フリープレイの人の絵 art/free/people.ts でも使う) */
+export const dark = (r: Ramp): Ramp => [r[1], r[2], r[2]];
 
 // ---------- 頭 ----------
 

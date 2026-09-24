@@ -15,6 +15,11 @@
 //   ヒーローは全員に光のパンチ。市民にだけ待てを押す。時間は update から呼ぶ stepRush が数える(一時停止とヒットストップで止まる)
 // 3つの仕組みは部品に分けてある:street/gang.ts(GangPart)、street/ufo.ts(UfoPart)、street/rush.ts(RushPart)。
 // 部品はこのシーンを受け取り、シーンの道具(fx、heroSay、knock など)を使う。部品から使う道具は private にしていない。
+//
+// フリープレイ(run.mode === 'free'。docs/FREEPLAY.md)は、流れを street/free.ts の FreeStreet が受け持つ(this.free)。
+// 背景と置く物は波ごとの背景のステージ、仕組みは人の見た目で決める。技、吹っ飛び、ギャングの組(GangPart)、UFO(UfoPart)は
+// ステージと同じものを使い、画面の違い(札を出さない、早送りなし、ステージの流れのオペレーターの一言を出さない、
+// ワゴンが右から走ってくる)だけを this.free で分ける
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -36,18 +41,17 @@ import {
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
 import { Actor, HEAD } from './street/actor';
 import { FastButton } from './street/fastButton';
+import { FreeStreet } from './street/free';
 import { Layers } from './street/layers';
 import { HERO_START, planGarage, planMall, planStreet } from './street/plan';
 import { snapshotLogical } from '../hires';
-import { type CivHit, type HitMode, type PropObj, type Walker, RUN } from './street/common';
+import { type CivHit, type HitMode, type PropObj, type Walker, ATTACK_GAP, JUDGE_RISE, RUN } from './street/common';
 import { GangPart } from './street/gang';
 import { UfoPart } from './street/ufo';
 import { RushPart } from './street/rush';
 
 /** ヒーローの画面の中での位置(左寄り) */
 const HERO_SCREEN_X = 60;
-/** 殴りかかる距離(相手の何ドット手前で技を出すか) */
-const ATTACK_GAP = 34;
 /** 技を出す前のため(この間も待てが効く)。マークが出てから殴るまで合わせて約1.5秒になるように */
 const WINDUP_MS = 1080;
 /** ボス出現!の帯の高さ。ヒーローの吹き出し(頭の上)と重ならないように、画面の上のほうに出す */
@@ -56,8 +60,6 @@ const BANNER_TOP_Y = 46;
 const POP_TRIES = 6;
 /** 早送りの倍率 */
 const FAST = 2;
-/** ヒーローの決めつけの吹き出しを上げるドット数(相手の札と合図の間に入れる) */
-const JUDGE_RISE = 8;
 /** 本性ちらり(ワルにした人に向かったときに一瞬見せる正体)の長さ */
 const PEEK_MS = 700;
 /** ステージ3:本性ちらりで光る宇宙人の目の色(黄緑。明るい緑 R0 G255 B0 は使わない) */
@@ -94,7 +96,7 @@ export class StreetScene extends Phaser.Scene {
   rng!: Rng;
   L!: Layers;
   hero!: Actor;
-  private aura!: Phaser.GameObjects.Sprite;
+  aura!: Phaser.GameObjects.Sprite;
   private trail!: Phaser.GameObjects.Sprite;
   auraOn = false;
   queue: Actor[] = [];
@@ -109,10 +111,22 @@ export class StreetScene extends Phaser.Scene {
   /** 開発用:?attack=special などで技を決める */
   private forceAttack: AttackKind | null = null;
   private startedAt = 0;
-  private walker: Walker | null = null;
-  private slow = 1;
+  walker: Walker | null = null;
+  slow = 1;
   stopHandler: (() => void) | null = null;
-  goHandler: (() => void) | null = null;
+  private goFn: (() => void) | null = null;
+  /** 行けの合図が出た時刻(フリープレイで、行けのマークが2つあるときに先に出たほうへ効かせる) */
+  goSince = 0;
+  /** この時間(ミリ秒)だけ、ヒーローは歩くのを止める(フリープレイの空押しの待て)。一時停止の間は減らない */
+  holdMs = 0;
+  /** フリープレイのときだけ(run.mode === 'free')。ステージのときは null */
+  free: FreeStreet | null = null;
+  /** 行けの合図が出ている間の、行けを押したときの動き */
+  get goHandler(): (() => void) | null { return this.goFn; }
+  set goHandler(fn: (() => void) | null) {
+    if (fn && !this.goFn) this.goSince = this.time.now;
+    this.goFn = fn;
+  }
   flickers = new Set<Phaser.GameObjects.Components.Visible & Phaser.GameObjects.GameObject>();
   heroBubble?: Bubble;
   /** ヒーローの吹き出しを、頭の上からさらに何ドット上げるか */
@@ -126,14 +140,14 @@ export class StreetScene extends Phaser.Scene {
   /** オペレーターが話した回数(あとから言い替えるとき、間にほかのセリフがあったかを見る) */
   opSeq = 0;
   frameN = 0;
-  private civHits: CivHit[] = [];
+  civHits: CivHit[] = [];
   /** この攻撃で、市民に当たったときにオペレーターが言った一言の種類 */
-  private civCried: ReactionKey | null = null;
-  private leaving = false;
+  civCried: ReactionKey | null = null;
+  leaving = false;
   // 下の操作部分
   cut!: CutIn;
-  private stopBtn!: Button;
-  private goBtn!: Button;
+  stopBtn!: Button;
+  goBtn!: Button;
   icons: Phaser.GameObjects.GameObject[] = [];
   fastBtn!: FastButton;
   private tDefeat!: PixelText;
@@ -158,7 +172,11 @@ export class StreetScene extends Phaser.Scene {
     this.def = this.run.stage.def;
     this.stats = this.run.stats;
     this.rng = this.run.rng;
-    fillUnsorted(this.run);
+    this.holdMs = 0;
+    // フリープレイ:背景と置く物は波ごとの背景のステージ。仕分けはヒーローの決めつけ(FreeStreet が入れる)
+    this.free = this.run.mode === 'free' && this.run.free ? new FreeStreet(this) : null;
+    if (this.free) this.def = this.free.bgDef;
+    else fillUnsorted(this.run);
     this.queue = []; this.passers = []; this.safeWalkers = []; this.props = []; this.icons = [];
     this.flickers = new Set();
     this.walker = null; this.slow = 1; this.stopHandler = null; this.goHandler = null;
@@ -166,7 +184,7 @@ export class StreetScene extends Phaser.Scene {
     this.shownDamage = this.stats.damage; this.shown = { defeated: -1, hurt: -1, damage: '' };
     this.auraOn = false;
     this.camFocus = null;
-    // ステージごとの仕組み(ギャング、UFO、タイムセールラッシュ)。回ごとに作り直す
+    // ステージごとの仕組み(ギャング、UFO、タイムセールラッシュ)。回ごとに作り直す(this.free を決めたあとに作る)
     this.gangPart = new GangPart(this);
     this.ufoPart = new UfoPart(this);
     this.rushPart = new RushPart(this);
@@ -180,7 +198,7 @@ export class StreetScene extends Phaser.Scene {
     this.buildWorld();
     this.buildPanel();
 
-    audio.playBgm(this.def.bgm.street);
+    audio.playBgm(this.free ? this.free.bgm : this.def.bgm.street);
     unlockOnTap(this);
     // 開発中だけ、自動テストから中身をさわれるようにする
     if (import.meta.env.DEV) (window as unknown as { streetDev?: unknown }).streetDev = this;
@@ -198,11 +216,13 @@ export class StreetScene extends Phaser.Scene {
     const encOf = (id: string, truth: 'bad' | 'civ' | 'boss'): Encounter => resolveEncounter(truth, this.run.sorts[id] ?? 'civ');
     const passBad = new Set(wave.people.filter((p) => encOf(p.id, p.truth) === 'passBad').map((p) => p.id));
     // 置く物はステージの仕組みごと(ステージ3はモールの物。ラッシュのある波はヒーローが立つ所にエスカレーター)
-    const plan = this.def.mechanic === 'gang'
-      ? planGarage(wave.people, passBad, this.def.props, this.rng)
-      : this.def.mechanic === 'ufo'
-        ? planMall(wave.people, passBad, this.def.props, this.rng, this.rushPart.rushThisWave())
-        : planStreet(wave.people, passBad, this.rng);
+    const plan = this.free
+      ? this.free.plan(wave.people)
+      : this.def.mechanic === 'gang'
+        ? planGarage(wave.people, passBad, this.def.props, this.rng)
+        : this.def.mechanic === 'ufo'
+          ? planMall(wave.people, passBad, this.def.props, this.rng, this.rushPart.rushThisWave())
+          : planStreet(wave.people, passBad, this.rng);
     this.rushPart.rushX = plan.rushX ?? null;
 
     for (const p of plan.props) {
@@ -233,8 +253,13 @@ export class StreetScene extends Phaser.Scene {
       a.person = s.person; a.look = s.person.look; a.civ = s.person.truth === 'civ';
       a.faceLeft(true).play('idle');
       a.sprite.anims.setProgress(this.rng.float(0, 1));
-      const choice = this.run.sorts[s.person.id] ?? 'civ';
-      a.tag = new Tag(this, s.x, s.y - HEAD, choice).follow(a.sprite, -HEAD);
+      // フリープレイは仕分けの札を出さない。波3の人には小物を重ねる
+      if (this.free) {
+        if (s.person.item) this.free.items.attach(a, s.person.item);
+      } else {
+        const choice = this.run.sorts[s.person.id] ?? 'civ';
+        a.tag = new Tag(this, s.x, s.y - HEAD, choice).follow(a.sprite, -HEAD);
+      }
       this.queue.push(a);
       // 化けた女ボスの金の小物は、ときどきキラッと光らせる(1色だとオレンジに見えるため)
       if (s.person.truth === 'boss' && s.person.accessory) this.gangPart.goldGlint(a);
@@ -250,8 +275,14 @@ export class StreetScene extends Phaser.Scene {
 
     this.stopAlarm = new EdgeAlarm(this, 0, actionH, UI.stop);
     this.goAlarm = new EdgeAlarm(this, 0, actionH, UI.go);
-    new PixelText(this, 6, 5, `WAVE${this.run.waveIndex + 1}`, { size: FS.body, color: UI.gold, outline: true })
-      .setScrollFactor(0).setDepth(1400);
+    // フリープレイは、波の数の代わりにルールの札とクリアまでの時間(札は撮る写真には入れない)
+    if (this.free) {
+      this.free.build();
+      this.icons.push(...(this.free.sign.shotHidden as unknown as Phaser.GameObjects.GameObject[]));
+    } else {
+      new PixelText(this, 6, 5, `WAVE${this.run.waveIndex + 1}`, { size: FS.body, color: UI.gold, outline: true })
+        .setScrollFactor(0).setDepth(1400);
+    }
   }
 
   private buildPanel(): void {
@@ -260,10 +291,13 @@ export class StreetScene extends Phaser.Scene {
       const pause = new PauseControl(this);
       this.icons.push(new IconButton(this, W - 12, 12, 'pause', () => pause.pause()));
       this.icons.push(addMute(this, W - 34, 12));
-      this.fastBtn = new FastButton(this, W - 56, 12, {
-        isOn: () => fastOn, toggle: () => { audio.unlock(); fastOn = !fastOn; }, locked: () => this.rushPart.rushOn
-      });
-      this.icons.push(this.fastBtn);
+      // フリープレイは早送りを使えない(ボタンも出さない)
+      if (!this.free) {
+        this.fastBtn = new FastButton(this, W - 56, 12, {
+          isOn: () => fastOn, toggle: () => { audio.unlock(); fastOn = !fastOn; }, locked: () => this.rushPart.rushOn
+        });
+        this.icons.push(this.fastBtn);
+      }
 
       addPanel(this);
       // 縦に余裕があれば(縦長の画面)、横いっぱいに使い、セリフを大きな字にして、ボタンも大きくする
@@ -286,8 +320,8 @@ export class StreetScene extends Phaser.Scene {
       const bh = Math.max(40, Math.min(tall ? 120 : 72, r.bottom - (cutY + cutH + 5)));
       const by = r.bottom - bh;
       const bw = Math.floor((r.w - 8) / 2);
-      this.stopBtn = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', textColor: UIX.stopText, onPress: () => { audio.unlock(); this.stopHandler?.(); } });
-      this.goBtn = new Button(this, r.x + bw + 8, by, bw, bh, '行け!', { color: 'go', onPress: () => { audio.unlock(); this.goHandler?.(); } });
+      this.stopBtn = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', textColor: UIX.stopText, onPress: () => { audio.unlock(); if (this.free) this.free.pressStop(); else this.stopHandler?.(); } });
+      this.goBtn = new Button(this, r.x + bw + 8, by, bw, bh, '行け!', { color: 'go', onPress: () => { audio.unlock(); if (this.free) this.free.pressGo(); else this.goHandler?.(); } });
       this.stopBtn.setEnabled(false);
       this.goBtn.setEnabled(false);
     });
@@ -303,9 +337,12 @@ export class StreetScene extends Phaser.Scene {
       this.applySpeed();
       const ms = Math.min(delta, 50) * this.speed;
       const dt = ms / 1000;
+      this.free?.update(delta);
       this.stepWalker(dt);
-      if (this.gangPart.gang) this.gangPart.stepGang(ms);
-      if (this.ufoPart.ufo) this.ufoPart.stepUfo(ms);
+      // フリープレイの言い直しの間は、悪さの時計(ギャング、UFO)も止める
+      const held = this.free?.held ?? false;
+      if (this.gangPart.gang && !held) this.gangPart.stepGang(ms);
+      if (this.ufoPart.ufo && !held) this.ufoPart.stepUfo(ms);
       if (this.rushPart.rushRunning) this.rushPart.stepRush(ms);
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
@@ -326,6 +363,7 @@ export class StreetScene extends Phaser.Scene {
     for (const m of this.rushPart.rushMen) if (m.a && m.a.state !== 'gone') m.a.sync();
     this.rushPart.syncNoise();
     this.hero.sync();
+    this.free?.syncAfter();
     this.syncBubble();
     this.syncPeeks();
     this.updateHud();
@@ -339,7 +377,7 @@ export class StreetScene extends Phaser.Scene {
   private applySpeed(): void {
     const deciding = this.stopHandler !== null || this.goHandler !== null;
     // タイムセールラッシュの間は早送りを切る(終わったら、覚えている fastOn に戻る)
-    const sp = fastOn && !deciding && !this.rushPart.rushOn ? FAST : 1;
+    const sp = fastOn && !deciding && !this.rushPart.rushOn && !this.free ? FAST : 1;
     this.speed = sp;
     if (this.time.timeScale !== sp) this.time.timeScale = sp;
     if (this.tweens.timeScale !== sp) this.tweens.timeScale = sp;
@@ -349,6 +387,7 @@ export class StreetScene extends Phaser.Scene {
   private stepWalker(dt: number): void {
     const w = this.walker;
     if (!w) return;
+    if (this.holdMs > 0) { this.holdMs -= dt * 1000; return; }
     const h = this.hero;
     h.x = Math.min(w.toX, h.x + w.speed * this.slow * dt);
     const span = w.toX - w.fromX;
@@ -368,7 +407,9 @@ export class StreetScene extends Phaser.Scene {
     const hy = Math.round(h.y - h.lift);
     // 待機と、ためのときは光がゆらめく。走るときは光の尾
     const aura = this.auraOn || (anim === 'idle' && h.sprite.anims.isPlaying);
-    this.aura.setPosition(hx, hy - 26).setDepth(h.y + 0.4).setVisible(aura && on);
+    // フリープレイで殴りかかる相手や素通りの相手に向かっているときは、その形の光を出す(free.ts)
+    const typed = this.free?.syncAura(hx, hy, h.y + 0.4, on) ?? false;
+    this.aura.setPosition(hx, hy - 26).setDepth(h.y + 0.4).setVisible(aura && on && !typed);
     const trail = this.auraOn || anim === 'run' || anim === 'charge';
     this.trail.setPosition(hx - 30, hy - 26).setDepth(h.y + 0.3).setVisible(trail && !on);
   }
@@ -403,6 +444,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   private updateButtons(): void {
+    if (this.free) { this.free.updateButtons(); return; }
     const st = this.stopHandler !== null;
     const go = this.goHandler !== null;
     if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st).setColor(UI.stop);
@@ -421,7 +463,7 @@ export class StreetScene extends Phaser.Scene {
 
   // ─── 小さな道具 ───────────────────────────────
 
-  private pickAttack(): AttackKind {
+  pickAttack(): AttackKind {
     const k = pickAttack(this.rng);
     return this.forceAttack ?? k;
   }
@@ -470,8 +512,17 @@ export class StreetScene extends Phaser.Scene {
         resolve();
         return;
       }
+      // 前の歩きを上書きするときは、前の歩きを待っている流れが止まったままにならないように、終わったことにする
+      const prev = this.walker;
       this.walker = { toX: x, fromX: h.x, fromY: h.y, toY: opt.y ?? h.y, speed: opt.speed ?? RUN, resolve };
+      prev?.resolve();
     });
+  }
+
+  /** 行けの合図の、画面の端の点滅を止める(フリープレイでは、ほかの行けのマークが残っていれば止めない) */
+  stopGoAlarm(): void {
+    if (this.free?.goTarget()) return;
+    this.goAlarm.stop();
   }
 
   /** 1回だけ流れて消えるエフェクト */
@@ -511,7 +562,9 @@ export class StreetScene extends Phaser.Scene {
     this.heroBubble.setScrollFactor(0).setDepth(1100);
   }
 
-  opSay(sp: Speech, alarm = false): void {
+  /** force はフリープレイで言うとき。フリープレイでは、ステージの流れ(ギャング、UFO など)のオペレーターの一言は出さない */
+  opSay(sp: Speech, alarm = false, force = false): void {
+    if (this.free && !force) return;
     this.opSeq++;
     void this.cut.say(sp.text, sp.face, { who: sp.who, alarm });
   }
@@ -574,16 +627,20 @@ export class StreetScene extends Phaser.Scene {
     return this.props.filter((p) => !p.broken && p.kind !== 'van' && p !== this.rushPart.rushGuard && p.x >= l && p.x <= r);
   }
 
-  /** 巻きぞえになりうる市民(画面の中で立っている人) */
+  /**
+   * 巻きぞえになりうる市民(画面の中で立っている人)。
+   * フリープレイでは通りがかりの市民だけ(並んだ人は巻きぞえで倒れない。待てのチャンスの数がいつも同じになるように)
+   */
   private civsNear(except: Actor): Actor[] {
     const l = this.L.left - 8;
     const r = this.L.right + 8;
-    return [...this.queue, ...this.passers].filter((a) => a !== except && a.civ && a.standing && a.x >= l && a.x <= r);
+    return [...(this.free ? [] : this.queue), ...this.passers].filter((a) => a !== except && a.civ && a.standing && a.x >= l && a.x <= r);
   }
 
   // ─── 流れ ─────────────────────────────────────
 
   private async play(): Promise<void> {
+    if (this.free) { await this.free.play(); return; }
     // 見ているだけの画面だと思われないように、帯は「待てと行けの出番」と言い切る(波の数は左上に小さく出ている)
     // 早送りでも帯は読めるように、出ている時間はふつうの速さのときと同じにする
     void banner(this, streetTextsFor(this.def.id).band, { hold: fastOn ? 600 * FAST : 600 });
@@ -603,7 +660,7 @@ export class StreetScene extends Phaser.Scene {
     await this.waveClear();
   }
 
-  private laneFor(a: Actor): number {
+  laneFor(a: Actor): number {
     return Math.round(a.y);
   }
 
@@ -718,7 +775,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   /** 技を出す前のため(まだ待てが効く)。この間はヒーローの決めつけの吹き出しが出ている */
-  private windup(k: AttackKind): void {
+  windup(k: AttackKind): void {
     const h = this.hero;
     h.sprite.anims.timeScale = 1;
     if (k === 'charge') h.pose('charge', 0);
@@ -730,7 +787,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   /** 待てで止まる:急ブレーキで火花、足あとが焦げる、敬礼 */
-  private async doStop(a: Actor): Promise<void> {
+  async doStop(a: Actor): Promise<void> {
     const h = this.hero;
     h.play('stop', true);
     audio.sfx('stop');
@@ -762,7 +819,7 @@ export class StreetScene extends Phaser.Scene {
 
   // ─── 技 ───────────────────────────────────────
 
-  private async attack(t: Actor, k: AttackKind, mode: HitMode): Promise<void> {
+  async attack(t: Actor, k: AttackKind, mode: HitMode): Promise<void> {
     const h = this.hero;
     const withSide = mode !== 'reveal';
     if (k === 'charge') {
@@ -902,10 +959,10 @@ export class StreetScene extends Phaser.Scene {
     if (mode === 'civ') {
       this.stats.hurtCiv('hero', t.look);
       this.civHits.push({ look: t.look!, collateral: false });
-      this.civCry(this.civLineKey(k));
+      if (!this.free) this.civCry(this.civLineKey(k));
       this.report(sceneForCivHit(t.look!, k), k);
     } else {
-      this.stats.defeatBad(mode === 'go' ? 'go' : 'sort');
+      this.stats.defeatBad(mode === 'go' || mode === 'recover' ? 'go' : 'sort', mode === 'recover');
     }
   }
 
@@ -935,7 +992,7 @@ export class StreetScene extends Phaser.Scene {
     this.knock(c, 40, 20, dir);
     this.stats.hurtCiv('collateral', c.look);
     this.civHits.push({ look: c.look!, collateral: true });
-    this.civCry(this.civLineKey(k));
+    if (!this.free) this.civCry(this.civLineKey(k));
     this.report(sceneForCivHit(c.look!, k), k);
   }
 
@@ -1340,7 +1397,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   /** 開発用:かかった時間を出す(途中から始めたときだけ) */
-  private devLog(what: string): void {
+  devLog(what: string): void {
     if (this.run.debug) console.info(`[street] ${what} ${(this.time.now - this.startedAt) / 1000}s`);
   }
 }

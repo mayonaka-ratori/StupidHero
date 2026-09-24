@@ -22,11 +22,35 @@
 //   stats.rushHit(truth)(待てを押さずに殴った)か stats.rushStopped(truth)(待てで止めた)。
 //   ラッシュの数はほかの数字(悪党を倒した、市民のけが、逃がした、仕分け正解、全員倒した)に入れない。
 //   ラッシュで市民を殴った場面は stats.reportScene('civHit', 'punch')(市民を殴った瞬間と同じ段)
+//
+// フリープレイ(docs/FREEPLAY.md「数え方」):
+//   const stats = new StatsTracker(plan.stage.villainTotal, plan.stage.id);
+//   stats.startFree(plan, settings.slowMode);   // 待てと行けのチャンスの数を覚える
+//   stats.setFreeRule(rule)                   // 波の始めと言い直しのたびに(共有の文の1行目に使う)
+//   stats.setFreeSlow(true)                   // 途中でゆっくりモードをオンにしたら
+//   待てが効いた:stats.stopped(person.truth)。ワルを止めても、すぐには「逃がした」に数えない(取り返し)。
+//     そのワルが悪さを始め、行けで倒したら stats.defeatBad('go', true)(UFOなら stats.ufoDowned(true))。
+//     逃げたら、ふつうと同じく stats.escaped() など(そのとき「逃がした」に数える)
+//   行けで決めた:stats.defeatBad('go')、stats.groupWiped(n)、stats.vanStopped(n)、stats.ufoDowned()(どれも1場面)
+//   モヒカンが財布を奪って逃げた:stats.escaped(true)(逃がしたに数え、市民のけが(ワルにやられた)も数える)
+//   空押し:stats.dryPress()
+//   いちばんひどい場面:ステージの場面は今まで通り stats.reportScene(...)。
+//     フリープレイだけの候補は stats.reportFreeScene(freeWaveScene(look))(ワルに笑顔で手を振った瞬間)と
+//     stats.reportFreeScene('closeCall')(拳が当たる寸前に待てで止めた瞬間)。true が返ったら画面を撮る
+//   終わり:stats.finishFree(rawSec)(止めている時間を除いた時計)。snapshot().free に数がまとまる
+//
+//   フリープレイだけの場面を、ステージの WorstScene に足さず、FreeTally.worst に分けたわけ:
+//   WorstScene は結果画面の表(src/scenes/result/card.ts の WORST_CAPTION)が全部の種類を持つ形なので、
+//   足すと画面の表も変えなければならない。ステージの場面の並びと強さも変えずにすむ。
+//   フリープレイの候補は、ステージの場面(おばあさんを殴った〜大きな物が壊れた)のどれよりも弱く、
+//   ステージの場面が一度でも起きたら reportFreeScene は false を返す(写真はステージの場面のまま)
 
+import { clearTimeSec, type FreePlan } from './freeplay';
 import { GANG, isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
 import { STAGES } from './stages';
 import type {
-  AttackKind, HurtCause, Look, Person, PropKind, RushPlan, RushTally, SortChoice, SortTally, StageId, StageStats, Truth, WorstScene
+  AttackKind, FreeRule, FreeTally, FreeWorstScene, HurtCause, Look, Person, PropKind, RushPlan, RushTally, SortChoice, SortTally,
+  StageId, StageStats, Truth, WorstScene
 } from './types';
 
 /** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
@@ -44,6 +68,45 @@ export const WORST_SCENE_RANK: Readonly<Record<WorstScene, number>> = {
   bigPropBroken: 5,
   bossDefeated: 6
 };
+
+/**
+ * フリープレイだけの、いちばんひどい場面の段階(数が小さいほどひどい)。
+ * どれもステージの場面(WORST_SCENE_RANK)より弱い。ワルに手を振った3つは同じ段で、先に起きた1枚を残す
+ */
+export const FREE_WORST_SCENE_RANK: Readonly<Record<FreeWorstScene, number>> = {
+  waveKnife: 1,
+  waveGang: 1,
+  waveUfo: 1,
+  closeCall: 2
+};
+
+/** 素通りしたワルに手を振った瞬間は、どの場面か(フリープレイのワルでなければ null) */
+export function freeWaveScene(look: Look): FreeWorstScene | null {
+  if (look === 'fp_mohawk') return 'waveKnife';
+  if (look === 'fp_gang') return 'waveGang';
+  if (look === 'fp_alien') return 'waveUfo';
+  return null;
+}
+
+/** フリープレイの途中の数(snapshot で FreeTally にする) */
+interface FreeState {
+  stopChances: number;
+  goChances: number;
+  scenes: number;
+  heroRight: number;
+  goScenes: number;
+  recovered: number;
+  dryPresses: number;
+  effectiveStops: number;
+  effectiveGos: number;
+  /** 逃げきったワルの場面の数(ギャングの組は1つ) */
+  escapedScenes: number;
+  rawSec: number | null;
+  slow: boolean;
+  rule: FreeRule | null;
+  worst: FreeWorstScene | null;
+  worstRule: FreeRule | null;
+}
 
 /** 市民に攻撃が当たった瞬間は、どの段階の場面か */
 export function sceneForCivHit(look: Look, attack?: AttackKind): WorstScene {
@@ -106,6 +169,7 @@ export class StatsTracker {
   private worstAttack: AttackKind | null = null;
   private sortWaves = new Map<number, SortTally>();
   private rush: RushTally | null = null;
+  private free: FreeState | null = null;
 
   /**
    * @param villainTotal 倒すべき相手の総数(ワル全員とボス)。stage.villainTotal を渡す
@@ -115,10 +179,15 @@ export class StatsTracker {
 
   // ─── 撃破 ───
 
-  /** ワルを倒した。how:'sort' は仕分けで殴った、'go' は行けで追い打ちした */
-  defeatBad(how: 'sort' | 'go'): void {
-    if (how === 'go') this.defeatedByGo++;
-    else this.defeatedBySort++;
+  /**
+   * ワルを倒した。how:'sort' は仕分けで殴った(フリープレイではヒーローが殴った)、'go' は行けで追い打ちした。
+   * recovered はフリープレイだけ:待てで止めたワルを、行けで倒して取り返した(「行けで決めた」には数えない)
+   */
+  defeatBad(how: 'sort' | 'go', recovered = false): void {
+    if (how === 'go') {
+      this.defeatedByGo++;
+      this.freeGo(recovered);
+    } else this.defeatedBySort++;
   }
 
   // ─── ステージ2:ギャングの組 ───
@@ -129,6 +198,7 @@ export class StatsTracker {
    */
   groupWiped(size: number): void {
     if (size <= 0) return;
+    this.freeGo(false);
     this.defeatedByWipe += size;
     if (isGroup(size)) this.groupsWiped++;
   }
@@ -139,6 +209,7 @@ export class StatsTracker {
    * いちばんひどかった場面は、画面が stats.reportScene(sceneForProp('van')!) で伝える
    */
   vanStopped(size: number): number {
+    this.freeGo(false);
     this.defeatedByVan += Math.max(0, size);
     this.vansStopped++;
     return this.breakProp('van');
@@ -147,6 +218,7 @@ export class StatsTracker {
   /** 組が車で逃げきった。size は乗っていた人数。全員を「逃がした」に数える */
   groupEscaped(size: number): void {
     if (size <= 0) return;
+    if (this.free) this.free.escapedScenes++;
     this.escapedByVan += size;
     this.escapedCount += size;
     if (isGroup(size)) this.groupsEscaped++;
@@ -157,9 +229,11 @@ export class StatsTracker {
   /**
    * 吸い上げている間に行けを押して、UFOを殴り落とした。乗せようとしていた宇宙人も一緒に倒れる
    * (撃破に数え、「行けで倒した」にも数える)。UFOの被害額(¥300万)を足し、足した額を返す。
-   * 真下の物は画面が別に breakProp で壊す。落ちたUFOは市民を巻きこまない
+   * 真下の物は画面が別に breakProp で壊す。落ちたUFOは市民を巻きこまない。
+   * recovered はフリープレイだけ:待てで止めた宇宙人が呼んだUFOを落として取り返した
    */
-  ufoDowned(): number {
+  ufoDowned(recovered = false): number {
+    this.freeGo(recovered);
     this.defeatedByGo++;
     this.defeatedByUfo++;
     this.ufosDowned++;
@@ -171,6 +245,7 @@ export class StatsTracker {
    * 買い物客を「市民のけが」(さらわれた)に、宇宙人を「逃がした」に数える
    */
   ufoEscaped(): void {
+    if (this.free) this.free.escapedScenes++;
     this.hurtCiv('abducted');
     this.escapedCount++;
     this.escapedByUfo++;
@@ -279,21 +354,91 @@ export class StatsTracker {
 
   // ─── 待てと行け、逃がした数 ───
 
-  /** 悪さを始めたワルが画面の右から逃げた */
-  escaped(): void {
+  /**
+   * 悪さを始めたワルが画面の右から逃げた。
+   * robbed はフリープレイのモヒカン:財布を奪って逃げたので、市民のけが(ワルにやられた)も数える
+   */
+  escaped(robbed = false): void {
     this.escapedCount++;
+    if (this.free) this.free.escapedScenes++;
+    if (robbed) this.hurtCiv('villain');
   }
 
   /**
    * 待てで攻撃を止めた。相手が本当は市民なら「待てで守った市民」に数える。
-   * 本物のワルなら、倒さずに見のがしたので「逃がした」にも数える
+   * 本物のワルなら、倒さずに見のがしたので「逃がした」にも数える。
+   * フリープレイでは、ワルを止めても「逃がした」に数えない(すぐ悪さを始めるので、行けで取り返せる。
+   * 逃げたときに escaped などで数える)
    */
   stopped(truth: Truth): void {
+    if (this.free) this.free.effectiveStops++;
     if (truth === 'civ') this.civSavedByStop++;
     else if (truth === 'bad') {
       this.badSparedByStop++;
-      this.escapedCount++;
+      if (!this.free) this.escapedCount++;
     }
+  }
+
+  // ─── フリープレイ ───
+
+  /**
+   * フリープレイを始める(plan は createFreePlay の答え)。チャンスの数を覚える。
+   * slow はゆっくりモードで始めたか。2回呼んだら数え直す
+   */
+  startFree(plan: Pick<FreePlan, 'chances'>, slow = false): void {
+    const c = plan.chances;
+    this.free = {
+      stopChances: c.stop, goChances: c.go, scenes: c.scenes, heroRight: c.heroRight,
+      goScenes: 0, recovered: 0, dryPresses: 0, effectiveStops: 0, effectiveGos: 0, escapedScenes: 0,
+      rawSec: null, slow, rule: null, worst: null, worstRule: null
+    };
+  }
+
+  /** フリープレイか */
+  get isFree(): boolean {
+    return this.free !== null;
+  }
+
+  /** 今のルールを伝える(波の始めと言い直しのたびに)。いちばんひどい場面のルールに使う */
+  setFreeRule(rule: FreeRule): void {
+    if (this.free) this.free.rule = rule;
+  }
+
+  /** ゆっくりモードをオンにした(一度でもオンにしたら、ゆっくりの記録にする) */
+  setFreeSlow(on: boolean): void {
+    if (this.free && on) this.free.slow = true;
+  }
+
+  /** マークがないときに待てか行けを押した */
+  dryPress(): void {
+    if (this.free) this.free.dryPresses++;
+  }
+
+  /** 最後の人が通った。rawSec は止めている時間を除いたクリアまでの時間(秒) */
+  finishFree(rawSec: number): void {
+    if (this.free) this.free.rawSec = Math.max(0, rawSec);
+  }
+
+  /**
+   * フリープレイだけの、いちばんひどい場面の候補を伝える。今までよりひどければ true(そのとき画面を撮る)。
+   * ステージの場面(reportScene)がもう起きていれば、いつも false
+   */
+  reportFreeScene(scene: FreeWorstScene | null): boolean {
+    const f = this.free;
+    if (!f || !scene || this.worst !== null) return false;
+    if (f.worst !== null && FREE_WORST_SCENE_RANK[scene] >= FREE_WORST_SCENE_RANK[f.worst]) return false;
+    f.worst = scene;
+    f.worstRule = f.rule;
+    return true;
+  }
+
+  /** フリープレイで行けが効いた(recovered なら取り返し) */
+  private freeGo(recovered: boolean): void {
+    const f = this.free;
+    if (!f) return;
+    f.effectiveGos++;
+    if (recovered) f.recovered++;
+    else f.goScenes++;
   }
 
   // ─── 仕分けの答え合わせ ───
@@ -318,6 +463,7 @@ export class StatsTracker {
     if (this.worst !== null && WORST_SCENE_RANK[scene] >= WORST_SCENE_RANK[this.worst]) return false;
     this.worst = scene;
     this.worstAttack = attack;
+    if (this.free) this.free.worstRule = this.free.rule;
     return true;
   }
 
@@ -381,7 +527,34 @@ export class StatsTracker {
       sortByHero: sum('byHero'),
       sortByHeroCorrect: sum('byHeroCorrect'),
       sortWaves: waves,
-      rush: this.rushTally
+      rush: this.rushTally,
+      free: this.freeTally()
+    };
+  }
+
+  /** フリープレイの今の数(フリープレイでなければ null) */
+  freeTally(): FreeTally | null {
+    const f = this.free;
+    if (!f) return null;
+    // 直したあとの当たり:ヒーローが殴った市民と、逃げきったワルの場面のほかは、全部当たり
+    const fixedRight = Math.max(0, f.scenes - this.hurt.hero - f.escapedScenes);
+    return {
+      stopSaved: this.civSavedByStop,
+      stopChances: f.stopChances,
+      goScenes: f.goScenes,
+      goChances: f.goChances,
+      recovered: f.recovered,
+      dryPresses: f.dryPresses,
+      effectiveStops: f.effectiveStops,
+      effectiveGos: f.effectiveGos,
+      units: f.scenes,
+      heroRight: f.heroRight,
+      fixedRight,
+      rawSec: f.rawSec,
+      clearSec: f.rawSec === null ? null : clearTimeSec(f.rawSec, this.escapedCount, this.civHurt, this.badSparedByStop),
+      slow: f.slow,
+      worst: f.worst,
+      worstRule: f.worstRule
     };
   }
 }

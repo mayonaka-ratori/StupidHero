@@ -35,6 +35,8 @@ const UFO_LAND_Y = 160;
 /** ステージ3:来ているUFO1機(宇宙人の合図から、殴り落とす・連れ去られるまで)。時間は UfoQueue が数える */
 export interface UfoRun {
   alien: Actor;
+  /** フリープレイ:待てで止めた宇宙人が呼んだUFO(落とすと取り返し) */
+  recovered?: boolean;
   /** 連れ去られそうになる通りがかりの買い物客(UFOが下りてくるときに歩いてくる) */
   shopper?: Actor;
   /** UFOの真ん中の x と、止まっているときの下の端の y */
@@ -56,19 +58,31 @@ export interface UfoRun {
 }
 
 export class UfoPart {
-  constructor(private readonly s: StreetScene) {}
+  /** フリープレイでは、吸い上げの長さをゆっくりモードに合わせる(s.free を決めたあとに作る) */
+  constructor(private readonly s: StreetScene) {
+    this.ufos = this.newQueue();
+  }
 
-  ufos = new UfoQueue();
+  ufos: UfoQueue;
 
   ufo: UfoRun | null = null;
 
-  /** 見逃した宇宙人:UFOを呼ぶ。殴り落とすか、連れ去られたあとの動きが終わるまで待つ */
-  ufoCall(a: Actor): Promise<void> {
+  private newQueue(): UfoQueue {
+    return new UfoQueue(this.s.free ? { beamSec: this.s.free.timing.ufoBeamSec } : {});
+  }
+
+  /**
+   * 見逃した宇宙人:UFOを呼ぶ。殴り落とすか、連れ去られたあとの動きが終わるまで待つ。
+   * recovered はフリープレイだけ:待てで止めた宇宙人が呼んだUFO(落とすと取り返し)
+   */
+  ufoCall(a: Actor, recovered = false): Promise<void> {
+    // フリープレイ:UFOは1機ずつ(ヒーローが待つ)なので、呼ぶたびに今のゆっくりモードの吸い上げの長さで作り直す
+    if (this.s.free && this.ufos.idle) this.ufos = this.newQueue();
     return new Promise((resolve) => {
       // UFOが下りてくる所は、並べ方(plan.ts の planMall)が真下に物を置く所と同じにする
       // UFOが来ている間は、カメラを寄せてUFOを画面の UFO_SCREEN_X に見せる(終わったら戻す)
       const done = (): void => { this.s.camFocus = null; resolve(); };
-      this.ufo = { alien: a, x: a.x + UFO_DX, bottom: 0, tractorMs: 0, done };
+      this.ufo = { alien: a, x: a.x + UFO_DX, bottom: 0, tractorMs: 0, done, recovered };
       this.ufos.add(a.person!.id);
     });
   }
@@ -143,12 +157,25 @@ export class UfoPart {
     u.sprite = this.s.add.sprite(u.x, -4, 'prop_ufo', 0).setOrigin(0.5, 1).setDepth(800);
     audio.sfx('ufoDown');
     this.s.opSay(this.s.line('ufoArrive', this.s.rng), true);
+    // フリープレイ:並べ方がUFOの真下に置いた通りがかりの市民がいれば、その人がねらわれる
+    const here = this.s.free?.ufoVictim(u.x);
+    if (here) {
+      u.shopper = here;
+      here.faceLeft(a.x < here.x);
+      this.s.hero.play('idle');
+      return;
+    }
     // 買い物客は宇宙人と違う見た目にする(同じだと、どちらが連れ去られるのか分かりにくい)
-    const look = this.s.rng.pick(this.s.def.looks.filter((l) => l !== a.look));
-    const s = new Actor(this.s, `${look}_civ`, this.s.L.right + 20, sy);
-    s.look = look; s.civ = true;
-    s.faceLeft(true).play('walk', true);
-    this.s.passers.push(s);
+    let s: Actor;
+    if (this.s.free) s = this.s.free.makePasser(this.s.L.right + 20, sy);
+    else {
+      const look = this.s.rng.pick(this.s.def.looks.filter((l) => l !== a.look));
+      s = new Actor(this.s, `${look}_civ`, this.s.L.right + 20, sy);
+      s.look = look; s.civ = true;
+      s.faceLeft(true);
+      this.s.passers.push(s);
+    }
+    s.play('walk', true);
     u.shopper = s;
     void this.s.moveTo(s, u.x, sy, 850, 'Linear').then(() => { if (s.standing && s.lift === 0) s.play('idle'); });
     this.s.hero.play('idle');
@@ -183,13 +210,14 @@ export class UfoPart {
     this.s.heroBubble = undefined;
     this.s.goAlarm.start();
     this.s.opSay(this.s.firstTime('ufo') ? this.s.line('teachUfo') : this.s.line('ufoBeam', this.s.rng), true);
+    this.s.free?.goMarkShown();
     this.s.goHandler = () => this.ufoGo();
   }
 
   /** 行けを押さなかった:買い物客と宇宙人をUFOに吸いこんで去る */
   private ufoLeave(u: UfoRun): void {
     this.s.goHandler = null;
-    this.s.goAlarm.stop();
+    this.s.stopGoAlarm();
     u.mark?.destroy(); u.mark = undefined;
     u.beam?.destroy(); u.beam = undefined;
     // 出ている粒は、そのままUFOに吸いこまれて消える
@@ -232,6 +260,7 @@ export class UfoPart {
   private ufoAbducted(u: UfoRun): void {
     this.ufo = null;
     this.s.stats.ufoEscaped();
+    this.s.free?.ufoEscaped(u.alien.look);
     u.sprite?.destroy();
     u.alien.destroy();
     u.shopper?.destroy();
@@ -245,7 +274,7 @@ export class UfoPart {
     if (!u || !this.ufos.go()) return;
     this.ufo = null;
     this.s.goHandler = null;
-    this.s.goAlarm.stop();
+    this.s.stopGoAlarm();
     u.mark?.destroy(); u.mark = undefined;
     audio.sfx('go');
     void this.ufoDown(u).then(() => u.done());
@@ -316,7 +345,8 @@ export class UfoPart {
     const wreck: PropObj = { kind: 'ufo', x: u.x, y: UFO_LAND_Y, wall: false, sprite: ufo, broken: true };
     this.s.props.push(wreck);
     this.s.smoke(wreck, 5000, 26);
-    const cost = this.s.stats.ufoDowned();
+    const cost = this.s.stats.ufoDowned(u.recovered ?? false);
+    this.s.free?.goDone(u.recovered ?? false);
     this.s.pop(u.x, UFO_LAND_Y - 36, formatYen(cost), true);
     // 真下の物を1つ壊す(いちばん近いもの)。壊れるのはUFOの幅の中の小さな物だけ(エスカレーターと噴水は壊さない)
     const under = this.s.props

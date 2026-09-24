@@ -52,7 +52,7 @@ function drawFlash(Pn: Painter, pose: P3, finger: string): void {
 }
 
 /** 行6:空へ合図を送る(見上げる → 腕を上げる → 指の先が光る(当たり) → 光が消えかける) */
-function signalRow(base: Pose): P3[] {
+export function signalRow(base: Pose): P3[] {
   const n = base.neck;
   const s: Pt = [n[0] - 1, n[1] + 2.5];
   const onHip = (p: Pose): Pose => { p.aB = { e: [p.neck[0] + 8, p.neck[1] + 9], h: [p.hip[0] + 5, p.hip[1] - 5] }; return p; };
@@ -81,7 +81,7 @@ function pairSheets(look: Look, base: Pose, civSort: Pose[], glitch: PixelGrid[]
 }
 
 /** 見た目の Look に、合図の光を足す */
-function withSignal(look: Look, finger: string): Look {
+export function withSignal(look: Look, finger: string): Look {
   const prev = look.front;
   return { ...look, front(Pn, pose) { prev?.(Pn, pose); drawFlash(Pn, P(pose), finger); } };
 }
@@ -311,7 +311,7 @@ function armSeam(Pn: Painter, pose: Pose): void {
   for (let k = -1; k <= 1; k++) Pn.px(Math.round(m2[0] + px * k), Math.round(m2[1] + py * k), GLITCH[2]);
 }
 
-function dancerLook(thinArm = false): Look {
+export function dancerLook(thinArm = false): Look {
   return {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_SHORT,
     top: JACKET, sleeve: 'long', bottom: TRACK, legs: 'pants', shoes: KICKS, sole: JACKET[2],

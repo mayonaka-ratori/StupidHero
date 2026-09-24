@@ -36,6 +36,7 @@ function load(): Settings {
 }
 
 let cur = load();
+const listeners = new Set<(s: Readonly<Settings>) => void>();
 
 export const settings = {
   get reduceFx(): boolean { return cur.reduceFx; },
@@ -45,5 +46,11 @@ export const settings = {
   set<K extends keyof Settings>(key: K, value: Settings[K]): void {
     cur = { ...cur, [key]: value };
     try { globalThis.localStorage?.setItem(KEY, JSON.stringify(cur)); } catch { /* 覚えられなくても、その場では使える */ }
+    for (const fn of listeners) fn(cur);
+  },
+  /** 変わったときに呼ばれる(フリープレイの途中でゆっくりモードにしたとき)。戻り値を呼ぶと止まる */
+  onChange(fn: (s: Readonly<Settings>) => void): () => void {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
   }
 };

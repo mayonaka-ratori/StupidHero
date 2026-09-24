@@ -18,12 +18,12 @@ import type {
   Accessory, AccessoryColorId, GangGroup, GangLook, GarageDisguise, Person, Wave
 } from './types';
 
-const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
+export const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
 /** 女ボスの化けた姿 */
 const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
 
 /** 小物を作る(色と、見た目と正体で決まる小物の名前) */
-function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
+export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
   const c = ACCESSORY_COLORS[colorId];
   return { id: colorId, name: c.name, color: c.color, item: ACCESSORY_ITEM[look][isGang ? 'bad' : 'civ'] };
 }

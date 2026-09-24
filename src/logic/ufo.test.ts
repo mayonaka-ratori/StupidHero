@@ -48,6 +48,15 @@ describe('UfoCall', () => {
 });
 
 describe('UfoQueue', () => {
+  it('フリープレイのゆっくりモード:吸い上げの長さを変えられる', () => {
+    const q = new UfoQueue({ beamSec: 4.5 });
+    q.add('a');
+    q.update(0);
+    expect(q.update(1800).map((e) => e.phase)).toEqual(['descend', 'beam']);
+    expect(q.update(4400)).toEqual([]);
+    expect(q.update(200).map((e) => e.phase)).toEqual(['leave']);
+  });
+
   it('UFOは1機ずつ。前のUFOが終わるまで、次の宇宙人は合図を送らない', () => {
     const q = new UfoQueue();
     q.add('a');

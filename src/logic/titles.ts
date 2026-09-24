@@ -1,5 +1,5 @@
 // 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)と、
-// ステージ3だけで取れる3つ(STAGE3「称号」)を足した17個。
+// ステージ3だけで取れる3つ(STAGE3「称号」)と、フリープレイだけで取れる3つ(FREEPLAY「称号」)を足した20個。
 // 上から順に調べ、最初に当てはまったものを出す。ステージ2の2つは
 // 「ボスの親友」のすぐあとに「ギャングの見送り係」、「追い打ちの鬼」のすぐ前に「一網打尽」。
 // ステージ3の3つは「ギャングの見送り係」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
@@ -20,6 +20,14 @@
 // UFOにさらわれた買い物客(ステージ3)は「ワルにやられた」と同じに扱う(完全無欠と街のほんものヒーローが取れなくなり、
 // 市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
 // タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない
+//
+// フリープレイ(stats.free がある)の調べ方(docs/FREEPLAY.md「称号」):
+// - フリープレイだけの3つ(ヒーローのお守り役、ヒーローの通訳、なすがまま。表の最後の3つ)を先に、上から順に調べる
+// - そのあと、ステージの称号を今の順に調べる。ただし完全無欠と街のほんものヒーロー(お守り役と重なる)、
+//   ボスや仕分けに関わる称号(ボスの親友、連打の申し子、一網打尽、ギャングの見送り係、宇宙人の案内係、
+//   タイムセールの守り神、UFOハンター)は調べない(modes: ['stage'])
+// - フリープレイだけの3つは、ステージでは調べない(modes: ['free'])。ステージの順番と結果は変わらない
+// - おばあちゃんの敵は、フリープレイでも取れる(路地裏のおばあさんが出るので。stages の決まりは見ない)
 //
 // 使い方:const title = decideTitle(stats.snapshot());  // どのステージでも同じ関数
 
@@ -49,7 +57,15 @@ const TITLE_THRESHOLDS = {
   /** 宇宙人の案内係:UFOに連れ去られた買い物客がこれ以上 */
   ufoGuideAbducted: 2,
   /** UFOハンター:行けで殴り落としたUFOがこれ以上 */
-  ufoHunterDowned: 2
+  ufoHunterDowned: 2,
+  /** ヒーローの通訳:待てで守った市民がこれ以上(待てのチャンス9の8割) */
+  interpreterStops: 8,
+  /** ヒーローの通訳:行けで決めた場面がこれ以上(行けのチャンス8の8割) */
+  interpreterGos: 7,
+  /** ヒーローの通訳:空押しがこれ以下 */
+  interpreterDryMax: 3,
+  /** ヒーローの通訳:ワルへの待て(取り返しても数える)がこれ以下 */
+  interpreterVillainStopMax: 1
 } as const;
 
 const T = TITLE_THRESHOLDS;
@@ -65,12 +81,13 @@ const perfectRush = (s: StageStats): boolean =>
   s.rush !== null && s.rush.aliens + s.rush.civs > 0
   && s.rush.civsSaved === s.rush.civs && s.rush.aliensDefeated === s.rush.aliens;
 
-/** 称号の一覧(調べる順) */
+/** 称号の一覧(ステージで調べる順。フリープレイだけの3つは最後) */
 export const TITLES: readonly TitleDef[] = [
   {
     id: 'flawless', name: '完全無欠のヒーロー', pose: 'win_pose',
     condition: '全員倒して、市民のけが0、被害額¥500万未満(まきぞえは2人まで)',
     hint: '全員倒して、市民のけが0、被害額¥500万未満',
+    modes: ['stage'],
     test: (s) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
       && s.damage < T.flawlessDamageBelow
   },
@@ -90,6 +107,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'bossBuddy', name: 'ボスの親友', pose: 'win_shy',
     condition: 'ボスを市民に仕分けた',
     hint: 'ボスを見のがす',
+    modes: ['stage'],
     test: (s) => s.bossSortedCiv
   },
   {
@@ -97,6 +115,7 @@ export const TITLES: readonly TitleDef[] = [
     condition: 'ギャングの組を2組以上、車で逃がした',
     hint: '地下駐車場で車に2回逃げられる',
     stages: ['garage'],
+    modes: ['stage'],
     test: (s) => s.groupsEscaped >= T.gangDriverGroups
   },
   {
@@ -104,6 +123,7 @@ export const TITLES: readonly TitleDef[] = [
     condition: '買い物客を2人以上、UFOに連れ去られた',
     hint: 'UFOに2人連れていかれる',
     stages: ['mall'],
+    modes: ['stage'],
     test: (s) => s.civHurtByAbduction >= T.ufoGuideAbducted
   },
   {
@@ -124,6 +144,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'realHero', name: '街のほんものヒーロー', pose: 'win_pose',
     condition: '全員倒して、市民のけが0(まきぞえは2人まで)',
     hint: '全員倒して、市民のけが0',
+    modes: ['stage'],
     test: (s) => s.allDefeated && mistakeHurt(s) === 0
   },
   {
@@ -131,12 +152,14 @@ export const TITLES: readonly TitleDef[] = [
     condition: 'タイムセールで、市民を全員守り、宇宙人を全員倒した',
     hint: 'タイムセールで1人も間違えない',
     stages: ['mall'],
+    modes: ['stage'],
     test: perfectRush
   },
   {
     id: 'tapProdigy', name: '連打の申し子', pose: 'win_fist',
     condition: 'ボス戦を7秒以内で終えた',
     hint: 'ボスを7秒以内に倒す',
+    modes: ['stage'],
     test: (s) => s.bossFightSec !== null && s.bossFightSec <= T.tapProdigySec
   },
   {
@@ -150,6 +173,7 @@ export const TITLES: readonly TitleDef[] = [
     condition: 'UFOを2機以上、行けで殴り落とした',
     hint: 'UFOを2機落とす',
     stages: ['mall'],
+    modes: ['stage'],
     test: (s) => s.ufosDowned >= T.ufoHunterDowned
   },
   {
@@ -157,6 +181,7 @@ export const TITLES: readonly TitleDef[] = [
     condition: 'ギャングの組を2組以上、まとめて吹き飛ばした',
     hint: 'ギャングの組を2回まとめて倒す',
     stages: ['garage'],
+    modes: ['stage'],
     test: (s) => s.groupsWiped >= T.roundUpGroups
   },
   {
@@ -176,27 +201,62 @@ export const TITLES: readonly TitleDef[] = [
     condition: 'どれにも当てはまらない',
     hint: 'どれにも当てはまらない',
     test: () => true
+  },
+  // ─── フリープレイだけ(フリープレイでは、この3つを先に調べる) ───
+  {
+    id: 'heroSitter', name: 'ヒーローのお守り役', pose: 'win_pose',
+    condition: 'フリープレイで、ヒーローがなぐった市民とワルにやられた市民が0、逃がしたワルが0(まきぞえは数えない)',
+    hint: 'フリープレイで、だれも傷つけず、だれも逃がさない',
+    modes: ['free'],
+    test: (s) => s.free !== null && mistakeHurt(s) === 0 && s.escaped === 0
+  },
+  {
+    id: 'heroInterpreter', name: 'ヒーローの通訳', pose: 'win_arms',
+    condition: 'フリープレイで、待てで8人以上守り、行けで7回以上決め、空押しが3回まで、ワルへの待てが1回まで',
+    hint: 'フリープレイで、ワルに待てを押さず、ほとんど決める',
+    modes: ['free'],
+    test: (s) => s.free !== null && s.free.stopSaved >= T.interpreterStops && s.free.goScenes >= T.interpreterGos
+      && s.free.dryPresses <= T.interpreterDryMax && s.badSparedByStop <= T.interpreterVillainStopMax
+  },
+  {
+    id: 'letItBe', name: 'なすがまま', pose: 'win_shy',
+    condition: 'フリープレイで、待ても行けも一度も効かせなかった(空押しは数えない)',
+    hint: 'フリープレイで、ヒーローに全部まかせる',
+    modes: ['free'],
+    test: (s) => s.free !== null && s.free.effectiveStops === 0 && s.free.effectiveGos === 0
   }
 ];
 
 /**
- * 称号の全体の数(全部のステージを合わせて17)。
- * 路地裏で取れるのは12(ステージ2と3だけの5つを除く)、地下駐車場は13(おばあちゃんの敵とステージ3だけの3つを除く)、
- * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの見送り係を除く)
+ * 称号の全体の数(全部のステージとフリープレイを合わせて20)。
+ * 路地裏で取れるのは12(ステージ2と3だけの5つと、フリープレイだけの3つを除く)、
+ * 地下駐車場は13(おばあちゃんの敵とステージ3だけの3つを除く)、
+ * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの見送り係を除く)、フリープレイは11
  */
 export const TITLE_COUNT = TITLES.length;
 
+const inMode = (t: TitleDef, mode: 'stage' | 'free'): boolean => !t.modes || t.modes.includes(mode);
+
 /** そのステージで取れる称号 */
 export function titlesFor(stageId: StageId): TitleDef[] {
-  return TITLES.filter((t) => !t.stages || t.stages.includes(stageId));
+  return TITLES.filter((t) => inMode(t, 'stage') && (!t.stages || t.stages.includes(stageId)));
+}
+
+/** フリープレイで取れる称号(調べる順。フリープレイだけの3つが先) */
+export function titlesForFree(): TitleDef[] {
+  const own = TITLES.filter((t) => t.modes?.length === 1 && t.modes[0] === 'free');
+  return [...own, ...TITLES.filter((t) => !own.includes(t) && inMode(t, 'free'))];
 }
 
 /**
  * 数字から称号を決める(上から順に調べ、最初に当てはまったもの)。
+ * stats.free があればフリープレイの順(titlesForFree)で調べる。
  * 結果画面のひとことは titleCommentFor(title.id, stage.id)(content.ts)でステージに合った言い方にする
  */
 export function decideTitle(stats: StageStats): TitleDef {
-  return TITLES.find((t) => t.test(stats)) ?? TITLES[TITLES.length - 1];
+  const soSo = titleById('soSo');
+  if (stats.free) return titlesForFree().find((t) => t.test(stats)) ?? soSo;
+  return TITLES.find((t) => inMode(t, 'stage') && t.test(stats)) ?? soSo;
 }
 
 /** id から称号を引く */

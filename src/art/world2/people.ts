@@ -204,7 +204,7 @@ function armTo(p: Pose, h: Pt, e: Pt): Pose {
 const mouthAt = (p: Pose): Pt => [p.head[0] + 5, p.head[1] - 3];
 
 /** 行6:口笛で仲間を呼ぶ(指を口に当てる → ピーッ(当たり) → 奥の手で手まねき) */
-function whistleRow(base: Pose): P2[] {
+export function whistleRow(base: Pose): P2[] {
   const f0 = withFace(base, 'sly');
   f0.aF = { e: [base.neck[0] + 4, base.neck[1] + 7], h: [base.neck[0] + 6, base.neck[1] + 2] };
   const b1 = moveUpper(base, -1, 0);
@@ -401,7 +401,7 @@ const BLACK: Ramp = [md(2, 2, 3), md(1, 1, 2), md(1, 1, 2)];
 const KICKS: Ramp = [md(6, 1, 1), md(6, 1, 1), md(6, 1, 1)];
 const CLUB_BUILD: Build = { sh: 8, wa: 5.5, arm: 2.3, thigh: 2.8, shin: 2.3, hem: -1, chest: 1 };
 /** 逆立てた髪。ヘアバンドは headExtra で上に重ねる */
-const HAIR_SPIKE: HairStyle = {
+export const HAIR_SPIKE: HairStyle = {
   top: 4, ear: true,
   rows: [
     '....H...H....',
@@ -427,7 +427,7 @@ function headband(g: PixelGrid): void {
   g.px(0, t + 1, KEY).px(0, t + 2, KEY).px(0, t + 3, KEY);
 }
 
-function clubLook(extra: Partial<Look> = {}): Look {
+export function clubLook(extra: Partial<Look> = {}): Look {
   const look: Look = {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_SPIKE,
     top: SILVER, sleeve: 'long', bottom: BLACK, legs: 'pants', shoes: KICKS, sole: WHITE[0],

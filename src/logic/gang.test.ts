@@ -42,6 +42,16 @@ describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車
     expect(c.update(60_000)).toEqual(['wait', 'board', 'drive', 'escaped']);
   });
 
+  it('フリープレイのゆっくりモード:待つ時間と走る時間を変えられる', () => {
+    const c = new GangCall(['a', 'b'], { escapeSec: 4.5, driveSec: 3 });
+    c.update(GANG.gatherSec * 1000);
+    expect(c.update(4400)).toEqual([]);
+    expect(c.update(200)).toEqual(['board']);
+    expect(c.update(GANG.boardSec * 1000)).toEqual(['drive']);
+    expect(c.update(2800)).toEqual([]);
+    expect(c.update(300)).toEqual(['escaped']);
+  });
+
   it('集まったあとの行けは、まとめて吹き飛ばす', () => {
     const c = new GangCall(['a', 'b']);
     expect(c.gathered()).toBe(true);

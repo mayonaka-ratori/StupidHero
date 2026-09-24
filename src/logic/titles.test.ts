@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, decideTitle, titleById, titlesFor } from './titles';
+import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
 import type { StageStats } from './types';
 
 const base = (over: Partial<StageStats> = {}): StageStats => ({
@@ -11,7 +11,7 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
     gacha: 0, mannequin: 0, showcase: 0, fountain: 0, escalator: 0, ufo: 0, mothership: 0
   },
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
-  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null,
+  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null, free: null,
   escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
@@ -20,18 +20,19 @@ const base = (over: Partial<StageStats> = {}): StageStats => ({
 });
 
 describe('称号', () => {
-  it('17個、順番と名前とポーズがSPECとSTAGE2とSTAGE3の通り', () => {
-    expect(TITLES).toHaveLength(17);
+  it('20個、順番と名前とポーズがSPECとSTAGE2とSTAGE3とFREEPLAYの通り', () => {
+    expect(TITLES).toHaveLength(20);
     expect(TITLES.map((t) => t.name)).toEqual([
       '完全無欠のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの見送り係', '宇宙人の案内係', 'おばあちゃんの敵',
       '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神', '連打の申し子', '待ての達人', 'UFOハンター', '一網打尽',
-      '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー'
+      '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー', 'ヒーローのお守り役', 'ヒーローの通訳', 'なすがまま'
     ]);
     expect(TITLES.map((t) => t.pose)).toEqual([
       'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
-      'win_pose', 'win_pose', 'win_fist', 'win_pose', 'win_fist', 'win_arms', 'win_arms', 'win_pose', 'win_arms'
+      'win_pose', 'win_pose', 'win_fist', 'win_pose', 'win_fist', 'win_arms', 'win_arms', 'win_pose', 'win_arms',
+      'win_pose', 'win_arms', 'win_shy'
     ]);
-    expect(new Set(TITLES.map((t) => t.id)).size).toBe(17);
+    expect(new Set(TITLES.map((t) => t.id)).size).toBe(20);
     expect(titleById('demolition').name).toBe('歩く解体工事');
   });
 
@@ -129,9 +130,10 @@ describe('称号(ステージ2)', () => {
     // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ(ステージごとの数は ステージ3 の称号で確かめる)
     expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
     expect(titlesFor('alley').map((t) => t.id)).not.toContain('roundUp');
-    // どれかのステージでは必ず取れる
+    // どれかのステージかフリープレイでは必ず取れる
     for (const t of TITLES) {
-      expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t) || titlesFor('mall').includes(t), t.id).toBe(true);
+      expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t) || titlesFor('mall').includes(t)
+        || titlesForFree().includes(t), t.id).toBe(true);
     }
   });
 

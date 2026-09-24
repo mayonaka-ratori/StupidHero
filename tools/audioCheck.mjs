@@ -38,6 +38,10 @@ for (const n of ['street2', 'boss2', 'whistle', 'engine', 'skid', 'horn', 'crash
 for (const n of ['street3', 'boss3', 'sale3', 'chime', 'ufoDown', 'tractor', 'ufoFall', 'beep', 'glitch', 'shipBeam', 'tractor×', 'shipBeam×', 'boss3+sfx', 'street3+sfx', 'sale3+sfx']) {
   if (!names.has(n)) ng(`${n} が測れていない`);
 }
+// フリープレイの音がそろっているか
+for (const n of ['free1', 'free2', 'free3', 'declareBad', 'declarePass', 'dryPress', 'dryPress×', 'free3+sfx']) {
+  if (!names.has(n)) ng(`${n} が測れていない`);
+}
 if (res.backlog > 4) ng(`遅れたときに ${res.backlog} マスをまとめて予約した`);
 else ok(`遅れたときに一度に予約したマス: ${res.backlog}(たまった音は鳴らさない)`);
 
@@ -109,6 +113,19 @@ await expect('boss3 に切り替え', (d) => d.playing === 'boss3');
 await page.evaluate(() => { window.__audio.stopBgm(200); });
 await page.waitForTimeout(1000);
 await expect('boss3 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
+// フリープレイの曲(波ごとに少しずつ速い曲に切り替える)
+await page.evaluate(() => { window.__audio.playBgm('free1'); window.__audio.sfx('declareBad'); });
+await page.waitForTimeout(300);
+await expect('free1 が流れる', (d) => d.playing === 'free1');
+await page.evaluate(() => { window.__audio.sfx('dryPress'); window.__audio.sfx('dryPress'); window.__audio.playBgm('free2'); });
+await page.waitForTimeout(300);
+await expect('free2 に切り替え', (d) => d.playing === 'free2');
+await page.evaluate(() => { window.__audio.sfx('declarePass'); window.__audio.playBgm('free3'); });
+await page.waitForTimeout(300);
+await expect('free3 に切り替え', (d) => d.playing === 'free3');
+await page.evaluate(() => { window.__audio.stopBgm(200); });
+await page.waitForTimeout(1000);
+await expect('free3 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
 
 for (const e of errors) ng(e);
 await browser.close();

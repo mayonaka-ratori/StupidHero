@@ -36,6 +36,8 @@ export class Actor {
   shadowW = 1;
   /** ステージ2:ギャングの組に呼ばれて集まりに行った(このあと自分の番は来ない) */
   called = false;
+  /** pose() で止めている動きの名前(play() で流し始めたら undefined)。フリープレイの小物を、驚いたコマで隠すのに使う */
+  posed?: string;
 
   constructor(private scene: Phaser.Scene, key: string, x: number, y: number) {
     this.key = key;
@@ -52,6 +54,7 @@ export class Actor {
   play(name: string, force = false, timeScale = 1): this {
     const k = animKey(this.key, name);
     if (!this.scene.anims.exists(k)) return this;
+    this.posed = undefined;
     this.sprite.anims.timeScale = timeScale;
     if (!force && this.sprite.anims.currentAnim?.key === k && this.sprite.anims.isPlaying) return this;
     this.sprite.play(k);
@@ -63,6 +66,7 @@ export class Actor {
     const k = animKey(this.key, name);
     const anim = this.scene.anims.get(k);
     if (!anim) return this;
+    this.posed = name;
     this.sprite.anims.stop();
     const f = anim.frames[Math.min(i, anim.frames.length - 1)];
     this.sprite.setFrame(f.frame.name);

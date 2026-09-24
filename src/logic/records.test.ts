@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, hasAnyRecord, hasSeenRush, isStageUnlocked, loadRecords, markIntroSeen,
+  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isStageUnlocked, loadRecords, markIntroSeen,
   markRushSeen,
   needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
@@ -26,7 +26,7 @@ const stats = (over: Partial<StageStats> = {}): StageStats => ({
     gacha: 0, mannequin: 0, showcase: 0, fountain: 0, escalator: 0, ufo: 0, mothership: 0
   },
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
-  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null,
+  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, rush: null, free: null,
   escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
@@ -44,7 +44,7 @@ describe('records', () => {
     expect(a.newRecords).toEqual([]);
     expect(a.persisted).toBe(true);
     expect(a.titlesCollected).toBe(1);
-    expect(a.titlesTotal).toBe(17);
+    expect(a.titlesTotal).toBe(20);
     expect(a.stage).toEqual({
       mostDefeated: 5, fewestHurt: 2, highestDamage: 10_000_000, fastestBossSec: 8, plays: 1, clears: 1, titles: ['soSo']
     });
@@ -67,7 +67,9 @@ describe('records', () => {
   it('壊れたデータや知らない称号は捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
-    expect(loadRecords(st)).toEqual({ version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [] });
+    expect(loadRecords(st)).toEqual({
+      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false
+    });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
     expect(r.titles).toEqual(['soSo']);
@@ -98,7 +100,7 @@ describe('records', () => {
     const h = saveResult('garage', stats({ stageId: 'garage' }), 'roundUp', st);
     expect(h.titleIsNew).toBe(true);
     expect(h.titlesCollected).toBe(3);
-    expect(h.titlesTotal).toBe(17);
+    expect(h.titlesTotal).toBe(20);
     const r = loadRecords(st);
     expect(r.stages.alley!.titles).toEqual(['soSo', 'realHero']);
     expect(r.stages.garage!.titles).toEqual(['soSo', 'roundUp']);
@@ -149,7 +151,7 @@ describe('records', () => {
     const m = saveResult('mall', stats({ stageId: 'mall' }), 'ufoHunter', st);
     expect(m.firstPlay).toBe(true);
     expect(m.titlesCollected).toBe(2);
-    expect(m.titlesTotal).toBe(17);
+    expect(m.titlesTotal).toBe(20);
     expect(loadRecords(st).stages.mall!.titles).toEqual(['ufoHunter']);
   });
 

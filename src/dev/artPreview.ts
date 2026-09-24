@@ -1,10 +1,13 @@
 // 絵の一覧を見るための開発用ページ(/dev/art.html)。ゲームには入らない。
 // ?keys=hero,fx_aura で絞りこみ、?scale=3 で拡大率を変える。
+// いちばん下に、フリープレイの人に波3の小物を重ねた見本を並べる(?keys で fp_ のキーを選んだときも出る)。
 // ゲームと同じく public/art/manifest.json にあるPNGを読み、ないものはコードで描く。PNGの絵にはキーの横に「PNG」と出す。
 import '@fontsource/dotgothic16';
 import Phaser from 'phaser';
 import { type ArtManifest, generateArt, loadArtPngs } from '../art';
-import { IMAGES, SHEETS, sheetSize } from '../art/sheets';
+import { IMAGES, SHEETS, originFor, sheetSize } from '../art/sheets';
+import { FREE_ITEM_SHEETS, FREE_LOOK_SHEETS, itemAnchor } from '../art/free/items';
+import { FREE_ITEMS } from '../logic/freeNames';
 
 const params = new URLSearchParams(location.search);
 const only = params.get('keys')?.split(',').filter(Boolean);
@@ -26,6 +29,14 @@ for (const d of images) {
   items.push({ key: d.key, w: d.w, h: d.h, y: height + 14 });
   height += 14 + d.h * scale + pad;
   width = Math.max(width, d.w * scale + 160);
+}
+// 小物を重ねた見本:小物ごとに右向きと左向きの2段。1マスは人のコマ(64×64)と、上に浮かぶ風船の分
+const SAMPLE_W = 72, SAMPLE_H = 84, SAMPLE_TOP = 20;
+const showSamples = !only || only.some((k) => k.startsWith('fp_'));
+const samplesY = height + 14;
+if (showSamples) {
+  height += 14 + FREE_ITEMS.length * 2 * (SAMPLE_H * scale + 14) + pad;
+  width = Math.max(width, FREE_LOOK_SHEETS.length * SAMPLE_W * scale + pad * 2);
 }
 
 class Preview extends Phaser.Scene {
@@ -65,7 +76,33 @@ class Preview extends Phaser.Scene {
         it.rows?.forEach((r, i) => this.add.text(pad + it.w * scale + 8, it.y + i * it.fh! * scale + 2, r, { fontFamily: 'monospace', fontSize: '11px', color: '#c8c0e0' }));
       }
     }
+    if (showSamples) this.drawSamples(g);
     (window as unknown as { artReady: boolean }).artReady = true;
+  }
+
+  /** フリープレイの人(待機の1コマ目)に、波3の小物を itemAnchor の場所で重ねる */
+  private drawSamples(g: Phaser.GameObjects.Graphics): void {
+    this.add.text(pad, samplesY - 14, '小物を重ねた見本(itemAnchor)', { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
+    let y = samplesY;
+    for (const item of FREE_ITEMS) for (const left of [false, true]) {
+      this.add.text(pad, y, `${item} ${left ? '左向き' : '右向き'}`, { fontFamily: 'monospace', fontSize: '11px', color: '#c8c0e0' });
+      y += 14;
+      FREE_LOOK_SHEETS.forEach((key, i) => {
+        const x0 = pad + i * SAMPLE_W * scale;
+        g.fillStyle(0x1a1626, 1).fillRect(x0, y, (SAMPLE_W - 4) * scale, SAMPLE_H * scale);
+        // 足の裏の位置
+        const fx = x0 + 32 * scale, fy = y + (SAMPLE_TOP + 60) * scale;
+        const a = itemAnchor(key, item);
+        const itemKey = FREE_ITEM_SHEETS[item];
+        const put = () => this.add.image(fx + (left ? -a!.dx : a!.dx) * scale, fy + a!.dy * scale, itemKey, 0)
+          .setOrigin(...originFor(itemKey)).setScale(scale).setFlipX(left);
+        if (a && !a.front) put();
+        this.add.image(fx, fy, key, 0).setOrigin(...originFor(key)).setScale(scale).setFlipX(left);
+        if (a && a.front) put();
+        if (!a) this.add.text(x0 + 4, y + 4, 'なし', { fontFamily: 'monospace', fontSize: '11px', color: '#ff6a6a' });
+      });
+      y += SAMPLE_H * scale;
+    }
   }
 }
 

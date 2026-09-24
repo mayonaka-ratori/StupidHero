@@ -16,7 +16,9 @@ export const SFX_GAP: Partial<Record<SfxName, number>> = {
   // ステージ2:長めの音は重なるとうるさいので間をあける
   whistle: 0.25, engine: 0.2, skid: 0.25, horn: 0.3, crash: 0.2,
   // ステージ3:吸い上げる光(0.5秒ごと)と母艦の光線(1秒ごと)はくり返し鳴らすので、呼びすぎても重ならないようにする
-  chime: 0.5, ufoDown: 0.5, tractor: 0.4, ufoFall: 0.3, beep: 0.1, glitch: 0.15, shipBeam: 0.6
+  chime: 0.5, ufoDown: 0.5, tractor: 0.4, ufoFall: 0.3, beep: 0.1, glitch: 0.15, shipBeam: 0.6,
+  // フリープレイ:空押しは何度も押されるので、続けて鳴らしすぎない
+  declareBad: 0.3, declarePass: 0.3, dryPress: 0.12
 };
 export const SFX_GAP_DEFAULT = 0.03;
 /** 同時に鳴らす効果音の上限 */

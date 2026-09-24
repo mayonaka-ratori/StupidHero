@@ -7,13 +7,26 @@
 // 並び:上に称号とヒーローの勝利ポーズ(背中で爆発)、オペレーターのひとこと。
 //       真ん中にいちばんひどかった場面(右上にステージの名前)。下に数字、被害額のたとえ、称号の数、ロゴ。
 // 背景とボスの絵は stage(stage.def)から。省略すると路地裏。
+//
+// フリープレイ(stats.free がある。docs/FREEPLAY.md「結果画面」):
+// - 右上のステージ名は「フリープレイ」(stage に FREE_NAME を入れて渡す)
+// - 場面のときのルールの札(絵とひらがな)を、写真の右上の角の上に、つまみのように小さく出す(オペレーターの顔の左)。
+//   写真の中に置くと、見出しとステージ名の下の段で人の顔が隠れるため
+// - 写真の見出しは、ステージの場面がなければフリープレイだけの場面(freeWorstCaption)
+// - 数字は結果画面の窓と同じ並び:クリアまでの時間(大きく)、待てで守った、行けで決めた、市民のけが、逃がした、被害額。
+//   4行に入れるため、時間は右に2段ぶんの大きさで出し、その左下に待て、行け。市民のけがと被害額は右に寄せる。
+//   ゆっくりモードの印は、いちばん下の「#StupidHero」の左。
+//   結果画面の窓のいちばん下の小さな1行(ヒーローだけなら…)は入れない(ステージのカードが内わけや足しの行を入れないのと同じ。
+//   入れると写真を低くするしかなく、人の顔が見出しに隠れるため)
 
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  ABDUCTED_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatYen, titleCommentFor, type AttackKind, type SaveOutcome,
-  type StageDef, type StageId, type StageStats, type TitleDef, type WorstScene
+  ABDUCTED_CAPTION, FREE_NAME, FREE_WORST_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatClearTime, formatYen, ruleSignText,
+  titleCommentFor, type AttackKind, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef,
+  type WorstScene
 } from '../../logic';
+import { FREE_ITEM_ICONS } from '../../art/free/items';
 import { NAMES } from '../../ui/theme';
 import { paintStageBg, drawSprite, drawText, fill, frameOf, makeCanvas } from './draw';
 
@@ -58,6 +71,18 @@ export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> &
   return byAttack ?? byStage ?? WORST_CAPTION[s.worstScene];
 }
 
+/**
+ * フリープレイのいちばんひどい場面の説明の文。ステージの場面(市民を殴ったなど)があればその文、
+ * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の文
+ */
+export function freeWorstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack' | 'free'> & Partial<Pick<StageStats, 'stageId'>>): string {
+  // 波ごとに背景が変わるので、ステージの名前で言い方を変える文(「駐車場ボロボロ!」など)は使わない
+  const plain = { worstScene: s.worstScene, worstAttack: s.worstAttack };
+  if (s.worstScene) return worstCaption(plain);
+  if (s.free?.worst) return FREE_WORST_CAPTION[s.free.worst];
+  return worstCaption(plain);
+}
+
 /** 説明の文の全部(字を先に読みこむため) */
 const ALL_CAPTIONS = [
   ...Object.values(WORST_CAPTION),
@@ -68,12 +93,15 @@ const ALL_CAPTIONS = [
 export interface CardInput {
   title: TitleDef;
   stats: StageStats;
-  saved: SaveOutcome;
+  /** 称号の数(SaveOutcome か FreeSaveOutcome) */
+  saved: Pick<SaveOutcome, 'titlesCollected' | 'titlesTotal'>;
   /** いちばんひどかった場面(216×214)。なければ代わりの絵を描く */
   shot: CanvasImageSource | null;
   scrollX: number;
   /** どのステージか(背景、ボスの絵、名前)。省略すると路地裏 */
   stage?: CardStage;
+  /** ひとことと被害額のたとえの言い方をどのステージに合わせるか。省略すると stats.stageId(フリープレイは波3の背景) */
+  textStage?: StageId;
 }
 
 /** 共有カードに使うステージの中身 */
@@ -96,7 +124,7 @@ export interface Card {
 }
 
 /** どのステージのカードか(ひとことと被害額のたとえの言い方が変わる) */
-const stageIdOf = (i: CardInput): StageId => i.stats.stageId ?? 'alley';
+const stageIdOf = (i: CardInput): StageId => i.textStage ?? i.stats.stageId ?? 'alley';
 /** 称号のひとこと(ステージに合った言い方) */
 const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCommentFor(i.title.id, stageIdOf(i));
 
@@ -105,9 +133,13 @@ export function cardTexts(i: CardInput): string[] {
   return [
     i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
     'ひどいことはなかった!', '悪党を倒した', '市民のけが', '逃がした', '被害額', '人', '称号', '#StupidHero',
-    formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億'
+    formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億',
+    ...(i.stats.free ? [...FREE_CARD_TEXTS, freeWorstCaption(i.stats), i.stats.free.worstRule ? ruleSignText(i.stats.free.worstRule) : ''] : [])
   ];
 }
+
+/** フリープレイのカードで使う字 */
+const FREE_CARD_TEXTS = [FREE_NAME, 'クリアまでの時間', '待てで守った', '行けで決めた', 'ゆっくり', '人回:', ...Object.values(FREE_WORST_CAPTION)];
 
 /** 場面の写真がないときの代わり:ボスがのびていて、ヒーローが決めている(背景とボスはそのステージの絵) */
 export function makeFallbackShot(scene: Phaser.Scene, stats: StageStats, scrollX: number, stage: CardStage = STAGES[stats.stageId ?? 'alley']): HTMLCanvasElement {
@@ -177,6 +209,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   const MID = TOP + 2;
   // 下の数字を4行にするので、写真は少し低め(下の端は前と同じところで切る)
   const MID_H = 70;
+  const free = s.free;
   {
     const shot = i.shot ?? makeFallbackShot(scene, s, i.scrollX, stage);
     fill(ctx, 0xffffff, [0, MID - 1, W, 1], [0, MID + MID_H, W, 1]);
@@ -193,13 +226,16 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     fill(ctx, UI.gold, [W - sz.w - 8, MID + sz.h + 3, sz.w + 8, 1]);
     drawText(ctx, scene, W - 4, MID + 2, sl, { size: 12, color: UI.gold }, [1, 0]);
     // 説明の字は右下。さらわれた場面は写真の真ん中から右にUFOと浮いた買い物客がいるので、左下に置く
-    const cap = worstCaption(s);
+    const cap = free ? freeWorstCaption(s) : worstCaption(s);
     const capLeft = s.worstScene === 'abducted';
+    // フリープレイ:写真の右上の角の上(オペレーターの顔の左)に、その場面のときのルールの札
+    if (free?.worstRule) drawRuleSign(ctx, scene, W - 39, MID - 1, free.worstRule);
     drawText(ctx, scene, capLeft ? 4 : W - 4, MID + MID_H - 3, cap, { size: 12, color: 0xffffff, outline: true }, [capLeft ? 0 : 1, 1]);
   }
 
   // ─── 下:数字 ───
-  {
+  if (free) drawFreeNumbers(ctx, scene, s, MID + MID_H + 2);
+  else {
     const y0 = MID + MID_H + 2;
     const rowH = 16;
     const st = { size: 16, outline: true } as const;
@@ -237,7 +273,16 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
       ctx.drawImage(half.canvas, 2, fy + 1);
     }
     drawText(ctx, scene, W - 6, fy + 3, `称号{gold}${i.saved.titlesCollected}{/}/${i.saved.titlesTotal}`, { size: 16, outline: true }, [1, 0]);
-    drawText(ctx, scene, W - 6, CARD_H - 3, '#StupidHero', { size: 10, color: UI.textDim }, [1, 1]);
+    const tag = drawText(ctx, scene, W - 6, CARD_H - 3, '#StupidHero', { size: 10, color: UI.textDim }, [1, 1]);
+    // フリープレイをゆっくりモードで遊んだ印
+    if (free?.slow) {
+      const m = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, 'ゆっくり', { size: 10 });
+      const x = W - 6 - tag.w - 6 - (m.w + 6);
+      const y = CARD_H - 3 - m.h - 1;
+      fill(ctx, 0x000000, [x - 1, y - 1, m.w + 8, m.h + 4]);
+      fill(ctx, UI.civ, [x, y, m.w + 6, m.h + 2]);
+      drawText(ctx, scene, x + 3, y + 1, 'ゆっくり', { size: 10, color: 0xffffff });
+    }
   }
 
   // 外わく
@@ -254,6 +299,67 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     } catch { resolve(null); }
   });
   return { small: canvas, big, dataUrl, file };
+}
+
+/**
+ * フリープレイの数字(4行)。
+ *   クリアまでの時間              [ 1:38 ](2段ぶんの大きさ)
+ *   待てで守った 9/9人           [      ]
+ *   行けで決めた 8/8回        市民のけが 0人
+ *   逃がした 0人              被害額 ¥721万
+ * 左と右がぶつかるとき(けがが2けたなど)は、左の数字の「/9」を省く
+ */
+function drawFreeNumbers(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, s: StageStats, y0: number): void {
+  const f = s.free!;
+  const W = CARD_W;
+  const rowH = 16;
+  // 左右の端を少しだけ広く使う(左の「9/9人」と右の「市民のけが」がぶつからないように)
+  const L = 5, R = W - 5;
+  const m = makeCanvas(1, 1).ctx;
+  const lst = { size: 12, outline: true } as const;
+  const vst = { size: 16, outline: true } as const;
+  const width = (label: string, value: string): number =>
+    drawText(m, scene, 0, 0, label, lst).w + 2 + drawText(m, scene, 0, 0, value, vst).w;
+  /** 見出しと数字。right=true なら右端を x にそろえる */
+  const pair = (x: number, y: number, label: string, value: string, color: number, right = false): void => {
+    const a = drawText(m, scene, 0, 0, label, lst);
+    const w = width(label, value);
+    const left = right ? x - w : x;
+    drawText(ctx, scene, left, y + 4, label, lst);
+    drawText(ctx, scene, left + a.w + 2, y, value, { ...vst, color });
+  };
+  // クリアまでの時間:見出しは左、数字は右に大きく(2段ぶん)
+  drawText(ctx, scene, L, y0 + 4, 'クリアまでの時間', { ...lst, color: UI.gold });
+  const time = f.clearSec === null ? '-' : formatClearTime(f.clearSec);
+  drawText(ctx, scene, R, y0 - 3, time, { size: 32, color: UI.gold, outline: true }, [1, 0]);
+  // 待てと行け(左)、市民のけがと逃がした(右)
+  const hurt = { label: '市民のけが', value: `${s.civHurt}人`, color: s.civHurt > 0 ? UI.danger : UI.gold };
+  const hurtW = width(hurt.label, hurt.value);
+  const long = { stop: `${f.stopSaved}/${f.stopChances}人`, go: `${f.goScenes}/${f.goChances}回` };
+  const fits = L + width('行けで決めた', long.go) + 3 <= R - hurtW;
+  pair(L, y0 + rowH, '待てで守った', fits ? long.stop : `${f.stopSaved}人`, UI.gold);
+  pair(L, y0 + rowH * 2, '行けで決めた', fits ? long.go : `${f.goScenes}回`, UI.gold);
+  pair(R, y0 + rowH * 2, hurt.label, hurt.value, hurt.color, true);
+  pair(L, y0 + rowH * 3, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
+  pair(R, y0 + rowH * 3, '被害額', formatYen(s.damage), UI.gold, true);
+}
+
+/**
+ * ルールの札。黒い地に白いふち、絵とひらがな(字が読めなくても分かるように)。right が右端、bottom が下端。
+ * みんなワルは拳、みんないいひとは手のひら、小物のルールは小物の絵と拳
+ */
+function drawRuleSign(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, right: number, bottom: number, rule: FreeRule): void {
+  const icons = rule.kind === 'allBad' ? ['ui_rule_fist'] : rule.kind === 'allCiv' ? ['ui_rule_palm'] : [FREE_ITEM_ICONS[rule.item], 'ui_rule_fist'];
+  const text = ruleSignText(rule);
+  const t = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, text, { size: 10 });
+  const w = 3 + icons.length * 16 + 2 + t.w + 4;
+  const h = 18;
+  const x = right - w, y = bottom - h;
+  fill(ctx, 0x000000, [x - 1, y - 1, w + 2, h + 1]);
+  fill(ctx, 0xffffff, [x, y, w, h]);
+  fill(ctx, 0x000000, [x + 1, y + 1, w - 2, h - 1]);
+  icons.forEach((k, n) => drawSprite(ctx, scene, k, 0, x + 3 + n * 16, y + 1));
+  drawText(ctx, scene, x + 3 + icons.length * 16 + 2, y + 5, text, { size: 10, color: 0xffffff });
 }
 
 function drawBoxEdge(ctx: CanvasRenderingContext2D): void {

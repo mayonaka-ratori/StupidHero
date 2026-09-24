@@ -1,6 +1,6 @@
 // 結果画面の共有ともう一回を、タッチで試す(result 担当)。
 // 使い方: npm run dev を動かしてから
-//   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall)]
+//   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall。free ならフリープレイの結果画面)]
 // 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // NG があれば exit code 1。
 import { checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
@@ -8,7 +8,10 @@ import { checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, tou
 const outDir = shotsDir(process.argv[2]);
 const server = serverUrl(process.argv[3]);
 const stage = process.argv[4] ?? 'alley';
-const BASE = `${server}?scene=Result&stage=${stage}`;
+const free = stage === 'free';
+const BASE = free ? `${server}?scene=Result&free=1` : `${server}?scene=Result&stage=${stage}`;
+/** 数え上げを飛ばす試しで使う見本(フリープレイは「なすがまま」) */
+const SKIP_SAMPLE = free ? '&sample=letitbe' : '&sample=demolition';
 const browser = await openBrowser();
 const { check, done } = checker();
 const errors = [];
@@ -112,8 +115,8 @@ async function open(mode, extra = '') {
 
 // 5. タップで数え上げを飛ばす、もう一回、タイトルへ
 {
-  const { ctx, page, tapAt, tapBtn } = await open('none', '&sample=demolition');
-  await page.goto(BASE + '&sample=demolition');
+  const { ctx, page, tapAt, tapBtn } = await open('none', SKIP_SAMPLE);
+  await page.goto(BASE + SKIP_SAMPLE);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);
   await tapAt(150, 150);
@@ -124,10 +127,16 @@ async function open(mode, extra = '') {
   await tapBtn('again');
   await page.waitForTimeout(1200);
   const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
-  // 掛け合いを見たことがあれば、Intro を通らずに仕分けへ直行する
-  check('もう一回で Intro か仕分けへ', active.includes('Intro') || active.includes('Sort'), active.join(','));
-  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id }; });
-  check('もう一回で同じステージの新しいプレイ', run.debug === false && run.sorted === 0 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
+  const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id, mode: r.mode, clockMs: r.free?.clockMs ?? null }; });
+  if (free) {
+    // フリープレイは、掛け合いを出さずに Street(波1)へ
+    check('もう一回で Street へ', active.includes('Street') && !active.includes('Intro'), active.join(','));
+    check('もう一回でフリープレイの新しいプレイ', run.debug === false && run.wave === 0 && run.mode === 'free' && run.clockMs !== null && run.clockMs < 3000, JSON.stringify(run));
+  } else {
+    // 掛け合いを見たことがあれば、Intro を通らずに仕分けへ直行する
+    check('もう一回で Intro か仕分けへ', active.includes('Intro') || active.includes('Sort'), active.join(','));
+    check('もう一回で同じステージの新しいプレイ', run.debug === false && run.sorted === 0 && run.wave === 0 && run.stage === stage, JSON.stringify(run));
+  }
   await page.goto(BASE);
   await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);

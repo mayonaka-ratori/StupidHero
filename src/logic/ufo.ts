@@ -38,6 +38,11 @@ import { UFO } from './rules';
  */
 export type UfoPhase = 'signal' | 'descend' | 'beam' | 'leave' | 'downed' | 'abducted';
 
+/** 時間を変えるとき(フリープレイのゆっくりモード)。省くと UFO の秒数 */
+export interface UfoCallOptions {
+  beamSec?: number;
+}
+
 type TimedPhase = 'signal' | 'descend' | 'beam' | 'leave';
 
 /** UFO1機ぶん(合図を送った宇宙人1人ぶん) */
@@ -48,9 +53,9 @@ export class UfoCall {
   /** 今の段階に入ってからの秒数 */
   private t = 0;
 
-  constructor(alienId: string) {
+  constructor(alienId: string, opts: UfoCallOptions = {}) {
     this.alienId = alienId;
-    this.sec = { signal: UFO.signalSec, descend: UFO.descendSec, beam: UFO.beamSec, leave: UFO.leaveSec };
+    this.sec = { signal: UFO.signalSec, descend: UFO.descendSec, beam: opts.beamSec ?? UFO.beamSec, leave: UFO.leaveSec };
   }
 
   get phase(): UfoPhase {
@@ -125,6 +130,9 @@ export interface UfoEvent {
 export class UfoQueue {
   private waiting: string[] = [];
   private cur: UfoCall | null = null;
+
+  constructor(private readonly opts: UfoCallOptions = {}) {}
+
   /** 見逃した宇宙人を並べる(ヒーローが素通りしたとき)。同じ人は1回だけ */
   add(alienId: string): void {
     if (this.cur?.alienId === alienId || this.waiting.includes(alienId)) return;
@@ -162,7 +170,7 @@ export class UfoQueue {
       if (!this.cur) {
         const next = this.waiting.shift();
         if (next === undefined) break;
-        this.cur = new UfoCall(next);
+        this.cur = new UfoCall(next, this.opts);
         events.push({ alienId: next, phase: 'signal' });
       }
       const c = this.cur;

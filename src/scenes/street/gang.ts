@@ -69,6 +69,33 @@ export class GangPart {
     return van;
   }
 
+  /**
+   * フリープレイ:ワゴンが画面の右から走ってきて、集まる場所の先に止まる(口笛から仲間が集まるまでの間に)。
+   * 車の位置(van.x)ははじめから止まる所にしておき、絵だけを走らせる
+   */
+  private vanArrive(spot: GatherSpot): PropObj {
+    const van = this.addVan(spot);
+    const sp = van.sprite;
+    const x0 = Math.max(spot.vanX + 80, this.s.L.right + 80);
+    sp.setX(x0).setFrame(1);
+    audio.sfx('engine');
+    const o = { x: x0 };
+    this.s.tweens.add({
+      targets: o, x: spot.vanX, duration: (GANG.whistleSec + GANG.gatherSec) * 800, ease: 'Quad.easeOut',
+      onUpdate: () => {
+        if (van.broken || this.gang?.call.phase === 'drive') return;
+        sp.setX(Math.round(o.x)).setFrame(1 + (Math.floor(this.s.frameN / 3) % 2));
+        if (this.s.frameN % 5 === 0) this.s.fx('fx_dust', o.x + 60, van.y - 6, { depth: van.y - 1 });
+      },
+      onComplete: () => {
+        if (van.broken || this.gang?.call.phase === 'drive') return;
+        sp.setX(spot.vanX).setFrame(0);
+        audio.sfx('skid', { volume: 0.6 });
+      }
+    });
+    return van;
+  }
+
   /** 化けた女ボスの金の小物(首や腕のあたり)が、ときどき小さく光る。正体を現したら止める */
   goldGlint(a: Actor): void {
     const disguise = a.sprite.texture.key;
@@ -114,7 +141,8 @@ export class GangPart {
     const group = currentWave(this.s.run).groups.find((g) => g.id === person.group);
     const spot = this.gathers.get(person.id)
       ?? { groupId: person.group!, whistlerId: person.id, x: a.x + 76, y: 192, vanX: a.x + 116, vanY: VAN_Y };
-    const van = this.vans.get(spot.groupId) ?? this.addVan(spot);
+    // フリープレイはワゴンを止めておかず、右から走ってくる
+    const van = this.vans.get(spot.groupId) ?? (this.s.free ? this.vanArrive(spot) : this.addVan(spot));
     const ids = gatherMembers(group?.memberIds ?? [person.id], (id) => this.goneFromGang(id));
     const mates = ids.filter((id) => id !== person.id).map((id) => this.s.actorOf(id)).filter((m): m is Actor => !!m);
     const members = [a, ...mates];
@@ -143,7 +171,7 @@ export class GangPart {
     if (alone) { await this.s.aloneWhistle(a); return; }
 
     // 仲間が通りのどこからでも走ってくる(時間は GangCall が数える)
-    const call = new GangCall(members.map((m) => m.person!.id));
+    const call = new GangCall(members.map((m) => m.person!.id), this.s.free?.gangOpts);
     let done!: () => void;
     const finished = new Promise<void>((r) => { done = r; });
     this.gang = { call, members, spot, slots, van, vanX0: van.x, vanEndX: van.x, done };
@@ -213,6 +241,7 @@ export class GangPart {
       // 「行けでまとめて!」が行けの使い方の代わり
       this.s.firstTime('go');
       this.s.opSay(this.s.line('gathered', this.s.rng), true);
+      this.s.free?.goMarkShown();
       this.s.goHandler = () => this.gangGo();
     } else if (e === 'board') {
       // ワゴンに乗りこむ(乗った人は車の中に消える)
@@ -246,15 +275,18 @@ export class GangPart {
       audio.sfx('skid');
       shake(this.s, 2, 200);
       for (let i = 0; i < 3; i++) this.s.fx('fx_dust', van.x - 60 + i * 6, van.y - 4 - i * 4, { depth: van.y + 1, scale: 1.5 });
+      // フリープレイ:ヒーローは笑顔で手を振って見送る
+      this.s.free?.gangDrive();
     } else if (e === 'escaped') {
       // 逃げきられた
       this.s.goHandler = null;
-      this.s.goAlarm.stop();
+      this.s.stopGoAlarm();
       g.mark?.destroy(); g.mark = undefined;
       van.sprite.setVisible(false);
       van.broken = true;
       for (const m of g.members) m.destroy();
       this.s.stats.groupEscaped(g.call.size);
+      this.s.free?.gangEscaped();
       audio.sfx('horn');
       this.s.opSay(this.s.line('vanEscaped', this.s.rng));
       this.s.hero.pose('oops', 1);
@@ -268,10 +300,11 @@ export class GangPart {
     const r = g.call.go();
     if (!r) return;
     this.s.goHandler = null;
-    this.s.goAlarm.stop();
+    this.s.stopGoAlarm();
     g.count?.destroy(); g.count = undefined;
     g.mark?.destroy(); g.mark = undefined;
     audio.sfx('go');
+    this.s.free?.goDone(false);
     void (r === 'wipe' ? this.groupWipe(g) : this.vanStop(g)).then(() => this.endGang());
   }
 

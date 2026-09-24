@@ -9,13 +9,15 @@ import { drawLogo } from './world/logo';
 import { WORLD2_IMAGES, buildWorld2Sheets } from './world2';
 import { WORLD3_IMAGES, buildWorld3Sheets } from './world3';
 import { GLITCH } from './world3/palette';
+import { buildFreeSheets } from './free';
 
-/** 担当ごとのシート(ヒーローと顔とエフェクト、ステージ1〜3) */
+/** 担当ごとのシート(ヒーローと顔とエフェクト、ステージ1〜3、フリープレイ) */
 const SETS: Record<string, Record<string, PixelGrid[][]>> = {
   hero: buildHeroSheets(),
   world: buildWorldSheets(),
   world2: buildWorld2Sheets(),
-  world3: buildWorld3Sheets()
+  world3: buildWorld3Sheets(),
+  free: buildFreeSheets()
 };
 /** ステージごとの背景3枚(奥、壁、地面の順) */
 const BGS: Record<string, Record<string, () => PixelGrid>> = { alley: WORLD_BGS, garage: WORLD2_IMAGES, mall: WORLD3_IMAGES };
@@ -68,8 +70,9 @@ describe('絵の色の決まり', () => {
       });
 
       if (set !== 'world3') {
-        it('黄緑の3色(くずれと合図の色)はステージ3だけ', () => {
+        it('黄緑の3色(くずれと合図の色)はステージ3だけ(フリープレイの宇宙人の触角と合図はよい)', () => {
           for (const [key, rows] of Object.entries(sheets)) {
+            if (key === 'fp_alien') continue;
             const cs = colorsOf(rows.flat());
             for (const c of GLITCH) expect(cs.has(c), `${key} ${c}`).toBe(false);
           }

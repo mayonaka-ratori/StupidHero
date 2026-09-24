@@ -393,7 +393,7 @@ function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pos
 // =====================================================================
 // モヒカン
 // =====================================================================
-const MOHAWK: Ramp = [md(7, 3, 6), md(6, 1, 5), md(3, 0, 3)];
+export const MOHAWK: Ramp = [md(7, 3, 6), md(6, 1, 5), md(3, 0, 3)];
 const VEST: Ramp = [md(3, 2, 4), md(2, 1, 3), md(1, 1, 2)];
 const RIPPED: Ramp = [md(3, 4, 5), md(2, 3, 4), md(1, 2, 3)];
 const MOHAWK_BUILD: Build = { sh: 9, wa: 6.5, arm: 2.8, thigh: 3.3, shin: 2.7, hem: -1, chest: 2 };
@@ -409,7 +409,7 @@ function knife(P: Painter, h: Pt, ang: number): void {
   P.px(Math.round(at(1.5)[0]), Math.round(at(1.5)[1]), OUTLINE);
 }
 
-function mohawkLook(knifeAng: number | null): Look {
+export function mohawkLook(knifeAng: number | null): Look {
   return {
     skin: SKIN, hair: MOHAWK, hairStyle: HAIR_MOHAWK,
     top: VEST, sleeve: 'none', bottom: RIPPED, legs: 'pants', shoes: VEST, sole: OUTLINE,

@@ -5,7 +5,9 @@ import { Engine } from './engine';
 export type BgmName =
   | 'title' | 'sort' | 'street' | 'boss' | 'result' | 'street2' | 'boss2'
   // ステージ3(sale3 はタイムセールラッシュの曲)
-  | 'street3' | 'boss3' | 'sale3';
+  | 'street3' | 'boss3' | 'sale3'
+  // フリープレイ(同じ曲で、波ごとに少しずつ速い)
+  | 'free1' | 'free2' | 'free3';
 export type SfxName =
   | 'button' | 'swipeBad' | 'swipeCiv' | 'tick' | 'timeUp' | 'blip'
   | 'charge' | 'punch' | 'stomp' | 'beam' | 'hit' | 'bigHit' | 'break'
@@ -14,7 +16,9 @@ export type SfxName =
   // ステージ2
   | 'whistle' | 'engine' | 'skid' | 'horn' | 'crash'
   // ステージ3
-  | 'chime' | 'ufoDown' | 'tractor' | 'ufoFall' | 'beep' | 'glitch' | 'shipBeam';
+  | 'chime' | 'ufoDown' | 'tractor' | 'ufoFall' | 'beep' | 'glitch' | 'shipBeam'
+  // フリープレイ
+  | 'declareBad' | 'declarePass' | 'dryPress';
 export interface AudioEngine {
   /** 最初のタップの中で呼ぶ。AudioContextを作り、iPhoneでも鳴るようにする。何度呼んでもよい */
   unlock(): void;

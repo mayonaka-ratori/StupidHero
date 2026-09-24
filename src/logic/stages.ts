@@ -14,7 +14,7 @@ import { BOSS2_AGES } from './garageContent';
 import {
   BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, WAVES, type WavePlan
 } from './rules';
-import type { DisguiseLook, Look, PropKind, StageId, Truth } from './types';
+import type { DisguiseLook, FreeVillainLook, Look, PropKind, StageId, Truth } from './types';
 
 /**
  * ステージの仕組み(結果発表で見逃したワルが何をするか)。
@@ -175,17 +175,23 @@ export const MALL_SHEETS = {
   glitch: 'fx_glitch'
 } as const;
 
+/** フリープレイのワルの見た目か('fp_mohawk'、'fp_gang'、'fp_alien') */
+export const isFreeVillainLook = (look: Look): look is FreeVillainLook => look.startsWith('fp_');
+
 /** 文字列がステージの id か(URL の ?stage= などを読むとき) */
 export const isStageId = (v: unknown): v is StageId => typeof v === 'string' && v in STAGES;
 
 /**
  * 見た目と正体から絵のキーを決める(src/art/sheets.ts のキー)。
- * ボスは化けた姿の絵(路地裏は 'boss_disguise_*'、地下駐車場は 'boss2_disguise_*')
+ * ボスは化けた姿の絵(路地裏は 'boss_disguise_*'、地下駐車場は 'boss2_disguise_*')。
+ * フリープレイのワル('fp_mohawk' など)は見た目の名前そのまま
  */
 export function sheetKeyFor(look: Look, truth: Truth, stageId: StageId = 'alley'): string {
   if (truth === 'boss') {
     return STAGES[stageId].disguiseSheets[look as DisguiseLook] ?? `boss_disguise_${look}`;
   }
+  // フリープレイのワルは見た目の名前がそのまま絵のキー('fp_mohawk' など)
+  if (isFreeVillainLook(look)) return look;
   if (look === 'mohawk') return 'villain_mohawk';
   if (look === 'granny') return 'granny_civ';
   return `${look}_${truth}`;

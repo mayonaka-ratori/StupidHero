@@ -1,10 +1,11 @@
-// 結果発表の通りの並べ方(planStreet、planGarage、planMall)。画面には頼らない計算だけを確かめる。
+// 結果発表の通りの並べ方(planStreet、planGarage、planMall、フリープレイの planFree)。画面には頼らない計算だけを確かめる。
 // Phaser は読みこまない(読みこんだら失敗にする)。
 
 import { describe, expect, it, vi } from 'vitest';
-import { createRng, createStage, STAGES, type Person, type Stage, type StageId } from '../../logic';
+import { createFreePlay, createRng, createStage, freeRoleOf, freeTiming, STAGES, type Person, type Stage, type StageId } from '../../logic';
 import {
-  FIRST_X, GAP, GATHER_ROOM, RUSH_DX, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y, planGarage, planMall, planStreet, type StreetPlan
+  FIRST_X, GAP, GATHER_ROOM, RUSH_DX, THREAT_DX, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y, planFree, planGarage, planMall, planStreet,
+  type StreetPlan
 } from './plan';
 
 vi.mock('phaser', () => {
@@ -221,5 +222,75 @@ describe('planMall(ショッピングモール)', () => {
       }
     }
     expect(bad).toEqual([]);
+  });
+});
+
+describe('planFree(フリープレイ)', () => {
+  const looks = [{ key: 'suit_civ', look: 'suit' as const }, { key: 'guard_civ', look: 'guard' as const, color: 0xd87400 }];
+  const all: { plan: StreetPlan; gap: number; victims: Map<string, 'threat' | 'ufo'>; bg: StageId; people: Person[] }[] = [];
+  for (let i = 0; i < 40; i++) {
+    const fp = createFreePlay(i * 13 + 5, ['alley', 'garage', 'mall']);
+    fp.waves.forEach((fw, wi) => {
+      const people = fp.stage.waves[wi].people;
+      const victims = new Map<string, 'threat' | 'ufo'>();
+      for (const p of people) {
+        if (freeRoleOf(fw, p) !== 'go') continue;
+        if (p.look === 'fp_mohawk') victims.set(p.id, 'threat');
+        if (p.look === 'fp_alien') victims.set(p.id, 'ufo');
+      }
+      const gap = freeTiming(fw.no, i % 4 === 0).gapPx;
+      const plan = planFree(people, { gap, bg: fw.bgStage, props: STAGES[fw.bgStage].props, victims, passerLooks: looks }, createRng(`free-${i}-${wi}`));
+      all.push({ plan, gap, victims, bg: fw.bgStage, people });
+    });
+  }
+
+  it('人は波の順に、人と人の間(gap)をあけて道の中に並ぶ', () => {
+    const bad: string[] = [];
+    for (const { plan, gap, people } of all) {
+      if (plan.people.map((s) => s.person.id).join() !== people.map((p) => p.id).join()) bad.push('並ぶ順');
+      for (let i = 1; i < plan.people.length; i++) {
+        const d = plan.people[i].x - plan.people[i - 1].x;
+        if (d < gap - 12) bad.push(`間 ${d} < ${gap}`);
+      }
+      for (const s of [...plan.people, ...plan.passers]) if (s.y < GROUND.road || s.y > GROUND.bottom) bad.push(`道の外 y=${s.y}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('悪さの相手は、モヒカンの72ドット先と、UFOが下りてくる所に1人ずつ。ほかの通りがかりの市民はいない', () => {
+    for (const { plan, victims } of all) {
+      expect(plan.passers).toHaveLength(victims.size);
+      for (const s of plan.people) {
+        const kind = victims.get(s.person.id);
+        if (!kind) continue;
+        const dx = kind === 'threat' ? THREAT_DX : UFO_DX;
+        expect(plan.passers.some((p) => Math.abs(p.x - (s.x + dx)) <= 1), s.person.id).toBe(true);
+      }
+    }
+  });
+
+  it('ギャングの組は、口笛を吹く人(組の最初の人)の先に集まる場所。ワゴンは置かず、まわりに床の物はない', () => {
+    let seen = 0;
+    for (const { plan, people } of all) {
+      const groups = new Set(people.filter((p) => p.look === 'fp_gang').map((p) => p.group));
+      expect(plan.gathers).toHaveLength(groups.size);
+      expect(plan.props.some((p) => p.kind === 'van')).toBe(false);
+      for (const g of plan.gathers) {
+        seen++;
+        const first = people.find((p) => p.group === g.groupId)!;
+        expect(g.whistlerId).toBe(first.id);
+        const i = plan.people.findIndex((s) => s.person.id === g.whistlerId);
+        const next = plan.people[i + 1];
+        if (next) expect(next.x - plan.people[i].x).toBeGreaterThanOrEqual(GATHER_ROOM);
+        for (const p of plan.props) if (!p.wall) expect(p.x > g.x - 80 && p.x < g.vanX + 96, `${p.kind} ${p.x}`).toBe(false);
+      }
+    }
+    expect(seen).toBeGreaterThan(30);
+  });
+
+  it('物は背景のステージの物だけ', () => {
+    for (const { plan, bg } of all) {
+      expect(plan.props.filter((p) => !STAGES[bg].props.includes(p.kind))).toEqual([]);
+    }
   });
 });
