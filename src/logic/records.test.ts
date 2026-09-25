@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isStageUnlocked, loadRecords, markIntroSeen,
+  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markIntroSeen,
   markRushSeen,
   needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
@@ -28,6 +28,7 @@ const stats = (over: Partial<StageStats> = {}): StageStats => ({
   },
   defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
   defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, civHurtByDrop: 0, rush: null, free: null,
+  defeatedByPsy: 0, escapedByPsy: 0, sofaSaves: 0, lift: null,
   escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
   grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
   villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
@@ -45,7 +46,7 @@ describe('records', () => {
     expect(a.newRecords).toEqual([]);
     expect(a.persisted).toBe(true);
     expect(a.titlesCollected).toBe(1);
-    expect(a.titlesTotal).toBe(20);
+    expect(a.titlesTotal).toBe(24);
     expect(a.stage).toEqual({
       mostDefeated: 5, fewestHurt: 2, highestDamage: 10_000_000, fastestBossSec: 8, plays: 1, clears: 1, titles: ['soSo']
     });
@@ -101,7 +102,7 @@ describe('records', () => {
     const h = saveResult('garage', stats({ stageId: 'garage' }), 'roundUp', st);
     expect(h.titleIsNew).toBe(true);
     expect(h.titlesCollected).toBe(3);
-    expect(h.titlesTotal).toBe(20);
+    expect(h.titlesTotal).toBe(24);
     const r = loadRecords(st);
     expect(r.stages.alley!.titles).toEqual(['soSo', 'realHero']);
     expect(r.stages.garage!.titles).toEqual(['soSo', 'roundUp']);
@@ -152,7 +153,7 @@ describe('records', () => {
     const m = saveResult('mall', stats({ stageId: 'mall' }), 'ufoHunter', st);
     expect(m.firstPlay).toBe(true);
     expect(m.titlesCollected).toBe(2);
-    expect(m.titlesTotal).toBe(20);
+    expect(m.titlesTotal).toBe(24);
     expect(loadRecords(st).stages.mall!.titles).toEqual(['ufoHunter']);
   });
 
@@ -233,5 +234,26 @@ describe('records', () => {
     expect(needsIntro('alley', loadRecords(broken))).toBe(false);
     clearRecords(null);
     expect(needsIntro('alley', loadRecords(broken))).toBe(true);
+  });
+});
+
+describe('ボスを初めて倒したか(最上階のヒーロー)', () => {
+  beforeEach(() => clearRecords(null));
+
+  it('記録を残す前に、倒した回数が0でボスを倒していれば初めて。残したあとは初めてではない', () => {
+    const st = new MemStorage();
+    const lost = stats({ stageId: 'tower', bossDefeated: false, bossFightSec: null });
+    const won = stats({ stageId: 'tower' });
+    expect(isFirstClear('tower', lost, loadRecords(st))).toBe(false);
+    expect(saveResult('tower', lost, 'soSo', st).firstClear).toBe(false);
+    expect(isFirstClear('tower', won, loadRecords(st))).toBe(true);
+    const a = saveResult('tower', won, 'topHero', st);
+    expect(a.firstClear).toBe(true);
+    expect(a.titlesTotal).toBe(24);
+    expect(loadRecords(st).stages.tower!.titles).toEqual(['soSo', 'topHero']);
+    expect(isFirstClear('tower', won, loadRecords(st))).toBe(false);
+    expect(saveResult('tower', won, 'soSo', st).firstClear).toBe(false);
+    // ステージごとに数える
+    expect(isFirstClear('alley', stats(), loadRecords(st))).toBe(true);
   });
 });

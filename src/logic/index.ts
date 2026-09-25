@@ -24,12 +24,16 @@
 //   //     見逃したワルと同じ流れ(行けで stats.defeatBad('go')、押さずに逃げたら stats.escaped())
 //   //   ショッピングモールで passBad の宇宙人:空へ合図 → ufos.add(person.id)(new UfoQueue()。ufo.ts)
 //   //     行けで落としたら stats.ufoDowned()、連れ去られたら stats.ufoEscaped() と stats.reportScene('abducted')
-//   //   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
+//   //   高層ビルで passBad のヴィラン:planPsychic で並べ方 → psy.add(person.id)(new PsyQueue()。psychic.ts)
+//     行けで落としたら stats.psyDowned(resolvePsyDrop(plan, psyCarryX(plan, at)))、市民に落ちたら stats.psyEscaped() と
+//     stats.reportScene('dropped')
+//   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
 //   //     (rushIntroFor(hasSeenRush(stage.id))、markRushSeen、stats.startRush、rushHit、rushStopped、rushEndLine)
-//   //   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
+//   //   高層ビルの波3の答え合わせのあと:stage.rush でエレベーターラッシュ(stats.startLift、liftHit、liftStopped。まとめは liftSummary)
+//   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
 //   // ボス戦:const fight = new BossFight(def.bossFight); tap() と update(deltaMs)。boardedCar で女ボスが車に乗る
 //   //   (ショッピングモールは親玉が母艦に乗りこむ)。倒したら def.bossDefeatProp があれば stats.breakProp(def.bossDefeatProp)
-//   // 結果:const s = stats.snapshot(); const title = decideTitle(s);
+//   // 結果:const s = stats.snapshot(); const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });
 //   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   市民のけがの内わけは hurtBreakdown(s)、ラッシュのまとめは s.rush があれば rushSummary(s.rush)
 //   //   const saved = saveResult(stage.id, s, title.id);   // saved.unlockedNow で「次のステージが開いた」
@@ -67,7 +71,9 @@ export * from './stages';
 export * from './garage';
 export * from './gang';
 export * from './mall';
+export * from './timedCall';
 export * from './ufo';
+export * from './psychic';
 export * from './tower';
 export * from './stage';
 export * from './stats';

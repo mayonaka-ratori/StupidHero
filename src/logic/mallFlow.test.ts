@@ -184,7 +184,7 @@ describe('ステージ3を通しで数える', () => {
     }
   });
 
-  it('記録:地下駐車場のボスを倒すとモールが開く。称号は全部で20。ラッシュを見たことを覚える', () => {
+  it('記録:地下駐車場のボスを倒すとモールが開く。称号は全部で24。ラッシュを見たことを覚える', () => {
     const st = new MemStorage();
     const alley = new StatsTracker(9, 'alley');
     alley.defeatBoss(7);
@@ -206,7 +206,7 @@ describe('ステージ3を通しで数える', () => {
     expect(hasSeenRush('alley', loadRecords(st))).toBe(false);
     const saved = saveResult('mall', s, decideTitle(s).id, st);
     expect(saved.firstPlay).toBe(true);
-    expect(saved.titlesTotal).toBe(20);
+    expect(saved.titlesTotal).toBe(24);
     expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
     expect(saved.unlockedNow).toEqual([]);
     expect(needsIntro('mall', loadRecords(st))).toBe(false);

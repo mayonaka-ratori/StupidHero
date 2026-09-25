@@ -6,7 +6,7 @@
 //
 // 使い方:buildShareText({ caption: shareCaption({ worstScene, caption: worstCaption(s), titleName }), url })
 // いちばんひどい場面の見出しのうち、ステージで言い方を変えるもの(STAGE_WORST_CAPTIONS)と、
-// 「市民がさらわれた!」(ABDUCTED_CAPTION)はここに置く。共有カード(src/scenes/result/card.ts)が使う。
+// 「市民がさらわれた!」(ABDUCTED_CAPTION)、「市民に物が落ちた!」(DROPPED_CAPTION)はここに置く。共有カード(src/scenes/result/card.ts)が使う。
 // 見出しは共有カードの今の文に合わせて「!」を半角で書く。
 //
 // フリープレイ:1行目はルールと場面をつなげる(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)。
@@ -24,15 +24,12 @@ const SHARE_HASHTAG = '#StupidHero';
  * 見出しにして目を引く場面(市民やおばあさんに当たった、市民がさらわれた、街がこわれた)。
  * ボスを倒しただけ、何もなかったは弱い
  */
-const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'bigPropBroken'];
+const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'dropped', 'bigPropBroken'];
 
 /** 買い物客がUFOに連れ去られた場面の見出し(ステージ3) */
 export const ABDUCTED_CAPTION = '市民がさらわれた!';
 
-/**
- * 念力で運ばれた物が市民に落ちた場面の見出し(ステージ4。STAGE4「共有」)。
- * TODO: いちばんひどい場面(WorstScene)に「市民に物が落ちた」を足すとき(「市民がさらわれた」と同じ段)に使う
- */
+/** 念力で運ばれた物が市民に落ちた場面(WorstScene の 'dropped')の見出し(ステージ4。STAGE4「共有」) */
 export const DROPPED_CAPTION = '市民に物が落ちた!';
 
 /**

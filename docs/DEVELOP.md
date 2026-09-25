@@ -99,7 +99,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 - 数字:`rules.ts`(ステージごとの違いは`stages.ts`)
 - 文章:`content.ts`(ステージ2の文は`garageContent.ts`、ステージ3の文は`mallContent.ts`、ステージ4の文は`towerContent.ts`)
 - 人の並び:`stage.ts`(ステージ2は`garage.ts`、ステージ3は`mall.ts`、ステージ4は`tower.ts`)
-- ステージ2のギャングの組:`gang.ts`。ステージ3のUFO:`ufo.ts`
+- ステージ2のギャングの組:`gang.ts`。ステージ3のUFO:`ufo.ts`。ステージ4の念力(時間の流れ、並べ方、落ちた所で何が壊れるか):`psychic.ts`。UFOと念力の段階の進め方と順番待ちは`timedCall.ts`で共通
 - ボス戦:`boss.ts`
 - 称号:`titles.ts`
 - 数え方:`stats.ts`
@@ -196,7 +196,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは29ファイル、336件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは31ファイル、409件)
 npm run typecheck   # tsc
 ```
 

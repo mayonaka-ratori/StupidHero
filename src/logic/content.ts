@@ -641,6 +641,7 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   soSo: op('normal', 'まあまあ…\nだったかな'),
   ...GARAGE_TITLE_COMMENTS,
   ...MALL_TITLE_COMMENTS,
+  ...TOWER_TITLE_COMMENTS,
   // フリープレイだけの称号(docs/FREEPLAY.md「称号」)。通訳はヒーローが言う
   heroSitter: op('hype', 'おバカ、全部止めたね！'),
   heroInterpreter: hero('smile', 'ぼくの言いたいこと、\n分かってたんだね！'),
@@ -873,7 +874,6 @@ export function allTexts(): string[] {
   for (const l of Object.values(TOWER_OVERRIDES)) addList(l);
   for (const l of Object.values(TOWER_GARAGE_OVERRIDES)) addList(l);
   addList(Object.values(TOWER_TITLE_COMMENT_OVERRIDES));
-  addList(Object.values(TOWER_TITLE_COMMENTS));
   out.push(...Object.values(TOWER_STREET_TEXTS), LIFT_BAND, ...Object.values(TOWER_FLOOR_LABELS), TOWER_ENDING_SKIP);
   addList(LIFT_INTRO_FIRST);
   addList(LIFT_INTRO_AGAIN);

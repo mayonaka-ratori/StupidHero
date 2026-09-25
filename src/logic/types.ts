@@ -314,12 +314,14 @@ export type Encounter = 'hitBad' | 'hitCiv' | 'passCiv' | 'passBad' | 'bossFight
 export type HurtCause = 'hero' | 'collateral' | 'villain' | 'abducted' | 'dropped';
 
 /**
- * いちばんひどかった場面の種類。SPECの1〜5の順に、ステージ3の「市民がさらわれた」を足した。上ほどひどい。
+ * いちばんひどかった場面の種類。SPECの1〜5の順に、ステージ3の「市民がさらわれた」とステージ4の「市民に物が落ちた」を足した。
+ * 上ほどひどい。
  * 1 grannyHit:おばあさんを殴った / 2 specialOnCiv:市民に必殺技を当てた /
- * 3 civHit:市民を殴った(巻きぞえ、タイムセールラッシュで殴ったのを含む) / 4 abducted:市民がUFOにさらわれた /
+ * 3 civHit:市民を殴った(巻きぞえ、タイムセールラッシュとエレベーターラッシュで殴ったのを含む) /
+ * 4 abducted:市民がUFOにさらわれた / 4 dropped:念力で運ばれた物が市民に落ちた(abducted と同じ段) /
  * 5 bigPropBroken:車や自販機が壊れた / 6 bossDefeated:ボスを倒した
  */
-export type WorstScene = 'grannyHit' | 'specialOnCiv' | 'civHit' | 'abducted' | 'bigPropBroken' | 'bossDefeated';
+export type WorstScene = 'grannyHit' | 'specialOnCiv' | 'civHit' | 'abducted' | 'dropped' | 'bigPropBroken' | 'bossDefeated';
 
 /** 称号の id */
 export type TitleId =
@@ -342,6 +344,11 @@ export type TitleId =
   | 'ufoGuide'
   | 'saleGuardian'
   | 'ufoHunter'
+  // ステージ4だけで取れる(最上階のヒーロー、空飛ぶ家具の見送り係、エレベーターの守り神、ソファの名人)
+  | 'topHero'
+  | 'furnitureGuide'
+  | 'liftGuardian'
+  | 'sofaMaster'
   // フリープレイだけで取れる
   | 'heroSitter'
   | 'heroInterpreter'
@@ -354,10 +361,10 @@ export type WinPose = 'win_pose' | 'win_arms' | 'win_fist' | 'win_shy';
 export interface StageStats {
   /** どのステージの数字か */
   stageId: StageId;
-  /** 悪党撃破数(仕分けで殴った + 行けで追い打ち + まとめて吹き飛ばした + ワゴンごと止めた + ボス) */
+  /** 悪党撃破数(仕分けで殴った + 行けで追い打ち(UFOと念力を含む) + まとめて吹き飛ばした + ワゴンごと止めた + ボス) */
   defeated: number;
   defeatedBySort: number;
-  /** 行けで倒したワルの数(UFOごと倒した宇宙人を含む) */
+  /** 行けで倒したワルの数(UFOごと倒した宇宙人と、念力の途中で倒したヴィランを含む) */
   defeatedByGo: number;
   /** UFOごと倒した宇宙人の数(ステージ3。defeatedByGo に入っている) */
   defeatedByUfo: number;
@@ -377,6 +384,12 @@ export interface StageStats {
   escapedByVan: number;
   /** ワゴンを止めた回数(ステージ2) */
   vansStopped: number;
+  /** 念力で運ばれている間に行けで倒したヴィランの数(ステージ4。defeatedByGo に入っている) */
+  defeatedByPsy: number;
+  /** 念力の物を市民に落として逃げたヴィランの数(ステージ4。escaped に入っている) */
+  escapedByPsy: number;
+  /** 念力で運ばれた物を、行けでソファの上に落とした回数(ステージ4。「ソファの名人」) */
+  sofaSaves: number;
   bossDefeated: boolean;
   /** 市民負傷数(ヒーローが殴った + 巻きぞえ + ワルに襲われた + UFOにさらわれた + 物が落ちた) */
   civHurt: number;
@@ -394,7 +407,7 @@ export interface StageStats {
   damageByBoss: number;
   /** 壊れた物の数 */
   propsBroken: Record<PropKind, number>;
-  /** 逃がした数(画面の右から逃げた + 待てで止めたワル + 車で逃げた組の人数 + UFOで去った宇宙人) */
+  /** 逃がした数(画面の右から逃げた + 待てで止めたワル + 車で逃げた組の人数 + UFOで去った宇宙人 + 念力のあとに逃げたヴィラン) */
   escaped: number;
   /** 待てで守った市民の数 */
   civSavedByStop: number;
@@ -428,6 +441,11 @@ export interface StageStats {
   sortWaves: SortTally[];
   /** タイムセールラッシュの数(ステージ3。ラッシュをしていなければ null)。ほかの数字には入れない */
   rush: RushTally | null;
+  /**
+   * エレベーターラッシュの数(ステージ4。ラッシュをしていなければ null)。形はタイムセールラッシュと同じで、
+   * aliens〜aliensSpared はヴィランの数。ほかの数字には入れない
+   */
+  lift: RushTally | null;
   /** フリープレイの数(フリープレイでなければ null) */
   free: FreeTally | null;
 }
@@ -478,7 +496,8 @@ export interface FreeTally {
 
 /**
  * タイムセールラッシュの数(STAGE3「数え方」)。悪党を倒した、市民のけが、逃がした、仕分け正解、
- * 「全員倒した」のもとの悪党の数には入れない。ラッシュだけの数
+ * 「全員倒した」のもとの悪党の数には入れない。ラッシュだけの数。
+ * エレベーターラッシュ(STAGE4)も同じ形で数える(StageStats.lift。aliens〜aliensSpared はヴィラン)
  */
 export interface RushTally {
   /** 走ってきた宇宙人の数 */
@@ -520,10 +539,22 @@ export interface TitleDef {
   /** 取れるステージ(省略するとどのステージでも取れる) */
   stages?: readonly StageId[];
   /**
-   * 取れる遊び方('stage' はステージ1〜3、'free' はフリープレイ)。省略するとどちらでも取れる。
+   * 取れる遊び方('stage' はステージ1〜4、'free' はフリープレイ)。省略するとどちらでも取れる。
    * フリープレイだけの称号は ['free']、フリープレイで調べない称号は ['stage']
    */
   modes?: readonly ('stage' | 'free')[];
-  /** 条件に当てはまるか */
-  test: (s: StageStats) => boolean;
+  /** 条件に当てはまるか。ctx は数字のほかに記録から分かること(decideTitle に渡したもの) */
+  test: (s: StageStats, ctx: TitleContext) => boolean;
+}
+
+/**
+ * 称号を決めるときに、数字(StageStats)のほかに使うこと。記録(records.ts)から決める。
+ * 省いたものは false として扱う
+ */
+export interface TitleContext {
+  /**
+   * このプレイで、そのステージのボスを初めて倒したか(記録を残す前の記録で、倒した回数が0だった)。
+   * records.ts の isFirstClear(stage.id, stats) で決める。「最上階のヒーロー」に使う
+   */
+  firstClear?: boolean;
 }

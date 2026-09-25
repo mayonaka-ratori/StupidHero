@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ABDUCTED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption, xPostUrl } from './share';
+import { ABDUCTED_CAPTION, DROPPED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption, xPostUrl } from './share';
 
 describe('共有文', () => {
   it('見出し、ハッシュタグ、URLの3行だけ(数字や称号の数は入れない)', () => {
@@ -28,5 +28,13 @@ describe('共有文', () => {
 
   it('Xに投稿のURL', () => {
     expect(xPostUrl('あ #B')).toBe('https://x.com/intent/tweet?text=%E3%81%82%20%23B');
+  });
+});
+
+describe('共有文(ステージ4)', () => {
+  it('市民に物が落ちた場面も見出しになる。大きな物が壊れた場面は「ビルがこわれた!」', () => {
+    expect(DROPPED_CAPTION).toBe('市民に物が落ちた!');
+    expect(shareCaption({ worstScene: 'dropped', caption: DROPPED_CAPTION, titleName: '空飛ぶ家具の見送り係' })).toBe('市民に物が落ちた!');
+    expect(STAGE_WORST_CAPTIONS.tower?.bigPropBroken).toBe('ビルがこわれた!');
   });
 });

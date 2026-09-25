@@ -2,7 +2,7 @@
 // ステージごとに、最多撃破、最少負傷、最高被害額、最速ボス戦、遊んだ回数、ボスを倒した回数、取った称号を残す。
 // ステージ前の掛け合いを見たステージ(introSeen)も残す。見たか、1回遊んだステージは、次から掛け合いをとばす。
 // タイムセールラッシュを見たステージ(rushSeen)も同じ形で残す。見たことがあれば、ラッシュの説明を1つにする。
-// 称号の数は全部のステージとフリープレイを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は20)。
+// 称号の数は全部のステージとフリープレイを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は24)。
 // フリープレイの記録(free)も残す:いちばん速いクリアまでの時間(ふつうとゆっくりで別)、待てで守った数と
 // 行けで決めた数のいちばん良いもの、最高被害額、遊んだ回数、取った称号。初回の掛け合いを見たか(freeIntroSeen)、
 // 「ステージを進めると、出てくる人が増えるよ」を出したか(freeMoreHintShown)も残す。
@@ -19,8 +19,11 @@
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
 //
 // 使い方:
+//   const firstClear = isFirstClear(stage.id, stats);        // ボスを初めて倒したか。称号を決める前、saveResult の前に
+//   const title = decideTitle(stats, { firstClear });
 //   const saved = saveResult(stage.id, stats, title.id);   // 結果画面が出たときに1回だけ
-//   saved.titlesCollected / saved.titlesTotal               // 「称号5/20」
+//   saved.titlesCollected / saved.titlesTotal               // 「称号5/24」
+//   saved.firstClear                                        // 今回ボスを初めて倒したか(高層ビルの終わりの場面を出すか)
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
 //                                                           // ['mall'] なら「モールが開いた」。say('unlocked', rng, id))
 //   stageSelectInfo()                                       // ステージを選ぶ画面:開いているか、いちばん良い記録、称号の数
@@ -91,7 +94,7 @@ export type FreeRecordField = 'bestSec' | 'bestSlowSec' | 'mostStopSaved' | 'mos
 export interface Records {
   version: 2;
   stages: Partial<Record<StageId, StageRecord>>;
-  /** 全部のステージとフリープレイで取った称号(取った順、重なりなし)。数は「称号5/20」の5 */
+  /** 全部のステージとフリープレイで取った称号(取った順、重なりなし)。数は「称号5/24」の5 */
   titles: TitleId[];
   /** ステージ前の掛け合いを見たステージ */
   introSeen: StageId[];
@@ -123,8 +126,10 @@ export interface SaveOutcome {
   titleIsNew: boolean;
   /** 集めた称号の数(全部のステージを合わせて。今回の分を含む) */
   titlesCollected: number;
-  /** 称号の全体の数(20) */
+  /** 称号の全体の数(24) */
   titlesTotal: number;
+  /** 今回のプレイで、そのステージのボスを初めて倒したか(isFirstClear と同じ答え) */
+  firstClear: boolean;
   /** そのステージで集めた称号の数 */
   stageTitlesCollected: number;
   /** 今回のプレイで新しく開いたステージ(なければ空) */
@@ -309,6 +314,15 @@ export function markRushSeen(stageId: StageId, storage: RecordStorage | null = d
   writeRecords(records, storage);
 }
 
+/**
+ * このプレイで、そのステージのボスを初めて倒したか(ボスを倒していて、記録ではまだ倒した回数が0)。
+ * saveResult の前に呼ぶ(保存したあとは倒した回数が1になるので false になる)。
+ * 称号「最上階のヒーロー」(decideTitle の firstClear)と、高層ビルの終わりの場面に使う
+ */
+export function isFirstClear(stageId: StageId, stats: Pick<StageStats, 'bossDefeated'>, records: Records = loadRecords()): boolean {
+  return stats.bossDefeated && (records.stages[stageId]?.clears ?? 0) === 0;
+}
+
 /** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */
 export function hasAnyRecord(records: Records = loadRecords()): boolean {
   return STAGE_IDS.some((id) => (records.stages[id]?.plays ?? 0) > 0);
@@ -353,6 +367,7 @@ export function saveResult(
   const unlockedBefore = unlockedStages(records);
   const prev = records.stages[stageId] ?? emptyStageRecord();
   const firstPlay = prev.plays === 0;
+  const firstClear = isFirstClear(stageId, stats, records);
   const next: StageRecord = {
     ...prev,
     plays: prev.plays + 1,
@@ -389,6 +404,7 @@ export function saveResult(
     titleIsNew,
     titlesCollected: records.titles.length,
     titlesTotal: TITLES.length,
+    firstClear,
     stageTitlesCollected: next.titles.length,
     unlockedNow,
     persisted
