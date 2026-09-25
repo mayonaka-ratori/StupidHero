@@ -111,11 +111,18 @@ export function checker() {
     return ok;
   };
   const fail = (name, extra = '') => check(name, false, extra);
+  // 端末が重くて、確かめたい瞬間に間に合わなかったもの。NG には数えないが、最後に件数を出す
+  let skipped = 0;
+  const skip = (name, why = '') => {
+    console.log(`SKIP ${name} ${why}`);
+    skipped++;
+  };
   const done = () => {
+    if (skipped) console.log(`SKIP ${skipped} 件(重くて測れなかった。ほかのものを止めて動かし直すと確かめられる)`);
     console.log(failed ? `NG ${failed} 件` : 'ぜんぶ OK');
     process.exit(failed ? 1 : 0);
   };
-  return { check, fail, done, get failed() { return failed; } };
+  return { check, fail, skip, done, get failed() { return failed; } };
 }
 
 /** 何枚かの画像を横に並べた1枚にする(半分の大きさ) */

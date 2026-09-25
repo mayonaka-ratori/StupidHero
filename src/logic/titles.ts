@@ -128,7 +128,7 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'grannyFoe', name: 'おばあちゃんの敵', pose: 'win_shy',
-    condition: 'おばあさんをワルに仕分けてなぐった',
+    condition: 'ヒーローがおばあさんを直接なぐった',
     hint: 'おばあさんを…',
     // 地下駐車場とショッピングモールにはおばあさんが出ないので、路地裏だけ
     stages: ['alley'],
