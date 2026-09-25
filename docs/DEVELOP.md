@@ -239,6 +239,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 | `shot.mjs` | URLで決める | 1枚だけ画面を撮る |
 | `timeshots.mjs` | URLで決める | 決めた時間ごとに画面を撮る |
 | `dashboard.mjs` | | 開発のダッシュボードを作る(下の「開発のダッシュボード」) |
+| `artsheet.mjs` | | コードで描いた絵のシートと背景を、ブラウザもサーバーもなしでPNGに書き出す(例:`node tools/artsheet.mjs hero 4`で`shots/art/hero.png`)。コマの境目に線を入れる。絵を描き直すときに見比べる用 |
 | `lib.mjs` | | 上のスクリプトで共通に使う部品 |
 
 ## 開発のダッシュボード
