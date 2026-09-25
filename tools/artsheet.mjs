@@ -2,6 +2,7 @@
 // 使い方: node tools/artsheet.mjs [キー(カンマ区切り。all で全部)] [倍率] [出力フォルダ]
 //   例: node tools/artsheet.mjs hero 4 shots/art
 //       node tools/artsheet.mjs civ_hoodie,bad_hoodie,bg_alley_far 3
+//       node tools/artsheet.mjs tw_,bg_tower 3   (表にないキーは、その頭で始まるキーを全部書き出す)
 // キーは src/art/sheets.ts のシートと背景の名前。省くと all、倍率は 4、出力フォルダは shots/art。
 // コマの境目には細い線を引く(絵の外の色なので、絵とまぎれない)。
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,10 +22,13 @@ try {
   const { buildWorldSheets, WORLD_BGS } = await load('/src/art/worldSet.ts');
   const { buildWorld2Sheets, WORLD2_IMAGES } = await load('/src/art/world2/index.ts');
   const { buildWorld3Sheets, WORLD3_IMAGES } = await load('/src/art/world3/index.ts');
+  const { buildWorld4Sheets, WORLD4_IMAGES } = await load('/src/art/world4/index.ts');
   const { buildFreeSheets } = await load('/src/art/free/index.ts');
-  const sheets = { ...buildHeroSheets(), ...buildWorldSheets(), ...buildWorld2Sheets(), ...buildWorld3Sheets(), ...buildFreeSheets() };
-  const images = { ...WORLD_BGS, ...WORLD2_IMAGES, ...WORLD3_IMAGES };
-  const want = keysArg === 'all' ? [...Object.keys(sheets), ...Object.keys(images)] : keysArg.split(',');
+  const sheets = { ...buildHeroSheets(), ...buildWorldSheets(), ...buildWorld2Sheets(), ...buildWorld3Sheets(), ...buildWorld4Sheets(), ...buildFreeSheets() };
+  const images = { ...WORLD_BGS, ...WORLD2_IMAGES, ...WORLD3_IMAGES, ...WORLD4_IMAGES };
+  const allKeys = [...Object.keys(sheets), ...Object.keys(images)];
+  const byHead = (k) => { const hit = allKeys.filter((x) => x.startsWith(k)); return hit.length ? hit : [k]; };
+  const want = keysArg === 'all' ? allKeys : keysArg.split(',').flatMap((k) => (sheets[k] || images[k] ? [k] : byHead(k)));
   for (const key of want) {
     if (sheets[key]) writePng(`${outDir}/${key}.png`, sheetPixels(sheets[key]));
     else if (images[key]) writePng(`${outDir}/${key}.png`, gridPixels(images[key]()));
