@@ -226,7 +226,7 @@ describe('フリープレイの称号', () => {
   it('ステージの称号の決め方は変わらない(stats.free がなければ、フリープレイだけの称号は出ない)', () => {
     const noFree: StageStats = { ...play(PLAN, 'handsOff').snapshot(), free: null, civHurt: 0, civHurtByHero: 0, damage: 0 };
     expect(['heroSitter', 'heroInterpreter', 'letItBe']).not.toContain(decideTitle(noFree).id);
-    expect(TITLES).toHaveLength(20);
+    expect(TITLES).toHaveLength(24);
   });
 });
 
@@ -252,7 +252,7 @@ describe('フリープレイの記録', () => {
     expect(r1.firstPlay).toBe(true);
     expect(r1.newRecords).toEqual([]);
     expect(r1.free).toMatchObject({ bestSec: 110, bestSlowSec: null, mostStopSaved: 9, mostGoScenes: 8, plays: 1, titles: ['heroSitter'] });
-    expect(r1.titlesTotal).toBe(20);
+    expect(r1.titlesTotal).toBe(24);
     expect(r1.titleIsNew).toBe(true);
 
     const b = play(PLAN, 'perfect', 90).snapshot();

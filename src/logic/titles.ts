@@ -1,9 +1,13 @@
 // 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)と、
-// ステージ3だけで取れる3つ(STAGE3「称号」)と、フリープレイだけで取れる3つ(FREEPLAY「称号」)を足した20個。
+// ステージ3だけで取れる3つ(STAGE3「称号」)と、ステージ4だけで取れる4つ(STAGE4「称号」)と、
+// フリープレイだけで取れる3つ(FREEPLAY「称号」)を足した24個。
 // 上から順に調べ、最初に当てはまったものを出す。ステージ2の2つは
 // 「ボスの親友」のすぐあとに「ギャングの見送り係」、「追い打ちの鬼」のすぐ前に「一網打尽」。
 // ステージ3の3つは「ギャングの見送り係」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
 // 「タイムセールの守り神」、「待ての達人」のすぐあとに「UFOハンター」。
+// ステージ4の4つは「完全無欠のヒーロー」のすぐあとに「最上階のヒーロー」、「宇宙人の案内係」のすぐあとに
+// 「空飛ぶ家具の見送り係」、「タイムセールの守り神」のすぐあとに「エレベーターの守り神」、「UFOハンター」のすぐあとに
+// 「ソファの名人」。
 // 条件の数字は遊びながら直すので、ここの TITLE_THRESHOLDS にまとめておく。
 //
 // 市民のけがの数え方は称号ごとに分ける(けがの理由は StageStats の civHurtByHero / ByCollateral / ByVillain)。
@@ -15,24 +19,31 @@
 //   (ほんものヒーローは暴走機関車より後に調べるので、同じことになる)
 // - 市民の天敵、正義の暴走機関車:なぐった + 巻きぞえ(ヒーローの攻撃が当たった人。暴れっぷりの称号なので巻きぞえも入れる)
 // - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)。
-//   逃がした数は、走って逃げたワルと待てで止めたワルだけ。車で逃げた組とUFOで去った宇宙人は、見のがしたのではないので入れない
+//   逃がした数は、走って逃げたワルと待てで止めたワルだけ。車で逃げた組、UFOで去った宇宙人、念力のあとに逃げたヴィランは、
+//   見のがしたのではないので入れない
 // - おばあちゃんの敵:おばあさんを直接なぐったときだけ。巻きぞえは運なので入れない
 // UFOにさらわれた買い物客(ステージ3)と、念力の物が落ちてきた市民(ステージ4)は「ワルにやられた」と同じに扱う
 // (完全無欠と街のほんものヒーローが取れなくなり、市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
-// TODO: 高層ビルだけで取れる4つの称号(STAGE4「称号」)は、あとで足す。文は towerContent.ts の TOWER_TITLE_COMMENTS にある
-// タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない
+// タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない。
+// エレベーターラッシュの数(stats.lift)は、エレベーターの守り神のほかには使わない。
+//
+// 最上階のヒーローは、高層ビルのボスを初めて倒した回だけで取れる。初めてかどうかは数字では分からないので、
+// 記録から決めて decideTitle の2つ目(TitleContext の firstClear)で渡す。渡さなければ取れない。
 //
 // フリープレイ(stats.free がある)の調べ方(docs/FREEPLAY.md「称号」):
 // - フリープレイだけの3つ(ヒーローのお守り役、ヒーローの通訳、なすがまま。表の最後の3つ)を先に、上から順に調べる
 // - そのあと、ステージの称号を今の順に調べる。ただし完全無欠と街のほんものヒーロー(お守り役と重なる)、
 //   ボスや仕分けに関わる称号(ボスの親友、連打の申し子、一網打尽、ギャングの見送り係、宇宙人の案内係、
-//   タイムセールの守り神、UFOハンター)は調べない(modes: ['stage'])
+//   タイムセールの守り神、UFOハンター)と、高層ビルだけの4つは調べない(modes: ['stage'])
 // - フリープレイだけの3つは、ステージでは調べない(modes: ['free'])。ステージの順番と結果は変わらない
 // - おばあちゃんの敵は、フリープレイでも取れる(路地裏のおばあさんが出るので。stages の決まりは見ない)
 //
-// 使い方:const title = decideTitle(stats.snapshot());  // どのステージでも同じ関数
+// 使い方:
+//   const s = stats.snapshot();
+//   const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });   // どのステージでも同じ関数。saveResult より前に
+//   const saved = saveResult(stage.id, s, title.id);
 
-import type { StageId, StageStats, TitleDef, TitleId } from './types';
+import type { RushTally, StageId, StageStats, TitleContext, TitleDef, TitleId } from './types';
 
 const TITLE_THRESHOLDS = {
   /** 完全無欠のヒーロー:被害額がこれ未満 */
@@ -59,6 +70,10 @@ const TITLE_THRESHOLDS = {
   ufoGuideAbducted: 2,
   /** UFOハンター:行けで殴り落としたUFOがこれ以上 */
   ufoHunterDowned: 2,
+  /** 空飛ぶ家具の見送り係:念力の物でけがをした市民がこれ以上 */
+  furnitureGuideHurt: 2,
+  /** ソファの名人:念力の物をソファの上に落とした回数がこれ以上 */
+  sofaMasterSaves: 2,
   /** ヒーローの通訳:待てで守った市民がこれ以上(待てのチャンス9の8割) */
   interpreterStops: 8,
   /** ヒーローの通訳:行けで決めた場面がこれ以上(行けのチャンス8の8割) */
@@ -78,12 +93,15 @@ const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollate
  * 念力の物が落ちた市民は「ワルにやられた」と同じに扱う(STAGE4「称号」)
  */
 const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction + s.civHurtByDrop;
-/** 見のがしたワルの数(走って逃げた、待てで止めた)。車で逃げた組とUFOで去った宇宙人は入れない */
-const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.escapedByUfo;
+/** 見のがしたワルの数(走って逃げた、待てで止めた)。車で逃げた組、UFOで去った宇宙人、念力のあとに逃げたヴィランは入れない */
+const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.escapedByUfo - s.escapedByPsy;
+/** ラッシュで、市民を全員守り、悪党を全員倒したか(ラッシュをしていなければ false) */
+const perfect = (r: RushTally | null): boolean =>
+  r !== null && r.aliens + r.civs > 0 && r.civsSaved === r.civs && r.aliensDefeated === r.aliens;
 /** タイムセールラッシュで、市民を全員守り、宇宙人を全員倒したか */
-const perfectRush = (s: StageStats): boolean =>
-  s.rush !== null && s.rush.aliens + s.rush.civs > 0
-  && s.rush.civsSaved === s.rush.civs && s.rush.aliensDefeated === s.rush.aliens;
+const perfectRush = (s: StageStats): boolean => perfect(s.rush);
+/** エレベーターラッシュで、市民を全員守り、ヴィランを全員倒したか */
+const perfectLift = (s: StageStats): boolean => perfect(s.lift);
 
 /** 称号の一覧(ステージで調べる順。フリープレイだけの3つは最後) */
 export const TITLES: readonly TitleDef[] = [
@@ -94,6 +112,15 @@ export const TITLES: readonly TitleDef[] = [
     modes: ['stage'],
     test: (s) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
       && s.damage < T.flawlessDamageBelow
+  },
+  {
+    id: 'topHero', name: '最上階のヒーロー', pose: 'win_pose',
+    condition: '高層ビルのボスを初めて倒した',
+    hint: '最後のボスを倒す',
+    stages: ['tower'],
+    modes: ['stage'],
+    // ほかのステージのボスを初めて倒したときには出さない
+    test: (s, c) => c.firstClear === true && s.bossDefeated && s.stageId === 'tower'
   },
   {
     id: 'civNemesis', name: '市民の天敵', pose: 'win_shy',
@@ -131,6 +158,14 @@ export const TITLES: readonly TitleDef[] = [
     test: (s) => s.civHurtByAbduction >= T.ufoGuideAbducted
   },
   {
+    id: 'furnitureGuide', name: '空飛ぶ家具の見送り係', pose: 'win_shy',
+    condition: '念力の物で、市民が2人以上けがをした',
+    hint: '念力で2人けがをする',
+    stages: ['tower'],
+    modes: ['stage'],
+    test: (s) => s.civHurtByDrop >= T.furnitureGuideHurt
+  },
+  {
     id: 'grannyFoe', name: 'おばあちゃんの敵', pose: 'win_shy',
     condition: 'ヒーローがおばあさんを直接なぐった',
     hint: 'おばあさんを…',
@@ -160,6 +195,14 @@ export const TITLES: readonly TitleDef[] = [
     test: perfectRush
   },
   {
+    id: 'liftGuardian', name: 'エレベーターの守り神', pose: 'win_pose',
+    condition: 'エレベーターラッシュで、市民を全員守り、ヴィランを全員倒した',
+    hint: 'エレベーターで1人も間違えない',
+    stages: ['tower'],
+    modes: ['stage'],
+    test: perfectLift
+  },
+  {
     id: 'tapProdigy', name: '連打の申し子', pose: 'win_fist',
     condition: 'ボス戦を7秒以内で終えた',
     hint: 'ボスを7秒以内に倒す',
@@ -181,6 +224,14 @@ export const TITLES: readonly TitleDef[] = [
     test: (s) => s.ufosDowned >= T.ufoHunterDowned
   },
   {
+    id: 'sofaMaster', name: 'ソファの名人', pose: 'win_arms',
+    condition: '念力で運ばれた物を、2回以上ソファの上で落とした',
+    hint: 'ソファの上で2回落とす',
+    stages: ['tower'],
+    modes: ['stage'],
+    test: (s) => s.sofaSaves >= T.sofaMasterSaves
+  },
+  {
     id: 'roundUp', name: '一網打尽', pose: 'win_arms',
     condition: 'ギャングの組を2組以上、まとめて吹き飛ばした',
     hint: 'ギャングの組を2回まとめて倒す',
@@ -196,7 +247,7 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'tooKind', name: 'やさしすぎるヒーロー', pose: 'win_pose',
-    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOで逃げた分は数えない)',
+    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOや念力のあとに逃げた分は数えない)',
     hint: '市民をなぐらず3人逃がす',
     test: (s) => s.civHurtByHero === 0 && sparedBad(s) >= T.tooKindEscaped
   },
@@ -232,14 +283,16 @@ export const TITLES: readonly TitleDef[] = [
 ];
 
 /**
- * 称号の全体の数(全部のステージとフリープレイを合わせて20)。
- * 路地裏で取れるのは12(ステージ2と3だけの5つと、フリープレイだけの3つを除く)、
- * 地下駐車場は13(おばあちゃんの敵とステージ3だけの3つを除く)、
- * ショッピングモールは14(おばあちゃんの敵、一網打尽、ギャングの見送り係を除く)、フリープレイは11
+ * 称号の全体の数(全部のステージとフリープレイを合わせて24)。
+ * 路地裏で取れるのは12(ステージ2〜4だけの9つと、フリープレイだけの3つを除く)、
+ * 地下駐車場は13(どのステージでも取れる11と、ステージ2だけの2つ)、
+ * ショッピングモールは14(どのステージでも取れる11と、ステージ3だけの3つ)、
+ * 高層ビルは15(どのステージでも取れる11と、ステージ4だけの4つ)、フリープレイは11
  */
 export const TITLE_COUNT = TITLES.length;
 
 const inMode = (t: TitleDef, mode: 'stage' | 'free'): boolean => !t.modes || t.modes.includes(mode);
+
 
 /** そのステージで取れる称号 */
 export function titlesFor(stageId: StageId): TitleDef[] {
@@ -255,12 +308,13 @@ export function titlesForFree(): TitleDef[] {
 /**
  * 数字から称号を決める(上から順に調べ、最初に当てはまったもの)。
  * stats.free があればフリープレイの順(titlesForFree)で調べる。
+ * ctx は記録から決めること(firstClear:このプレイでボスを初めて倒したか。records.ts の isFirstClear)。
  * 結果画面のひとことは titleCommentFor(title.id, stage.id)(content.ts)でステージに合った言い方にする
  */
-export function decideTitle(stats: StageStats): TitleDef {
+export function decideTitle(stats: StageStats, ctx: TitleContext = {}): TitleDef {
   const soSo = titleById('soSo');
-  if (stats.free) return titlesForFree().find((t) => t.test(stats)) ?? soSo;
-  return TITLES.find((t) => inMode(t, 'stage') && t.test(stats)) ?? soSo;
+  if (stats.free) return titlesForFree().find((t) => t.test(stats, ctx)) ?? soSo;
+  return TITLES.find((t) => inMode(t, 'stage') && t.test(stats, ctx)) ?? soSo;
 }
 
 /** id から称号を引く */

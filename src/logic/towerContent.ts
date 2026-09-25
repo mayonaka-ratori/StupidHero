@@ -639,9 +639,8 @@ export const TOWER_TITLE_COMMENT_OVERRIDES = {
 } as const;
 
 /**
- * 高層ビルで足す4つの称号のひとこと(docs/STAGE4_TEXT.md「称号のひとこと」)。
- * TODO: 称号(titles.ts の TitleId と TITLES)を足すときに、TITLE_COMMENTS へ移す。今はキーを仮の名前にしてある
- * (topHero:最上階のヒーロー、furnitureGuide:空飛ぶ家具の見送り係、liftGuardian:エレベーターの守り神、sofaMaster:ソファの名人)
+ * 称号のひとこと(ステージ4の4つ。docs/STAGE4_TEXT.md「称号のひとこと」)。content.ts の TITLE_COMMENTS に入る。
+ * topHero:最上階のヒーロー、furnitureGuide:空飛ぶ家具の見送り係、liftGuardian:エレベーターの守り神、sofaMaster:ソファの名人
  */
 export const TOWER_TITLE_COMMENTS = {
   topHero: op('hype', '全部のステージ、\nクリアだよ！'),

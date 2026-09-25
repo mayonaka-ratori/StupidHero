@@ -22,7 +22,7 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  ABDUCTED_CAPTION, FREE_NAME, FREE_WORST_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatClearTime, formatYen, ruleSignText,
+  ABDUCTED_CAPTION, DROPPED_CAPTION, FREE_NAME, FREE_WORST_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatClearTime, formatYen, ruleSignText,
   titleCommentFor, type AttackKind, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef,
   type WorstScene
 } from '../../logic';
@@ -40,6 +40,7 @@ const WORST_CAPTION: Record<WorstScene, string> = {
   specialOnCiv: '市民に必殺技!',
   civHit: '市民をなぐった!',
   abducted: ABDUCTED_CAPTION,
+  dropped: DROPPED_CAPTION,
   bigPropBroken: '街がこわれた!',
   bossDefeated: 'ボスを倒した!'
 };

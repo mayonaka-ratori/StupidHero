@@ -8,6 +8,7 @@
 //   → 買い物客を光で吸い上げる(UFO.beamSec)。UFOの上に行けのマーク。行けでヒーローが跳んで殴り落とす
 //   → 行けを押さなかったら、買い物客と宇宙人を乗せて去る(UFO.leaveSec)
 //   UFOは1機ずつ来る。前のUFOが終わるまで、次の宇宙人は合図を送らずに待つ(UfoQueue)
+//   段階を進める仕組みと順番待ちは timedCall.ts(ステージ4の念力と共通)。長さは UfoCallOptions で変えられる
 //
 // 使い方(1機ずつ来るように UfoQueue を使う):
 //   const ufos = new UfoQueue();
@@ -30,6 +31,7 @@
 // - 待てと行けは押しても回数は減らないが、ここだけは行けを押すと被害額が増える(迷わせるための例外)
 
 import { UFO } from './rules';
+import { CallQueue, TimedCall } from './timedCall';
 
 /**
  * UFOの今の段階。
@@ -38,82 +40,33 @@ import { UFO } from './rules';
  */
 export type UfoPhase = 'signal' | 'descend' | 'beam' | 'leave' | 'downed' | 'abducted';
 
-/** 時間を変えるとき(フリープレイのゆっくりモード)。省くと UFO の秒数 */
+/** 時間を変えるとき(フリープレイのゆっくりモード)。省いた段階は UFO の秒数 */
 export interface UfoCallOptions {
+  signalSec?: number;
+  descendSec?: number;
   beamSec?: number;
+  leaveSec?: number;
 }
 
-type TimedPhase = 'signal' | 'descend' | 'beam' | 'leave';
-
 /** UFO1機ぶん(合図を送った宇宙人1人ぶん) */
-export class UfoCall {
-  readonly alienId: string;
-  private readonly sec: Record<TimedPhase, number>;
-  private p: UfoPhase = 'signal';
-  /** 今の段階に入ってからの秒数 */
-  private t = 0;
-
+export class UfoCall extends TimedCall<UfoPhase> {
   constructor(alienId: string, opts: UfoCallOptions = {}) {
-    this.alienId = alienId;
-    this.sec = { signal: UFO.signalSec, descend: UFO.descendSec, beam: opts.beamSec ?? UFO.beamSec, leave: UFO.leaveSec };
+    super(alienId, {
+      steps: [
+        { phase: 'signal', sec: opts.signalSec ?? UFO.signalSec },
+        { phase: 'descend', sec: opts.descendSec ?? UFO.descendSec },
+        { phase: 'beam', sec: opts.beamSec ?? UFO.beamSec },
+        { phase: 'leave', sec: opts.leaveSec ?? UFO.leaveSec }
+      ],
+      goPhase: 'beam',
+      goEnd: 'downed',
+      timeoutEnd: 'abducted'
+    });
   }
 
-  get phase(): UfoPhase {
-    return this.p;
-  }
-
-  /** 終わったか(殴り落とした、連れ去られた) */
-  get isOver(): boolean {
-    return this.p === 'downed' || this.p === 'abducted';
-  }
-
-  /** UFOの上に行けのマークを出すか(吸い上げている間だけ) */
-  get markOn(): boolean {
-    return this.p === 'beam';
-  }
-
-  /** 今の段階の進み具合(0〜1)。descend は下りる高さ、beam は買い物客の浮く高さ、leave は去る高さに使える */
-  get progress(): number {
-    if (this.isOver) return 1;
-    return Math.min(1, this.t / this.sec[this.p as TimedPhase]);
-  }
-
-  /** 行けが押された。吸い上げている間なら殴り落として true。それ以外は何も起きない(false) */
-  go(): boolean {
-    if (this.p !== 'beam') return false;
-    this.enter('downed');
-    return true;
-  }
-
-  /** 時計を進める。この間に入った段階を順に返す('descend'、'beam'、'leave'、'abducted') */
-  update(deltaMs: number): UfoPhase[] {
-    return this.run(deltaMs).entered;
-  }
-
-  /** 時計を進め、入った段階と、終わったあとに余った時間(ミリ秒)を返す(UfoQueue が次のUFOに回す) */
-  run(deltaMs: number): { entered: UfoPhase[]; leftMs: number } {
-    const entered: UfoPhase[] = [];
-    let left = Math.max(0, deltaMs) / 1000;
-    const next: Record<TimedPhase, UfoPhase> = { signal: 'descend', descend: 'beam', beam: 'leave', leave: 'abducted' };
-    while (!this.isOver && left > 0) {
-      const phase = this.p as TimedPhase;
-      const need = this.sec[phase] - this.t;
-      // 小数の足し算のずれ(0.799 + 0.001 など)で段階が進まないことがないよう、ごくわずかな差は着いたことにする
-      if (left < need - 1e-9) {
-        this.t += left;
-        left = 0;
-        break;
-      }
-      left = Math.max(0, left - need);
-      this.enter(next[phase]);
-      entered.push(this.p);
-    }
-    return { entered, leftMs: this.isOver ? left * 1000 : 0 };
-  }
-
-  private enter(p: UfoPhase): void {
-    this.p = p;
-    this.t = 0;
+  /** 合図を送った宇宙人の id */
+  get alienId(): string {
+    return this.id;
   }
 }
 
@@ -128,60 +81,39 @@ export interface UfoEvent {
  * 宇宙人が合図を送り始めた瞬間も、update の出来事に { phase: 'signal' } として入る
  */
 export class UfoQueue {
-  private waiting: string[] = [];
-  private cur: UfoCall | null = null;
+  private readonly q: CallQueue<UfoPhase, UfoCall>;
 
-  constructor(private readonly opts: UfoCallOptions = {}) {}
+  constructor(opts: UfoCallOptions = {}) {
+    this.q = new CallQueue((id) => new UfoCall(id, opts));
+  }
 
   /** 見逃した宇宙人を並べる(ヒーローが素通りしたとき)。同じ人は1回だけ */
   add(alienId: string): void {
-    if (this.cur?.alienId === alienId || this.waiting.includes(alienId)) return;
-    this.waiting.push(alienId);
+    this.q.add(alienId);
   }
 
   /** 今来ているUFO(なければ null)。markOn、phase、progress を画面に使う */
   get current(): UfoCall | null {
-    return this.cur;
+    return this.q.current;
   }
 
   /** まだ合図を送っていない宇宙人の id(並んだ順) */
   get queued(): readonly string[] {
-    return this.waiting;
+    return this.q.queued;
   }
 
   /** 来ているUFOも、待っている宇宙人もいないか(波の結果発表を終えてよいか) */
   get idle(): boolean {
-    return this.cur === null && this.waiting.length === 0;
+    return this.q.idle;
   }
 
   /** 行けが押された。吸い上げている間なら殴り落として、その宇宙人の id を返す。それ以外は null */
   go(): string | null {
-    const c = this.cur;
-    if (!c || !c.go()) return null;
-    this.cur = null;
-    return c.alienId;
+    return this.q.go()?.alienId ?? null;
   }
 
   /** 時計を進める。この間に起きた出来事を順に返す */
   update(deltaMs: number): UfoEvent[] {
-    const events: UfoEvent[] = [];
-    let left = Math.max(0, deltaMs);
-    for (;;) {
-      if (!this.cur) {
-        const next = this.waiting.shift();
-        if (next === undefined) break;
-        this.cur = new UfoCall(next, this.opts);
-        events.push({ alienId: next, phase: 'signal' });
-      }
-      const c = this.cur;
-      const r = c.run(left);
-      for (const phase of r.entered) events.push({ alienId: c.alienId, phase });
-      if (!c.isOver) break;
-      // 連れ去られた(去りきった)。余った時間で次の宇宙人が合図を送る
-      this.cur = null;
-      left = r.leftMs;
-      if (left <= 0) break;
-    }
-    return events;
+    return this.q.update(deltaMs).map((e) => ({ alienId: e.id, phase: e.phase }));
   }
 }
