@@ -79,13 +79,20 @@ export function drawWall(): PixelGrid {
   const W = 648, H = 130;
   const G = new Wrap(W, H);
   // 奥の壁(コンクリート)
+  // 塗ったブロック積み(24×10)。目地は暗く、ブロックの上のふちに光、右下に影。ところどころ汚れ(ディザ)
   for (let y = 18; y < H; y++) for (let x = 0; x < W; x++) {
+    const row = Math.floor((y - 18) / 10), ly = (y - 18) % 10;
+    const off = row % 2 ? 12 : 0;
+    const bx = Math.floor((x + off) / 24), lx = (x + off) % 24;
     let c = C[2];
-    if (x % 36 === 0) c = C[3];
-    else if (hash(x, y, 3) > 0.94) c = C[3];
-    else if (hash(x >> 2, y >> 2, 4) > 0.82 && dith(x, y)) c = C[1];
+    if (ly === 9 || lx === 23) c = C[3];
+    else if (ly === 0 && lx < 21) c = C[1];
+    else if (ly === 8 && lx > 14) c = C[3];
+    else if (hash(bx, row, 3) > 0.8 && dith(x, y) && ly > 3) c = C[3];
     G.px(x, y, c);
   }
+  // 天井から垂れた水のあと(縦のすじ)
+  for (const sx of [44, 180, 262, 344, 470, 530, 634]) for (let y = 23; y < 23 + 14 + (sx % 3) * 6; y++) if (y < 40 || dith(sx, y)) G.px(sx, y, C[3]);
   G.rect(0, 60, W, 1, C[3]).rect(0, 61, W, 1, C[1]);
   // 下の塗り分けと色の帯
   G.rect(0, 86, W, 2, LINE_W).rect(0, 88, W, 7, BAND[0]).rect(0, 95, W, 1, BAND[1]);
@@ -175,16 +182,14 @@ export function drawGround(): PixelGrid {
   G.rect(0, 10, W, 2, HAZ_Y).rect(0, 12, W, 1, HAZ_YD).rect(0, 13, W, 1, OUTLINE);
   for (let x = 0; x < W; x += 24) G.rect(x, 10, 1, 3, HAZ_YD);
   // 床のコンクリート。手前ほどざらつく
-  for (let y = 14; y < H; y++) {
-    const t = (y - 14) / (H - 14);
-    for (let x = 0; x < W; x++) {
-      let c = C[3];
-      const r = hash(x, y, 7);
-      if (r > 0.97 - t * 0.03) c = C[4];
-      else if (r < 0.03) c = C[2];
-      G.px(x, y, c);
-    }
+  // 床のコンクリート。奥から手前へ広がる継ぎ目(光のふちつき)と、小さなかたまりのざらつき
+  G.rect(0, 14, W, H - 14, C[3]);
+  for (let i = 0; i < 110; i++) {
+    const x = Math.floor(hash(i, 1, 7) * W), y = 18 + Math.floor(hash(i, 2, 7) * (H - 20));
+    const len = y > 60 ? 3 : 2;
+    G.rect(x, y, len, 1, C[4]).rect(x + 1, y - 1, len - 1, 1, C[2]);
   }
+  for (const jy of [56, 76]) G.rect(0, jy, W, 1, C[4]).rect(0, jy + 1, W, 1, C[2]);
   G.dither(0, 14, W, 2, C[4], C[3]);
   // 蛍光灯の下の明るみ(壁の灯りの位置にそろえる)
   for (const lx of LIGHTS) {
@@ -225,6 +230,7 @@ export function drawGround(): PixelGrid {
     G.rect(gx, 77, 30, 1, C[1]);
   }
   // タイヤのあと
-  for (let x = 0; x < W; x += 2) { if (hash(x, 1, 9) > 0.4) G.px(x, 84 + (x % 3 === 0 ? 1 : 0), C[4]); if (hash(x, 2, 9) > 0.5) G.px(x + 1, 58, C[4]); }
+  // (ディザの帯。ところどころ切れる)
+  for (const [ty, s0] of [[84, 1], [62, 2]] as const) for (let x = 0; x < W; x++) if (hash(x >> 5, s0, 9) > 0.3) for (let j = 0; j < 2; j++) if (dith(x, ty + j) && G.get(x, ty + j) === C[3]) G.px(x, ty + j, C[4]);
   return G.g;
 }

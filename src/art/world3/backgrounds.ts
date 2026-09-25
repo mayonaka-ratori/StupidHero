@@ -113,7 +113,12 @@ export function drawWall(): PixelGrid {
   for (let x = 10; x < W; x += 36) G.rect(x, 62, 4, 2, LIT[0]).rect(x + 1, 64, 2, 1, LIT[1]);
   // 店の上の壁
   G.rect(0, 65, W, 60, C[2]);
-  for (let y = 65; y < 125; y++) for (let x = 0; x < W; x++) if (hash(x >> 2, y >> 2, 9) > 0.86 && dith(x, y)) G.px(x, y, C[1]);
+  // 化粧板の壁(横長の板。上のふちに光、下のふちに影)
+  for (let y = 65; y < 125; y++) for (let x = 0; x < W; x++) {
+    const ly = (y - 65) % 12, lx = (x + (Math.floor((y - 65) / 12) % 2) * 27) % 54;
+    if (ly === 0) G.px(x, y, C[1]);
+    else if (ly === 11 || lx === 0) G.px(x, y, C[3]);
+  }
   for (const [x0, w, kind] of SHOPS) {
     const sx = x0 + 10, sw = w - 20;
     // 看板(色の板と、形の印)
@@ -190,15 +195,28 @@ export function drawGround(): PixelGrid {
       G.px(x + Math.round((x % 72 === 0 ? -1 : 1) * t * 3), y, FLOOR[3]);
     }
   }
-  // 店の明かりの映りこみ(縦にのびたディザ)
+  // タイルの目地の右に光(みがいた面のふち)
+  for (let x = 0; x < W; x += 36) {
+    for (let y = 8; y < H; y++) {
+      const t = (y - 6) / (H - 6);
+      const jx = x + Math.round((x % 72 === 0 ? -1 : 1) * t * 3);
+      if (!rows.includes(y)) G.px(jx + 1, y, FLOOR[0]);
+    }
+  }
+  // 店の明かりの映りこみ(縦にのびる帯)。奥はしっかり、手前へ行くほどディザでうすれる(乱数は使わない)
   for (const lx of MALL_LIGHTS) {
-    for (let y = 6; y < 56; y++) for (let i = 0; i < 80; i++) {
-      const x = lx + 4 + i;
-      // 奥ほど濃く、手前へ行くほどまばらにする
-      const t = (y - 6) / 50;
-      if (Math.abs(i - 40) > 38 - t * 8) continue;
-      if (!dith(x, y) || hash(x, y, 11) < t * 1.1) continue;
-      G.px(x, y, t < 0.3 && Math.abs(i - 40) < 30 ? LIT[2] : FLOOR[0]);
+    for (let y = 6; y < 60; y++) {
+      const t = (y - 6) / 54;
+      const half = Math.round(34 - t * 10);
+      for (let i = -half; i <= half; i++) {
+        const x = lx + 44 + i;
+        const c = G.get(x, y);
+        if (c === FLOOR[3]) continue;
+        const inner = Math.abs(i) < half - 8;
+        if (t < 0.35 && inner) { if (dith(x, y)) G.px(x, y, LIT[2]); }
+        else if (t < 0.7) { if (dith(x, y)) G.px(x, y, FLOOR[0]); }
+        else if (dith(x, y) && y % 2 === 0) G.px(x, y, FLOOR[0]);
+      }
     }
   }
   // 天井のあかりの点の映りこみ
