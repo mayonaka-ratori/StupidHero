@@ -255,10 +255,11 @@ export class StageCard {
     if (this.locked) {
       const g = add(sc.add.graphics());
       drawLock(g, 14, r1 + 6, 1);
-      // 長い名前のステージ(地下駐車場をクリアすると…)は、はみ出さないように小さな字にする
+      // 長い名前のステージ(地下駐車場をクリアすると…)は、はみ出さないように小さな字にする。
+      // 2行目は、鍵の文と同じく短い名前を使う(「ショッピングモールの…」だと小さな字でもはみ出す)
       const fit = (t: PixelText): PixelText => (t.width > w - 8 - t.x ? t.setStyle({ size: FS.small }) : t);
       fit(add(new PixelText(sc, 24, r1, e.def.lockedText ?? '', { size: FS.body, color: UI.text })));
-      fit(add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].name : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim })));
+      fit(add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].shortName : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim })));
       return;
     }
     const total = titlesFor(e.id).length;
