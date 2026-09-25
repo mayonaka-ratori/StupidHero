@@ -45,7 +45,7 @@
 //   saved.newRecords                                        // 新記録の項目(['bestSec'] など)
 //   saved.showMoreStagesHint                                // 「ステージを進めると、出てくる人が増えるよ」を出すか(一度だけ)
 
-import { STAGE_IDS, STAGES, isStageId } from './stages';
+import { FREE_STAGE_IDS, STAGE_IDS, STAGES, isStageId } from './stages';
 import { TITLES } from './titles';
 import type { StageDef } from './stages';
 import type { StageId, StageStats, TitleId } from './types';
@@ -524,8 +524,10 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   const titleIsNew = !records.titles.includes(titleId);
   addUnique(records.titles, [titleId]);
   // 「路地裏しか開いていない」は、路地裏しかクリアしていない(まだ開いていないステージがある)こと。
-  // フリープレイは路地裏のボスを倒すと開き、そのとき地下駐車場も開くので、開いているステージの数では数えない
-  const showMoreStagesHint = !records.freeMoreHintShown && unlockedStages(records).length < STAGE_IDS.length;
+  // フリープレイは路地裏のボスを倒すと開き、そのとき地下駐車場も開くので、開いているステージの数では数えない。
+  // 高層ビルはフリープレイに出ないので、フリープレイに出るステージ(FREE_STAGE_IDS)だけで数える
+  const unlocked = unlockedStages(records);
+  const showMoreStagesHint = !records.freeMoreHintShown && FREE_STAGE_IDS.some((id) => !unlocked.includes(id));
   if (showMoreStagesHint) records.freeMoreHintShown = true;
   const persisted = writeRecords(records, storage);
   return {

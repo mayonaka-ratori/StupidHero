@@ -249,11 +249,8 @@ export function rushAfter(def: StageDef, no: WaveNo, kind?: StageRush['kind']): 
   return def.rush !== null && def.rush.afterWave === no && (kind === undefined || def.rush.kind === kind);
 }
 
-/**
- * ステージを選ぶ画面の並び(遊べるステージ)。
- * 高層ビル('tower')は、画面と絵ができるまでここに入れない(ALL_STAGE_IDS には入っている)
- */
-export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall'];
+/** ステージを選ぶ画面の並び(遊べるステージ) */
+export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
 
 /** 定義のある全部のステージ(まだ遊べない高層ビルも入る)。文や表がそろっているかを確かめるときに使う */
 export const ALL_STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];

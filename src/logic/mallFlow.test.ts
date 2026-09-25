@@ -208,7 +208,8 @@ describe('ステージ3を通しで数える', () => {
     expect(saved.firstPlay).toBe(true);
     expect(saved.titlesTotal).toBe(24);
     expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
-    expect(saved.unlockedNow).toEqual([]);
+    // モールを初めてクリアすると、高層ビルが開く
+    expect(saved.unlockedNow).toEqual(['tower']);
     expect(needsIntro('mall', loadRecords(st))).toBe(false);
     expect(loadRecords(st).rushSeen).toEqual(['mall']);
     // 大きな物が壊れた場面の見出しは「モールがこわれた!」

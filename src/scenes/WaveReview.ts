@@ -205,7 +205,7 @@ export class WaveReviewScene extends Phaser.Scene {
     const run = getRun(this);
     const to = nextAfterReview(run);
     if (goto(this, to, undefined, { kind: 'wipe' })) this.leaving = true;
-    else if (to !== SCENES.result) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す(Sort、Floor、Elevator)
+    else if (to !== SCENES.result && to !== SCENES.ending) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す(Sort、Floor、Elevator。最後の波のあとは進めていない)
   }
 }
 

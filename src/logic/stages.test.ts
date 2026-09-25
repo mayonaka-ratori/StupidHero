@@ -16,9 +16,9 @@ const ART_READY: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
 
 describe('ステージの定義', () => {
   it('番号、名前、値段とボス戦の数字、開く順。ステージ2は曲もボスの絵も別', () => {
-    expect(STAGE_IDS).toEqual(['alley', 'garage', 'mall']);
+    expect(STAGE_IDS).toEqual(['alley', 'garage', 'mall', 'tower']);
     expect(STAGE_IDS.map((id) => [STAGES[id].no, STAGES[id].name, STAGES[id].shortName])).toEqual([
-      [1, '路地裏', '路地裏'], [2, '地下駐車場', '地下駐車場'], [3, 'ショッピングモール', 'モール']
+      [1, '路地裏', '路地裏'], [2, '地下駐車場', '地下駐車場'], [3, 'ショッピングモール', 'モール'], [4, '高層ビル', 'ビル']
     ]);
     expect(STAGES.garage.bgm.street).not.toBe(STAGES.alley.bgm.street);
     expect(STAGES.garage.bgm.boss).not.toBe(STAGES.alley.bgm.boss);
@@ -28,9 +28,12 @@ describe('ステージの定義', () => {
     expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });
     expect(STAGES.garage.unlockAfter).toBe('alley');
     // 仕組みとラッシュ
-    expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].rush])).toEqual([['none', null], ['gang', null], ['ufo', { kind: 'sale', afterWave: 2 }]]);
-    // ステージ1〜3は、どの波も同じ背景と物
-    for (const id of STAGE_IDS) expect(STAGES[id].floors).toBeNull();
+    expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].rush])).toEqual([
+      ['none', null], ['gang', null], ['ufo', { kind: 'sale', afterWave: 2 }], ['psychic', { kind: 'elevator', afterWave: 3 }]
+    ]);
+    // ステージ1〜3は、どの波も同じ背景と物。高層ビルは波ごとに4つの階
+    for (const id of STAGE_IDS.filter((i) => i !== 'tower')) expect(STAGES[id].floors).toBeNull();
+    expect(STAGES.tower.floors).toHaveLength(4);
   });
 
   it('ステージ3:地下駐車場のボスを倒すと開く。親玉は¥2,000万、母艦は1秒¥150万、倒すと噴水が壊れる', () => {
@@ -133,7 +136,7 @@ describe('波ごとの舞台とラッシュ', () => {
     expect(rushAfter(STAGES.mall, 2, 'sale')).toBe(true);
     expect(rushAfter(STAGES.mall, 2, 'elevator')).toBe(false);
     expect(rushAfter(STAGES.mall, 3)).toBe(false);
-    expect(STAGE_IDS.filter((id) => id !== 'mall').some((id) => [1, 2, 3].some((no) => rushAfter(STAGES[id], no as 1 | 2 | 3)))).toBe(false);
+    expect(STAGE_IDS.filter((id) => id !== 'mall' && id !== 'tower').some((id) => [1, 2, 3].some((no) => rushAfter(STAGES[id], no as 1 | 2 | 3)))).toBe(false);
     const tower: StageDef = { ...STAGES.mall, rush: { kind: 'elevator', afterWave: 3 } };
     expect(rushAfter(tower, 3, 'elevator')).toBe(true);
     expect(rushAfter(tower, 3, 'sale')).toBe(false);
@@ -143,7 +146,7 @@ describe('波ごとの舞台とラッシュ', () => {
 describe('ステージ4(高層ビル)の定義', () => {
   const d = STAGES.tower;
 
-  it('番号、名前、仕組み、ラッシュ、開く順。ステージを選ぶ画面とフリープレイにはまだ入れない', () => {
+  it('番号、名前、仕組み、ラッシュ、開く順。ステージを選ぶ画面には入れ、フリープレイには入れない', () => {
     expect([d.no, d.name, d.shortName]).toEqual([4, '高層ビル', 'ビル']);
     expect(d.mechanic).toBe('psychic');
     expect(d.rush).toEqual({ kind: 'elevator', afterWave: 3 });
@@ -151,7 +154,7 @@ describe('ステージ4(高層ビル)の定義', () => {
     expect(rushAfter(d, 2)).toBe(false);
     expect(d.unlockAfter).toBe('mall');
     expect(d.lockedText).toBe('モールをクリアすると遊べる');
-    expect(STAGE_IDS).not.toContain('tower');
+    expect(STAGE_IDS).toContain('tower');
     expect(FREE_STAGE_IDS).not.toContain('tower');
     expect(ALL_STAGE_IDS).toEqual(['alley', 'garage', 'mall', 'tower']);
     expect(isStageId('tower')).toBe(true);

@@ -138,7 +138,7 @@ describe('records', () => {
     const c = saveResult('alley', stats(), 'soSo', st);
     expect(c.unlockedNow).toEqual([]);
     const info = stageSelectInfo(loadRecords(st));
-    expect(info.map((i) => [i.id, i.unlocked, i.titlesCollected])).toEqual([['alley', true, 1], ['garage', true, 0], ['mall', false, 0]]);
+    expect(info.map((i) => [i.id, i.unlocked, i.titlesCollected])).toEqual([['alley', true, 1], ['garage', true, 0], ['mall', false, 0], ['tower', false, 0]]);
     expect(info[0].record?.plays).toBe(3);
     expect(info[1].record).toBeNull();
     expect(info[1].def.name).toBe('地下駐車場');
@@ -160,8 +160,10 @@ describe('records', () => {
     const g = saveResult('garage', stats({ stageId: 'garage' }), 'soSo', st);
     expect(g.unlockedNow).toEqual(['mall']);
     const info = stageSelectInfo(loadRecords(st));
-    expect(info.map((i) => i.unlocked)).toEqual([true, true, true]);
+    expect(info.map((i) => i.unlocked)).toEqual([true, true, true, false]);
     const m = saveResult('mall', stats({ stageId: 'mall' }), 'ufoHunter', st);
+    expect(m.unlockedNow).toEqual(['tower']);
+    expect(stageSelectInfo(loadRecords(st)).map((i) => i.unlocked)).toEqual([true, true, true, true]);
     expect(m.firstPlay).toBe(true);
     expect(m.titlesCollected).toBe(2);
     expect(m.titlesTotal).toBe(24);

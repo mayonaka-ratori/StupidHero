@@ -608,7 +608,7 @@ export const LIFT_BAND = '最上階へ！';
 /** 初めてのラッシュの説明(オペレーター、2つ続けて) */
 export const LIFT_INTRO_FIRST: readonly Speech[] = [
   op('panic', '乗ってくる人、\n全員殴っちゃう！'),
-  op('normal', '周りが光ったらヴィラン！\n市民にだけ待て！')
+  op('normal', '光ったらヴィラン！\n市民にだけ待て！')
 ];
 
 /** 2回目からのラッシュの説明(オペレーター、1つ) */
