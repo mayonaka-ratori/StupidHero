@@ -346,7 +346,7 @@ describe('ステージ3の文', () => {
 
   it('掛け合いは5枚で、くずれ、ぎこちない市民、UFO、全員は待てないことを伝える。タイムセールは言わない', () => {
     const joined = introFor('mall').map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['ショッピングモール', '宇宙人', 'くずれる', 'ぎこちない市民', '待って', 'UFO', '連れていく', '全員は待てない']) {
+    for (const word of ['ショッピングモール', '宇宙人', 'くずれる', 'ぎこちない市民', '待って', 'UFO', 'さらう', '全員は待てない']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toContain('セール');
@@ -401,8 +401,8 @@ describe('ステージ3の文', () => {
   it('ラッシュの説明は、初めては2つ、見たことがあれば1つ。終わりの一言は市民を全員守れたかで変わる', () => {
     expect(rushIntroFor(false)).toHaveLength(2);
     expect(rushIntroFor(true)).toHaveLength(1);
-    expect(rushIntroFor(false)[1].text).toContain('市民にだけ待て');
-    expect(rushIntroFor(true)[0].text).toContain('市民にだけ待て');
+    expect(rushIntroFor(false)[1].text).toContain('市民だけ待てを押して');
+    expect(rushIntroFor(true)[0].text).toContain('市民だけ待てを押して');
     expect(RUSH_BAND).toBe('タイムセール開始！');
     expect(rushEndLine({ civs: 4, civsSaved: 4 }).face).toBe('hype');
     expect(rushEndLine({ civs: 4, civsSaved: 3 }).face).toBe('deadpan');
@@ -490,7 +490,7 @@ describe('ステージ4の文', () => {
     expect(waveIntroFor('tower', 2)[0].text).toContain('18階');
     expect(waveIntroFor('tower', 3)[0].text).toContain('35階');
     expect(waveIntroFor('tower', 4)[0].text).toContain('親玉');
-    expect(waveIntroFor('tower', 4)[1].text).toContain('もれない');
+    expect(waveIntroFor('tower', 4)[1].text).toContain('変えない');
     // ステージ1〜3には波4の一言がない
     for (const id of ['alley', 'garage', 'mall'] as const) expect(waveIntroFor(id, 4)).toEqual([]);
     expect(([1, 2, 3, 4] as const).map((n) => towerFloorLabel(n))).toEqual(['1F', '18F', '35F', '50F']);
@@ -536,8 +536,8 @@ describe('ステージ4の文', () => {
   it('エレベーターの説明は、初めては2つ、見たことがあれば1つ。着いたときの一言は市民を全員守れたかで変わる', () => {
     expect(liftIntroFor(false)).toHaveLength(2);
     expect(liftIntroFor(true)).toHaveLength(1);
-    expect(liftIntroFor(false)[1].text).toContain('市民にだけ待て');
-    expect(liftIntroFor(true)[0].text).toContain('市民にだけ待て');
+    expect(liftIntroFor(false)[1].text).toContain('市民だけ待てを押して');
+    expect(liftIntroFor(true)[0].text).toContain('市民だけ待てを押して');
     expect(LIFT_BAND).toBe('最上階へ！');
     expect(liftEndLine({ civs: 3, civsSaved: 3 }).face).toBe('hype');
     expect(liftEndLine({ civs: 3, civsSaved: 2 }).face).toBe('deadpan');

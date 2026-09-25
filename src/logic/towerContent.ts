@@ -114,14 +114,14 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
       '切れた電球を\nよく取りかえる',
       'モップは\n自分で選んだ',
       '腰が\n少し痛い',
-      '休みは\n孫と遊ぶ',
+      '休みは\n家族と過ごす',
       '床みがきは\n誰にも負けない',
       '全部の階を\n回っている'
     ],
     bad: [
-      'このビルで\n働き始めた',
+      'このビルで\n働き始めたばかり',
       '夜中のビルは\n静かで好き',
-      '電球が\nよく切れる所にいる',
+      'いる所の電球が\nよく切れる',
       'モップは\nあまり使わない',
       '腰は\n痛くない',
       '休みは\nひとりで過ごす',
@@ -143,7 +143,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     bad: [
       'なべは\n片手で軽々',
       '包丁は\n研がなくても切れる',
-      '湯気が\nまわりをよける',
+      '湯気が\n自分をよけていく',
       '火加減は\n思いのまま',
       '休みの日は\nビルをながめる',
       '得意料理は\nふわふわのスフレ',
@@ -203,7 +203,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
       '糸はいつも\nポケットに',
       '失敗すると\n笑ってごまかす',
       'つえは\n手作り',
-      '手品歴は\n二十年',
+      '手品歴は\nけっこう長い',
       'パーティに\n呼ばれて来た'
     ],
     bad: [
@@ -213,7 +213,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
       '糸は\n持っていない',
       '失敗は\nしたことがない',
       'つえは\nもらい物',
-      '手品歴は\n二十年',
+      '手品歴は\nけっこう長い',
       'パーティに\n呼ばれて来た'
     ]
   }
@@ -403,7 +403,7 @@ export const BOSS4_HINTS: Readonly<Record<TowerDisguise, readonly OperatorHint[]
   lady: [
     hint('panic', '羽が\n金色…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
-    hint('normal', '招待状を\n持ってない？'),
+    hint('normal', '招待状、\n持ってなくない？'),
     hint('deadpan', 'お客にしては\n貫禄がありすぎ')
   ],
   magician: [
@@ -450,7 +450,7 @@ export const TOWER_WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]
   ],
   4: [
     op('panic', '最上階！\n親玉がまぎれてる'),
-    op('normal', '親玉はもれない。\n見た目をよく見て')
+    op('normal', '親玉は明かりも物も\n変えない。姿を見て')
   ]
 };
 
@@ -511,7 +511,7 @@ export const TOWER_REACTIONS: Readonly<Record<TowerReactionKey, readonly Speech[
   liftFullHero: [hero('smile', 'あれ？')],
   liftFull: [op('deadpan', '定員オーバー…')],
   liftEndGood: [op('hype', 'ばっちり！\n最上階だよ')],
-  liftEndBad: [op('deadpan', '最上階に\n着いたよ…')],
+  liftEndBad: [op('deadpan', '最上階に\n着いたけど…')],
   bossChoice: [op('panic', '客は待て！\nシャンデリアは行け！')],
   bossGuestSaved: [op('hype', 'お客さん、\n無事！')],
   bossChandelierGo: [hero('smug', '天井へ\nおかえりーっ！')],
@@ -525,7 +525,7 @@ export const TOWER_REACTIONS: Readonly<Record<TowerReactionKey, readonly Speech[
 export const TOWER_OVERRIDES = {
   pass: [
     hero('smile', 'お仕事\nおつかれさま！'),
-    hero('smile', 'よい夜を！'),
+    hero('smile', 'いい夜だね！'),
     hero('smile', '最上階まで\nごゆっくり！'),
     hero('smile', 'ビルの平和は\n任せて！')
   ],
@@ -607,13 +607,13 @@ export const LIFT_BAND = '最上階へ！';
 
 /** 初めてのラッシュの説明(オペレーター、2つ続けて) */
 export const LIFT_INTRO_FIRST: readonly Speech[] = [
-  op('panic', '乗ってくる人、\n全員殴っちゃう！'),
-  op('normal', '光ったらヴィラン！\n市民にだけ待て！')
+  op('panic', '乗ってくる人、\n全員殴られちゃう！'),
+  op('normal', '光ったらヴィラン！\n市民だけ待てを押して')
 ];
 
 /** 2回目からのラッシュの説明(オペレーター、1つ) */
 export const LIFT_INTRO_AGAIN: readonly Speech[] = [
-  op('panic', '最上階へ！\n市民にだけ待て！')
+  op('panic', '最上階へ！\n市民だけ待てを押して')
 ];
 
 // ─── 終わりの場面 ─────────────────────────────────

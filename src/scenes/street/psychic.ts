@@ -209,14 +209,14 @@ export class PsyPart {
     if (settings.reduceFx) this.moveSparks(u, true);
   }
 
-  /** 火花を物のまわりに置き直す(fixed なら決まった所。光と揺れを弱くするとき) */
+  /** 火花を物のまわりに置き直す(fixed なら決まった所。光と揺れを弱くするとき)。見た目だけなので、ゲームの乱数(rng)は使わない */
   private moveSparks(u: PsyRun, fixed = false): void {
     const sp = u.lifted.sprite;
     const w = sp.width;
     const h = sp.height;
     u.sparks.forEach((s, i) => {
-      const dx = fixed ? [-0.55, 0.55, 0.1][i % 3] * w : this.s.rng.float(-0.6, 0.6) * w;
-      const dy = fixed ? [0.3, 0.6, 1.05][i % 3] * h : this.s.rng.float(0.1, 1.1) * h;
+      const dx = fixed ? [-0.55, 0.55, 0.1][i % 3] * w : Phaser.Math.FloatBetween(-0.6, 0.6) * w;
+      const dy = fixed ? [0.3, 0.6, 1.05][i % 3] * h : Phaser.Math.FloatBetween(0.1, 1.1) * h;
       s.setPosition(Math.round(sp.x + dx), Math.round(sp.y - dy));
     });
   }
@@ -285,7 +285,7 @@ export class PsyPart {
   /** 紫の小さな火花(光と揺れを弱くするときは、またたかずに1コマ目で止める) */
   spark(x: number, y: number, depth: number): Phaser.GameObjects.Sprite {
     const s = this.s.add.sprite(Math.round(x), Math.round(y), 'fx_psy_spark', 0).setDepth(depth);
-    if (!settings.reduceFx) s.play({ key: animKey('fx_psy_spark', 'play'), startFrame: this.s.rng.int(0, 3) });
+    if (!settings.reduceFx) s.play({ key: animKey('fx_psy_spark', 'play'), startFrame: Phaser.Math.Between(0, 3) });
     return s;
   }
 
@@ -504,15 +504,84 @@ export class PsyPart {
     await waitMs(this.s, 500);
   }
 
+  // ─── 親玉が正体を現す ───────────────────────────
+
+  /**
+   * ワルに仕分けた親玉が正体を現したとき:会場の小さな物(グラスや料理)を念力でいっせいに少し浮かせる(STAGE4「ボス:ビルのオーナー」)。
+   * 見た目だけ。物は壊さず、被害額にも数えない。ソファと大きな物(水槽、ピアノ)は浮かせない。
+   * 浮いたまま、ボス戦へ切りかわる(ボス戦では、親玉がこの皿やグラスを窓に投げる)。
+   * 光と揺れを弱くするときは、火花をまたたかせず、もやを入れかえず、上下にゆらさない
+   */
+  liftAround(boss: Actor): void {
+    const l = this.s.L.left - 8;
+    const r = this.s.L.right + 8;
+    const near = this.s.props
+      .filter((p) => !p.broken && !p.wall && p.sprite.visible && p.kind !== PSY.cushionProp && !isBigProp(p.kind) && p.x >= l && p.x <= r)
+      .sort((p, q) => Math.abs(p.x - boss.x) - Math.abs(q.x - boss.x));
+    if (near.length === 0) return;
+    audio.sfx('psy', { volume: 0.7 });
+    near.forEach((p, i) => this.s.time.delayedCall(i * 70, () => this.floatUp(p)));
+  }
+
+  /** 物を1つ浮かせて、紫のふち、もや、火花を付ける。浮いたあとは(揺れを弱くしないときは)ゆっくり上下にゆれる */
+  private floatUp(p: PropObj): void {
+    if (p.broken || !p.sprite.active) return;
+    const sp = p.sprite;
+    const reduce = settings.reduceFx;
+    const frame = Number(sp.frame.name) || 0;
+    const d = sp.depth;
+    const line = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame)).setOrigin(0.5, 1).setDepth(d - 0.01);
+    // もやは物を包む大きさに(ドットが崩れないように、整数倍で広げる。psyLift と同じ)
+    const sx = Math.max(2, Math.ceil((sp.width + 12) / 16));
+    const sy = Math.max(2, Math.ceil((sp.height + 10) / 14));
+    const haze = this.s.add.sprite(sp.x, sp.y - sp.height / 2, 'fx_psy_haze', 0).setScale(sx, sy).setDepth(d - 0.02);
+    if (!reduce) haze.play(animKey('fx_psy_haze', 'play'));
+    const spark = this.spark(sp.x, sp.y, d + 0.01);
+    const x = sp.x;
+    const y0 = sp.y;
+    // 浮く高さと、ゆれの始まりは物ごとに少しずらす(見た目だけなので、ゲームの乱数は使わない)
+    const rise = Phaser.Math.Between(10, 18);
+    const phase = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const o = { up: 0 };
+    let sparkMs = 0;
+    let last = this.s.time.now;
+    const place = (): void => {
+      if (!sp.active) return;
+      const bob = reduce ? 0 : Math.sin(this.s.time.now / 220 + phase) * 1.5 * o.up;
+      const y = Math.round(y0 - rise * o.up + bob);
+      sp.setPosition(x, y);
+      line.setPosition(x, y + 1);
+      haze.setPosition(x, Math.round(y - sp.height / 2));
+      // 火花は物のまわりを移る(光と揺れを弱くするときは、物の左上に止めておく)
+      const now = this.s.time.now;
+      sparkMs -= now - last;
+      last = now;
+      if (reduce) spark.setPosition(Math.round(x - sp.width * 0.45), Math.round(y - sp.height * 0.7));
+      else if (sparkMs <= 0) {
+        sparkMs += 260;
+        spark.setPosition(Math.round(x + Phaser.Math.FloatBetween(-0.6, 0.6) * sp.width), Math.round(y - Phaser.Math.FloatBetween(0.1, 1.1) * sp.height));
+      }
+    };
+    place();
+    // はじめに浮き上がり、そのあとはシーンが終わるまで今の位置に合わせ続ける(ボス戦へ移るとシーンごと消える)
+    this.s.tweens.add({ targets: o, up: 1, duration: 520, ease: 'Quad.easeOut' });
+    const ev = this.s.time.addEvent({
+      delay: 30, loop: true, callback: () => {
+        if (!sp.active || p.broken) { ev.remove(); line.destroy(); haze.destroy(); spark.destroy(); return; }
+        place();
+      }
+    });
+  }
+
   // ─── 親玉が暴れる ─────────────────────────────
 
   /**
    * 市民に仕分けた親玉が正体を現したあと:会場の家具を念力で浮かせて、窓の外(右上)へ投げる。
-   * 被害額は bossRampage の¥2,000万に含まれている(ここでは数えない)
+   * 被害額は bossRampage の¥2,000万に含まれている(ここでは数えない)。ソファは壊れない物なので残す
    */
   flingFurniture(boss: Actor): void {
     const near = this.s.props
-      .filter((p) => !p.broken && !p.wall && Math.abs(p.x - boss.x) < 150)
+      .filter((p) => !p.broken && !p.wall && p.kind !== PSY.cushionProp && Math.abs(p.x - boss.x) < 150)
       .sort((p, q) => Math.abs(p.x - boss.x) - Math.abs(q.x - boss.x));
     audio.sfx('psy');
     near.forEach((p, i) => this.s.time.delayedCall(150 + i * 220, () => this.fling(p, i)));

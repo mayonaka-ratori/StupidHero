@@ -118,7 +118,7 @@ const perfectLift = (s: StageStats): boolean => perfect(s.lift);
 export const TITLES: readonly TitleDef[] = [
   {
     id: 'flawless', name: '完全無欠のヒーロー', pose: 'win_pose',
-    condition: '全員倒して、市民のけが0、被害額¥500万未満(まきぞえは2人まで)',
+    condition: '全員倒して、市民のけが0、被害額¥500万未満(まきぞえは2人まで。高層ビルはシャンパンタワーの分を除く)',
     hint: '全員倒して、市民のけが0、被害額¥500万未満',
     modes: ['stage'],
     test: (s, c) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
@@ -171,7 +171,7 @@ export const TITLES: readonly TitleDef[] = [
   {
     id: 'furnitureGuide', name: '空飛ぶ家具の見送り係', pose: 'win_shy',
     condition: '念力の物で、市民が2人以上けがをした',
-    hint: '念力で2人けがをする',
+    hint: '念力で市民が2人けがをする',
     stages: ['tower'],
     modes: ['stage'],
     test: (s) => s.civHurtByDrop >= T.furnitureGuideHurt
@@ -236,8 +236,8 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'sofaMaster', name: 'ソファの名人', pose: 'win_arms',
-    condition: '念力で運ばれた物を、2回以上ソファの上で落とした',
-    hint: 'ソファの上で2回落とす',
+    condition: '念力で運ばれた物を、2回以上ソファの上に落とした',
+    hint: 'ソファの上に2回落とす',
     stages: ['tower'],
     modes: ['stage'],
     test: (s) => s.sofaSaves >= T.sofaMasterSaves
@@ -258,7 +258,7 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'tooKind', name: 'やさしすぎるヒーロー', pose: 'win_pose',
-    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOや念力のあとに逃げた分は数えない)',
+    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOで逃げた分と、念力のあとに逃げた分は数えない)',
     hint: '市民をなぐらず3人逃がす',
     test: (s) => s.civHurtByHero === 0 && sparedBad(s) >= T.tooKindEscaped
   },

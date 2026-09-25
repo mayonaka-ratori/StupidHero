@@ -1356,6 +1356,8 @@ export class StreetScene extends Phaser.Scene {
     const h = this.hero;
     void this.arc(h, h.x - 26, 20, 300);
     await this.revealBoss(a);
+    // 高層ビル:正体を現すと、会場のグラスや料理が念力でいっせいに浮く(見た目だけ。浮いたままボス戦へ)
+    if (this.def.mechanic === 'psychic') this.psyPart.liftAround(a);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
     this.opSay(this.line('bossReveal', this.rng), true);
     h.play('idle');

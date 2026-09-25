@@ -402,7 +402,7 @@ export class StageSelectScene extends Phaser.Scene {
         }
       });
       card.setBadge('NEW!');
-      void banner(this, `${card.entry.def.name}が開いた!`, { y: card.root.y + card.box.h / 2, hold: 900 });
+      void banner(this, `${card.entry.def.shortName}が開いた!`, { y: card.root.y + card.box.h / 2, hold: 900 });
       // オペレーターのひとこと。開いたカードを隠さないように、カードが下の方なら見出しの下、上の方なら下のボタンの上
       const { W, H } = layout;
       const low = card.root.y + card.box.h / 2 > H / 2;

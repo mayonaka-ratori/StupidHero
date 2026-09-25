@@ -238,9 +238,9 @@ describe('称号(ステージ4)', () => {
     expect(ids.indexOf('liftGuardian')).toBe(ids.indexOf('saleGuardian') + 1);
     expect(ids.indexOf('sofaMaster')).toBe(ids.indexOf('ufoHunter') + 1);
     expect(titleById('topHero')).toMatchObject({ name: '最上階のヒーロー', pose: 'win_pose', hint: '最後のボスを倒す' });
-    expect(titleById('furnitureGuide')).toMatchObject({ name: '空飛ぶ家具の見送り係', pose: 'win_shy', hint: '念力で2人けがをする' });
+    expect(titleById('furnitureGuide')).toMatchObject({ name: '空飛ぶ家具の見送り係', pose: 'win_shy', hint: '念力で市民が2人けがをする' });
     expect(titleById('liftGuardian')).toMatchObject({ name: 'エレベーターの守り神', pose: 'win_pose', hint: 'エレベーターで1人も間違えない' });
-    expect(titleById('sofaMaster')).toMatchObject({ name: 'ソファの名人', pose: 'win_arms', hint: 'ソファの上で2回落とす' });
+    expect(titleById('sofaMaster')).toMatchObject({ name: 'ソファの名人', pose: 'win_arms', hint: 'ソファの上に2回落とす' });
     for (const id of TOWER_ONLY) {
       expect(titleById(id).stages).toEqual(['tower']);
       expect(titleById(id).modes).toEqual(['stage']);

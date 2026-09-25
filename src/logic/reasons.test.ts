@@ -59,7 +59,7 @@ describe('答え合わせの決め手', () => {
   it('高層ビル:ヴィランはもれの出方、紛らわしい市民はその理由、ほかの市民は見た目ごと、親玉は化けた姿のおかしい所', () => {
     const p = (over: Partial<Person>): Person =>
       ({ id: 'x', wave: 1, index: 0, look: 'chef', truth: 'civ', sheetKey: '', profile: { name: '', age: 0, line: '' }, hint: { text: '', face: 'normal' }, ...over });
-    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: true } }))).toBe('照明と小物が両方変');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: true } }))).toBe('照明も小物も変だった');
     expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: false } }))).toBe('照明が紫に光っていた');
     expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: true } }))).toBe('机の小物が浮いていた');
     expect(reasonFor(p({ decoy: 'flicker' }))).toBe('蛍光灯が切れかけだった');

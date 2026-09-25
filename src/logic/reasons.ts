@@ -81,7 +81,7 @@ export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
 
 /** 高層ビルのヴィランの決め手(もれの出方) */
 export const TOWER_LEAK_REASONS = {
-  both: '照明と小物が両方変',
+  both: '照明も小物も変だった',
   light: '照明が紫に光っていた',
   item: '机の小物が浮いていた'
 } as const;
