@@ -69,6 +69,16 @@ function actorsFor(entry: StageSelectEntry): ActorDef[] {
       { key: entry.def.bossSheet, x: -30, anim: 'idle', flip: true }
     ];
   }
+  if (entry.def.mechanic === 'psychic') {
+    // 高層ビル:カードの背景は1階なので、1階の見た目の2人と観葉植物
+    return [
+      { key: 'prop_plant', x: 0.34, anim: '', frame: 0 },
+      { key: 'hero', x: 0.14, anim: 'idle', hero: true },
+      { key: 'tw_courier', x: 0.48, anim: 'sortIdle', flip: true },
+      { key: 'tw_florist', x: 0.62, anim: 'sortIdle', flip: true },
+      { key: entry.def.bossSheet, x: -30, anim: 'idle', flip: true }
+    ];
+  }
   if (entry.def.mechanic === 'gang') {
     const red = ACCESSORY_COLORS.red.color;
     return [

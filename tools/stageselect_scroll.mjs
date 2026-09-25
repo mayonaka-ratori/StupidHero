@@ -1,7 +1,7 @@
 // ステージを選ぶ画面を、指で上下にずらして確かめる(docs/SPEC.md「ステージを選ぶ画面」)。
-// 高さ384と468の画面で、全部のステージが開いた記録を入れて開き、撮る。カードを4枚に増やした並べ方(&cards=4)も撮る。
+// 高さ384と468の画面で、4つのステージのカードを並べて撮る(高層ビルがまだ開いていない記録、開いたばかりの記録、全部遊んだ記録)。
 // ずらす(指を8ドットより動かす)とカードを選ばないか、離したあとすべって止まるか、端で止まるか、
-// 動かさずに離すとカードを選ぶか、開いたばかりのステージ(&justunlocked=mall)まで自動でずれるかを見る。
+// 動かさずに離すとカードを選ぶか、開いたばかりのステージ(&justunlocked=tower)まで自動でずれるかを見る。
 // 使い方: npm run dev を動かしてから node tools/stageselect_scroll.mjs [サーバーかURL] [出力フォルダ]
 import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
@@ -13,8 +13,12 @@ const browser = await openBrowser();
 const rec = (clears) => ({ plays: 1, clears, mostDefeated: 12, fewestHurt: 1, highestDamage: 3_400_000, fastestBossSec: 7.2, titles: [] });
 /** 路地裏と地下駐車場を倒し、モールはまだ遊んでいない記録(モールに NEW!) */
 const FRESH_MALL = { version: 2, stages: { alley: rec(1), garage: rec(1) }, titles: [], introSeen: ['alley', 'garage'], rushSeen: [], lastStage: 'garage' };
+/** モールまで倒し、高層ビルはまだ遊んでいない記録(高層ビルに NEW!) */
+const FRESH_TOWER = { ...FRESH_MALL, stages: { alley: rec(1), garage: rec(1), mall: rec(1) }, introSeen: ['alley', 'garage', 'mall'], lastStage: 'mall' };
 /** 全部遊んだ記録(最後に遊んだのは路地裏) */
-const ALL_PLAYED = { ...FRESH_MALL, stages: { alley: rec(1), garage: rec(1), mall: rec(1) }, introSeen: ['alley', 'garage', 'mall'], lastStage: 'alley' };
+const ALL_PLAYED = { ...FRESH_MALL, stages: { alley: rec(1), garage: rec(1), mall: rec(1), tower: rec(1) }, introSeen: ['alley', 'garage', 'mall', 'tower'], lastStage: 'alley' };
+/** カードの全部が見えているか */
+const inView = (c, s) => c.y - c.h / 2 >= s.viewTop && c.y + c.h / 2 <= s.viewTop + s.viewH;
 
 /** 論理ドットの高さ H になる窓(横390) */
 async function open(H, query, records) {
@@ -69,24 +73,33 @@ async function flick(page, pad, x, y0, y1, steps = 5) {
 }
 
 for (const H of [384, 468]) {
-  // ─── 3枚(今のステージ) ───
+  // ─── モールが NEW!(高層ビルはまだ鍵) ───
   {
-    const { page, pad, errors } = await open(H, '', FRESH_MALL);
+    const { page, errors } = await open(H, '', FRESH_MALL);
     const { s, cards } = await info(page);
-    await page.screenshot({ path: `${outDir}/stageselect_${H}_3.png` });
-    check(`${H}: 3枚。絵がいつも出る`, cards.every((c) => c.thumbH >= 58), cards.map((c) => c.thumbH).join(','));
-    if (H === 468) check('468: 3枚ならずらさない', s.max === 0, `max=${s.max}`);
-    else {
-      check('384: 3枚でもずらせる', s.max > 0, `max=${s.max}`);
-      const mall = cards.find((c) => c.id === 'mall');
-      check('384: 開いたときに NEW! のモールが全部見えている', mall.y - mall.h / 2 >= s.viewTop && mall.y + mall.h / 2 <= s.viewTop + s.viewH, `pos=${s.pos}`);
-    }
+    await page.screenshot({ path: `${outDir}/stageselect_${H}_mall_new.png` });
+    check(`${H}: 4つのステージのカード`, cards.map((c) => c.id).join(',') === 'alley,garage,mall,tower', cards.map((c) => c.id).join(','));
+    check(`${H}: 絵がいつも出る`, cards.every((c) => c.thumbH >= 58), cards.map((c) => c.thumbH).join(','));
+    check(`${H}: 高層ビルは鍵がかかっている`, cards.find((c) => c.id === 'tower')?.locked === true);
+    check(`${H}: 4枚はずらせる`, s.max > 0, `max=${s.max}`);
+    check(`${H}: 開いたときに NEW! のモールが全部見えている`, inView(cards.find((c) => c.id === 'mall'), s), `pos=${s.pos}`);
     check(`${H}: エラーなし`, errors.length === 0, errors.join(' / '));
     await page.close();
   }
-  // ─── 4枚(並べ方を見るため、4枚目は路地裏のくり返し) ───
+  // ─── 高層ビルが NEW! ───
   {
-    const { page, pad, errors } = await open(H, '&cards=4', ALL_PLAYED);
+    const { page, errors } = await open(H, '', FRESH_TOWER);
+    const { s, cards } = await info(page);
+    await page.screenshot({ path: `${outDir}/stageselect_${H}_tower_new.png` });
+    const tower = cards.find((c) => c.id === 'tower');
+    check(`${H}: 高層ビルは開いている`, tower?.locked === false);
+    check(`${H}: 開いたときに NEW! の高層ビルが全部見えている`, inView(tower, s), `pos=${s.pos}`);
+    check(`${H}: エラーなし(高層ビルが NEW!)`, errors.length === 0, errors.join(' / '));
+    await page.close();
+  }
+  // ─── 全部遊んだ記録 ───
+  {
+    const { page, pad, errors } = await open(H, '', ALL_PLAYED);
     let { s, cards } = await info(page);
     await page.screenshot({ path: `${outDir}/stageselect_${H}_4_top.png` });
     check(`${H}: 4枚はずらせる`, s.max > 0, `max=${s.max}`);
@@ -133,22 +146,22 @@ for (const H of [384, 468]) {
     check(`${H}: エラーなし(4枚)`, errors.length === 0, errors.join(' / '));
     await page.close();
   }
-  // ─── 開いたばかりのモール:自動でずらしてから鍵がこわれる ───
+  // ─── 開いたばかりの高層ビル:自動でずらしてから鍵がこわれる ───
   {
-    const { page, errors } = await open(H, '&cards=4&justunlocked=mall', { ...FRESH_MALL, lastStage: 'garage' });
+    const { page, errors } = await open(H, '&justunlocked=tower', FRESH_TOWER);
     await page.waitForTimeout(400);
     const s0 = (await info(page)).s;
     let unlocked = false;
     for (let i = 0; i < 100 && !unlocked; i++) {
       await page.waitForTimeout(150);
-      unlocked = (await info(page)).cards.find((c) => c.id === 'mall').locked === false;
+      unlocked = (await info(page)).cards.find((c) => c.id === 'tower').locked === false;
     }
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${outDir}/stageselect_${H}_4_unlock.png` });
     const { s, cards } = await info(page);
-    const mall = cards.find((c) => c.id === 'mall');
-    check(`${H}: 開いたばかりのモールの鍵がこわれる`, unlocked);
-    check(`${H}: 鍵がこわれるときモールが全部見えている`, mall.y - mall.h / 2 >= s.viewTop && mall.y + mall.h / 2 <= s.viewTop + s.viewH, `pos ${s0.pos} → ${s.pos}`);
+    const tower = cards.find((c) => c.id === 'tower');
+    check(`${H}: 開いたばかりの高層ビルの鍵がこわれる`, unlocked);
+    check(`${H}: 鍵がこわれるとき高層ビルが全部見えている`, inView(tower, s), `pos ${s0.pos} → ${s.pos}`);
     check(`${H}: エラーなし(開く演出)`, errors.length === 0, errors.join(' / '));
     await page.close();
   }
