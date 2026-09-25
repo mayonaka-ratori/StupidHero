@@ -57,6 +57,10 @@
   dl.facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13.5px}
   dl.facts dt{color:var(--muted)}
   dl.facts dd{margin:0}
+  .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:22px;align-items:start;margin-bottom:26px}
+  .shot{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .shot img{width:100%;max-width:390px;height:auto;display:block;border:3px solid #2c2742;border-radius:14px;image-rendering:pixelated}
+  @media (max-width:520px){ .shot img{border:0;border-radius:0;margin-inline:-16px;width:calc(100% + 32px);max-width:none} }
   ul.points{margin:0;padding-left:1.2em;display:grid;gap:8px;max-width:70ch}
   ul.points b{color:var(--yellow);font-weight:700}
   .qs{display:grid;gap:14px;max-width:72ch}
@@ -68,9 +72,26 @@
 <div class="wrap">
   <header>
     <h1>会話の窓の顔を <span>48×48</span> にする見本</h1>
-    <p class="lead">ヒーローとオペレーターの顔を、32×32と同じデザインのまま48×48で描き直しました。目や口に使えるドットが増えるので、表情がはっきりします。色は1枚15色のままです。下の会話の窓の見本では、窓の形も2通り試しています。</p>
+    <p class="lead">ヒーローとオペレーターの顔を、32×32と同じデザインのまま48×48で描き直しました。ヒーローは、あごの先が首の真ん中からずれていたのを直しました。目や口に使えるドットが増えるので、表情がはっきりします。色は1枚15色のままです。下の会話の窓の見本では、窓の形も2通り試しています。</p>
     <div style="margin-top:18px"><button type="button" class="btn" id="talkToggle" aria-pressed="true">口を止める</button></div>
   </header>
+
+  <section>
+    <h2>画面全体で見る</h2>
+    <p class="sub">ゲームを手元で一時的に書きかえて、48×48の顔と窓の形を入れた画面を撮りました(iPhoneの大きさ、390×844)。顔のほかは、いまのゲームのままです(ヒーローの体の絵も、いまの絵です)。</p>
+    <h3>結果発表</h3>
+    <div class="shots">
+      <figure class="shot"><img alt="いまの結果発表の画面" data-shot="street_now"><figcaption><span class="tag">いま</span> 顔32、窓の高さ80</figcaption></figure>
+      <figure class="shot"><img alt="窓1の結果発表の画面" data-shot="street_1"><figcaption><span class="tag new">窓1</span> 顔48、セリフは顔の下、窓の高さ96</figcaption></figure>
+      <figure class="shot"><img alt="窓2の結果発表の画面" data-shot="street_2"><figcaption><span class="tag new">窓2</span> 顔48、セリフは顔の右、窓の高さ60</figcaption></figure>
+    </div>
+    <h3>ステージ前の掛け合い</h3>
+    <div class="shots">
+      <figure class="shot"><img alt="いまの掛け合いの画面" data-shot="intro_now"><figcaption><span class="tag">いま</span></figcaption></figure>
+      <figure class="shot"><img alt="窓1の掛け合いの画面" data-shot="intro_1"><figcaption><span class="tag new">窓1</span></figcaption></figure>
+      <figure class="shot"><img alt="窓2の掛け合いの画面" data-shot="intro_2"><figcaption><span class="tag new">窓2</span></figcaption></figure>
+    </div>
+  </section>
 
   <section>
     <h2>32×32と48×48を並べる</h2>
@@ -109,6 +130,8 @@
 
 <script>
 const DATA = /*DATA*/null;
+const SHOTS = /*SHOTS*/null;
+document.querySelectorAll('img[data-shot]').forEach((im) => { im.src = 'data:image/png;base64,' + SHOTS[im.dataset.shot]; });
 const cache = new Map();
 function sprite(name) {
   if (cache.has(name)) return cache.get(name);

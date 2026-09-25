@@ -18,6 +18,9 @@ for i in range(4):
     for s in 'ab':
         add(f'o32_{i}{s}', f'fo{i}{s}.txt', 'op'); add(f'o48_{i}{s}', f'f48o{i}{s}.txt', 'op')
 js = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
-tpl = open('page48.html', encoding='utf-8').read()
+import base64
+S = '../f48/'
+shots = {k: base64.b64encode(open(S + k + '.png', 'rb').read()).decode() for k in ('street_now', 'street_1', 'street_2', 'intro_now', 'intro_1', 'intro_2')}
+tpl = open('page48.html', encoding='utf-8').read().replace('/*SHOTS*/null', json.dumps(shots))
 open('/home/user/StupidHero/mocks/face48.html', 'w', encoding='utf-8').write(tpl.replace('/*DATA*/null', js))
 print(len(js))

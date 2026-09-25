@@ -1,0 +1,83 @@
+diff --git a/public/art/manifest.json b/public/art/manifest.json
+index 3154c52..fbbd456 100644
+--- a/public/art/manifest.json
++++ b/public/art/manifest.json
+@@ -1 +1 @@
+-{ "sheets": [], "images": [] }
++{ "sheets": ["face_hero", "face_operator"], "images": [] }
+diff --git a/src/art/sheets.ts b/src/art/sheets.ts
+index 469cc6c..c3370c8 100644
+--- a/src/art/sheets.ts
++++ b/src/art/sheets.ts
+@@ -63,7 +63,7 @@ const HERO: SheetDef = {
+ };
+ 
+ const face = (key: string, rows: [string, string][]): SheetDef => ({
+-  key, frameW: 32, frameH: 32, cols: 2, anchor: 'center',
++  key, frameW: 48, frameH: 48, cols: 2, anchor: 'center',
+   rows: rows.map(([name, note]) => a(name, 2, 8, true, `${note}(左:口を閉じる、右:口を開ける)`))
+ });
+ 
+diff --git a/src/scenes/Intro.ts b/src/scenes/Intro.ts
+index 3e2fa17..8cacd4a 100644
+--- a/src/scenes/Intro.ts
++++ b/src/scenes/Intro.ts
+@@ -93,7 +93,7 @@ export class IntroScene extends Phaser.Scene {
+     // 縦に余裕があれば大きな字(16)。顔を上に置いて、セリフは箱の幅いっぱい(1行12文字が入る)
+     const tall = r.h >= 150;
+     const wide = panelRect(4);
+-    const ch = tall ? 80 : 56;
++    const ch = tall ? (new URLSearchParams(location.search).get('face48') === '2' ? 60 : 96) : 56;
+     // 下に「次へ」の大きなボタンと、左に小さな「とばす」(どちらも親指が届くところ)。画面のどこをタップしても進む
+     const btnH = Phaser.Math.Clamp(r.h - ch - 24, 30, 60);
+     const btnY = r.bottom - btnH;
+diff --git a/src/scenes/Street.ts b/src/scenes/Street.ts
+index 3f12124..7e5d8bf 100644
+--- a/src/scenes/Street.ts
++++ b/src/scenes/Street.ts
+@@ -314,7 +314,7 @@ export class StreetScene extends Phaser.Scene {
+       this.tDamage = new PixelText(this, r.right - 7, r.y + 21, '', { size: FS.big, color: UI.gold }).setOrigin(1, 0);
+ 
+       const cutY = r.y + hudH + 4;
+-      const cutH = tall ? 80 : 46;
++      const cutH = tall ? (new URLSearchParams(location.search).get('face48') === '2' ? 60 : 96) : 46;
+       this.cut = new CutIn(this, r.x, cutY, r.w, cutH, tall ? { size: FS.big, faceTop: true } : {});
+       // ボタンは親指が届く下の端にそろえる
+       const bh = Math.max(40, Math.min(tall ? 120 : 72, r.bottom - (cutY + cutH + 5)));
+diff --git a/src/ui/cutin.ts b/src/ui/cutin.ts
+index 123ab40..9d93a7e 100644
+--- a/src/ui/cutin.ts
++++ b/src/ui/cutin.ts
+@@ -44,7 +44,9 @@ export interface CutInOptions {
+ }
+ 
+ const FACE_KEY: Record<Speaker, string> = { operator: 'face_operator', hero: 'face_hero' };
+-const FACE = 32;
++const FACE = 48;
++/** 見本用:?face48=2 のとき、顔の右にセリフを出す */
++const SIDE48 = typeof location !== 'undefined' && new URLSearchParams(location.search).get('face48') === '2';
+ const PAUSE_AFTER = new Set(Array.from('、。…!?!?'));
+ 
+ export class CutIn extends Phaser.GameObjects.Container {
+@@ -79,7 +81,8 @@ export class CutIn extends Phaser.GameObjects.Container {
+     this.pageMs = opt.pageMs ?? 900;
+     this.frameG = new WindowFrame(scene, 0, 0, w, h, 'cut');
+     const fx = FRAME_PAD + 2;
+-    const fy = opt.faceTop ? FRAME_PAD + 2 : Math.max(FRAME_PAD + 2, Math.floor((h - FACE - 2) / 2));
++    if (SIDE48 && opt.faceTop) opt = { ...opt, faceTop: false, side48: true } as CutInOptions;
++    const fy = (opt as { side48?: boolean }).side48 ? FRAME_PAD + 2 : opt.faceTop ? FRAME_PAD + 2 : Math.max(FRAME_PAD + 2, Math.floor((h - FACE - 2) / 2));
+     this.faceBg = new Phaser.GameObjects.Graphics(scene);
+     this.faceBg.fillStyle(UIX.faceEdge, 1).fillRect(fx, fy, FACE + 2, FACE + 2);
+     this.faceBg.fillStyle(UIX.faceBg, 1).fillRect(fx + 1, fy + 1, FACE, FACE);
+@@ -93,8 +96,9 @@ export class CutIn extends Phaser.GameObjects.Container {
+         size: opt.size ?? FS.body, wrap: w - lx * 2, lineSpacing: 2
+       });
+     } else {
+-      this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: FS.small, color: UIX.name });
+-      this.line = new PixelText(scene, tx, FRAME_PAD + 1 + FS.small + 2, '', {
++      const side48 = (opt as { side48?: boolean }).side48;
++      this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: side48 ? FS.body : FS.small, color: UIX.name });
++      this.line = new PixelText(scene, tx, FRAME_PAD + 1 + (side48 ? FS.body : FS.small) + 2, '', {
+         size: opt.size ?? FS.body, wrap: w - tx - FRAME_PAD - 2, lineSpacing: 2
+       });
+     }
