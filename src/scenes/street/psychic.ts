@@ -17,10 +17,12 @@ import {
   FLOOR_LOOKS, PSY, formatYen, isBigProp, planPsychic, psyCarryX, resolvePsyDrop, sceneForProp, sheetKeyFor,
   type Look, type PropKind, type PsyDrop, type PsyEvent, type PsyPlan, PsyQueue
 } from '../../logic';
+import { layout } from '../../layout';
 import { settings } from '../../settings';
 import { hitStop, impact, shake, waitMs } from '../../ui';
 import { Actor, HEAD } from './actor';
 import { PSY_ROWS, type PsySpot } from './plan';
+import { PARTY_FOOD_FRAMES, TOWER_ITEM_FRAMES } from '../../art/towerSpots';
 import type { StreetScene } from '../Street';
 import { type PropObj, RUN } from './common';
 
@@ -38,6 +40,22 @@ const DROP_SHOT_ABOVE = 18;
 const SHOT_BAND_TOP = 126;
 /** 持ち上げた物のまわりの火花の数 */
 const SPARKS = 3;
+
+/**
+ * 親玉が正体を現したときに会場で浮く小物(fx_psy_items のコマ)。前から順に使う。
+ * グラスを多めに、料理(ケーキ、肉料理)、キャンドル、ナプキン
+ */
+const PARTY_ITEMS = [
+  TOWER_ITEM_FRAMES.glass, PARTY_FOOD_FRAMES.cake, TOWER_ITEM_FRAMES.glass, PARTY_FOOD_FRAMES.dish,
+  TOWER_ITEM_FRAMES.candle, TOWER_ITEM_FRAMES.glass, TOWER_ITEM_FRAMES.napkin, PARTY_FOOD_FRAMES.dish
+] as const;
+/** 小物のコマの下で、絵のない段の数(コマは12段で、絵の下の端は7段目) */
+const ITEM_FOOT = 4;
+/** シャンパンタワー(40×48)のテーブルの上の面(物の下の端から上へ)と、タワーの左右の空いた所(物の真ん中から) */
+const TABLE_TOP = 20;
+const TABLE_SIDES = [-15, 13] as const;
+/** 床の小物を置く高さ(小物の絵の下の端)。奥の物の手前、会場のまん中、手前の床の縁 */
+const FLOOR_BANDS = [[151, 157], [164, 176], [199, 205]] as const;
 
 /** 念力1回ぶん(見逃したヴィラン1人ぶん)。時間は PsyQueue が数える */
 export interface PsyRun {
@@ -506,8 +524,65 @@ export class PsyPart {
 
   // ─── 親玉が正体を現す ───────────────────────────
 
+  /** 正体を現したときに会場に置いた小物(見た目だけ。物の数にも被害額にも入らない) */
+  private party: Phaser.GameObjects.Sprite[] = [];
+
+  /**
+   * ワルに仕分けた親玉が正体を現し始めたとき:会場のテーブル、ピアノのそば、床に、グラスや料理の小物を置く。
+   * 少しして liftAround でいっせいに浮かせる(置いてある様子を先に見せて、空中から出てきたように見せない)。
+   * 見た目だけの絵なので、壊れる物(props)には入れず、ゲームの乱数も使わない(人や物の並びを変えないため)。
+   * 置いた瞬間が目立たないように、少しずつ濃くして出す
+   */
+  setParty(boss: Actor, view: { left: number; heroX: number }): void {
+    // 置く所は、正体を現し終えたときに画面に入る所(ヒーローが後ろへ下がり、画面も左へ寄ったあと)
+    const l = view.left + 6;
+    const r = view.left + layout.W - 10;
+    const spots: { x: number; y: number; depth: number }[] = [];
+    // 立っている人の足もとには置かない(人の絵に隠れたり、足に重なったりするため)
+    const people = [boss, ...this.s.queue, ...this.s.passers].filter((a) => a.standing && a.x > l - 20 && a.x < r + 20).map((a) => a.x);
+    people.push(view.heroX);
+    // ほかの小物とは、同じくらいの高さなら横に14ドットあける
+    const blocked = (x: number, y: number): boolean =>
+      people.some((px) => Math.abs(px - x) < 16) || spots.some((q) => Math.abs(q.x - x) < 14 && Math.abs(q.y - y) < 20);
+    // シャンパンタワーのテーブルの上(タワーの左右の空いた所)
+    for (const p of this.s.props) {
+      if (p.kind !== 'champagne' || p.broken || !p.sprite.visible || p.x < l || p.x > r) continue;
+      for (const dx of TABLE_SIDES) spots.push({ x: p.x + dx, y: p.y - TABLE_TOP, depth: p.sprite.depth + 0.1 });
+    }
+    // ピアノのそばの床(脚の手前)
+    for (const p of this.s.props) {
+      if (p.kind !== 'piano' || p.broken || !p.sprite.visible || p.x < l - 20 || p.x > r) continue;
+      for (const dx of [-14, 12]) {
+        const x = Math.round(p.x + dx + Phaser.Math.Between(-3, 3));
+        const y = Phaser.Math.Between(FLOOR_BANDS[0][0], FLOOR_BANDS[0][1]);
+        if (x < l || x > r || blocked(x, y)) continue;
+        spots.push({ x, y, depth: y });
+      }
+    }
+    // 残りは会場の床に散らす。はじめは左から右へ等しい間をあけ、高さを入れかえながら置く。
+    // 人やほかの小物と重なって置けなかった分は、あいている所を探して置く(40回まで)
+    const want = PARTY_ITEMS.length;
+    const floorN = Math.max(0, want - spots.length);
+    for (let i = 0; i < floorN + 40 && spots.length < want; i++) {
+      const even = i < floorN;
+      const x = even ? Math.round(l + 8 + ((i + 0.5) / floorN) * (r - l - 16) + Phaser.Math.Between(-6, 6)) : Phaser.Math.Between(l + 4, r - 4);
+      const band = FLOOR_BANDS[even ? i % FLOOR_BANDS.length : Phaser.Math.Between(0, FLOOR_BANDS.length - 1)];
+      const y = Phaser.Math.Between(band[0], band[1]);
+      if (blocked(x, y)) continue;
+      spots.push({ x, y, depth: y });
+    }
+    const reduce = settings.reduceFx;
+    spots.forEach((q, i) => {
+      const sp = this.s.add.sprite(q.x, q.y + ITEM_FOOT, 'fx_psy_items', PARTY_ITEMS[i % PARTY_ITEMS.length])
+        .setOrigin(0.5, 1).setDepth(q.depth).setFlipX(i % 3 === 1).setAlpha(0);
+      this.s.tweens.add({ targets: sp, alpha: 1, duration: reduce ? 120 : 180, ease: 'Linear' });
+      this.party.push(sp);
+    });
+  }
+
   /**
    * ワルに仕分けた親玉が正体を現したとき:会場の小さな物(グラスや料理)を念力でいっせいに少し浮かせる(STAGE4「ボス:ビルのオーナー」)。
+   * 浮かせるのは、setParty で置いた小物と、画面に見えている小さな物(シャンパンタワーなど)。親玉に近い順に浮く。
    * 見た目だけ。物は壊さず、被害額にも数えない。ソファと大きな物(水槽、ピアノ)は浮かせない。
    * 浮いたまま、ボス戦へ切りかわる(ボス戦では、親玉がこの皿やグラスを窓に投げる)。
    * 光と揺れを弱くするときは、火花をまたたかせず、もやを入れかえず、上下にゆらさない
@@ -516,25 +591,35 @@ export class PsyPart {
     const l = this.s.L.left - 8;
     const r = this.s.L.right + 8;
     const near = this.s.props
-      .filter((p) => !p.broken && !p.wall && p.sprite.visible && p.kind !== PSY.cushionProp && !isBigProp(p.kind) && p.x >= l && p.x <= r)
-      .sort((p, q) => Math.abs(p.x - boss.x) - Math.abs(q.x - boss.x));
-    if (near.length === 0) return;
+      .filter((p) => !p.broken && !p.wall && p.sprite.visible && p.kind !== PSY.cushionProp && !isBigProp(p.kind) && p.x >= l && p.x <= r);
+    const lifts: { x: number; go: () => void }[] = [
+      ...near.map((p) => ({ x: p.x, go: () => { if (!p.broken) this.floatUp(p.sprite, () => p.broken); } })),
+      // 小物は小さいので、もやは1倍(16×14)で包む
+      ...this.party.map((sp) => ({ x: sp.x, go: () => this.floatUp(sp, () => false, 1) }))
+    ].sort((p, q) => Math.abs(p.x - boss.x) - Math.abs(q.x - boss.x));
+    if (lifts.length === 0) return;
     audio.sfx('psy', { volume: 0.7 });
-    near.forEach((p, i) => this.s.time.delayedCall(i * 70, () => this.floatUp(p)));
+    lifts.forEach((u, i) => this.s.time.delayedCall(i * 50, u.go));
   }
 
-  /** 物を1つ浮かせて、紫のふち、もや、火花を付ける。浮いたあとは(揺れを弱くしないときは)ゆっくり上下にゆれる */
-  private floatUp(p: PropObj): void {
-    if (p.broken || !p.sprite.active) return;
-    const sp = p.sprite;
+  /**
+   * 絵を1つ浮かせて、紫のふち、もや、火花を付ける。浮いたあとは(揺れを弱くしないときは)ゆっくり上下にゆれる。
+   * 絵の基準は下の真ん中。gone が true になったら(物が壊れたら)、ふちともやと火花を片づける。
+   * hazeScale を渡さないときは、もやを絵を包む大きさに広げる
+   */
+  private floatUp(sp: Phaser.GameObjects.Sprite, gone: () => boolean, hazeScale?: number): void {
+    if (!sp.active) return;
     const reduce = settings.reduceFx;
     const frame = Number(sp.frame.name) || 0;
     const d = sp.depth;
-    const line = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame)).setOrigin(0.5, 1).setDepth(d - 0.01);
+    const line = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame))
+      .setOrigin(0.5, 1).setDepth(d - 0.01).setFlipX(sp.flipX);
     // もやは物を包む大きさに(ドットが崩れないように、整数倍で広げる。psyLift と同じ)
-    const sx = Math.max(2, Math.ceil((sp.width + 12) / 16));
-    const sy = Math.max(2, Math.ceil((sp.height + 10) / 14));
-    const haze = this.s.add.sprite(sp.x, sp.y - sp.height / 2, 'fx_psy_haze', 0).setScale(sx, sy).setDepth(d - 0.02);
+    const sx = hazeScale ?? Math.max(2, Math.ceil((sp.width + 12) / 16));
+    const sy = hazeScale ?? Math.max(2, Math.ceil((sp.height + 10) / 14));
+    // 小物(コマの下に絵のない段がある)は、もやの真ん中を絵の真ん中に合わせる
+    const hazeDy = hazeScale ? sp.height / 2 + ITEM_FOOT / 2 : sp.height / 2;
+    const haze = this.s.add.sprite(sp.x, sp.y - hazeDy, 'fx_psy_haze', 0).setScale(sx, sy).setDepth(d - 0.02);
     if (!reduce) haze.play(animKey('fx_psy_haze', 'play'));
     const spark = this.spark(sp.x, sp.y, d + 0.01);
     const x = sp.x;
@@ -551,7 +636,7 @@ export class PsyPart {
       const y = Math.round(y0 - rise * o.up + bob);
       sp.setPosition(x, y);
       line.setPosition(x, y + 1);
-      haze.setPosition(x, Math.round(y - sp.height / 2));
+      haze.setPosition(x, Math.round(y - hazeDy));
       // 火花は物のまわりを移る(光と揺れを弱くするときは、物の左上に止めておく)
       const now = this.s.time.now;
       sparkMs -= now - last;
@@ -567,7 +652,7 @@ export class PsyPart {
     this.s.tweens.add({ targets: o, up: 1, duration: 520, ease: 'Quad.easeOut' });
     const ev = this.s.time.addEvent({
       delay: 30, loop: true, callback: () => {
-        if (!sp.active || p.broken) { ev.remove(); line.destroy(); haze.destroy(); spark.destroy(); return; }
+        if (!sp.active || gone()) { ev.remove(); line.destroy(); haze.destroy(); spark.destroy(); return; }
         place();
       }
     });

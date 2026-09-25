@@ -5,7 +5,7 @@ import { CLUE_H, CLUE_W } from './clueSpots';
 import { sheetByKey } from './sheets';
 import { FX4 } from './world4/fx';
 import {
-  CALM_LOOK, DESK_TOP_ROW, FLOAT_PX, TOWER_DESK, TOWER_DESK_H, TOWER_DESK_W, TOWER_DESKS, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS,
+  CALM_LOOK, DESK_TOP_ROW, FLOAT_PX, PARTY_FOOD_FRAMES, TOWER_DESK, TOWER_DESK_H, TOWER_DESK_W, TOWER_DESKS, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS,
   TOWER_ITEM_SIZE, TOWER_LAMP, TOWER_LAMP_H, TOWER_LAMP_W, deskRect, itemRestDy, leakLook, towerDeskFor, type TowerItem
 } from './towerSpots';
 
@@ -20,6 +20,19 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
       const rows: number[] = [];
       for (let y = 0; y < TOWER_ITEM_SIZE; y++) for (let x = 0; x < TOWER_ITEM_SIZE; x++) if (grids[f].get(x, y)) rows.push(y);
       expect({ top: Math.min(...rows), bottom: Math.max(...rows) }, item).toEqual(TOWER_ITEM_ROWS[item]);
+    }
+  });
+
+  it('料理のコマ(ケーキ、肉料理)は、ほかの小物と同じく下の端が7段目で、コマの横の真ん中あたりにある', () => {
+    const d = sheetByKey('fx_psy_items');
+    const grids = FX4.fx_psy_items(d.frameW, d.frameH, d.rows[0].frames);
+    expect(d.rows[0].frames).toBe(8);
+    for (const [food, f] of Object.entries(PARTY_FOOD_FRAMES)) {
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (let y = 0; y < TOWER_ITEM_SIZE; y++) for (let x = 0; x < TOWER_ITEM_SIZE; x++) if (grids[f].get(x, y)) { xs.push(x); ys.push(y); }
+      expect(Math.max(...ys), food).toBe(7);
+      expect(Math.abs((Math.min(...xs) + Math.max(...xs)) / 2 - (TOWER_ITEM_SIZE - 1) / 2) <= 1, food).toBe(true);
     }
   });
 
