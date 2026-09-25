@@ -16,7 +16,8 @@ const CONC = [md(4, 4, 5), md(3, 3, 4), md(2, 2, 3), md(1, 1, 2)];
 const METAL = [md(6, 6, 6), md(4, 4, 5), md(3, 3, 4)];
 const PINK = md(7, 3, 6), PINK_C = md(7, 6, 7), CYAN = md(3, 7, 7);
 const DOOR = [md(3, 4, 4), md(2, 3, 3), md(1, 2, 2)];
-const ASPHALT = [md(2, 2, 3), md(1, 1, 2), md(1, 0, 1)];
+/** 車道。紺の服の人が沈まないように、青みのない灰色にする */
+const ASPHALT = [md(3, 3, 3), md(2, 2, 2), md(1, 0, 1)], ASPHALT_HI = md(4, 4, 4);
 
 // =====================================================================
 // 遠くのビルと夜空 216×214
@@ -96,9 +97,11 @@ function bricks(G: Wrap, x0: number, y0: number, w: number, h: number, pal: stri
       if (inRow === 3 || inB === 7) c = pal[3];
       else {
         const r = hash(bx, row, seed);
-        c = r > 0.85 ? pal[0] : r < 0.18 ? pal[2] : pal[1];
-        if (inRow === 0 && inB < 6 && c === pal[1] && r > 0.6) c = pal[0];
-        if (inRow === 2 && c === pal[1] && dith(x, y) && r < 0.35) c = pal[2];
+        c = r > 0.88 ? pal[0] : r < 0.2 ? pal[2] : pal[1];
+        // れんがの上のふちに光、右下に影(1つずつの形が読めるように)
+        if (inRow === 0 && inB < 6 && c === pal[1] && r > 0.45) c = pal[0];
+        if (inRow === 2 && inB >= 4 && c === pal[1]) c = pal[2];
+        if (inRow === 2 && c === pal[0]) c = pal[1];
       }
       G.px(x, y, c);
     }
@@ -113,15 +116,33 @@ function bricks(G: Wrap, x0: number, y0: number, w: number, h: number, pal: stri
 }
 
 function concrete(G: Wrap, x0: number, y0: number, w: number, h: number): void {
+  // 打ちっぱなしのパネル(48×22)。パネルごとに少しだけ明るさを変え、継ぎ目の下と左に光を入れる
   for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const px = Math.floor((x - x0) / 48), py = Math.floor((y - y0) / 22);
+    const lx = (x - x0) % 48, ly = (y - y0) % 22;
+    const tone = hash(px, py, 5);
     let c = CONC[2];
-    if ((y - y0) % 22 === 0) c = CONC[3];
-    else if ((y - y0) % 22 === 1) c = CONC[1];
-    else if (hash(x, y, 5) > 0.93) c = CONC[3];
-    else if (hash(x >> 2, y >> 2, 6) > 0.8 && dith(x, y)) c = CONC[1];
-    if ((x - x0) % 48 === 0) c = CONC[3];
+    if (tone > 0.66 && dith(x, y)) c = CONC[1];
+    if (ly === 0 || lx === 0) c = CONC[3];
+    else if (ly === 1 || lx === 1) c = CONC[1];
+    else if (ly === 21 || lx === 47) c = tone > 0.66 ? CONC[2] : CONC[3];
+    // 型わくを止めた穴(決まった並び)
+    else if ((lx === 12 || lx === 36) && (ly === 6 || ly === 16)) c = CONC[3];
+    else if ((lx === 12 || lx === 36) && (ly === 7 || ly === 17)) c = CONC[1];
     G.px(x, y, c);
   }
+  // 雨だれのしみ(ところどころ、上から下へうすれる縦のすじ)
+  for (let i = 0; i < 16; i++) {
+    const sx = x0 + 6 + Math.floor(hash(i, 1, 77) * (w - 12)), sy = y0 + 2 + 22 * Math.floor(hash(i, 2, 77) * 5);
+    const len = 8 + Math.floor(hash(i, 3, 77) * 10);
+    if ((sx - x0) % 48 < 3 || (sx - x0) % 48 > 45 || (sx - x0) % 24 === 12) continue;
+    for (let j = 0; j < len; j++) {
+      const y = sy + j;
+      if ((y - y0) % 22 < 2) break;
+      if (j < 3 || dith(sx, y)) G.px(sx, y, CONC[3]);
+    }
+  }
+  // 足元は暗く(ディザ)
   for (let y = y0 + h - 14; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (dith(x, y) || y > y0 + h - 6) G.px(x, y, G.get(x, y) === CONC[2] ? CONC[3] : G.get(x, y));
 }
 
@@ -309,42 +330,54 @@ export function drawGround(): PixelGrid {
   // 壁ぎわの影
   G.rect(0, 0, W, 6, OUTLINE);
   G.dither(0, 6, W, 1, OUTLINE, CONC[3]);
-  // 歩道(奥)
+  // 歩道(奥)。板石を並べ、上のふちに光、下のふちに影
   const walkTop = 7, walkBot = 22;
-  for (let y = walkTop; y < walkBot; y++) for (let x = 0; x < W; x++) {
-    let c = CONC[1];
-    if (hash(x, y, 21) > 0.9) c = CONC[2];
-    else if (hash(x, y, 22) > 0.95) c = CONC[0];
-    G.px(x, y, c);
+  G.rect(0, walkTop, W, walkBot - walkTop, CONC[1]);
+  for (const [y0, y1] of [[walkTop, 14], [15, walkBot]] as const) {
+    G.rect(0, y0, W, 1, CONC[0]);
+    G.rect(0, y1 - 1, W, 1, CONC[2]);
   }
-  G.rect(0, walkTop, W, 1, CONC[2]);
-  G.rect(0, 14, W, 1, CONC[2]);
-  // 継ぎ目(手前に向かって斜めに広がる)
-  for (let x = 0; x < W; x += 24) G.line(x, walkTop, x - 4, walkBot - 1, CONC[2]);
-  // 縁石
-  G.rect(0, walkBot, W, 2, CONC[0]).rect(0, walkBot + 2, W, 3, CONC[2]).rect(0, walkBot + 5, W, 1, OUTLINE);
-  for (let x = 0; x < W; x += 32) G.rect(x, walkBot, 1, 5, CONC[2]);
-  // 車道(アスファルト)。手前ほど線の間をあけ、ざらつきを増やす
+  // 継ぎ目(手前に向かって少しななめ)。継ぎ目の右に光
+  for (let x = 0; x < W; x += 24) {
+    G.line(x, walkTop, x - 2, 13, CONC[2]).line(x + 12, 15, x + 10, walkBot - 1, CONC[2]);
+    G.line(x + 1, walkTop + 1, x - 1, 12, CONC[0]).line(x + 13, 16, x + 11, walkBot - 2, CONC[0]);
+  }
+  // 板石のしみ(小さなかたまり)
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(hash(i, 1, 23) * W), y = walkTop + 2 + Math.floor(hash(i, 2, 23) * 11);
+    if (y === 13 || y === 14 || y === 15) continue;
+    G.rect(x, y, 2 + (i % 2), 1, CONC[2]);
+    if (i % 3 === 0) G.px(x + 1, y + 1, CONC[2]);
+  }
+  // 縁石(上の面は明るく、横の面は暗い)
+  G.rect(0, walkBot, W, 1, STAR_D).rect(0, walkBot + 1, W, 1, CONC[0]).rect(0, walkBot + 2, W, 3, CONC[2]).rect(0, walkBot + 5, W, 1, OUTLINE);
+  for (let x = 0; x < W; x += 32) G.rect(x, walkBot, 1, 5, CONC[2]).rect(x + 1, walkBot + 2, 1, 3, CONC[3]);
+  // 車道(アスファルト)。奥は明るく、手前はディザで暗くなる
   const roadTop = walkBot + 6;
   for (let y = roadTop; y < H; y++) {
     const t = (y - roadTop) / (H - roadTop);
     for (let x = 0; x < W; x++) {
       let c = ASPHALT[0];
-      const r = hash(x, y, 31);
-      if (t > 0.55 && dith(x, y) && r > 0.35) c = ASPHALT[1];
-      else if (r > 0.97 - t * 0.04) c = ASPHALT[1];
-      else if (r < 0.02 + t * 0.02) c = CONC[2];
+      if (t > 0.78 || (t > 0.5 && dith(x, y))) c = ASPHALT[1];
       G.px(x, y, c);
     }
   }
+  // 小石のかたまり(ざらつき)。奥は小さく、手前は大きく
+  for (let i = 0; i < 150; i++) {
+    const x = Math.floor(hash(i, 3, 31) * W), y = roadTop + 2 + Math.floor(hash(i, 4, 31) * (H - roadTop - 2));
+    const t = (y - roadTop) / (H - roadTop);
+    const len = t > 0.5 ? 3 : 2;
+    G.rect(x, y, len, 1, ASPHALT[1]);
+    G.rect(x + 1, y - 1, len - 1, 1, ASPHALT_HI);
+  }
   // 側溝の影
   G.dither(0, roadTop, W, 2, ASPHALT[1], ASPHALT[2]);
-  // 奥から手前へ広がる、うっすらした横すじ
-  let yy = roadTop + 5, step = 4;
-  while (yy < H) {
-    for (let x = 0; x < W; x += 2) if (hash(x, yy, 41) > 0.3) G.px(x + (yy % 2), yy, ASPHALT[1]);
-    yy += step; step += 3;
-  }
+  // 掘り返して埋めたあと(つぎはぎの四角)。上と左のふちに光、中は少し暗い
+  const patch = (x: number, y: number, w: number, h: number) => {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) G.px(x + i, y + j, dith(x + i, y + j) ? ASPHALT[1] : ASPHALT[0]);
+    G.rect(x, y, w, 1, ASPHALT_HI).rect(x, y, 1, h, ASPHALT_HI).rect(x, y + h, w + 1, 1, ASPHALT[2]).rect(x + w, y, 1, h, ASPHALT[2]);
+  };
+  patch(214, 34, 40, 9); patch(560, 52, 30, 12); patch(20, 38, 22, 7);
   // 排水の格子
   for (const gx of [40, 300, 520]) {
     G.rect(gx, roadTop, 18, 4, OUTLINE);
@@ -385,6 +418,7 @@ export function drawGround(): PixelGrid {
     let cx = x, cy = y;
     for (let i = 0; i < len; i++) {
       G.px(cx, cy, ASPHALT[2]);
+      if (G.get(cx, cy + 1) !== ASPHALT[2]) G.px(cx, cy + 1, ASPHALT_HI);
       cx += 1; cy += hash(i, s, 51) > 0.5 ? 1 : hash(i, s, 52) > 0.6 ? -1 : 0;
       if (cy < roadTop + 2) cy = roadTop + 2;
       if (cy >= H) break;

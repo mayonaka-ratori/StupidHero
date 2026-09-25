@@ -4,10 +4,10 @@ import type { Ramp } from './pix';
 
 export { OUTLINE };
 
-/** 肌(ヒーローの担当とそろえる) */
-export const SKIN: Ramp = [md(7, 6, 4), md(6, 4, 3), md(4, 2, 2)];
-/** 髪(明るいところは肌の暗い色を使って、色を節約する) */
-export const HAIR: Ramp = [md(4, 2, 2), md(2, 1, 1), OUTLINE];
+/** 肌(ヒーローと会話の窓の顔とそろえる) */
+export const SKIN: Ramp = [md(7, 6, 5), md(7, 5, 4), md(5, 3, 3)];
+/** 髪(明るいところは肌の影の色を使って、色を節約する) */
+export const HAIR: Ramp = [SKIN[2], md(3, 1, 1), OUTLINE];
 /** 白いもの(シャツ、靴、米袋) */
 export const WHITE: Ramp = [md(7, 7, 7), md(7, 7, 7), md(5, 5, 6)];
 export const GOLD: Ramp = [md(7, 7, 3), md(7, 5, 1), md(5, 3, 0)];

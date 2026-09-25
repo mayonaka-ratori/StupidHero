@@ -63,7 +63,7 @@ const HERO: SheetDef = {
 };
 
 const face = (key: string, rows: [string, string][]): SheetDef => ({
-  key, frameW: 32, frameH: 32, cols: 2, anchor: 'center',
+  key, frameW: 48, frameH: 48, cols: 2, anchor: 'center',
   rows: rows.map(([name, note]) => a(name, 2, 8, true, `${note}(左:口を閉じる、右:口を開ける)`))
 });
 

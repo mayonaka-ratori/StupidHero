@@ -16,7 +16,8 @@ const PINK = md(7, 3, 5), CYAN = md(3, 6, 7), ORANGE = md(7, 4, 1), PURPLE = md(
 /** ガラスの手すり */
 const GLASS = [md(4, 6, 7), md(3, 4, 5), md(2, 3, 4)];
 /** 床のタイル */
-const FLOOR = [md(6, 5, 4), md(5, 4, 3), md(4, 3, 3), md(3, 2, 2)];
+/** 床の石(2色の差を小さくして、人が床から浮いて見えるようにする。青みの灰色で、オレンジや黄土色の服とまぎれない) */
+const FLOOR = [md(5, 5, 5), md(4, 4, 5), md(4, 4, 4), md(3, 3, 4)];
 /** 植えこみ */
 const LEAF = [md(3, 5, 2), md(2, 4, 1), md(1, 2, 1)];
 
@@ -60,6 +61,8 @@ export function drawFar(): PixelGrid {
   // 3階と2階の店(遠いほど暗い)
   const floor = (y: number, h: number, dark: boolean) => {
     G.rect(0, y, W, h, dark ? C[4] : C[3]);
+    // 店の上の壁の化粧板(手前の壁と同じ描き方。上のふちに光)
+    G.rect(0, y, W, 1, dark ? C[3] : C[2]);
     for (let x = 0; x < W; x += 54) {
       const lit = hash(x, y, 4) > 0.35;
       const sx = x + 6, sw = 40;
@@ -68,15 +71,24 @@ export function drawFar(): PixelGrid {
         G.dither(sx, y + 5, sw, 2, LIT[1], LIT[2]);
         goods(G, sx + 3, y + h - 6, sw - 6, x + y);
       } else shutter(G, sx, y + 5, sw, h - 7, 0);
-      // 看板(色の板だけ)
+      // 店の口のふち:上のまぐさの下に影、下の床に光、まわりに暗いふち
+      G.rect(sx, y + 5, sw, 1, lit ? LIT[3] : C[5]);
+      G.outlineRect(sx, y + 5, sw, h - 7, C[5]);
+      G.rect(sx - 1, y + h - 1, sw + 2, 1, dark ? C[3] : C[2]);
+      // 看板(色の板。上のふちに光、下にふち)
       G.rect(sx + 8, y + 1, 24, 3, [PINK, CYAN, ORANGE, PURPLE][(x / 54) % 4]);
-      // 柱
-      G.rect(x, y, 4, h, C[dark ? 3 : 2]).rect(x, y, 1, h, C[1]);
+      if (!dark) G.rect(sx + 8, y + 1, 24, 1, LIT[0]);
+      G.rect(sx + 8, y + 4, 24, 1, C[5]);
+      // 柱(左に光、右に影)
+      G.rect(x, y, 4, h, C[dark ? 3 : 2]).rect(x, y, 1, h, C[dark ? 2 : 1]).rect(x + 3, y, 1, h, C[dark ? 4 : 3]).rect(x + 4, y, 1, h, C[5]);
     }
     // 手すり(ガラスと上の金属)
     G.rect(0, y + h, W, 6, GLASS[2]).rect(0, y + h, W, 1, C[1]);
     for (let x = 0; x < W; x += 9) G.rect(x, y + h, 1, 6, C[3]);
-    G.rect(0, y + h + 6, W, 3, C[2]).rect(0, y + h + 9, W, 1, C[5]);
+    // ガラスの映りこみ(ななめの短い線)
+    for (let x = 4; x < W; x += 27) G.px(x + 2, y + h + 2, GLASS[0]).px(x + 1, y + h + 3, GLASS[0]).px(x, y + h + 4, GLASS[0]);
+    // 床のへり(上の面に光、下に影)
+    G.rect(0, y + h + 6, W, 3, C[2]).rect(0, y + h + 6, W, 1, C[1]).rect(0, y + h + 8, W, 1, C[3]).rect(0, y + h + 9, W, 1, C[5]);
     // 下の階の天井のあかり
     for (let x = 12; x < W; x += 27) G.rect(x, y + h + 10, 3, 1, LIT[0]);
   };
@@ -113,7 +125,12 @@ export function drawWall(): PixelGrid {
   for (let x = 10; x < W; x += 36) G.rect(x, 62, 4, 2, LIT[0]).rect(x + 1, 64, 2, 1, LIT[1]);
   // 店の上の壁
   G.rect(0, 65, W, 60, C[2]);
-  for (let y = 65; y < 125; y++) for (let x = 0; x < W; x++) if (hash(x >> 2, y >> 2, 9) > 0.86 && dith(x, y)) G.px(x, y, C[1]);
+  // 化粧板の壁(横長の板。上のふちに光、下のふちに影)
+  for (let y = 65; y < 125; y++) for (let x = 0; x < W; x++) {
+    const ly = (y - 65) % 12, lx = (x + (Math.floor((y - 65) / 12) % 2) * 27) % 54;
+    if (ly === 0) G.px(x, y, C[1]);
+    else if (ly === 11 || lx === 0) G.px(x, y, C[3]);
+  }
   for (const [x0, w, kind] of SHOPS) {
     const sx = x0 + 10, sw = w - 20;
     // 看板(色の板と、形の印)
@@ -190,15 +207,28 @@ export function drawGround(): PixelGrid {
       G.px(x + Math.round((x % 72 === 0 ? -1 : 1) * t * 3), y, FLOOR[3]);
     }
   }
-  // 店の明かりの映りこみ(縦にのびたディザ)
+  // タイルの目地の右に光(みがいた面のふち)
+  for (let x = 0; x < W; x += 36) {
+    for (let y = 8; y < H; y++) {
+      const t = (y - 6) / (H - 6);
+      const jx = x + Math.round((x % 72 === 0 ? -1 : 1) * t * 3);
+      if (!rows.includes(y)) G.px(jx + 1, y, FLOOR[0]);
+    }
+  }
+  // 店の明かりの映りこみ(縦にのびる帯)。奥はしっかり、手前へ行くほどディザでうすれる(乱数は使わない)
   for (const lx of MALL_LIGHTS) {
-    for (let y = 6; y < 56; y++) for (let i = 0; i < 80; i++) {
-      const x = lx + 4 + i;
-      // 奥ほど濃く、手前へ行くほどまばらにする
-      const t = (y - 6) / 50;
-      if (Math.abs(i - 40) > 38 - t * 8) continue;
-      if (!dith(x, y) || hash(x, y, 11) < t * 1.1) continue;
-      G.px(x, y, t < 0.3 && Math.abs(i - 40) < 30 ? LIT[2] : FLOOR[0]);
+    for (let y = 6; y < 60; y++) {
+      const t = (y - 6) / 54;
+      const half = Math.round(34 - t * 10);
+      for (let i = -half; i <= half; i++) {
+        const x = lx + 44 + i;
+        const c = G.get(x, y);
+        if (c === FLOOR[3]) continue;
+        const inner = Math.abs(i) < half - 8;
+        if (t < 0.35 && inner) { if (dith(x, y)) G.px(x, y, LIT[2]); }
+        else if (t < 0.7) { if (dith(x, y)) G.px(x, y, FLOOR[0]); }
+        else if (dith(x, y) && y % 2 === 0) G.px(x, y, FLOOR[0]);
+      }
     }
   }
   // 天井のあかりの点の映りこみ

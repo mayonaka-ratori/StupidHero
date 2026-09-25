@@ -1,11 +1,11 @@
 // ステージ2の物:ギャングのワゴン、女ボスの高級車(4コマずつ)と、柱、料金所のバー、三角コーン、消火器の箱(ふつうと壊れた)。
 import { md, OUTLINE, PixelGrid } from '../lib';
-import { Painter, type Pt, type Ramp } from '../world/pix';
+import { type Mask, Painter, type Pt, type Ramp } from '../world/pix';
 
 const METAL: Ramp = [md(6, 6, 6), md(4, 4, 5), md(3, 3, 4)];
 const WHITE = md(7, 7, 7);
 const HEAD = md(7, 7, 4);
-const TAIL = md(7, 1, 1);
+const TAIL = md(7, 1, 1), TAIL_D = md(4, 0, 1);
 const TIRE: Ramp = [md(2, 2, 3), md(1, 1, 1), md(1, 1, 1)];
 const DARK = md(1, 0, 1);
 
@@ -13,14 +13,45 @@ const DARK = md(1, 0, 1);
 function wheel(P: Painter, cx: number, cy: number, r: number, spin: number, flat: boolean, hub: Ramp): void {
   const ry = flat ? r * 0.72 : r;
   const oy = flat ? r - ry : 0;
-  P.fill(P.mask().ellipse(cx, cy + oy, flat ? r * 1.1 : r, ry), TIRE, { sep: 'outline', hi: 0.25, lo: 0.5 });
+  const rx = flat ? r * 1.1 : r;
+  const cyy = cy + oy;
+  const tire = P.mask().ellipse(cx, cyy, rx, ry);
+  P.fill(tire, TIRE[1], { sep: 'outline', flat: true });
+  // タイヤの左上に鈍い光
+  tire.each((x, y) => {
+    const dx = x - cx, dy = y - cyy;
+    const d = Math.hypot(dx / rx, dy / ry);
+    if (d > 0.72 && dx < 0 && dy < 0 && dx + dy < -r * 0.5) P.px(x, y, TIRE[0]);
+  });
   const hr = r * 0.48;
-  P.fill(P.mask().ellipse(cx, cy + oy, hr, flat ? hr * 0.8 : hr), hub, { sep: 'none', hi: 0.35, lo: 0.7 });
+  const hm = P.mask().ellipse(cx, cyy, hr, flat ? hr * 0.8 : hr);
+  P.fill(hm, hub[1], { sep: 'none', flat: true });
+  hm.each((x, y) => {
+    const k = x - cx + y - cyy;
+    if (k <= -hr * 0.6) P.px(x, y, hub[0]);
+    else if (k >= hr * 0.6) P.px(x, y, hub[2]);
+  });
   for (let i = 0; i < 3; i++) {
     const a = spin + (i * Math.PI * 2) / 3;
-    P.px(Math.round(cx + Math.cos(a) * hr * 0.7), Math.round(cy + oy + Math.sin(a) * hr * 0.7), hub[2]);
+    P.px(Math.round(cx + Math.cos(a) * hr * 0.7), Math.round(cyy + Math.sin(a) * hr * 0.7), hub[2]);
   }
-  P.px(cx, cy + oy, OUTLINE);
+  P.px(cx - 1, cyy - 1, WHITE).px(cx, cyy, OUTLINE);
+}
+
+/**
+ * 車体を塗る(光は左上から)。上のふち2段と左のふちは明るく、右のふちと腰から下は暗く、すそはいちばん暗い
+ * (belt: ここから下を暗く、sill: ここから下をいちばん暗く)
+ */
+function shadeBody(P: Painter, body: Mask, r: [string, string, string, string], belt: number, sill: number): void {
+  body.each((x, y) => {
+    let c = r[1];
+    if (!body.has(x, y - 1) || !body.has(x, y - 2)) c = r[0];
+    else if (y >= sill) c = r[3];
+    else if (y >= belt) c = r[2];
+    else if (!body.has(x + 1, y)) c = r[2];
+    else if (!body.has(x - 1, y)) c = r[0];
+    P.px(x, y, c);
+  });
 }
 
 /** 排気の煙(灰色の丸) */
@@ -32,6 +63,8 @@ function puff(P: Painter, x: number, y: number, r: number): void {
 // ギャングのワゴン 128×64(基準:下の真ん中)
 // ---------------------------------------------------------------------
 const VAN: Ramp = [md(3, 3, 4), md(2, 2, 3), md(1, 1, 2)];
+const VAN4: [string, string, string, string] = [VAN[0], VAN[1], VAN[2], md(1, 1, 1)];
+const STRIPE_D = md(4, 0, 1);
 const TINT: Ramp = [md(3, 4, 5), md(1, 2, 3), md(1, 1, 2)];
 const STRIPE = md(6, 1, 1);
 
@@ -43,24 +76,31 @@ function van(state: 0 | 1 | 2 | 3): PixelGrid {
   const at = (x: number, y: number): Pt => [x, Y(y)];
   const poly = (pts: Pt[]) => pts.map(([x, y]) => at(x, y));
   const body = P.mask().poly(poly([[5, 11], [9, 6], [100, 6], [106, 8], [116, 25], [122, 28], [124, 33], [124, 53], [4, 53], [4, 15]]));
-  P.fill(body, VAN[1], { sep: 'none', flat: true });
-  body.each((x, y) => {
-    if (!body.has(x, y - 1)) P.px(x, y, VAN[0]);
-    else if (y >= 46) P.px(x, y, VAN[2]);
-    else if (!body.has(x + 1, y)) P.px(x, y, VAN[2]);
-    else if (!body.has(x - 1, y)) P.px(x, y, VAN[0]);
-  });
+  shadeBody(P, body, VAN4, Y(44), Y(50));
   // 窓(スモーク)
   const glass = P.mask().poly(poly([[92, 11], [102, 11], [111, 25], [92, 25]]))
     .union(P.mask().poly(poly([[38, 11], [86, 11], [86, 24], [38, 24]])))
     .union(P.mask().poly(poly([[9, 11], [30, 11], [30, 24], [8, 24]])));
-  P.fill(glass, TINT, { sep: 'outline', hi: 0.2, lo: 0.6 });
-  for (const x0 of [46, 70, 14, 96]) P.line(at(x0 + 4, 12), at(x0, 23), TINT[0]);
-  // 横の赤い線と、スライドドア
-  for (let x = 5; x <= 123; x++) { const [px, py] = at(x, 30); if (body.has(px, py)) { P.px(px, py, STRIPE); P.px(px, py + 1, STRIPE); } }
+  P.fill(glass, TINT[1], { sep: 'outline', flat: true });
+  glass.each((x, y) => {
+    if (!glass.has(x, y - 2)) P.px(x, y, TINT[2]);
+    else if (!glass.has(x, y + 1)) P.px(x, y, TINT[0]);
+  });
+  // 映りこみ(ななめの帯)
+  for (const x0 of [46, 70, 14, 96]) {
+    P.line(at(x0 + 4, 13), at(x0, 22), TINT[0]).line(at(x0 + 5, 13), at(x0 + 1, 22), TINT[0]);
+    P.px(x0 + 4, Y(13), WHITE);
+  }
+  // 横の赤い線(下に影)と、スライドドア
+  for (let x = 5; x <= 123; x++) {
+    const [px, py] = at(x, 30);
+    if (body.has(px, py) && body.has(px, py + 2)) { P.px(px, py, STRIPE); P.px(px, py + 1, STRIPE_D); P.px(px, py - 1, VAN[0]); }
+  }
+  // 腰の折り目
+  for (let x = 5; x <= 123; x++) { const [px, py] = at(x, 43); if (body.has(px, py) && body.has(px, py + 1)) P.px(px, py, VAN[0]); }
   P.line(at(34, 8), at(34, 52), OUTLINE).line(at(89, 8), at(89, 52), OUTLINE);
-  P.line(at(35, 9), at(35, 45), VAN[0]);
-  for (const x of [82, 96]) P.rect(x, Y(34), 4, 1, OUTLINE);
+  P.line(at(35, 9), at(35, 45), VAN[0]).line(at(88, 26), at(88, 44), VAN[0]).line(at(33, 26), at(33, 44), VAN[2]);
+  for (const x of [82, 96]) P.rect(x, Y(34), 4, 1, OUTLINE).rect(x, Y(35), 4, 1, VAN[0]);
   // ライト
   P.rect(120, Y(34), 4, 4, HEAD).px(123, Y(34), WHITE);
   P.rect(4, Y(32), 2, 6, TAIL).px(4, Y(32), WHITE);
@@ -100,13 +140,7 @@ function vanWreck(): PixelGrid {
   addEdge([5, 11], [9, 6], 2); addEdge([9, 6], [100, 6], 24); addEdge([100, 6], [106, 8], 1); addEdge([106, 8], [116, 25], 3);
   addEdge([116, 25], [124, 33], 2); addEdge([124, 33], [124, 53], 2); addEdge([124, 53], [4, 53], 4); addEdge([4, 53], [4, 15], 8); addEdge([4, 15], [5, 11], 1);
   const body = P.mask().poly(poly(edge));
-  P.fill(body, VAN[1], { sep: 'none', flat: true });
-  body.each((x, y) => {
-    if (!body.has(x, y - 1)) P.px(x, y, VAN[0]);
-    else if (y >= 47) P.px(x, y, VAN[2]);
-    else if (!body.has(x + 1, y)) P.px(x, y, VAN[2]);
-    else if (!body.has(x - 1, y)) P.px(x, y, VAN[0]);
-  });
+  shadeBody(P, body, VAN4, 45, 51);
   // 屋根の折れ目(深い影)
   for (let x = 44; x <= 76; x++) { const [px, py] = bend(x, 7); P.px(px, py + 1, VAN[2]); }
   P.line(bend(60, 7), bend(60, 22), VAN[2]);
@@ -134,7 +168,7 @@ function vanWreck(): PixelGrid {
   for (let x = 5; x <= 123; x++) {
     if (x > 58 && x < 66) continue;
     const [px, py] = bend(x, 30);
-    if (body.has(px, py)) { P.px(px, py, STRIPE); if (body.has(px, py + 1)) P.px(px, py + 1, STRIPE); }
+    if (body.has(px, py)) { P.px(px, py, STRIPE); if (body.has(px, py + 1)) P.px(px, py + 1, STRIPE_D); }
   }
   // スライドドアが外れかけて、すき間が開いている
   P.line(bend(34, 8), bend(34, 52), OUTLINE);
@@ -192,24 +226,29 @@ function bosscar(state: 0 | 1 | 2 | 3): PixelGrid {
   const poly = (pts: Pt[]) => pts.map(([x, y]) => dent(x, y));
   // 低くて長い車体
   const body = P.mask().poly(poly([[3, 26], [8, 22], [30, 20], [42, 8], [80, 7], [94, 19], [118, 23], [125, 28], [125, 41], [3, 42]]));
-  P.fill(body, PEARL[1], { sep: 'none', flat: true });
-  body.each((x, y) => {
-    if (!body.has(x, y - 1) || !body.has(x, y - 2)) P.px(x, y, PEARL[0]);
-    else if (y >= 36) P.px(x, y, PEARL[2]);
-    else if (!body.has(x + 1, y)) P.px(x, y, PEARL[2]);
-  });
+  shadeBody(P, body, [PEARL[0], PEARL[1], PEARL[2], METAL[2]], 34 + shake[1], 39 + shake[1]);
+  // 腰の折り目(光の線と影の線)
+  for (let x = 4; x <= 124; x++) {
+    const [px, py] = dent(x, 33);
+    if (body.has(Math.round(px), Math.round(py)) && body.has(Math.round(px), Math.round(py) + 1)) { P.px(px, py, PEARL[0]); P.px(px, py + 1, PEARL[2]); }
+  }
   // 窓
   const glass = P.mask().poly(poly([[44, 10], [60, 10], [60, 20], [34, 20]])).union(P.mask().poly(poly([[63, 10], [79, 10], [90, 20], [63, 20]])));
   if (!broken) {
-    P.fill(glass, PTINT, { sep: 'outline', hi: 0.25, lo: 0.65 });
-    P.line(dent(52, 11), dent(47, 19), PTINT[0]).line(dent(72, 11), dent(67, 19), PTINT[0]);
+    P.fill(glass, PTINT[1], { sep: 'outline', flat: true });
+    glass.each((x, y) => {
+      if (!glass.has(x, y - 2)) P.px(x, y, PTINT[2]);
+      else if (!glass.has(x, y + 1)) P.px(x, y, PTINT[0]);
+    });
+    P.line(dent(52, 12), dent(48, 19), PTINT[0]).line(dent(53, 12), dent(49, 19), PTINT[0]).line(dent(72, 12), dent(68, 19), PTINT[0]);
+    P.px(...dent(52, 12), WHITE).px(...dent(72, 12), WHITE);
   } else {
     P.fill(glass, DARK, { sep: 'outline', flat: true });
     P.fill(P.mask().poly(poly([[44, 10], [52, 10], [40, 18]])).intersect(glass), PTINT[1], { sep: 'none', flat: true });
     P.fill(P.mask().poly(poly([[90, 20], [80, 12], [82, 20]])).intersect(glass), PTINT[1], { sep: 'none', flat: true });
     P.line(dent(66, 18), dent(72, 12), WHITE);
   }
-  P.line(dent(61, 9), dent(61, 40), OUTLINE);
+  P.line(dent(61, 9), dent(61, 40), OUTLINE).line(dent(60, 21), dent(60, 36), PEARL[0]).line(dent(62, 21), dent(62, 36), PEARL[2]);
   // 金の線と飾り
   for (let x = 4; x <= 124; x++) { const [px, py] = dent(x, 28); if (body.has(Math.round(px), Math.round(py))) P.px(px, py, GOLD2[1]); }
   for (const x of [52, 74]) { const [hx, hy] = dent(x, 25); P.rect(Math.round(hx), Math.round(hy), 4, 1, GOLD2[2]); }
@@ -244,17 +283,24 @@ function bosscar(state: 0 | 1 | 2 | 3): PixelGrid {
 // ---------------------------------------------------------------------
 const CONC: Ramp = [md(5, 5, 5), md(4, 4, 4), md(3, 3, 3)];
 const CONC_D = md(2, 2, 3);
-const HAZ_Y = md(7, 6, 1), HAZ_K = md(1, 1, 1);
+const HAZ_Y = md(7, 6, 1), HAZ_YD = md(5, 4, 0), HAZ_K = md(1, 1, 1);
 const PLATE = md(2, 3, 6);
 
 function pillar(broken: boolean): PixelGrid {
   const P = new Painter(32, 96);
   const x0 = 5, w = 22;
   P.fill(P.mask().rect(x0, 0, w, 96), CONC[1], { sep: 'none', flat: true });
-  P.rect(x0, 0, 3, 96, CONC[0]).rect(x0 + w - 5, 0, 5, 96, CONC[2]).rect(x0 + w - 5, 0, 1, 96, CONC_D);
-  // 型わくの跡
-  for (const y of [20, 46]) P.rect(x0, y, w, 1, CONC[2]);
-  for (let i = 0; i < 18; i++) P.px(x0 + 4 + ((i * 7) % 12), (i * 13) % 70, CONC[2]);
+  // 角を落とした四角い柱:左の角は光り、右の面は影
+  P.rect(x0, 0, 1, 96, CONC[1]).rect(x0 + 1, 0, 3, 96, CONC[0]).rect(x0 + 1, 0, 1, 96, WHITE);
+  P.rect(x0 + w - 6, 0, 5, 96, CONC[2]).rect(x0 + w - 1, 0, 1, 96, CONC_D);
+  // 型わくの継ぎ目(上に影、下に光)と、とめ金具の穴
+  for (const y of [20, 48]) {
+    P.rect(x0 + 1, y, w - 2, 1, CONC[2]).rect(x0 + 1, y + 1, w - 7, 1, CONC[0]);
+    P.rect(x0 + w - 6, y, 5, 1, CONC_D);
+  }
+  for (const y of [8, 34, 62]) for (const x of [x0 + 6, x0 + 13]) P.px(x, y, CONC_D).px(x + 1, y, CONC[2]).px(x, y + 1, CONC[0]);
+  // 左下から上がる、うすいしみ
+  for (let i = 0; i < 6; i++) P.px(x0 + 9 + (i % 2), 66 + i * 2, CONC[2]);
   // 番号の板(文字なし)
   P.rect(x0 + 4, 26, 12, 12, WHITE).rect(x0 + 5, 27, 10, 10, PLATE);
   P.rect(x0 + 7, 29, 6, 1, WHITE).rect(x0 + 7, 34, 6, 1, WHITE);
@@ -264,7 +310,9 @@ function pillar(broken: boolean): PixelGrid {
     P.px(x, y, c);
   }
   P.rect(x0, 75, w, 1, OUTLINE);
-  for (let y = 76; y < 94; y++) if (P.g.get(x0 + w - 1, y) === HAZ_Y) P.px(x0 + w - 1, y, md(5, 4, 0));
+  // しま模様も右の面は暗く、上のふちに光
+  for (let y = 76; y < 94; y++) for (let x = x0 + w - 6; x < x0 + w; x++) if (P.g.get(x, y) === HAZ_Y) P.px(x, y, HAZ_YD);
+  P.rect(x0, 76, w - 6, 1, WHITE).rect(x0 + w - 6, 76, 6, 1, CONC[0]);
   P.rect(x0, 94, w, 2, CONC[2]);
   if (broken) {
     // 欠けたかどとひび、むき出しの鉄筋、足元のがれき
@@ -292,7 +340,7 @@ function barrier(broken: boolean): PixelGrid {
   // 台の箱
   const box = P.mask().rect(3, 10, 12, 21);
   P.fill(box, BOX, { sep: 'outline', hi: 0.3, lo: 0.75 });
-  P.rect(3, 10, 12, 1, BOX[0]).rect(5, 14, 8, 5, OUTLINE).rect(6, 15, 6, 3, broken ? DARK : md(2, 6, 3));
+  P.rect(3, 10, 12, 1, WHITE).rect(3, 11, 1, 18, BOX[0]).rect(14, 11, 1, 18, BOX[2]).rect(5, 14, 8, 5, OUTLINE).rect(6, 15, 6, 3, broken ? DARK : md(2, 6, 3));
   P.rect(3, 29, 12, 2, METAL[2]);
   // 上の回る明かり
   P.fill(P.mask().rect(7, 6, 4, 4), broken ? METAL : [md(7, 5, 1), md(7, 4, 0), md(5, 2, 0)], { sep: 'outline', hi: 0.4, lo: 0.8 });
@@ -302,7 +350,11 @@ function barrier(broken: boolean): PixelGrid {
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     m.each((x, y) => {
       const t = ((x - a[0]) * (b[0] - a[0]) + (y - a[1]) * (b[1] - a[1])) / L;
-      if (Math.floor(t / 5) % 2 === 0) P.px(x, y, TAIL);
+      const red = Math.floor(t / 5) % 2 === 0;
+      // 棒の下の段は影、上の段は光
+      const low = !m.has(x, y + 1) || (!m.has(x, y + 2) && Math.abs(b[1] - a[1]) < 1);
+      if (low) P.px(x, y, red ? TAIL_D : METAL[0]);
+      else if (red) P.px(x, y, TAIL);
     });
   };
   if (!broken) {

@@ -23,7 +23,7 @@ import {
 } from '../logic';
 import { getRun, type GameRun } from '../run';
 import {
-  Button, CurlSmoke, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
+  Button, CurlSmoke, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
   SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg } from './sort/common';
@@ -42,6 +42,8 @@ const BOSS_X = 152;
 /** ボスの体の、ラッシュが当たるあたり(ボスは左向き) */
 const HIT_X = BOSS_X - 12;
 const HIT_Y = FEET_Y - 52;
+/** ボス出現!の帯の真ん中の高さ。体力のバー(y=26〜34)の下で、ボスの頭(触角の先で y=104 ほど)より上に出す */
+const BANNER_Y = 52;
 /** 最後の連打からこの時間がたったら、ラッシュの動きをやめる(ms) */
 const RUSH_HOLD_MS = 380;
 /** 連打で出す技の順番(くり返す)。10連打ごとは飛び蹴りをはさむ */
@@ -223,14 +225,15 @@ export class BossScene extends Phaser.Scene {
 
     // 下:撃破、負傷、被害額、カットイン、大きな行け!ボタン
     addPanel(this);
-    const r = panelRect();
+    // 会話の窓のセリフに1行12字が入るように、横いっぱい(左右4)を使う
+    const r = panelRect(4);
     // 地下駐車場は被害額の点滅を短く(手を止めると1秒ごとに増え、長いと数字が半分の時間消えて読めない)
     this.hud = new BossHud(this, r.x, r.y, r.w, this.car ? 160 : 500);
     this.hud.refresh(this.run.stats);
     const cutY = r.y + BossHud.H + 4;
-    this.cut = new CutIn(this, r.x, cutY, r.w, 46);
+    this.cut = new CutIn(this, r.x, cutY, r.w, CUT_H);
     this.cut.hide();
-    const by = cutY + 46 + 5;
+    const by = cutY + CUT_H + 5;
     const bh = r.bottom - by;
     this.go = new Button(this, r.x, by, r.w, bh, '行け!', { color: 'go', size: 32, onPress: (p) => this.onPress(p) });
     this.go.setEnabled(false);
@@ -280,7 +283,7 @@ export class BossScene extends Phaser.Scene {
     this.quake(3, 300);
     spawnFx(this, 'fx_dust', BOSS_X - 20, FEET_Y - 8);
     spawnFx(this, 'fx_dust', BOSS_X + 22, FEET_Y - 6);
-    await banner(this, 'ボス出現!');
+    await banner(this, 'ボス出現!', { y: BANNER_Y });
     const boss = findBoss(this.run.stage);
     const sortedCiv = boss ? this.run.sorts[boss.id] === 'civ' : false;
     const rng = this.run.rng;

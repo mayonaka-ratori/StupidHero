@@ -124,6 +124,32 @@ export interface FillOpts {
   lo?: number;
   /** 影を付けずに1色で塗る */
   flat?: boolean;
+  /** 影の段の境目に出る、ぽつんと1つだけのドットをまわりの段にそろえる */
+  clean?: boolean;
+}
+
+/** 段(0,1,2)の表から、ぽつんと浮いたドットをなくす。まわり4つのうち3つ以上が同じ段なら、それにそろえる */
+function cleanTones(m: Mask, tone: Map<number, number>): void {
+  for (let pass = 0; pass < 2; pass++) {
+    const fix: [number, number][] = [];
+    m.each((x, y) => {
+      const t = tone.get(y * m.w + x)!;
+      const cnt = [0, 0, 0];
+      let n = 0, same = 0;
+      for (const [dx, dy] of NB4) {
+        const u = tone.get((y + dy) * m.w + x + dx);
+        if (u === undefined || !m.has(x + dx, y + dy)) continue;
+        n++; cnt[u]++;
+        if (u === t) same++;
+      }
+      if (n < 2 || same > 1) return;
+      const best = cnt.indexOf(Math.max(...cnt));
+      if (best !== t && cnt[best] >= Math.min(3, n)) fix.push([y * m.w + x, best]);
+      else if (same === 0 && best !== t && cnt[best] >= 2) fix.push([y * m.w + x, best]);
+    });
+    for (const [i, t] of fix) tone.set(i, t);
+    if (!fix.length) break;
+  }
 }
 
 /** 形の中の位置から 0(左上)〜1(右下)の値を出す。細い方向の断面で決める。 */
@@ -167,11 +193,17 @@ export class Painter {
       for (const [x, y] of edge) this.g.px(x, y, c);
     }
     const hi = o.hi ?? 0.3, lo = o.lo ?? 0.66;
+    if (o.flat || typeof ramp === 'string') {
+      m.each((x, y) => this.g.px(x, y, rp[1]));
+      return this;
+    }
+    const tone = new Map<number, number>();
     m.each((x, y) => {
-      if (o.flat || typeof ramp === 'string') { this.g.px(x, y, rp[1]); return; }
       const t = shadeT(m, x, y);
-      this.g.px(x, y, t < hi ? rp[0] : t > lo ? rp[2] : rp[1]);
+      tone.set(y * m.w + x, t < hi ? 0 : t > lo ? 2 : 1);
     });
+    if (o.clean) cleanTones(m, tone);
+    m.each((x, y) => this.g.px(x, y, rp[tone.get(y * m.w + x)!]));
     return this;
   }
   px(x: number, y: number, c: string | null): this { this.g.px(x, y, c); return this; }

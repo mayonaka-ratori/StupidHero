@@ -235,21 +235,26 @@ const HAIR_UNDER_CAP: HairStyle = {
   rows: ['.............', '.............', '...hhhhh.....', '..hhhhhhhh...', '.hhhhhhhhhh..', '.hhhh........', '.hhh.........', '.hh..........', '.h...........']
 };
 
+/**
+ * 警備員の帽子(右向き)。上が平らで広い山、紺の濃い帯、帯の前の金の記章、前へ下がるつば。
+ * 光は左上から当てる(山の左上を明るく)。つばは黒で、上の面に1ドットの光
+ */
 function guardCap(g: PixelGrid): void {
   const rows = [
-    '....aaaaa.....',
-    '..aabbbayaa...',
-    '.abbbaaayaaa..',
-    '.cccccccccccccc'
+    '...bbbbbba....',
+    '..bbaaaayaa...',
+    '.baaaaaayaaa..',
+    '.cccccccccvvv.',
+    '..........vvvv'
   ];
   rows.forEach((r, y) => {
     for (let x = 0; x < r.length; x++) {
       const ch = r[x];
-      const c = ch === 'a' ? NAVY[1] : ch === 'b' ? NAVY[0] : ch === 'c' ? NAVY[2] : ch === 'y' ? GOLD[0] : null;
+      const c = ch === 'a' ? NAVY[1] : ch === 'b' ? NAVY[0] : ch === 'c' ? NAVY[2] : ch === 'y' ? GOLD[0] : ch === 'v' ? OUTLINE : null;
       if (c) g.px(x, y, c);
     }
   });
-  g.px(8, 2, GOLD[1]);
+  g.px(9, 2, GOLD[1]).px(11, 3, NAVY[0]);
 }
 
 function guardLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) => void): Look {
@@ -298,7 +303,8 @@ function guardSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[
   const n = base.neck;
   // 市民:あくび(手を口に当てて、体をのばす)
   const m = mouthAt(base);
-  const yawnArm = (p: Pose): Pose => armTo(p, [m[0] + (p.head[0] - base.head[0]), m[1] + 1 + (p.head[1] - base.head[1])], [n[0] + 4 + (p.neck[0] - n[0]), n[1] + 7 + (p.neck[1] - n[1])]);
+  // 手は口の前(顔の外)に置き、目と大きく開けた口が見えるようにする
+  const yawnArm = (p: Pose): Pose => armTo(p, [m[0] + 4 + (p.head[0] - base.head[0]), m[1] + 2 + (p.head[1] - base.head[1])], [n[0] + 4 + (p.neck[0] - n[0]), n[1] + 7 + (p.neck[1] - n[1])]);
   const civSort: Pose[] = [
     withFace(base, 'normal'),
     tag(yawnArm(withFace(base, 'shut')), { mouth: 'yawn' }),
@@ -333,9 +339,9 @@ function mechLook(extra: Partial<Look> = {}): Look {
     build: MECH_BUILD,
     headExtra(g, pose) {
       mouthExtra(g, P(pose), HAIR_SHORT.top);
-      // ほおの油よごれ
+      // ほおの油よごれ(横に2ドット)
       const y = HAIR_SHORT.top + 6 + (pose.down ? 1 : 0);
-      g.px(7, y, SKIN[2]);
+      g.px(6, y, SKIN[2]).px(7, y, SKIN[2]);
     },
     torso(Pn, pose) {
       const n = pose.neck, p = pose.hip;
@@ -435,8 +441,9 @@ export function clubLook(extra: Partial<Look> = {}): Look {
     headExtra(g, pose) {
       headband(g);
       mouthExtra(g, P(pose), HAIR_SPIKE.top);
-      // 金のピアス
-      g.px(5, HAIR_SPIKE.top + 7, GOLD[0]);
+      // 金のピアス(耳たぶから下がる輪)
+      const t = HAIR_SPIKE.top;
+      g.px(5, t + 7, GOLD[0]).px(5, t + 8, GOLD[1]);
     },
     torso(Pn, pose) {
       const n = pose.neck, p = pose.hip;
@@ -544,7 +551,7 @@ function olLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) =>
       const ky = Math.min(pose.lF.k[1], pose.lB.k[1]) - 2;
       const kx = [pose.lF.k[0], pose.lB.k[0]];
       const m = Pn.mask().poly([[p[0] - b.wa, p[1] - 4], [p[0] + b.wa, p[1] - 4], [p[0] + b.wa + 0.5, p[1]], [Math.max(...kx) + 3, ky], [Math.min(...kx) - 3, ky], [p[0] - b.wa - 0.5, p[1]]]);
-      Pn.fill(m, SKIRT, { sep: 'outline', hi: 0.2, lo: 0.7 });
+      Pn.fill(m, SKIRT, { sep: 'outline', hi: 0.2, lo: 0.7, clean: true });
     },
     ...extra
   };

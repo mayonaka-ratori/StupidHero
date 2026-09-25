@@ -190,7 +190,8 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     const fx = W - 36, fy = TOP - 36;
     fill(ctx, 0xffffff, [fx - 1, fy - 1, 34, 34]);
     fill(ctx, 0x7fb0e6, [fx, fy, 32, 32]);
-    drawSprite(ctx, scene, face, frameOf(face, comment.face, 1), fx, fy);
+    // 顔の絵は48×48。カードは5倍の細かさで描くので、2/3にしてもドットは消えない
+    drawSprite(ctx, scene, face, frameOf(face, comment.face, 1), fx, fy, { scale: 32 / 48 });
     const bubbleStyle = { size: 12, color: 0x111111, lineSpacing: 2 };
     const tsz = drawText(makeCanvas(1, 1).ctx, scene, 0, 0, comment.text, bubbleStyle);
     const bw = tsz.w + 8, bh = tsz.h + 6;

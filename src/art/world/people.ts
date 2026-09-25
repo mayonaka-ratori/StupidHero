@@ -2,7 +2,7 @@
 // ボスの化けた姿も、ここの市民の Look とポーズを伸ばして作る。
 import { md, type PixelGrid } from '../lib';
 import {
-  type Build, HAIR_BUN, HAIR_GRANNY, HAIR_MOHAWK, HAIR_SHORT, HAIR_SLICK, type Look, type Pose,
+  type Build, HAND_R, HAIR_BUN, HAIR_GRANNY, HAIR_MOHAWK, HAIR_SHORT, HAIR_SLICK, type Look, type Pose,
   clonePose, drawPerson, movePose, moveUpper
 } from './figure';
 import {
@@ -312,27 +312,46 @@ function shopperLook(extra: Partial<Look> = {}): Look {
   };
 }
 
-/** 買い物袋。奥の手に下げる。中身 kind を口からのぞかせる */
-function drawTote(P: Painter, pose: Pose, kind: 'rice' | 'loot', cover = false): void {
+/** 買い物袋の左上(袋の口の左の端) */
+const toteAt = (pose: Pose): Pt => { const [hx, hy] = R(pose.aB.h); return [hx - 5, hy + 3]; };
+
+/** 買い物袋。奥の手に下げる。中身は toteContents で描く */
+function drawTote(P: Painter, pose: Pose): void {
   const [hx, hy] = R(pose.aB.h);
-  const x = hx - 5, y = hy + 3;
-  // 中身(袋のうしろから上へ出す)
-  if (kind === 'rice') {
-    sprite(P, x + 2, y - 5, ['00000', '00100', '01110', '11111', '12121', '11111'], WHITE, {});
-    P.px(x + 3, y - 3, OUTLINE); P.px(x + 4, y - 3, OUTLINE); P.px(x + 5, y - 3, OUTLINE);
-  } else {
-    sprite(P, x + 1, y - 4, ['.000.', '0o1o0', '01111', '01111', '11111'], GOLD, {});
-    sprite(P, x + 6, y - 3, ['010', '1o1', '010'], GOLD);
-  }
+  const [x, y] = toteAt(pose);
   // 持ち手
   P.line([hx - 3, hy + 3], [hx - 1, hy], OUTLINE).line([hx + 3, hy + 3], [hx + 1, hy], OUTLINE);
   const m = P.mask().poly([[x, y], [x + 11, y], [x + 12, y + 11], [x - 1, y + 11]]);
-  P.fill(m, TOTE, { sep: 'outline', hi: 0.25, lo: 0.7 });
-  P.line([x, y + 1], [x + 11, y + 1], TOTE[0]);
+  P.fill(m, OUTLINE, { sep: 'outline', flat: true });
+  // 面:左の2列は明るく、右の2列と底は影。口のふちは明るく、まん中に折り目
+  m.each((px, py) => {
+    let l = 0, r = 0;
+    while (m.has(px - l - 1, py)) l++;
+    while (m.has(px + r + 1, py)) r++;
+    const c = py === y ? TOTE[0] : r < 2 || py >= y + 10 ? TOTE[2] : l < 2 ? TOTE[0] : TOTE[1];
+    P.px(px, py, c);
+  });
+  for (let j = 3; j <= 8; j++) P.px(x + 7, y + j, TOTE[2]);
+  P.px(x + 8, y + 3, TOTE[0]);
   // 持ち手をにぎる奥の手(胴に隠れないように描き直す)
-  P.fill(P.mask().ellipse(hx, hy, 1.7, 1.7).union(P.mask().capsule([hx - 1, hy - 4], [hx, hy - 1], 1.4)), [SKIN[1], SKIN[1], SKIN[2]], { sep: 'outline' });
-  P.fill(P.mask().capsule([hx - 1.5, hy - 7], [hx - 1, hy - 4], 1.8), [CARDIGAN[1], CARDIGAN[2], CARDIGAN[2]], { sep: 'outline' });
-  if (cover) void 0;
+  P.fill(P.mask().capsule([hx - 1.5, hy - 7], [hx - 1, hy - 4], 2.1), [CARDIGAN[1], CARDIGAN[2], CARDIGAN[2]], { sep: 'outline' });
+  P.fill(P.mask().ellipse(hx, hy, HAND_R, HAND_R), [SKIN[1], SKIN[1], SKIN[2]], { sep: 'outline', hi: 0.4, lo: 0.8 });
+}
+
+/** 袋の口からのぞく中身。市民は白い米袋、ワルは金色の財布(奥の手の右に出す) */
+function toteContents(P: Painter, pose: Pose, kind: 'rice' | 'loot'): void {
+  const [x, y] = toteAt(pose);
+  if (kind === 'rice') {
+    sprite(P, x + 6, y - 6, ['.000.', '00002', '02202', '00002', '00022', '.002.'], WHITE);
+  } else {
+    sprite(P, x + 6, y - 5, ['.000.', '0o1o2', '01112', '11112', '11222'], GOLD);
+  }
+}
+
+/** 袋と中身。手前の腕より後ろに描くときに使う */
+function toteBehind(P: Painter, pose: Pose, kind: 'rice' | 'loot'): void {
+  toteContents(P, pose, kind);
+  drawTote(P, pose);
 }
 
 function pickpocketMischief(): Pose[] {
@@ -356,8 +375,8 @@ function pickpocketMischief(): Pose[] {
 function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[]; civLook: Look } {
   const withBag = (p: Pose): Pose => { const q = clonePose(p); q.aB = { e: [q.neck[0] + 7, q.neck[1] + 9], h: [q.neck[0] + 8, q.neck[1] + 16] }; return q; };
   const base = withBag(STAND);
-  const civLook = shopperLook({ mid: (P, p) => drawTote(P, p, 'rice') });
-  const badLook = shopperLook({ mid: (P, p) => drawTote(P, p, 'loot') });
+  const civLook = shopperLook({ mid: drawTote, front: (P, p) => toteContents(P, p, 'rice') });
+  const badLook = shopperLook({ mid: drawTote, front: (P, p) => toteContents(P, p, 'loot') });
   // 市民:袋を持ち直す
   const lift = (p: Pose, dy: number): Pose => { const q = clonePose(p); q.aB.h[1] -= dy; q.aB.e[1] -= Math.ceil(dy / 2); q.aB.h[0] -= 1; return q; };
   const civSort = [
@@ -369,14 +388,14 @@ function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pos
   // ワル:袋の口を手でふさぐ
   const cover = (p: Pose, dx = 0): Pose => {
     const q = clonePose(p);
-    q.aF = { e: [q.neck[0] + 2, q.neck[1] + 11], h: [q.aB.h[0] - 1 + dx, q.aB.h[1] + 3] };
+    q.aF = { e: [q.neck[0] + 2, q.neck[1] + 11], h: [q.aB.h[0] - 3 + dx, q.aB.h[1] + 2] };
     return q;
   };
   const badSort = [
     cover(withFace(base, 'sly')),
     cover(withFace(moveUpper(base, 0, 1), 'sly', { down: true }), 1),
-    cover(withFace(base, 'worried', { look: -1 }), 3),
-    cover(withFace(base, 'sly'), 2)
+    cover(withFace(base, 'worried', { look: -1 }), 0),
+    cover(withFace(base, 'sly'), 1)
   ];
   // 驚く、吹っ飛ぶ、のびているコマでは袋を手放す
   const noBag = shopperLook();
@@ -384,7 +403,7 @@ function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pos
   const bad = civRows(badLook, base, badSort, { walk: walkFrames(base).map(withBag), lookFor: (_p, row) => (row >= 3 ? noBag : badLook) });
   const pp = pickpocketMischief();
   bad.push(pp.map((p, i) => drawPerson(shopperLook({
-    mid: (P, q) => drawTote(P, q, 'loot'),
+    mid: (P, q) => toteBehind(P, q, 'loot'),
     front: i >= 2 ? (P, q) => sprite(P, Math.round(q.aF.h[0]) - 1, Math.round(q.aF.h[1]) - 3, ['0000', '0o11', '1111'], GOLD) : undefined
   }), p)));
   return { civ, bad, civSort, civLook };
@@ -415,11 +434,12 @@ export function mohawkLook(knifeAng: number | null): Look {
     top: VEST, sleeve: 'none', bottom: RIPPED, legs: 'pants', shoes: VEST, sole: OUTLINE,
     build: MOHAWK_BUILD,
     headExtra(g, pose) {
-      // 傷とサングラス
+      // サングラス(横長の枠と2つのレンズ)と、ほおの傷
       const top = HAIR_MOHAWK.top + (pose.down ? 1 : 0);
       if (pose.face !== 'ko' && pose.face !== 'hurt') {
-        for (let x = 7; x <= 11; x++) g.px(x, top + 4, OUTLINE);
-        g.px(9, top + 5, OUTLINE); g.px(10, top + 5, OUTLINE); g.px(8, top + 4, MOHAWK[0]);
+        for (let x = 6; x <= 12; x++) g.px(x, top + 4, OUTLINE);
+        for (const x of [8, 10, 11]) g.px(x, top + 5, OUTLINE);
+        g.px(7, top + 5, BLADE[0]);
       }
       g.px(7, top + 7, SKIN[2]); g.px(8, top + 8, SKIN[2]);
     },
@@ -498,16 +518,16 @@ const GRANNY_BUILD: Build = { sh: 7, wa: 5.5, arm: 2, thigh: 2.6, shin: 2, hem: 
 function grannyLook(extra: Partial<Look> = {}): Look {
   return {
     skin: SKIN, hair: GRAY_HAIR, hairStyle: HAIR_GRANNY,
-    top: SHAWL, sleeve: 'long', bottom: LONGSKIRT, legs: 'longskirt', shoes: [SKIN[2], OUTLINE, OUTLINE],
+    top: SHAWL, sleeve: 'long', bottom: LONGSKIRT, legs: 'longskirt', shoes: LEATHER,
     build: GRANNY_BUILD,
     headExtra(g, pose) {
       const top = HAIR_GRANNY.top + (pose.down ? 1 : 0);
-      // めがね(縁)としわ
+      // めがね(上の縁と、白く光るレンズ)としわ
       if (pose.face !== 'ko') {
-        g.px(8, top + 4, OUTLINE); g.px(10, top + 4, OUTLINE); g.px(9, top + 6, OUTLINE); g.px(11, top + 4, OUTLINE);
-        g.px(10, top + 5, GRAY_HAIR[0]);
+        for (let x = 7; x <= 12; x++) g.px(x, top + 4, OUTLINE);
+        g.px(7, top + 5, GRAY_HAIR[0]); g.px(10, top + 5, GRAY_HAIR[0]);
       }
-      g.px(8, top + 7, SKIN[1]);
+      g.px(7, top + 7, SKIN[1]); g.px(10, top + 7, SKIN[1]);
     },
     torso(P, pose) {
       const n = pose.neck;

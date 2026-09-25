@@ -229,9 +229,9 @@ export class IntroDemo {
         break;
       case 'operator': {
         this.person.setVisible(false);
-        const face = add(sc.add.sprite(this.cx, 50, 'face_operator').setScale(2));
+        const face = add(sc.add.sprite(this.cx, 50, 'face_operator'));
         face.play(animKey('face_operator', 'hype'));
-        add(new PixelText(sc, this.cx + 34, 22, '!', { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0));
+        add(new PixelText(sc, this.cx + 28, 22, '!', { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0));
         this.caption.setText('ヒント');
         break;
       }

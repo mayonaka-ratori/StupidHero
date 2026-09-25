@@ -7,6 +7,7 @@
 // ?set=chars  使われている字をすべて1字ずつ並べる(字の形を見る)。?size= で大きさ
 // ?set=focus  つぶれやすい字と記号を 10、12、16 で並べる
 // ?set=check  全部の文を、ゲームで使う折り返しの幅(88、117、152、160、186)と 10、12、16 で折り返して、禁則のまちがいだけを並べる
+//              会話の窓の幅144は、その窓で使う 12 と 16 だけで確かめる
 // ?zoom=3     拡大の倍率
 // 行の頭に来てはいけない字が行の頭に来ていないか(禁則)を数えて、上に出す。window.textDev から中身を見られる。
 import '@fontsource/dotgothic16';
@@ -140,6 +141,9 @@ class CharsScene extends Phaser.Scene {
 }
 
 const CHECK_WRAPS = [88, 117, 152, 160, 186];
+/** 会話の窓(顔の右にセリフ)の幅。この窓の字は12か16なので、10では確かめない */
+const CUT_WRAP = 144;
+const wrapsFor = (size: number): number[] => (size === 10 ? CHECK_WRAPS : [...CHECK_WRAPS, CUT_WRAP]);
 /**
  * 記号だけの書き方(例:sort/remark.ts の間を置く字の一覧「、。…!?！？」)は画面に出す文ではないので、禁則は見ない。
  * かな、カナ、漢字、英数字が1字でもあれば文として見る
@@ -149,7 +153,7 @@ let checked = 0;
 class CheckScene extends Phaser.Scene {
   constructor() { super('check'); }
   create(): void {
-    for (const s of [10, 12, 16]) for (const w of CHECK_WRAPS) for (const t of texts) {
+    for (const s of [10, 12, 16]) for (const w of wrapsFor(s)) for (const t of texts) {
       if (isSymbolsOnly(t.text)) continue;
       const p = new PixelText(this, 0, 0, t.text, { size: s, wrap: w });
       const before = problems.length;

@@ -1,7 +1,7 @@
 // ステージ3の物:UFO、母艦(4コマずつ)と、ガチャガチャ、マネキン、ショーケース、噴水、エスカレーター(ふつうと壊れた)。
 // 置くときの基準はどれもコマの下の真ん中。飛んでいるUFOと母艦は、コマの中の上寄りに描く。
 import { md, OUTLINE, PixelGrid } from '../lib';
-import { Painter, type Pt, type Ramp, rotateGrid } from '../world/pix';
+import { type Mask, Painter, type Pt, type Ramp, rotateGrid } from '../world/pix';
 import { GLITCH } from './palette';
 
 const METAL: Ramp = [md(7, 7, 7), md(5, 5, 6), md(3, 3, 4)];
@@ -11,6 +11,20 @@ const WHITE = md(7, 7, 7);
 const LAMP_Y = md(7, 7, 3), LAMP_R = md(7, 2, 2);
 const SMOKE: Ramp = [METAL[1], METAL[2], DARKM[1]];
 const DARK = md(1, 0, 1);
+
+/** 平たい円盤を、横の帯で塗る(上の面は明るく、ふちの下は暗い。左は明るく、右は暗い) */
+function shadeDisc(P: Painter, m: Mask, r: Ramp, cx: number, top: number, rim: number, rx: number): void {
+  m.each((x, y) => {
+    const u = (x - cx) / rx;
+    let c: string;
+    const v = (y - top) / Math.max(1, rim - top);
+    if (y < rim) c = u + v * 0.9 < 0.45 ? r[0] : r[1];
+    else if (y === rim) c = r[1];
+    else c = !m.has(x - 2, y) || !m.has(x, y + 1) && u < -0.3 ? r[1] : r[2];
+    if (y === top + 1 && u > -0.7 && u < -0.2) c = WHITE;
+    P.px(x, y, c);
+  });
+}
 
 /** 煙の丸 */
 function puff(P: Painter, x: number, y: number, r: number, ramp: Ramp = SMOKE): void {
@@ -39,7 +53,8 @@ function ufoBody(P: Painter, y0: number, lights: number, open: boolean, broken: 
   }
   // 円盤
   const disc = P.mask().ellipse(cx, y0 + 12, 29, 5.5);
-  P.fill(disc, METAL, { sep: 'outline', hi: 0.3, lo: 0.7 });
+  P.fill(disc, METAL[1], { sep: 'outline', flat: true });
+  shadeDisc(P, disc, METAL, cx, y0 + 6, y0 + 12, 29);
   // 下のふくらみ
   const belly = P.mask().ellipse(cx, y0 + 16, 12, 3.5).intersect(P.mask().rect(0, y0 + 15, 64, 10));
   P.fill(belly, DARKM, { sep: 'outline', hi: 0.3, lo: 0.7 });
@@ -103,7 +118,10 @@ function mothershipBody(P: Painter, y0: number, lights: number, firing: boolean,
   P.fill(P.mask().ellipse(cx, y0 + 2, 6, 3).intersect(P.mask().rect(0, 0, 160, y0 + 3)), DOME, { sep: 'outline', hi: 0.4, lo: 0.8 });
   // 大きな円盤
   const disc = P.mask().ellipse(cx, y0 + 20, 76, 10);
-  P.fill(disc, HULL, { sep: 'outline', hi: 0.3, lo: 0.68 });
+  P.fill(disc, HULL[1], { sep: 'outline', flat: true });
+  shadeDisc(P, disc, HULL, cx, y0 + 9, y0 + 20, 76);
+  // 上の面のいちばん明るい帯
+  disc.each((x, y) => { if (y === y0 + 12 && x > cx - 60 && x < cx - 10) P.px(x, y, DOME[0]); });
   // ふちの紫の帯と灯り
   for (let x = 6; x <= 154; x++) { if (disc.has(x, y0 + 20)) P.px(x, y0 + 20, HULL_TRIM[1]); if (disc.has(x, y0 + 21)) P.px(x, y0 + 21, HULL_TRIM[2]); }
   for (let i = 0; i < 14; i++) {
@@ -239,8 +257,13 @@ const GOLDR: Ramp = [md(7, 7, 3), md(7, 5, 1), md(5, 3, 0)];
 function showcase(broken: boolean): PixelGrid {
   const P = new Painter(32, 32);
   // 木の台
-  P.fill(P.mask().rect(2, 18, 28, 13), WOOD, { sep: 'outline', hi: 0.2, lo: 0.75 });
-  P.rect(2, 18, 28, 1, WOOD[0]).rect(6, 22, 20, 1, WOOD[2]).rect(6, 26, 20, 1, WOOD[2]);
+  P.fill(P.mask().rect(2, 18, 28, 13), WOOD[1], { sep: 'outline', flat: true });
+  // 上の天板は明るく、右と下は暗い。前に2枚のへこんだ板(左上に影、右下に光)
+  P.rect(2, 18, 28, 1, WOOD[0]).rect(2, 19, 1, 12, WOOD[0]).rect(29, 19, 1, 12, WOOD[2]).rect(2, 30, 28, 1, WOOD[2]);
+  for (const px of [5, 17]) {
+    P.rect(px, 21, 10, 7, WOOD[1]);
+    P.rect(px, 21, 10, 1, WOOD[2]).rect(px, 21, 1, 7, WOOD[2]).rect(px, 28, 10, 1, WOOD[0]).rect(px + 10, 21, 1, 8, WOOD[0]);
+  }
   // 中の台(紺のビロード)
   P.rect(3, 15, 26, 3, DRESS[2]);
   if (!broken) {
@@ -329,7 +352,13 @@ function escalator(broken: boolean): PixelGrid {
   const body: Pt[] = [];
   for (let x = 2; x <= 94; x += 2) body.push(bend(x, 58 - lift(x)));
   for (let x = 94; x >= 2; x -= 2) body.push(bend(x, 62 - Math.max(0, lift(x) - 12)));
-  P.fill(P.mask().poly(body), SIDE, { sep: 'outline', hi: 0.25, lo: 0.7 });
+  const side = P.mask().poly(body);
+  P.fill(side, SIDE[1], { sep: 'outline', flat: true });
+  // 横の板:上のふちに光、下のふちの帯は影
+  side.each((x, y) => {
+    if (!side.has(x, y - 1) || !side.has(x, y - 2)) P.px(x, y, SIDE[0]);
+    else if (!side.has(x, y + 1) || !side.has(x, y + 2) || !side.has(x, y + 3)) P.px(x, y, SIDE[2]);
+  });
   // 段(上のふちのぎざぎざ)
   for (let x = 4; x < 92; x += 4) {
     const [px, py] = bend(x, 58 - lift(x));

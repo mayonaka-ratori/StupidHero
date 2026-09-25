@@ -14,7 +14,7 @@ import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { FREE_INTRO, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
 import { getRun } from '../run';
-import { Button, CutIn, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
+import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
 import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
@@ -93,14 +93,15 @@ export class IntroScene extends Phaser.Scene {
     // 縦に余裕があれば大きな字(16)。顔を上に置いて、セリフは箱の幅いっぱい(1行12文字が入る)
     const tall = r.h >= 150;
     const wide = panelRect(4);
-    const ch = tall ? 80 : 56;
+    const ch = tall ? CUT_TOP_H : CUT_H;
     // 下に「次へ」の大きなボタンと、左に小さな「とばす」(どちらも親指が届くところ)。画面のどこをタップしても進む
     const btnH = Phaser.Math.Clamp(r.h - ch - 24, 30, 60);
     const btnY = r.bottom - btnH;
     const skipW = 60;
     // カットインはボタンとの間に少し寄せて、空きが上下に分かれるようにする
     const cutY = r.y + Math.max(0, Math.floor((btnY - 24 - ch - r.y) / 3));
-    const cx = tall ? wide.x : r.x, cw = tall ? wide.w : r.w;
+    // 会話の窓は横いっぱい(顔の右にセリフを出すときも、1行12字が入る)
+    const cx = wide.x, cw = wide.w;
     this.cut = new CutIn(this, cx, cutY, cw, ch, { speed: 32, size: tall ? FS.big : FS.body, faceTop: tall });
     // カットインをタップしたときも、シーンのタップとして扱う(二重に進まないように)
     for (const o of this.cut.list) if (o instanceof Phaser.GameObjects.Zone) o.disableInteractive();
