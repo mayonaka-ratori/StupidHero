@@ -1,6 +1,6 @@
 // カットイン:顔、名前、セリフ。セリフは1文字ずつ出て、しゃべっている間は口が開いたり閉じたりする。
 // 使い方:
-//   const cut = new CutIn(this, 84, 8, 126, 46);                       // 左上の位置と大きさ。ふつうはオペレーター
+//   const cut = new CutIn(this, 4, 8, W - 8, CUT_H);                   // 左上の位置と大きさ。ふつうはオペレーター
 //   await cut.say('ポケットがふくらんでる…', 'normal');                 // 文字送りが終わると Promise が解決する
 //   cut.say('ちょ、ちょっと待ってー!?', 'panic', { alarm: true });       // 赤い警告のカットイン(少し揺れる)
 //   cut.say('まかせて!', 'smug', { who: 'hero' });                     // ヒーローに替えて話す
@@ -44,7 +44,11 @@ export interface CutInOptions {
 }
 
 const FACE_KEY: Record<Speaker, string> = { operator: 'face_operator', hero: 'face_hero' };
-const FACE = 32;
+const FACE = 48;
+/** 顔を左に置く窓の高さ(顔48と、名前とセリフ3行が入る) */
+export const CUT_H = FACE + 12;
+/** 顔を左上に置き、セリフを顔の下に出す窓(faceTop)の高さ。大きな字(16)で2行入る */
+export const CUT_TOP_H = FACE + 48;
 const PAUSE_AFTER = new Set(Array.from('、。…!?!?'));
 
 export class CutIn extends Phaser.GameObjects.Container {
@@ -70,7 +74,7 @@ export class CutIn extends Phaser.GameObjects.Container {
   private typing = false;
   private onChar?: (ch: string) => void;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w = 126, h = 46, opt: CutInOptions = {}) {
+  constructor(scene: Phaser.Scene, x: number, y: number, w = 208, h = CUT_H, opt: CutInOptions = {}) {
     super(scene, Math.round(x), Math.round(y));
     this.w = w;
     this.h = h;

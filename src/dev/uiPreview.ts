@@ -11,7 +11,7 @@ import { UI } from '../config';
 import { computeLayout, fitCanvas, layout } from '../layout';
 import { generateArt } from '../art';
 import {
-  Bubble, Button, CutIn, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText, SwipeInput, Tag,
+  Bubble, Button, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText, SwipeInput, Tag,
   TimeBar, WindowFrame, addPanel, ditherTexture, banner, blink, enableTapSparks, flash, goto, impact, panelRect, popText,
   preloadFont, shake, type TailDir
 } from '../ui';
@@ -71,7 +71,7 @@ class SortPage extends Page {
     new PixelText(this, 6, 22, '4/5人目', { size: FS.body, outline: true });
     const time = new TimeBar(this, 8, 40, 66, 5);
     time.setValue(0.62);
-    const cut = new CutIn(this, 80, 30, 132, 48);
+    const cut = new CutIn(this, 80, 30, 132, CUT_H);
     cut.say('ポケットがふくらんでる…', 'normal');
     this.chrome();
     addPanel(this);
@@ -113,9 +113,9 @@ class ResultPage extends Page {
     const hud = new WindowFrame(this, r.x, r.y, r.w, 22, 'win');
     void hud;
     new PixelText(this, r.x + 6, r.y + 5, '撃破{gold}1{/} 負傷{red}0{/} 被害額{gold}¥32万{/}', { size: FS.body });
-    const cut = new CutIn(this, r.x, r.y + 28, r.w, 48);
+    const cut = new CutIn(this, r.x, r.y + 28, r.w, CUT_H);
     cut.say('ちょ、ちょっと待ってー!?', 'panic', { alarm: true });
-    const by = r.y + 84;
+    const by = r.y + 28 + CUT_H + 8;
     const bh = Math.min(64, r.bottom - by);
     const bw = Math.floor((r.w - 8) / 2);
     const stop = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', onPress: () => { log('press:stop'); } });

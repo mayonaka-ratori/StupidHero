@@ -32,7 +32,7 @@ import {
   type TitleDef
 } from '../logic';
 import {
-  Button, CutIn, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
+  Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
 } from '../ui';
 import { addMute, drawStageBg, unlockOnTap } from './sort/common';
 import { getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '../run';
@@ -176,9 +176,9 @@ export class ResultScene extends Phaser.Scene {
     // 初めて取った称号の NEW は、称号の右上に出す(左上は「あなたの称号」の札)
     const titleNew = this.newTag(Math.min(W - 44, Math.floor(W / 2) + Math.ceil(titleText.width / 2) - 8), 1).setVisible(false);
     addMute(this, W - 11, BAND_Y + 13).setDepth(DEPTH.ui + 1);
-    const cut = new CutIn(this, 4, BAND_Y + 30, W - 8, 46).setVisible(false);
+    const cut = new CutIn(this, 4, BAND_Y + 30, W - 8, CUT_H).setVisible(false);
     // タップで次の知らせがあることを示す印(次のステージが開いたとき)
-    const more = new PixelText(this, W - 9, BAND_Y + 30 + 46 - 3, '▼タップ', { size: FS.small, color: UI.cutEdge })
+    const more = new PixelText(this, W - 9, BAND_Y + 30 + CUT_H - 3, '▼タップ', { size: FS.small, color: UI.cutEdge })
       .setOrigin(1, 1).setDepth(DEPTH.cutin + 1).setVisible(false);
 
     // ─── 下:数字 ───

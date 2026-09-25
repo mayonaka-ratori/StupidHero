@@ -23,7 +23,7 @@ import {
 } from '../logic';
 import { getRun, type GameRun } from '../run';
 import {
-  Button, CurlSmoke, CutIn, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
+  Button, CurlSmoke, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
   SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg } from './sort/common';
@@ -223,14 +223,15 @@ export class BossScene extends Phaser.Scene {
 
     // 下:撃破、負傷、被害額、カットイン、大きな行け!ボタン
     addPanel(this);
-    const r = panelRect();
+    // 会話の窓のセリフに1行12字が入るように、横いっぱい(左右4)を使う
+    const r = panelRect(4);
     // 地下駐車場は被害額の点滅を短く(手を止めると1秒ごとに増え、長いと数字が半分の時間消えて読めない)
     this.hud = new BossHud(this, r.x, r.y, r.w, this.car ? 160 : 500);
     this.hud.refresh(this.run.stats);
     const cutY = r.y + BossHud.H + 4;
-    this.cut = new CutIn(this, r.x, cutY, r.w, 46);
+    this.cut = new CutIn(this, r.x, cutY, r.w, CUT_H);
     this.cut.hide();
-    const by = cutY + 46 + 5;
+    const by = cutY + CUT_H + 5;
     const bh = r.bottom - by;
     this.go = new Button(this, r.x, by, r.w, bh, '行け!', { color: 'go', size: 32, onPress: (p) => this.onPress(p) });
     this.go.setEnabled(false);

@@ -73,9 +73,9 @@ export class Typer {
 }
 
 const FACE_KEY: Record<Speaker, string> = { operator: 'face_operator', hero: 'face_hero' };
-/** 顔の大きさ(32ドットの顔を 3/4 にする。2行のセリフと同じくらいの高さ) */
-const FACE_SCALE = 0.75;
-const REMARK_FACE = 32 * FACE_SCALE;
+/** 顔の大きさ(48ドットの顔を半分にする。2行のセリフと同じくらいの高さ) */
+const FACE_SCALE = 0.5;
+const REMARK_FACE = 48 * FACE_SCALE;
 
 export interface RemarkOptions {
   who?: Speaker;

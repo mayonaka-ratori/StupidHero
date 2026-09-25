@@ -1,282 +1,342 @@
-// 顔のカットイン(32×32、胸から上)。各行が表情、左が口を閉じ、右が口を開ける。
+// 顔のカットイン(48×48、胸から上)。各行が表情、左が口を閉じ、右が口を開ける。
+// 1文字が1ドット('.' は透明)。顔の形と髪のかたまりを図形で置いてから、目、口、毛先を手で打って作った
+// (元は mocks/hero_art_src/face48.py と op48.py)。
+// 表情ごとの絵は、いちばん上の表情の口を閉じた顔(BASE)に、違う行だけを重ねて作る('_' は元のまま)。
 import { md, OUTLINE, PixelGrid } from '../lib';
-import { BLUE, HAIR, RED, SKIN, WHITE, type Ramp } from './palette';
-import { ellipse, line, poly, type Pt } from './shapes';
-import { stamp } from './sprite';
+import { patch, stamp } from './sprite';
 
-const S = 32;
+const S = 48;
 
-// ---------- 目と口の部品(文字の表) ----------
-// o=ふち、w=白、I=瞳の明るい色、i=瞳の色、a=肌、b=肌の影、d=口の中、t=舌、s=汗
+// ---------- ヒーロー(ドヤ顔、やっちまった(汗)、笑顔) ----------
+// o=ふち、a,b,c=肌、H,1,2,3=髪(明るい→影)、L,B,N=スーツとマスクの青、R,r,d=マントの赤、w=白
 
-type Parts = Record<string, readonly string[]>;
+const HERO_KEYS: Record<string, string> = { o: OUTLINE, a: md(7, 6, 5), b: md(7, 5, 4), c: md(5, 3, 3), H: md(7, 7, 5), '1': md(7, 6, 1), '2': md(6, 4, 0), '3': md(4, 2, 1), L: md(3, 5, 7), B: md(1, 3, 6), N: md(1, 1, 4), R: md(7, 3, 2), r: md(6, 1, 1), d: md(3, 0, 2), w: md(7, 7, 7) };
 
-const EYES: Parts = {
-  // 4×4(1行目はまつ毛)
-  open: ['oooo', 'wIio', 'wiow', '.ww.'],
-  look: ['oooo', 'wwIi', 'wwio', '.ww.'],
-  wide: ['oooo', 'wwww', 'wwow', '.ww.'],
-  half: ['....', 'oooo', 'wIio', '.ww.'],
-  flat: ['....', 'oooo', 'owwo', '....'],
-  happy: ['....', '.oo.', 'o..o', '....'],
-  squeezeL: ['oo..', '..oo', 'oo..', '....'],
-  squeezeR: ['..oo', 'oo..', '..oo', '....'],
-  shine: ['oooo', 'wIwo', 'wiIw', '.ww.']
-};
-
-const MOUTHS: Parts = {
-  smile: ['o...o', '.ooo.'],
-  grin: ['ooooo', 'owwwo', '.odo.', '..o..'],
-  smirk: ['....o', '.ooo.'],
-  smirkOpen: ['...oo', 'oooo.', 'odwo.', '.oo..'],
-  wavy: ['.o.o.', 'o.o.o'],
-  wail: ['.ooo.', 'odddo', 'oddto', '.ooo.'],
-  flat: ['.ooo.'],
-  flatOpen: ['.ooo.', 'oddo.', '.oo..'],
-  small: ['.oo.'],
-  talk: ['.ooo.', 'oddo', '.oo.'],
-  yell: ['ooooo', 'owwwo', 'odddo', 'oddto', '.ooo.'],
-  bigSmile: ['ooooo', 'owwwo', 'odddo', '.ooo.']
-};
-
-type FaceKeys = Record<'o' | 'w' | 'I' | 'i' | 'a' | 'b' | 'd' | 't' | 's', string> & Record<string, string>;
-
-// ---------- ヒーロー ----------
-
-const HERO_KEYS = (): FaceKeys => ({ o: OUTLINE, w: WHITE, I: BLUE[0], i: BLUE[1], a: SKIN[0], b: SKIN[1], d: RED[2], t: RED[0], s: WHITE });
-
-interface Expr {
-  eyeL: string;
-  eyeR: string;
-  mouth: [string, string];
-  /** マスクの上のふちの傾き(+でつり上がる、-で困り眉) */
-  brow: number;
-  sweat?: boolean;
-  /** 頭のずらし(ノリノリで弾むなど) */
-  dy?: number;
-  blush?: boolean;
-  /** こぶしを上げる(ノリノリ) */
-  fist?: boolean;
-}
-
-const HERO_EXPR: Expr[] = [
-  { eyeL: 'smug', eyeR: 'smug', mouth: ['smirk', 'smirkOpen'], brow: 1 }, // ドヤ顔
-  { eyeL: 'squeeze', eyeR: 'squeeze', mouth: ['wavy', 'wail'], brow: -2, sweat: true }, // やっちまった
-  { eyeL: 'happy', eyeR: 'happy', mouth: ['smile', 'bigSmile'], brow: 0, blush: true } // 笑顔
+const HERO_BASE = [
+  '................................................',
+  '...................oooooooooooo.................',
+  '.................ooHHHHHH111111oo...............',
+  '...............ooHHHHHHHHH1111111oo.............',
+  '..............oHHHHHHHHHHH111111111o............',
+  '.........ooo.oHHHHHHHHHHHH1111111111o...........',
+  '.......oo2HHoHHHHHHHHHHHHH11111111111o..........',
+  '......o222HHHHHHHH111HHHHH111111111111o.........',
+  '.....o2222RrHHHHHHHHH2111HHHHH111112211o........',
+  '....o22222rdHH2HHH111111111112HH11111111o.......',
+  '...oH22222HHHHH21111112111111211HH112111o.......',
+  '..o1H22221HHHH1211111111111112111H1111111o......',
+  '..o1H22221HHH11211111122111112211111221112o.....',
+  '..oH122221HH111221111121111112211112321123o.....',
+  '.o1H1222H1H1111221111232111123211123322222o.....',
+  '.o1H1222H11111232111123221123aa21223ab2332o.....',
+  '.o1H1222H1111122a21123aa21223aaa223aab23222o....',
+  '.o1H12221121223BBB223aaaa223aaaNN3NNNNNNNNNo....',
+  '.o1112221BB222LBBB233BNNNN3NNNNNNNNNNNNNNNNo....',
+  '.o11122211NL33NNNNN3NNNNNNNNNNNNNNNNNNNNNN3o....',
+  '.o11122211NNNNNNoooooooNNNNNNNooooooNNNNNN3o....',
+  '.o11122211NNNNNNowwLBNoNNNNNNNowLBNoNNNNNN3o....',
+  '.o111222111NNNNNowwBNNoNNNNNNNowBNNoNNNNNNo.....',
+  '.o111222111NNNNNNowwwoNNNNNNNNNowwoNNNNNN3o.....',
+  '.o2222222222NNNNNNNNNNNNNaaaNNNNNNNNNNNNN3o.....',
+  '.o222222222222NNNNNNNNNNaaaaaNNNNNNNNNN333o.....',
+  '.o2222232222222acbaaaaaaaaaaaaaaaaaaabb333o.....',
+  '.o222223o222222ab2aaaaaaaaaaaaaaaaaabb333o......',
+  '.o222223o2222222223aaaaaaaaaaaaaaaaacbo3o.......',
+  '..o22223o2222222233aaaaaaaaaaaaaaooaaoo3o.......',
+  '..o22223o3333o22333bbbaaaaooooaaaaaaao.o........',
+  '..o222233o333oooooooobaaaaaaaaaaaaaao...........',
+  '...o22233oo3o.......ocaaaaaaaaaaaaoo............',
+  '....o223o..o........occbbbbbbbbbbo..............',
+  '.....o2o.............occbbbbbbboo...............',
+  '......o..............oaaaaabbbo.................',
+  '.......oooooo.......ooaaaaabbbo....oooooo.......',
+  '...oooorrddddoooooooBBaaaaabbbooooorrrrrroooo...',
+  '..oRRrrrrddddLBBBBBBBBaaaaabbbBBBBBBrrrrrrrrdo..',
+  '.oRRrrrrrddo2oLLLLLLBBBaaaabbBBBBBBBo3orrrrrddo.',
+  'oRRrrrrrrdL212BBBBBBBBBBBaaBBBBBBBBB313rrrrrdddo',
+  'RRrrrrrrLLLo2oBBBBBBBBBBB1BBBBBBBBBBo3oNdddddddd',
+  'RrrrrrrLLLLLLLBBBBBBBBB11H11BBBBBBBBBNNNNddddddd',
+  'rrrrrrrLLLLLLLBBBBBBBBBB121BBBBBBBBBBNNNNddddddd',
+  'rrrrrrrBBBBBBBBBBBBBBBB12B21BBBBBBBBBNNNNNdddddd',
+  'rrrrrrrBBBBBBBBBBBBBBBB2BBB2BBBBBBBBBNNNNNdddddd',
+  'rrrrrrBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBNNNNNdddddd',
+  'rrrrrrBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBNNNNNNddddd'
 ];
 
-/** ヒーローのマスクの白いレンズ(5×4)。[左目, 右目] */
-const LENS: Record<string, [string[], string[]]> = {
-  normal: [['.www.', 'wwwww', 'wwww.', '.ww..'], ['.www.', 'wwwww', '.wwww', '..ww.']],
-  smug: [['.....', 'wwww.', 'wwwww', '..ww.'], ['.....', '.wwww', 'wwwww', '.ww..']],
-  squeeze: [['ww...', '.www.', '...ww', '.www.'], ['...ww', '.www.', 'ww...', '.www.']],
-  happy: [['.....', '.www.', 'ww.ww', 'w...w'], ['.....', '.www.', 'ww.ww', 'w...w']]
-};
-
-function shade(r: Ramp, x: number, y: number, cx: number, cy: number, rx: number, ry: number): string {
-  // 左上が明るく、右下が暗い
-  const k = ((x + 0.5 - cx) / rx) * 0.7 + ((y + 0.5 - cy) / ry) * 0.7;
-  return k < -0.45 ? r[0] : k > 0.55 ? r[2] : r[1];
-}
-
-function drawHeroFace(e: Expr, open: boolean): PixelGrid {
-  const g = new PixelGrid(S, S);
-  const K = HERO_KEYS();
-  const dy = e.dy ?? 0;
-
-  // ポニーテール(奥)
-  const tail: Pt[] = [[8, 6], [5, 7], [3, 10], [2, 14], [2.5, 18], [4, 21]];
-  tail.forEach((p, i) => {
-    if (i === 0) return;
-    const r = 3.2 - i * 0.4;
-    line(g, [tail[i - 1][0], tail[i - 1][1] + dy], [p[0], p[1] + dy], r, (x, y) => shade(HAIR, x, y, 4, 12 + dy, 4, 8));
-  });
-  // マントの肩(奥)
-  poly(g, [[0, 32], [0, 27], [4, 24], [9, 24], [7, 32]], (x, y) => shade(RED, x, y, 3, 28, 5, 5));
-  poly(g, [[32, 32], [32, 27], [28, 24], [23, 24], [25, 32]], (x, y) => shade(RED, x, y, 29, 27, 5, 5));
-  // 胴
-  poly(g, [[3, 32], [4, 28], [8, 25.5], [14, 24.5], [22, 24.5], [26, 25.5], [29, 28], [30, 32]],
-    (x, y) => shade(BLUE, x, y, 16, 29, 12, 5));
-  // 首
-  poly(g, [[14.5, 20], [21, 20], [20.5, 26.5], [18, 27.5], [15, 26.5]], (x, y) => (y < 23 + dy ? SKIN[2] : x < 16 ? SKIN[1] : SKIN[1]));
-  // 胸の星
-  stamp(g, ['..1..', '11111', '.121.', '.2.2.'], { 1: HAIR[0], 2: HAIR[1] }, 15, 28);
-  // マントの留め金
-  ellipse(g, 7.5, 26.5, 1.3, 1.3, HAIR[1]);
-  ellipse(g, 25.5, 26.5, 1.3, 1.3, HAIR[2]);
-  g.px(7, 26, HAIR[0]);
-
-  // 後ろ髪
-  ellipse(g, 16, 12 + dy, 10.5, 10.5, (x, y) => (y > 19 + dy ? null : shade(HAIR, x, y, 15, 10 + dy, 10, 10)));
-  // 顔
-  const face: Pt[] = [[10, 9], [25, 9], [25.5, 15], [24.5, 19.5], [21.8, 23], [18.5, 24.3], [15, 22.8], [11.5, 19], [10, 14]]
-    .map(([x, y]) => [x, y + dy] as Pt);
-  poly(g, face, (x, y) => {
-    if (x >= 24 || (y > 19 + dy && x > 19)) return SKIN[1];
-    if (y > 20 + dy && x < 16) return SKIN[1];
-    return SKIN[0];
-  });
-  // 耳
-  ellipse(g, 10.6, 15.5 + dy, 1.6, 2.1, SKIN[1]);
-  g.px(10, 15 + dy, SKIN[2]);
-  // 横の髪
-  poly(g, [[7.5, 8], [11, 8], [10.5, 12], [9.5, 19], [7.5, 20]].map(([x, y]) => [x, y + dy] as Pt), (x, y) => shade(HAIR, x, y, 9, 12 + dy, 3, 8));
-  poly(g, [[23.5, 8], [26.5, 8], [26.8, 14], [26, 18], [24.8, 13]].map(([x, y]) => [x, y + dy] as Pt), (_x, y) => (y > 13 + dy ? HAIR[2] : HAIR[1]));
-  // 髪を結ぶ赤いゴム
-  ellipse(g, 7, 6.5 + dy, 1.4, 1.4, RED[1]);
-
-  // マスク
-  const mY = 11 + dy;
-  const b = e.brow;
-  poly(g, [[7, mY - 0.5 + b * 0.3], [11, mY - b * 0.5], [16, mY + 1], [18.5, mY + 1], [23.5, mY - b * 0.5], [28.5, mY - 1 + b * 0.3], [26.5, mY + 5.5], [20, mY + 6], [17.3, mY + 4.6], [15, mY + 6], [9, mY + 5.5]],
-    BLUE[2]);
-  // マスクのつや(左上)
-  for (const [x, y] of [[9, 1], [10, 1], [11, 1], [8, 2]] as Pt[]) if (g.get(x, mY + y) === BLUE[2]) g.px(x, mY + y, BLUE[1]);
-  // 目:マスクの白いレンズ。形で表情を出す
-  stamp(g, LENS[e.eyeL][0], { w: WHITE, o: OUTLINE }, 10, mY + 1);
-  stamp(g, LENS[e.eyeR][1], { w: WHITE, o: OUTLINE }, 19, mY + 1);
-
-  // 前髪(ぎざぎざのすそ)。マスクの上にかぶせる
-  const zig: Pt[] = [[7, 12], [9.6, 15.5], [13, 11], [17.2, 15], [21.2, 11], [26, 14.5], [28, 11]];
-  const bangBottom = (px: number): number => {
-    for (let i = 0; i < zig.length - 1; i++) {
-      const [x0, y0] = zig[i], [x1, y1] = zig[i + 1];
-      if (px >= x0 && px < x1) return y0 + ((y1 - y0) * (px - x0)) / (x1 - x0);
+const HERO_FACES: Record<number, string>[][] = [
+  [
+    {},
+    {
+      29: '______________________________oooaa',
+      30: '_____________________________Ro',
+      31: '__________________________odRdo',
+      32: '___________________________ooo'
     }
-    return 9;
-  };
-  for (let x = 8; x <= 27; x++) {
-    const bt = bangBottom(x + 0.5);
-    const rising = bangBottom(x + 1.5) < bt;
-    for (let y = 3; y + 0.5 < bt + dy; y++) {
-      if (!g.get(x, y)) continue;
-      const sy = y - dy;
-      let c = sy < 5 || (x < 14 && sy < 7) || (x + sy < 19) || (x - 11 === sy && sy < 10) || (x - 17 === sy - 3 && sy < 9) ? HAIR[0] : HAIR[1];
-      if (sy + 1.5 >= bt && rising) c = HAIR[2];
-      g.px(x, y, c);
+  ],
+  [
+    {
+      12: '___________________________________________o',
+      13: '___________________________________________oo',
+      14: '_________________________________________oLLoo',
+      15: '_________________________________________oLwoo',
+      16: '_________________________________________oLLoo',
+      17: '__________________________________________o_o',
+      19: '________________ooa_aaa_______aaaaao',
+      20: '________________aa___aa_______aa___a',
+      21: '________________aaaaooa_______aooaaa',
+      22: '________________aaoooaa_______aaoooa',
+      23: '________________o_aaaaa_______aaaaao',
+      29: '___________________________o___o_aa',
+      30: '___________________________a_ao',
+      31: '_____________________________o'
+    },
+    {
+      12: '___________________________________________o',
+      13: '___________________________________________oo',
+      14: '_________________________________________oLLoo',
+      15: '_________________________________________oLwoo',
+      16: '_________________________________________oLLoo',
+      17: '__________________________________________o_o',
+      19: '________________ooa_aaa_______aaaaao',
+      20: '________________aa___aa_______aa___a',
+      21: '________________aaaaooa_______aooaaa',
+      22: '________________aaoooaa_______aaoooa',
+      23: '________________o_aaaaa_______aaaaao',
+      28: '___________________________oooo',
+      29: '__________________________oddddo_aa',
+      30: '___________________________dddRo',
+      31: '__________________________oRRRRo',
+      32: '___________________________oooo'
     }
-  }
-  // 髪のつや(左上の弧)
-  for (const [x, y] of [[9, 4], [10, 3], [11, 3], [12, 2], [13, 2], [14, 2], [8, 5], [8, 6]] as Pt[]) g.px(x, y + dy, HAIR[0]);
-
-  // 鼻
-  g.px(22, 18 + dy, SKIN[1]);
-  g.px(22, 19 + dy, SKIN[2]);
-  // ほお
-  if (e.blush) { g.px(12, 18 + dy, RED[0]); g.px(13, 18 + dy, RED[0]); g.px(23, 18 + dy, RED[0]); }
-  // 口
-  const m = MOUTHS[e.mouth[open ? 1 : 0]];
-  const mw = m[0].length;
-  stamp(g, m, K, Math.round(19.5 - mw / 2), 20 + dy);
-  // 汗
-  if (e.sweat) {
-    stamp(g, ['.s.', 'sws', 'sws', '.s.'], { s: BLUE[0], w: WHITE }, 26, 9 + dy);
-  }
-  g.outline(OUTLINE);
-  return g;
-}
-
-// ---------- オペレーター ----------
-
-const NAVY: Ramp = [md(2, 2, 5), md(1, 1, 3), md(0, 0, 2)];
-const TEAL: Ramp = [md(2, 5, 5), md(1, 3, 4), md(0, 2, 3)];
-const SET_L = md(4, 4, 5);
-const SET_D = md(2, 2, 3);
-const RIBBON = md(6, 1, 1);
-
-const OP_EXPR: Expr[] = [
-  { eyeL: 'open', eyeR: 'open', mouth: ['small', 'talk'], brow: 0 }, // ふつう
-  { eyeL: 'wide', eyeR: 'wide', mouth: ['wavy', 'yell'], brow: -2, sweat: true }, // あせり
-  { eyeL: 'flat', eyeR: 'flat', mouth: ['flat', 'flatOpen'], brow: -1 }, // あきれ
-  { eyeL: 'happy', eyeR: 'happy', mouth: ['smile', 'bigSmile'], brow: 1, dy: -1, blush: true, fist: true } // ノリノリ
+  ],
+  [
+    {
+      19: '________________aaa_aaa_______aaaaaa',
+      20: '________________aa___aa_______a___aa',
+      21: '________________aoaaaoa________aaaoa',
+      22: '_________________aaaaa________aaaaaa',
+      23: '________________aaaaaaa_______aaaaaa',
+      28: '_________________RRR_____________RR',
+      29: '_________________________o_____o_aa',
+      30: '______________________________o'
+    },
+    {
+      19: '________________aaa_aaa_______aaaaaa',
+      20: '________________aa___aa_______a___aa',
+      21: '________________aoaaaoa________aaaoa',
+      22: '_________________aaaaa________aaaaaa',
+      23: '________________aaaaaaa_______aaaaaa',
+      28: '_________________RRR_____________RR',
+      29: '_________________________ooooooo_aa',
+      30: '_________________________owwwwwo',
+      31: '_________________________oddRRdo',
+      32: '__________________________ooooo'
+    }
+  ]
 ];
 
-function drawOperatorFace(e: Expr, open: boolean): PixelGrid {
+// ---------- オペレーター(ふつう、あせり(汗)、あきれ、ノリノリ) ----------
+// o=ふち、a,b,c=肌、K,k,q=髪(明るい→影)、T,t,D=制服と瞳の青緑、w=白、R,p=リボンと口の中、s,S=ヘッドセット
+
+const OP_KEYS: Record<string, string> = { o: OUTLINE, a: md(7, 6, 5), b: md(7, 5, 4), c: md(5, 3, 3), K: md(3, 3, 6), k: md(1, 1, 4), q: md(0, 0, 2), T: md(2, 6, 5), t: md(1, 4, 4), D: md(0, 2, 3), w: md(7, 7, 7), R: md(6, 1, 1), p: md(7, 4, 4), s: md(5, 5, 6), S: md(2, 2, 3) };
+
+const OP_BASE = [
+  '....................oooooooo....................',
+  '...................ossssssSSoo..................',
+  '................ooosSSSSSSSSSkoo................',
+  '..............ooKssSKKkkkkkkSSSkooo.............',
+  '.............oKKsSSKKKkkkkkkkSSSkkko............',
+  '............oKKsSKsssssssskkkkkSSkkko...........',
+  '...........oKKsSssKKKKKKKKsskkkkSSkkko..........',
+  '..........oKKsSsKKKKKKkkkkKKssskkSkkkko.........',
+  '.........oKsssKKkkkkkkkkkkkkKKKskkSkkkko........',
+  '.........oKKsSkkkkkkkkkkkkkkkkkKkkSSkkko........',
+  '........oKksSkkqkkkkkkqkkkkkkkqkkkkSSkkko.......',
+  '.......oKKkSkkkqkkkkkkqkkkkkkkqkkkkkSkkkqo......',
+  '.......oKKskkkqkkkkkkqkkkkkkkqkkkkkkkSkkqo......',
+  '.......oKsSkkkqkkqkkkqkqkkqkkqkqkkkkkSSkqo......',
+  '.......oKSqqqqqkkqqqqqqqkkqqqqqqkqqqqkSkko......',
+  '.......osKKkkkkqqaaaaaaaqqaaaaaaqaakkqqSko......',
+  '......osSKKkkkkqqqqaaaaaaaaaaqqqaaabkkkSSo......',
+  '....oooSKKKkkkkkaaaaaaaaaaaaaaaaaaabkkkkSqo.....',
+  '..ooooooKKKkkkkkoooooaaaaaaaaooooaabkkkkkSo.....',
+  '.oossssSoKKkkkkowwTTDoaaaaaaowTTDoabkkkkkSo.....',
+  '.oosssSSoKKkkkkowTwtDoaaaaaaoTwtDoabkkkkkqo.....',
+  '.oossRSSoKKkkkkowTtDDoaaaaaaoTtDDoabqqqqqqo.....',
+  '.oosssSSokkkkkkowtDDDoaaaaaaotDDDoabqqqqqqo.....',
+  '.oossSSSokkkkkkkowwwoaaaaaaaaowwoaabqqqqqqo.....',
+  '.oosSSSSokkkkkkkaaaaaaaaaaaaaaaaaaabqqqqqqo.....',
+  '..ooooookkkkkkkkaaaaaaaaaaaaaaaaaaabqqqqqqo.....',
+  '....oookskkkkkkkaaaaaaaaaaaaaaaaababqqqqqqo.....',
+  '......okkskkkkkkkaaaaaaaaaaaaaaaacaqqqqqqqo.....',
+  '......okkkskkkkkqaaaaaaaaaaaaaaaaaaqqqqqqqo.....',
+  '......okkkkskkkqqqbbaaaaaaaaaaaaaaqqqqqqqqo.....',
+  '......okqqqqssqqoobbaaaaaoooaaaaaqqqqqqqqqo.....',
+  '......okqqqqqqssssSoaaaaaaaaaaaaqqqqqqqqqqo.....',
+  '......okkqqqqqqooooocbbbbbbbbbboooqqqqqqqo......',
+  '.......okqqqqqo.oo.oaabbbbbbboo...oqqqqqqo......',
+  '.......okqqqqqo....oaaaaaabbo......oqqqqqo......',
+  '........ooqqoo.....oaaaaaabbo.......oqqoo.......',
+  '..........oo......owaaaaaabbwo.......oo.........',
+  '...........ooooooowwaaaaaabbwwooooooo...........',
+  '.........ooTTttttttwwaaaaabwwDDDDttttoo.........',
+  '.......ooTTTTTTtttttwwwaawwwtDDDDDDDDtDo........',
+  '.....ooTTTTTTTTtttttRRwRRwwtDDDDDDDDDtDDoo......',
+  '....oTTTTTTTTTTttttttRpRwwwtDDDDDDDDttDDDDo.....',
+  '...oTTTTTTTTTTTtttttRRwRRwttDDDDDDDDttDDDDDo....',
+  '...oTTTTTTTTTTTttttttttwwttDDDDDDDDtttDDDDDo....',
+  '...oTTTTTTTTTTTttttttttttttDDDDDDDDtttDDDDDDo...',
+  '...ottttttttttTttttttttttttDDDDDDDttttDDDDDDo...',
+  '..otttttttttttTtttttttttttDDDDDDDDttttDDDDDDo...',
+  '..otttttttttttttttttttttttDDDDDDDtttttDDDDDDDo..'
+];
+
+const OP_FACES: Record<number, string>[][] = [
+  [
+    {},
+    {
+      29: '_________________________ooo',
+      30: '________________________oRRRo',
+      31: '_________________________ooo'
+    }
+  ],
+  [
+    {
+      9: '__________________________________________o',
+      10: '_________________________________________ooo',
+      11: '________________________________________oTToo',
+      12: '________________________________________oTwoo',
+      13: '________________________________________oTToo',
+      14: '__________________________________________oo',
+      15: '__________________________________________o',
+      16: '_______________kaa_q___________a',
+      17: '_______________qq______________qq',
+      19: '__________________www_________www',
+      20: '_________________wTww________wTww',
+      21: '_________________w_ww________w_ww',
+      22: '_________________wwww________wwww',
+      23: '_________________ooo__________oo',
+      30: '________________________oaaao',
+      31: '_______________________o_o_o',
+      32: '__________________________o'
+    },
+    {
+      9: '__________________________________________o',
+      10: '_________________________________________ooo',
+      11: '________________________________________oTToo',
+      12: '________________________________________oTwoo',
+      13: '________________________________________oTToo',
+      14: '__________________________________________oo',
+      15: '__________________________________________o',
+      16: '_______________kaa_q___________a',
+      17: '_______________qq______________qq',
+      19: '__________________www_________www',
+      20: '_________________wTww________wTww',
+      21: '_________________w_ww________w_ww',
+      22: '_________________wwww________wwww',
+      23: '_________________ooo__________oo',
+      28: '________________________oooo',
+      29: '_______________________owwwwo',
+      30: '_______________________oRRRRo',
+      31: '_______________________oRppRo',
+      32: '________________________oooo'
+    }
+  ],
+  [
+    {
+      16: '_______________kaa_q___________a',
+      17: '_______________qq______________qq',
+      18: '________________aaaaa________aaaa',
+      19: '_______________kaaaaaa______aaaaaa',
+      20: '________________ooooo________oooo',
+      30: '________________________o'
+    },
+    {
+      16: '_______________kaa_q___________a',
+      17: '_______________qq______________qq',
+      18: '________________aaaaa________aaaa',
+      19: '_______________kaaaaaa______aaaaaa',
+      20: '________________ooooo________oooo',
+      29: '________________________oooo',
+      30: '________________________oRR',
+      31: '_________________________oo'
+    }
+  ],
+  [
+    {
+      16: '_______________k',
+      18: '________________aaaaa________aaaa',
+      19: '_______________kaaaaaa______aaaaaa',
+      20: '_______________kaoooaa______aoooaa',
+      21: '_______________koaaaoa_______aaaoa',
+      22: '________________aaaaa_______aaaaaa',
+      23: '________________aaaaa________aaaa',
+      25: '_____________________________________ooooo',
+      26: '___________________________________ooooooo_o',
+      27: '________________ppp____________pp_ooaaaaaabo',
+      28: '__________________________________oocccccbbo',
+      29: '_______________________o___o______ooaaaaaabo',
+      30: '________________________o__a______oocccccbbo',
+      31: '__________________________________ooaaaaaabo',
+      32: '__________________________________oocccccbbo',
+      33: '___________________________________oaaaaaboo',
+      34: '____________________________________obbbbboo',
+      35: '___________________________________oabbbbbbo',
+      36: '____________________________________owwwwwwo',
+      37: '_____________________________________wwwwwwo',
+      38: '____________________________________oTtttDDo',
+      39: '___________________________________oTTtttDDo',
+      40: '___________________________________oTTtttDDo',
+      41: '___________________________________oTTttt_Do',
+      42: '___________________________________oTTttt',
+      43: '__________________________________oTTTttt__Do',
+      44: '__________________________________oTTTttt',
+      45: '__________________________________oTTTttt',
+      46: '_________________________________oTTTTttt',
+      47: '_________________________________oTTTTttt___o'
+    },
+    {
+      16: '_______________k',
+      18: '________________aaaaa________aaaa',
+      19: '_______________kaaaaaa______aaaaaa',
+      20: '_______________kaoooaa______aoooaa',
+      21: '_______________koaaaoa_______aaaoa',
+      22: '________________aaaaa_______aaaaaa',
+      23: '________________aaaaa________aaaa',
+      25: '_____________________________________ooooo',
+      26: '___________________________________ooooooo_o',
+      27: '________________ppp____________pp_ooaaaaaabo',
+      28: '__________________________________oocccccbbo',
+      29: '______________________ooooooo_____ooaaaaaabo',
+      30: '______________________owwwwwo_____oocccccbbo',
+      31: '______________________oRRpRRo_____ooaaaaaabo',
+      32: '_______________________ooooo______oocccccbbo',
+      33: '___________________________________oaaaaaboo',
+      34: '____________________________________obbbbboo',
+      35: '___________________________________oabbbbbbo',
+      36: '____________________________________owwwwwwo',
+      37: '_____________________________________wwwwwwo',
+      38: '____________________________________oTtttDDo',
+      39: '___________________________________oTTtttDDo',
+      40: '___________________________________oTTtttDDo',
+      41: '___________________________________oTTttt_Do',
+      42: '___________________________________oTTttt',
+      43: '__________________________________oTTTttt__Do',
+      44: '__________________________________oTTTttt',
+      45: '__________________________________oTTTttt',
+      46: '_________________________________oTTTTttt',
+      47: '_________________________________oTTTTttt___o'
+    }
+  ]
+];
+
+function draw(base: readonly string[], over: Record<number, string>, keys: Record<string, string>): PixelGrid {
   const g = new PixelGrid(S, S);
-  const dy = e.dy ?? 0;
-  const K: FaceKeys = { o: OUTLINE, w: WHITE, I: NAVY[0], i: NAVY[1], a: SKIN[0], b: SKIN[1], d: RIBBON, t: md(7, 4, 3), s: WHITE };
-
-  // 制服
-  poly(g, [[2, 32], [3, 28], [8, 25.5], [14, 24.5], [22, 24.5], [27, 25.5], [30, 28], [31, 32]], (x, y) => shade(TEAL, x, y, 16, 29, 12, 5));
-  // ブラウスのえり
-  poly(g, [[13.5, 24], [18, 29], [22.5, 24], [21, 23], [18, 26], [15, 23]], WHITE);
-  // 首
-  poly(g, [[15, 20], [21, 20], [20.5, 25], [18, 27], [15.5, 25]], (_x, y) => (y < 22.5 + dy ? SKIN[2] : SKIN[1]));
-  // リボン
-  stamp(g, ['rr.rr', '.rRr.', 'rr.rr'], { r: RIBBON, R: md(7, 4, 3) }, 16, 27);
-  // えりのふち
-  poly(g, [[8, 26], [13.5, 24.5], [16, 32], [11, 32]], (x, y) => shade(TEAL, x, y, 10, 26, 4, 4));
-  poly(g, [[28, 26], [22.5, 24.5], [20, 32], [25, 32]], TEAL[2]);
-
-  // 後ろ髪(ボブ)
-  const hairC = (x: number, y: number): string => shade(NAVY, x, y, 15, 10 + dy, 10, 11);
-  poly(g, [[6, 12], [8, 5], [12, 2], [19, 1.5], [24, 3.5], [27.5, 8], [28, 14], [27.5, 21], [25, 23], [23, 21], [12, 21], [9, 23.5], [6, 22], [5.5, 17]]
-    .map(([x, y]) => [x, y + dy] as Pt), hairC);
-  // 顔
-  const face: Pt[] = [[10, 9], [25, 9], [25.5, 15], [24.3, 19], [21.5, 22.3], [18.5, 23.5], [15, 22], [11.5, 18.5], [10, 14]]
-    .map(([x, y]) => [x, y + dy] as Pt);
-  poly(g, face, (x, y) => (x >= 24 || (y > 19 + dy && x > 19) || (y > 20 + dy && x < 16) ? SKIN[1] : SKIN[0]));
-  // 横の髪(顔の両側を包む)
-  poly(g, [[6.5, 10], [11, 8], [11.8, 14], [11.5, 20], [10, 23.5], [7.5, 22]].map(([x, y]) => [x, y + dy] as Pt), hairC);
-  poly(g, [[23.8, 8], [27.5, 9], [28, 16], [27, 22], [25, 23], [24.5, 17]].map(([x, y]) => [x, y + dy] as Pt), (_x, y) => (y > 17 + dy ? NAVY[2] : NAVY[1]));
-  // 前髪(まっすぐ切りそろえ)
-  for (let x = 9; x <= 26; x++) {
-    const bottom = 10 + ((x === 13 || x === 19 || x === 23) ? 1 : 0) + (x > 24 ? 1 : 0);
-    for (let y = 3; y < bottom + dy; y++) if (g.get(x, y)) g.px(x, y, (y - dy < 5 && x < 18) ? NAVY[0] : NAVY[1]);
-    g.px(x, bottom + dy - 1, NAVY[2]);
-  }
-  for (const [x, y] of [[10, 5], [11, 4], [12, 4], [13, 3], [14, 3], [9, 6]] as Pt[]) g.px(x, y + dy, NAVY[0]);
-  // 眉(前髪の下すぐ)
-  const brow = (x0: number, dir: number): void => {
-    for (let i = 0; i < 3; i++) g.px(x0 + i, 11 + dy - Math.round(((i - 1) * e.brow * dir) / 2), NAVY[1]);
-  };
-  brow(11, -1);
-  brow(20, 1);
-  // 目
-  const eye = (ex: number, name: string): void => stamp(g, EYES[name], K, ex, 12 + dy);
-  eye(11, e.eyeL);
-  eye(20, e.eyeR);
-  // 鼻
-  g.px(22, 17 + dy, SKIN[1]);
-  g.px(22, 18 + dy, SKIN[2]);
-  if (e.blush) { g.px(12, 17 + dy, md(7, 4, 3)); g.px(13, 17 + dy, md(7, 4, 3)); g.px(24, 17 + dy, md(7, 4, 3)); }
-  // 口
-  const m = MOUTHS[e.mouth[open ? 1 : 0]];
-  stamp(g, m, K, Math.round(19.5 - m[0].length / 2), 19 + dy);
-  // ヘッドセット:頭の上のバンド、耳あて、マイク
-  for (let x = 6; x <= 25; x++) {
-    const t = (x - 6) / 19;
-    const y = Math.round(10 + dy - Math.sin(t * Math.PI) * 9.5);
-    g.px(x, y, SET_D);
-    g.px(x, y - 1, t < 0.5 ? SET_L : SET_D);
-  }
-  ellipse(g, 8, 15 + dy, 2.6, 3.3, (x, y) => (x + y < 8 + 14 + dy ? SET_L : SET_D));
-  g.px(8, 15 + dy, RIBBON);
-  // マイクの腕
-  const mic: Pt = [16, 21.5 + dy];
-  line(g, [9, 18 + dy], mic, 0.75, SET_D);
-  ellipse(g, mic[0], mic[1], 1.2, 1.0, SET_L);
-  // 汗
-  if (e.sweat) {
-    stamp(g, ['.s.', 'sws', 'sws', '.s.'], { s: TEAL[0], w: WHITE }, 26, 10 + dy);
-  }
-  if (e.fist) {
-    // 袖とこぶし(画面の右下から突き上げる)
-    const fg = new PixelGrid(S, S);
-    poly(fg, [[23.5, 32], [30.5, 32], [29.5, 24], [25.5, 23.5]], (x, y) => shade(TEAL, x, y, 27, 27, 3, 4));
-    poly(fg, [[25, 24.5], [29.8, 24.5], [29.6, 23], [25.3, 22.8]], WHITE);
-    stamp(fg, ['.bbbb.', 'aaaaab', 'accccb', 'aaaaab', 'accccb', '.aaab.'], { a: SKIN[0], b: SKIN[1], c: SKIN[2] }, 24, 17);
-    fg.outline(OUTLINE);
-    g.outline(OUTLINE);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (fg.cells[y][x]) g.cells[y][x] = fg.cells[y][x];
-    return g;
-  }
-  g.outline(OUTLINE);
+  stamp(g, patch(base, over), keys, 0, 0);
   return g;
 }
 
 export function drawFaceSheet(kind: 'hero' | 'operator'): PixelGrid[][] {
-  const list = kind === 'hero' ? HERO_EXPR : OP_EXPR;
-  const draw = kind === 'hero' ? drawHeroFace : drawOperatorFace;
-  return list.map((e) => [draw(e, false), draw(e, true)]);
+  const [base, faces, keys] = kind === 'hero' ? [HERO_BASE, HERO_FACES, HERO_KEYS] as const : [OP_BASE, OP_FACES, OP_KEYS] as const;
+  return faces.map((row) => row.map((over) => draw(base, over, keys)));
 }

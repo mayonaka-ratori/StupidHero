@@ -35,7 +35,7 @@ import {
 } from '../logic';
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
-  Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
+  Bubble, Button, CutIn, CUT_H, CUT_TOP_H, EdgeAlarm, FS, IconButton, PauseControl, PixelText, Tag, WindowFrame, addPanel,
   CurlSmoke, SMOKE_DARK, SMOKE_LIGHT, UIX, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, lighter, panelRect, popText, shake, spawnFx, whenNoFlash, waitMs
 } from '../ui';
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
@@ -302,7 +302,8 @@ export class StreetScene extends Phaser.Scene {
       addPanel(this);
       // 縦に余裕があれば(縦長の画面)、横いっぱいに使い、セリフを大きな字にして、ボタンも大きくする
       const tall = panelRect().h >= 200;
-      const r = tall ? panelRect(4) : panelRect();
+      // 会話の窓のセリフに1行12字が入るように、横いっぱい(左右4)を使う
+      const r = panelRect(4);
       const hudH = 40;
       new WindowFrame(this, r.x, r.y, r.w, hudH, 'win');
       const lx = r.x + 7;
@@ -314,7 +315,7 @@ export class StreetScene extends Phaser.Scene {
       this.tDamage = new PixelText(this, r.right - 7, r.y + 21, '', { size: FS.big, color: UI.gold }).setOrigin(1, 0);
 
       const cutY = r.y + hudH + 4;
-      const cutH = tall ? 80 : 46;
+      const cutH = tall ? CUT_TOP_H : CUT_H;
       this.cut = new CutIn(this, r.x, cutY, r.w, cutH, tall ? { size: FS.big, faceTop: true } : {});
       // ボタンは親指が届く下の端にそろえる
       const bh = Math.max(40, Math.min(tall ? 120 : 72, r.bottom - (cutY + cutH + 5)));

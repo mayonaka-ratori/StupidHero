@@ -20,7 +20,7 @@ import { freeSelectInfo, randomSeed, say, stageSelectInfo, type StageId } from '
 import { startFreeRun, startRun } from '../run';
 import { settings } from '../settings';
 import { px } from '../hires';
-import { Button, CutIn, FS, PixelText, banner, flash, shake, spawnFx, waitMs } from '../ui';
+import { Button, CutIn, CUT_H, FS, PixelText, banner, flash, shake, spawnFx, waitMs } from '../ui';
 import { addMute, devHook, gotoSafe, unlockOnTap } from './sort/common';
 import { drawHand } from './sort/introDemo';
 import { entrySceneFor, freeEntryScene } from './Intro';
@@ -275,7 +275,7 @@ export class StageSelectScene extends Phaser.Scene {
       // オペレーターのひとこと。開いたカードを隠さないように、カードが下の方なら見出しの下、上の方なら下のボタンの上
       const { W, H } = layout;
       const low = card.root.y + card.box.h / 2 > H / 2;
-      const cut = new CutIn(this, 4, low ? HEADER_H + 4 : H - Math.max(6, layout.safeBottom + 4) - 26 - 8 - 50, W - 8, 46).setDepth(900);
+      const cut = new CutIn(this, 4, low ? HEADER_H + 4 : H - Math.max(6, layout.safeBottom + 4) - 26 - 8 - CUT_H - 4, W - 8, CUT_H).setDepth(900);
       const s = say('unlocked', undefined, card.entry.id);
       void cut.say(s.text, s.face, { who: s.who });
       this.time.delayedCall(2600, () => cut.destroy());
