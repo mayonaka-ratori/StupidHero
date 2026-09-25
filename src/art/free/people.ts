@@ -220,8 +220,9 @@ function fpGangSheets(): PixelGrid[][] {
   const ms: PW[] = [
     keepArm(base, wr[0], B),
     keepArm(base, wr[1], B),
-    arm(wr[2], [44, 18], [48, 15], -0.95),
-    arm(wr[3], [45, 20], [49, 17], -0.8)
+    // バットの先がコマの上と右からはみ出さないように、手を低めにする
+    arm(wr[2], [44, 21], [47, 19], -0.9),
+    arm(wr[3], [45, 22], [48, 20], -0.85)
   ];
   rows.push(ms.map((p) => drawPerson(look, p)));
   return rows;

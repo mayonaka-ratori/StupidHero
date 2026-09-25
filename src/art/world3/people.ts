@@ -328,6 +328,34 @@ function armSeam(Pn: Painter, pose: Pose): void {
   for (let k = -1; k <= 1; k++) Pn.px(Math.round(m2[0] + px * k), Math.round(m2[1] + py * k), GLITCH[2]);
 }
 
+/**
+ * 手前の袖の白い線(ジャージの線)。上着も袖も赤なので、腕が胴にとけこまないように、
+ * 肩から袖口まで、腕の真ん中に1本通す。袖の赤の上だけを塗る(手と袖口は塗らない)
+ */
+function sleeveStripe(Pn: Painter, pose: Pose): void {
+  const { sF } = shoulders(pose);
+  const a = pose.aF;
+  const dx = a.h[0] - a.e[0], dy = a.h[1] - a.e[1], L = Math.hypot(dx, dy) || 1;
+  const wrist: Pt = [a.h[0] - (dx / L) * 3, a.h[1] - (dy / L) * 3];
+  const red = new Set<string>(JACKET);
+  const seen = new Set<string>();
+  const seg = (p: Pt, q: Pt, t0: number) => {
+    const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) * 2));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      if (t < t0) continue;
+      const x = Math.round(p[0] + (q[0] - p[0]) * t), y = Math.round(p[1] + (q[1] - p[1]) * t);
+      const k = `${x},${y}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const c = Pn.g.get(x, y);
+      if (c && red.has(c)) Pn.px(x, y, WHITE[0]);
+    }
+  };
+  seg(sF, a.e, 0.25);
+  seg(a.e, wrist, 0);
+}
+
 export function dancerLook(thinArm = false): Look {
   return {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_SHORT,
@@ -345,6 +373,7 @@ export function dancerLook(thinArm = false): Look {
       Pn.px(X(-5, 2), n[1] + 2, WHITE[0]).px(X(-4, 1), n[1] + 1, WHITE[0]);
     },
     front(Pn, pose) {
+      sleeveStripe(Pn, pose);
       // ジャージの脚の白い線
       Pn.line(R([pose.hip[0] - 1, pose.hip[1] + 0.5]), R([pose.lF.k[0] + 1, pose.lF.k[1]]), WHITE[0]);
       if (P(pose).glitch !== undefined) armSeam(Pn, pose);
@@ -358,7 +387,8 @@ function dancerSheets(): Pair {
   const n = base.neck;
   // 市民も宇宙人も:カクカク踊る(ひじを直角に曲げたロボットの形を、1コマずつ切りかえる)
   const f0 = withFace(base, 'normal');
-  f0.aF = { e: [n[0] + 5, n[1] + 3], h: [n[0] + 5, n[1] - 4] };
+  // 手前の腕は前へ出して、手首から先を下へ曲げる(顔を隠さない)
+  f0.aF = { e: [n[0] + 6, n[1] + 3], h: [n[0] + 6, n[1] + 10] };
   f0.aB = { e: [n[0] + 8, n[1] + 9], h: [n[0] + 14, n[1] + 9] };
   const f1 = withFace(moveUpper(base, 1, 0), 'shut');
   f1.aF = { e: [n[0] + 6, n[1] + 3], h: [n[0] + 13, n[1] + 3] };

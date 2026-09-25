@@ -303,7 +303,8 @@ function guardSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[
   const n = base.neck;
   // 市民:あくび(手を口に当てて、体をのばす)
   const m = mouthAt(base);
-  const yawnArm = (p: Pose): Pose => armTo(p, [m[0] + (p.head[0] - base.head[0]), m[1] + 1 + (p.head[1] - base.head[1])], [n[0] + 4 + (p.neck[0] - n[0]), n[1] + 7 + (p.neck[1] - n[1])]);
+  // 手は口の前(顔の外)に置き、目と大きく開けた口が見えるようにする
+  const yawnArm = (p: Pose): Pose => armTo(p, [m[0] + 4 + (p.head[0] - base.head[0]), m[1] + 2 + (p.head[1] - base.head[1])], [n[0] + 4 + (p.neck[0] - n[0]), n[1] + 7 + (p.neck[1] - n[1])]);
   const civSort: Pose[] = [
     withFace(base, 'normal'),
     tag(yawnArm(withFace(base, 'shut')), { mouth: 'yawn' }),
