@@ -17,9 +17,10 @@ data={'pal':{}, 'img':{}}
 def add(name, path, palname):
     pal,rows=load(path); data['pal'][palname]=pal; data['img'][name]={'p':palname,'r':rows}
 add('old_idle','base_0_0.txt','hero'); add('old_punch','base_3_2.txt','hero')
-add('new_idle','idle.txt','hero'); add('new_punch','punch.txt','hero')
+add('v1_idle','idle.txt','hero'); add('v1_punch','punch.txt','hero')
+add('new_idle','idle2.txt','hero'); add('new_punch','punch2.txt','hero')
 for i in range(3):
-    for s in 'ab': add(f'new_fh{i}{s}',f'fhh{i}{s}.txt','hero')
+    for s in 'ab': add(f'new_fh{i}{s}',f'fhv{i}{s}.txt','hero')
 for i in range(4):
     for s in 'ab': add(f'new_fo{i}{s}',f'fo{i}{s}.txt','op')
 for kind,short in (('hero','fh'),('operator','fo')):

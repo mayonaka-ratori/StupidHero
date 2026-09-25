@@ -85,7 +85,7 @@
 <div class="wrap">
   <header>
     <h1>ヒーローと<span>オペレーター</span>の絵 見直し案</h1>
-    <p class="lead">メガドライブのベルトアクション(ベア・ナックル、ゴールデンアックスあたり)に近づけるため、ヒーローの体と、ヒーロー、オペレーターの顔を1ドットずつ描き直した見本です。どの見本も左がいまの絵、右が新しい案です。コマの大きさと色の数は、いまの決まりのままです。</p>
+    <p class="lead">メガドライブのベルトアクション(ベア・ナックル、ゴールデンアックスあたり)に近づけるため、ヒーローの体と、ヒーロー、オペレーターの顔を1ドットずつ描き直した見本です。いまの絵の見た目(黒いふち、等身、色)はそのままにして、形と陰を磨きました。体は左から、いまの絵、1回目の案、2回目の案(磨いた版)です。コマの大きさと色の数は、いまの決まりのままです。</p>
     <div class="tools">
       <div class="seg" role="group" aria-label="拡大の倍率">
         <button type="button" data-zoom="2" id="zoom2">2倍</button>
@@ -104,14 +104,16 @@
         <h3>待機</h3>
         <div class="cmp">
           <figure><div class="stage"><canvas data-img="old_idle" data-kind="body"></canvas></div><figcaption><span class="tag">いま</span></figcaption></figure>
-          <figure><div class="stage"><canvas data-img="new_idle" data-kind="body"></canvas></div><figcaption><span class="tag new">新しい案</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="v1_idle" data-kind="body"></canvas></div><figcaption><span class="tag">1回目</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="new_idle" data-kind="body"></canvas></div><figcaption><span class="tag new">2回目</span></figcaption></figure>
         </div>
       </div>
       <div class="pair">
         <h3>光のパンチ(腕を伸ばしきったコマ)</h3>
         <div class="cmp">
           <figure><div class="stage"><canvas data-img="old_punch" data-kind="body"></canvas></div><figcaption><span class="tag">いま</span></figcaption></figure>
-          <figure><div class="stage"><canvas data-img="new_punch" data-kind="body"></canvas></div><figcaption><span class="tag new">新しい案</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="v1_punch" data-kind="body"></canvas></div><figcaption><span class="tag">1回目</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="new_punch" data-kind="body"></canvas></div><figcaption><span class="tag new">2回目</span></figcaption></figure>
         </div>
       </div>
     </div>
@@ -137,7 +139,16 @@
   </section>
 
   <section>
-    <h2>変えたところ</h2>
+    <h2>2回目で磨いたところ</h2>
+    <ul class="points">
+      <li><b>待機の腕</b>:両腕とも、ひじを外に張って腰に手を当てた形がわかるように描き直しました。腕と胴のすき間から、うしろのマントが見えます。</li>
+      <li><b>胴と脚</b>:胴にくびれを入れ、スカートのすそのひだを明るくしました。脚には、ひざの明るい点と、上が広がったブーツの形を入れました。</li>
+      <li><b>ポニーテール</b>:太くして、結び目の赤いゴムから下へ垂れて首のほうへ戻る形にしました。髪のつやを、頭の上に帯のように入れました。</li>
+      <li><b>パンチ</b>:伸ばした腕に、肩の丸み、ひじのくぼみ、金の袖口を入れ、グローブを大きくしました。腕の下に胸の星が見えるようにしました。スカートは後ろへなびかせました。</li>
+      <li><b>ヒーローの顔</b>:あごを1段短くして、頬を丸くしました。口の位置もそれに合わせて上げました。ポニーテールの暗い色を減らしました。</li>
+      <li><b>オペレーターの顔</b>:1回目のままです。</li>
+    </ul>
+    <h2 style="margin-top:28px">1回目で変えたところ</h2>
     <ul class="points">
       <li><b>手足の形</b>:丸い棒をつないだ形をやめて、太もも、ひざ、ふくらはぎ、ブーツの形を1本ずつ描きました。待機は足を開いて立つ形にして、ヒーローらしく見えるようにしました。</li>
       <li><b>陰の付け方</b>:明るい、ふつう、暗いの3段を、形に沿ってはっきり分けました。いまの絵にある細かい点々のむらをなくしました。</li>
@@ -199,7 +210,8 @@ function fit() {
     if (kind === 'talk') { cv.style.width = cv.width * 3 + 'px'; cv.style.height = cv.height * 3 + 'px'; return; }
     const holder = cv.closest('.cmp') || cv.parentElement;
     const room = holder.clientWidth;
-    const per = kind === 'body' ? (room - 16) / 2 : kind === 'face' ? (room - 10) / 2 : room;
+    const n = holder.querySelectorAll('canvas').length;
+    const per = kind === 'body' ? Math.max((room - 16 * (n - 1)) / n, (room - 16) / 2) : kind === 'face' ? (room - 10) / 2 : room;
     const s = Math.max(1, Math.min(want, Math.floor(per / cv.width)));
     cv.style.width = cv.width * s + 'px';
     cv.style.height = cv.height * s + 'px';
