@@ -422,6 +422,12 @@ describe('ステージ4の文', () => {
     ...LIFT_INTRO_FIRST, ...LIFT_INTRO_AGAIN, ...TOWER_ENDING, ...Object.values(TOWER_TITLE_COMMENTS)
   ];
 
+  it('禁則で最後の行が1字だけになりやすい言い回し(〜っちゃった)を使わない', () => {
+    for (const s of towerSpeeches) {
+      for (const line of s.text.split('\n')) expect(line, s.text).not.toMatch(/[ぁぃぅぇぉっゃゅょァィゥェォッャュョー]{2}[^！？…、。]$/);
+    }
+  });
+
   it('allTexts に入っている(字数の決まり、1行12字と2行までは allTexts の決まりで確かめる)', () => {
     const all = new Set(allTexts());
     for (const s of towerSpeeches) expect(all.has(s.text), s.text).toBe(true);
