@@ -68,6 +68,8 @@ npm run dev        # 開発用のサーバー。表示されたURLをスマホ�
 | [docs/STAGE3.md](docs/STAGE3.md)、[docs/STAGE3_TEXT.md](docs/STAGE3_TEXT.md) | ステージ3で足したり変えたりしたことと、ステージ3の文 |
 | [docs/FREEPLAY.md](docs/FREEPLAY.md) | フリープレイ(仕分けのないモード)の仕様 |
 | [docs/ART_SPEC.md](docs/ART_SPEC.md) | 絵の決まり(大きさ、色、並べ方)と、ChatGPTで絵を作る手順 |
+| [CLAUDE.md](CLAUDE.md) | AIが作業を始めるときと終わるときにすること(やることの表を直す、ダッシュボードを公開し直す) |
+| [docs/BOARD.md](docs/BOARD.md) | やることと、人に決めてほしい質問(開発のダッシュボードが読む) |
 | [docs/DEVELOP.md](docs/DEVELOP.md) | 開発の手引き(フォルダの中身、途中の場面から始める方法、確かめ用のスクリプト、煙と光の粒の足し方、公開のしかた) |
 
 ## 作り
