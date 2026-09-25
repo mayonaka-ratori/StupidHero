@@ -12,7 +12,7 @@ import type { StageId } from './types';
  * 絵がもうあるステージ。ショッピングモールの絵は絵の担当が作っている途中なので、キーの名前だけ下で確かめる
  * (絵の担当が src/art/sheets.ts にモールの絵を足したら、'mall' を足す)
  */
-const ART_READY: readonly StageId[] = ['alley', 'garage', 'mall'];
+const ART_READY: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
 
 describe('ステージの定義', () => {
   it('番号、名前、値段とボス戦の数字、開く順。ステージ2は曲もボスの絵も別', () => {
@@ -89,6 +89,13 @@ describe('ステージの定義', () => {
       for (const k of Object.values(d.disguiseSheets)) expect(() => sheetByKey(k!)).not.toThrow();
       for (const p of [...d.props, ...(d.bossProp ? [d.bossProp] : [])]) expect(() => sheetByKey(`prop_${p}`)).not.toThrow();
       for (const look of d.disguises) expect(sheetKeyFor(look, 'boss', id)).toBe(d.disguiseSheets[look]);
+      // 波ごとに変わる背景と物(高層ビルの階)
+      for (const f of d.floors ?? []) {
+        for (const k of Object.values(f.bg)) expect(imageKeys.has(k), k).toBe(true);
+        for (const p of f.props) expect(() => sheetByKey(`prop_${p}`), p).not.toThrow();
+      }
+      // 人の絵(高層ビルは市民とヴィランで同じ絵)
+      for (const look of d.looks) for (const t of ['civ', 'bad'] as const) expect(() => sheetByKey(sheetKeyFor(look, t, id)), look).not.toThrow();
     }
     expect(sheetKeyFor('guard', 'bad', 'garage')).toBe('guard_bad');
     expect(sheetKeyFor('suit', 'boss')).toBe('boss_disguise_suit');
