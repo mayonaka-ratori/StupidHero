@@ -3,7 +3,7 @@
 // 違うのは、行6の「空へ合図を送る」と、行7の「くずれ」だけ。くずれの色は黄緑(GLITCH)。
 import { md, PixelGrid } from '../lib';
 import {
-  type Build, type HairStyle, HAIR_SHORT, type Look, type Pose,
+  type Build, HAND_R, type HairStyle, HAIR_SHORT, type Look, type Pose,
   clonePose, drawPerson, moveUpper, shoulders
 } from '../world/figure';
 import { HAIR, OUTLINE, SKIN, WHITE } from '../world/palette';
@@ -100,9 +100,10 @@ const MH_CX = 8.5, MH_CY = 10, MH_NX = 8, MH_NY = 17;
 /** 着ぐるみの頭(まるい耳、大きな黒い目、クリーム色の口もと)。antenna で触角をのぞかせる(親玉) */
 function mascotHead(pose: P3, antenna: boolean): { g: PixelGrid; nx: number; ny: number } {
   const Pn = new Painter(18, 18);
-  const ears = Pn.mask().ellipse(4, 3.6, 2.6, 2.6).union(Pn.mask().ellipse(12.6, 3.2, 2.6, 2.6));
+  // 耳は頭より先に描き、頭の上に半分より多く出す。内側の桃色は2×2
+  const ears = Pn.mask().ellipse(4, 3.2, 2.6, 2.6).union(Pn.mask().ellipse(12.8, 2.8, 2.6, 2.6));
   Pn.fill(ears, FUR, { sep: 'outline', hi: 0.4, lo: 0.75 });
-  Pn.fill(Pn.mask().ellipse(4, 3.6, 1.1, 1.1).union(Pn.mask().ellipse(12.6, 3.2, 1.1, 1.1)), PINK, { sep: 'none', flat: true });
+  Pn.rect(4, 3, 2, 2, PINK).rect(12, 2, 2, 2, PINK);
   const head = Pn.mask().ellipse(MH_CX, MH_CY, 8.2, 6.8);
   Pn.fill(head, FUR, { sep: 'outline', hi: 0.34, lo: 0.72 });
   const muzzle = Pn.mask().ellipse(13.6, 12.2, 3.6, 2.5).intersect(head);
@@ -140,7 +141,8 @@ function mascotLook(antenna = false): Look {
       const belly = Pn.mask().ellipse(n[0] + 3 + lean * 10, n[1] + 10, 4.5, 6).intersect(top);
       Pn.fill(belly, CREAM, { sep: 'none', hi: 0.4, lo: 0.8 });
       // 首の蝶ネクタイ
-      const bx = Math.round(n[0] + 2), by = Math.round(n[1] + 1);
+      // 首の前(右)に出す。手前の腕の肩に隠れないように、首の真ん中より右
+      const bx = Math.round(n[0] + 5), by = Math.round(n[1] + 1);
       Pn.rect(bx - 2, by, 2, 3, BOW).rect(bx + 1, by, 2, 3, BOW).px(bx, by + 1, OUTLINE);
       Pn.px(bx - 2, by, PINK).px(bx + 1, by, PINK);
     },
@@ -201,27 +203,42 @@ const HAIR_BED: HairStyle = {
   rows: ['.....h..h....', '...hhHh.hh...', ...HAIR_SHORT.rows.slice(1)]
 };
 
-/** 店員の目。くずれのコマでは、まぶたが左右から閉じる(人のまばたきは上下なので、横の線、縦の線で見分ける) */
+/**
+ * 店員の目。ふだんは目の下にくまがある。くずれのコマでは、まぶたが左右から閉じる
+ * (人のまばたきは上下なので、横の線、縦の線で見分ける)。
+ * 顔は斜め前を向いているので、手前の目は3列(6〜8列)、奥の目は2列(10〜11列)にする
+ */
 function clerkEyes(g: PixelGrid, pose: P3, top: number): void {
   const d = pose.down ? 1 : 0;
   const y = (r: number) => top + r + d;
-  // 目の下のくま
-  if (pose.face !== 'ko' && pose.face !== 'surprised') g.px(9, y(6), SKIN[1]).px(10, y(6), SKIN[1]);
+  // 目の下のくま(それぞれの目の下)
+  if (pose.face !== 'ko' && pose.face !== 'surprised') g.px(7, y(6), SKIN[1]).px(8, y(6), SKIN[1]).px(11, y(6), SKIN[1]);
   const k = pose.glitch;
   if (k === undefined) return;
-  for (let r = 2; r <= 5; r++) for (let x = 8; x <= 11; x++) g.px(x, y(r), SKIN[0]);
-  const W = WHITE[0], O = OUTLINE, L = SKIN[2], S1 = SKIN[1];
-  // 左から右へ 8〜11 の4列、上から3段
-  const cols: string[][] = [
-    [W, W, O, W], // 0:大きく開いた目。ひとみは縦の細い線
-    [L, W, O, L], // 1:まぶたが左右から閉じてくる
-    [S1, L, O, S1], // 2:縦の線になって閉じる
-    [L, GLITCH[1], O, L] // 3:開きかけて、ひとみが黄緑に光る
+  // ふつうの目とまゆを消す(髪は残す)
+  const skin = new Set<string>(SKIN);
+  for (let r = 2; r <= 6; r++) for (let x = 6; x <= 11; x++) {
+    const c = g.get(x, y(r));
+    if (c && (skin.has(c) || c === OUTLINE || c === HAIR[2])) {
+      if (r === 2 && x <= 7) continue;
+      g.px(x, y(r), SKIN[0]);
+    }
+  }
+  const W = WHITE[0], O = OUTLINE, L = SKIN[2], S1 = SKIN[1], G = GLITCH[1];
+  // 手前の目(6〜8列)と奥の目(10〜11列)の、左から右への色。上から3段(3〜5行)
+  const near: string[][] = [
+    [W, O, W], // 0:大きく開いた目。ひとみは縦の細い線
+    [L, O, L], // 1:まぶたが左右から閉じてくる
+    [S1, O, S1], // 2:縦の線になって閉じる
+    [L, G, L] // 3:開きかけて、ひとみが黄緑に光る
   ];
-  for (let r = 3; r <= 5; r++) cols[k].forEach((c, i) => g.px(8 + i, y(r), c));
-  // まゆは上へ離す
-  g.px(8, y(1), HAIR[1]).px(9, y(1), HAIR[1]).px(10, y(1), HAIR[1]);
-  if (k === 2) g.px(10, y(2), S1).px(10, y(6), S1);
+  const far: string[][] = [[W, O], [L, O], [S1, O], [L, G]];
+  for (let r = 3; r <= 5; r++) {
+    near[k].forEach((c, i) => g.px(6 + i, y(r), c));
+    far[k].forEach((c, i) => g.px(10 + i, y(r), c));
+  }
+  // 目の上のふち(まぶたのきわ)。閉じたコマは縦の線だけを見せる
+  if (k !== 2) for (const x of [6, 7, 8, 10, 11]) g.px(x, y(2), O);
 }
 
 /** 名札(白い札に店の色の帯)。flip で逆さ(親玉) */
@@ -388,8 +405,8 @@ function uncleLook(pointyEar = false): Look {
       const d = pose.down ? 1 : 0;
       // 口ひげ
       if (pose.face !== 'surprised') g.px(9, 7 + d, HAIR[1]).px(10, 7 + d, HAIR[1]).px(11, 7 + d, HAIR[1]);
-      // 頭のつや
-      g.px(6, 1, SKIN[0]).px(7, 1, WHITE[0]);
+      // 頭のつや(左上に2ドット)
+      g.px(5, 1, WHITE[0]).px(6, 1, WHITE[0]);
       if (pointyEar) {
         // 親玉:耳の先が上へとがっている
         g.px(5, 3, SKIN[1]).px(4, 3, SKIN[0]).px(4, 2, SKIN[1]).px(3, 1, SKIN[1]).px(4, 4, SKIN[1]);
@@ -412,7 +429,7 @@ function uncleLook(pointyEar = false): Look {
       Pn.fill(m, [WHITE[0], WHITE[0], SLACKS[0]], { sep: 'outline', hi: 0.5, lo: 0.7 });
       Pn.px(hx - 1, hy + 1, OUTLINE).px(hx + 2, hy + 1, OUTLINE);
       Pn.px(hx + 1, hy + 6, SLACKS[0]).px(hx + 2, hy + 7, SLACKS[0]);
-      Pn.fill(Pn.mask().ellipse(hx, hy, 1.6, 1.6), [SKIN[1], SKIN[1], SKIN[2]], { sep: 'outline' });
+      Pn.fill(Pn.mask().ellipse(hx, hy, HAND_R, HAND_R), [SKIN[1], SKIN[1], SKIN[2]], { sep: 'outline', hi: 0.4, lo: 0.8 });
     }
   };
 }

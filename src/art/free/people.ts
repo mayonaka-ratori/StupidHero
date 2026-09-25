@@ -5,7 +5,7 @@
 // 行はふつうのワルと同じ7行。武器は顔の向き(右)の側に、波3の小物(風船、帽子)は頭の上と後ろ(左)に来るので、
 // 小物を重ねても目印は隠れない。赤紫(KEY_ACCESSORY)は使わない(塗り替えないため)。
 import { md, OUTLINE, type PixelGrid } from '../lib';
-import { type HairStyle, type Look, type Pose, clonePose, dark, drawPerson, moveUpper } from '../world/figure';
+import { HAND_R, type HairStyle, type Look, type Pose, clonePose, dark, drawPerson, moveUpper } from '../world/figure';
 import { BLADE, SKIN, WHITE } from '../world/palette';
 import { MOHAWK, mohawkLook } from '../world/people';
 import type { Painter, Pt, Ramp } from '../world/pix';
@@ -34,22 +34,27 @@ const keepArm = (base: Pose, p: Pose, weapon: number | null): PW => {
 // モヒカン:大きなナイフを頭の上に振りかざす
 // =====================================================================
 
-/** 高く立てたモヒカン(ふつうのモヒカンより3ドット高い)。上の端をぎざぎざにして、とんがり帽子と見分ける */
+/**
+ * 高く立てたモヒカン(ふつうのモヒカンより3ドット高い)。上の端をぎざぎざにして、とんがり帽子と見分ける。
+ * 下の7行はふつうのモヒカン(art/world/figure.ts の HAIR_MOHAWK)と同じで、横はそり上げた肌
+ */
 const HAIR_MOHAWK_TALL: HairStyle = {
   top: 6,
   ear: true,
   rows: [
-    '..H..H..H....',
-    '..HH.HH.HH...',
-    '.hHHhHHhHHh..',
-    '.hHHHHHHHhh..',
-    '.hhHHHhhhhh..',
-    '.hHHhhhhhhh..',
-    '.hHhhhhhhhh..',
-    '.shhhhhhhhs..',
-    '.sss.........',
-    '.ss..........',
-    '.s...........'
+    '...H..H..H...',
+    '..hH.hH.hHk..',
+    '..hHhHHhHHk..',
+    '..hHHHHHHhk..',
+    '..hHHHHHhhk..',
+    '.hHHHhhhhhk..',
+    '.hHhhhhhhhk..',
+    '.dhhhhhhhhd..',
+    '.ddssss......',
+    '.dsss........',
+    '.dss.........',
+    '.ds..........',
+    '.d...........'
   ]
 };
 
@@ -68,8 +73,8 @@ function bigKnife(P: Painter, h: Pt, ang: number): void {
   const g0 = at(1.4);
   P.line([g0[0] - n[0] * 2.2, g0[1] - n[1] * 2.2], [g0[0] + n[0] * 2.2, g0[1] + n[1] * 2.2], OUTLINE);
   // 手を上に描き直す(柄をにぎる)
-  const hand = P.mask().ellipse(h[0], h[1], 1.7, 1.7);
-  P.fill(hand, dark(SKIN), { sep: 'outline' });
+  const hand = P.mask().ellipse(h[0], h[1], HAND_R, HAND_R);
+  P.fill(hand, dark(SKIN), { sep: 'outline', hi: 0.4, lo: 0.8 });
 }
 
 function fpMohawkLook(): Look {
@@ -79,11 +84,12 @@ function fpMohawkLook(): Look {
     ...base,
     hairStyle: HAIR_MOHAWK_TALL,
     headExtra(g, pose) {
-      // 傷とサングラス(ふつうのモヒカンと同じ。髪が高いぶん下へずらす)
+      // サングラス(横長の枠と2つのレンズ、白い光)とほおの傷。ふつうのモヒカンと同じ形で、髪が高いぶん下へずらす
       const t = top + (pose.down ? 1 : 0);
       if (pose.face !== 'ko' && pose.face !== 'hurt') {
-        for (let x = 7; x <= 11; x++) g.px(x, t + 4, OUTLINE);
-        g.px(9, t + 5, OUTLINE); g.px(10, t + 5, OUTLINE); g.px(8, t + 4, MOHAWK[0]);
+        for (let x = 6; x <= 12; x++) g.px(x, t + 4, OUTLINE);
+        for (const x of [8, 10, 11]) g.px(x, t + 5, OUTLINE);
+        g.px(7, t + 5, BLADE[0]);
       }
       g.px(7, t + 7, SKIN[2]); g.px(8, t + 8, SKIN[2]);
     },
@@ -180,7 +186,7 @@ function metalBat(P: Painter, h: Pt, ang: number, far: boolean): void {
   P.line(at(-2), at(3.5), GRIP);
   P.fill(P.mask().ellipse(at(-3)[0], at(-3)[1], 1.2, 1.2), GRIP, { sep: 'outline', flat: true });
   // 手を上に描き直す
-  P.fill(P.mask().ellipse(h[0], h[1], 1.7, 1.7), far ? dark(SKIN) : SKIN, { sep: 'outline' });
+  P.fill(P.mask().ellipse(h[0], h[1], HAND_R, HAND_R), far ? dark(SKIN) : SKIN, { sep: 'outline', hi: 0.4, lo: 0.8 });
 }
 
 function fpGangLook(): Look {
@@ -242,14 +248,16 @@ function antennae(g: PixelGrid, pose: Pose): void {
   for (const [x, y] of [[3, t - 5], [10, t - 5]] as const) {
     g.px(x, y, GLITCH[1]).px(x + 1, y, GLITCH[1]).px(x, y + 1, GLITCH[1]).px(x + 1, y + 1, GLITCH[2]).px(x, y, GLITCH[0]);
   }
-  // 目:黒くて大きい(ふつうの目より1ドット広く、1ドット長い)。気を失ったときはそのまま
+  // 目:黒くて大きく、外(後ろ)の端が上がった形。手前の目は3列、奥の目は1列。気を失ったときはそのまま
   if (pose.face === 'ko' || pose.face === 'hurt' || pose.face === 'shut') return;
   const y = t + d;
-  for (let r = 3; r <= 5; r++) g.px(9, y + r, OUTLINE).px(10, y + r, OUTLINE);
-  g.px(8, y + 4, OUTLINE);
-  g.px(9, y + 3, WHITE[0]);
+  // ふつうの目とまゆを消す(顔の明るい色で塗り直す)
+  for (let r = 1; r <= 6; r++) for (let x = 6; x <= 11; x++) if (g.get(x, y + r)) g.px(x, y + r, ALIEN_SKIN[0]);
+  const eye: [number, number][] = [[7, 3], [8, 3], [7, 4], [8, 4], [9, 4], [8, 5], [9, 5], [11, 3], [11, 4], [11, 5]];
+  for (const [x, r] of eye) g.px(x, y + r, OUTLINE);
+  g.px(8, y + 3, WHITE[0]);
   // まゆのかわりの、目の上のくぼみ
-  g.px(8, y + 2, ALIEN_SKIN[2]).px(9, y + 2, ALIEN_SKIN[2]).px(10, y + 2, ALIEN_SKIN[2]);
+  g.px(7, y + 2, ALIEN_SKIN[1]).px(8, y + 2, ALIEN_SKIN[1]).px(11, y + 2, ALIEN_SKIN[1]);
 }
 
 function fpAlienLook(): Look {
