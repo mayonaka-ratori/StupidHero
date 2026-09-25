@@ -5,7 +5,8 @@
 
 import type { Rng } from './rng';
 import type {
-  AccessoryColorId, AttackKind, Encounter, GangLook, Look, MischiefKind, PropKind, SortChoice, Truth, WaveNo
+  AccessoryColorId, AttackKind, Encounter, GangLook, Leak, Look, MischiefKind, PropKind, SortChoice, TowerDecoy, TowerLook, Truth,
+  WaveNo
 } from './types';
 
 /** 物の大きさ(ドット)。絵の担当と画面の担当が、置く場所と当たりを決めるのに使う */
@@ -35,6 +36,12 @@ export interface WavePlan {
   aliens?: readonly [number, number];
   /** ステージ3だけ:くずれが早く出る練習用の宇宙人を1人入れるか(波1) */
   practiceAlien?: boolean;
+  /** ステージ4だけ:ヴィランの数 [最小, 最大](親玉は含まない) */
+  villains?: readonly [number, number];
+  /** ステージ4だけ:もれが2か所とも出る練習用のヴィランを1人入れるか(波1) */
+  practiceLeak?: boolean;
+  /** ステージ4だけ:紛らわしい市民の人数 */
+  decoys?: number;
 }
 
 /**
@@ -66,6 +73,18 @@ export const MALL_WAVES: readonly WavePlan[] = [
   { no: 1, people: 5, seconds: 30, mohawk: false, boss: false, aliens: [2, 3], practiceAlien: true },
   { no: 2, people: 6, seconds: 28, mohawk: false, boss: false, aliens: [2, 3] },
   { no: 3, people: 6, seconds: 30, mohawk: false, boss: true, aliens: [2, 3] }
+];
+
+/**
+ * 波の表(STAGE4「波と人数」)。ステージ4は波が4つ。ヴィランは波1が1〜2人、波2と3が2〜3人、波4が2人と親玉。
+ * 紛らわしい市民は波2から1人ずつ。人数は答え合わせの画面(7行まで)に入るように決めてある。
+ * 時間は1人あたり4〜6秒(もれはいつも出ているので、待つ必要はない)
+ */
+export const TOWER_WAVES: readonly WavePlan[] = [
+  { no: 1, people: 4, seconds: 26, mohawk: false, boss: false, villains: [1, 2], practiceLeak: true, decoys: 0 },
+  { no: 2, people: 5, seconds: 24, mohawk: false, boss: false, villains: [2, 3], decoys: 1 },
+  { no: 3, people: 6, seconds: 26, mohawk: false, boss: false, villains: [2, 3], decoys: 1 },
+  { no: 4, people: 6, seconds: 30, mohawk: false, boss: true, villains: [2, 2], decoys: 1 }
 ];
 
 /** 1つの波のワルの数(ボスは含まない。ステージ1) */
@@ -129,6 +148,15 @@ export const MISCHIEF_BY_LOOK: Readonly<Partial<Record<Look, MischiefKind>>> = {
   clerk: 'signal',
   dancer: 'signal',
   uncle: 'signal',
+  // ステージ4のヴィランは悪さの代わりに、念力で物を持ち上げて通りがかりの市民の上へ運ぶ
+  florist: 'psychic',
+  courier: 'psychic',
+  newbie: 'psychic',
+  janitor: 'psychic',
+  chef: 'psychic',
+  waiter: 'psychic',
+  lady: 'psychic',
+  magician: 'psychic',
   // フリープレイのワル(docs/FREEPLAY.md「待てと行け」)。モヒカンはナイフで脅す(けがはさせない)、
   // ギャングは口笛で仲間を呼ぶ、宇宙人は空へ合図を送ってUFOを呼ぶ
   fp_mohawk: 'threaten',
@@ -147,7 +175,9 @@ export const MISCHIEF_HURTS_CIV: Readonly<Record<MischiefKind, boolean>> = {
   pickpocket: false,
   threaten: false,
   whistle: false,
-  signal: false
+  signal: false,
+  // 念力は持ち上げただけではけがをさせない。物が落ちて当たったときに hurtCiv('dropped') で数える
+  psychic: false
 };
 
 // ─── お金 ─────────────────────────────────────────
@@ -166,6 +196,9 @@ export const MISCHIEF_HURTS_CIV: Readonly<Record<MischiefKind, boolean>> = {
  * - ufo(UFO)¥300万:STAGE3の通り。行けで殴り落としたとき(stats.ufoDowned)に足す
  * - mothership(母艦)¥1億:ボス戦だけに出る。倒したときの爆発は数えない(高級車と同じ理由)。
  *   倒したときは噴水に落ちるので、噴水の¥150万を足す(STAGES.mall.bossDefeatProp)
+ * ステージ4(STAGE4「壊れる物」の表):ソファ¥0(壊れない)、観葉植物¥5万、花のかざり¥20万、コピー機¥80万、
+ * 水槽¥300万、ワインの棚¥500万、シャンパンタワー¥1,000万、ピアノ¥3,000万。
+ * - chandelier(シャンデリア)¥3,000万:ボス戦の念力の選択で、行けを押さずに落ちたとき(BOSS4.chandelierCost と同じ)
  */
 export const PROP_COST: Readonly<Record<PropKind, number>> = {
   trash: 30_000,
@@ -185,14 +218,26 @@ export const PROP_COST: Readonly<Record<PropKind, number>> = {
   fountain: 1_500_000,
   escalator: 8_000_000,
   ufo: 3_000_000,
-  mothership: 100_000_000
+  mothership: 100_000_000,
+  sofa: 0,
+  plant: 50_000,
+  flowers: 200_000,
+  copier: 800_000,
+  tank: 3_000_000,
+  wine: 5_000_000,
+  champagne: 10_000_000,
+  piano: 30_000_000,
+  chandelier: 30_000_000
 };
 
 /**
  * 「車や自販機が壊れた瞬間」に数える大きな物(柱は車より少し安いが、見た目が大きいので入れる)。
- * ステージ3は噴水とエスカレーター(「モールがこわれた!」)。落ちたUFOは店の物ではないので入れない
+ * ステージ3は噴水とエスカレーター(「モールがこわれた!」)。落ちたUFOは店の物ではないので入れない。
+ * ステージ4は水槽とピアノ(「ビルがこわれた!」。STAGE4「壊れる物」)
  */
-export const BIG_PROPS: readonly PropKind[] = ['vending', 'car', 'van', 'bosscar', 'pillar', 'fountain', 'escalator'];
+export const BIG_PROPS: readonly PropKind[] = [
+  'vending', 'car', 'van', 'bosscar', 'pillar', 'fountain', 'escalator', 'tank', 'piano'
+];
 export const isBigProp = (p: PropKind): boolean => BIG_PROPS.includes(p);
 
 /** ワルの悪さ1回の被害額 */
@@ -206,6 +251,8 @@ export const BOSS_RAMPAGE_COST = 10_000_000;
 export const BOSS2_RAMPAGE_COST = 15_000_000;
 /** ステージ3:親玉を市民に仕分けたとき、正体を現したあと母艦の光線でモールを焼く被害額 */
 export const BOSS3_RAMPAGE_COST = 20_000_000;
+/** ステージ4:親玉を市民に仕分けたとき、正体を現して会場の家具を念力で窓の外へ投げる被害額 */
+export const TOWER_RAMPAGE_COST = 20_000_000;
 
 // ─── 攻撃 ─────────────────────────────────────────
 
@@ -247,6 +294,13 @@ export interface AttackDef {
  * - ガチャガチャは軽いのでゴミ箱と同じ、マネキンは看板くらい、ショーケースはガラスなので窓と同じ
  * - 噴水は石なので柱くらい、エスカレーターはいちばん丈夫で低め(壊れると¥800万なので、めったに壊れない)
  * - UFOと母艦は仕掛け(行けで落とす、ボス戦)に使うので、ふつうの攻撃では壊れない(0)
+ * ステージ4の物:
+ * - ソファは攻撃でも念力でも壊れない(0)。シャンデリアはボス戦だけの仕掛けなので0
+ * - 観葉植物は軽いのでガチャガチャと同じ、花のかざりは看板くらい、コピー機は自販機くらい
+ * - 水槽はガラスなので車より少し壊れやすい、ワインの棚は瓶が多いのでその上、シャンパンタワーは値段が高いので
+ *   グラスでも少し控えめ(壊れると¥1,000万)
+ * - ピアノはいちばん丈夫。ふつうの攻撃ではめったに壊れず、必殺技でも半々(念力で落としたときはかならず壊れる。
+ *   それは念力の計算で決め、ここの表は使わない)
  */
 export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
   charge: {
@@ -256,7 +310,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     propBreakChance: {
       trash: 1, window: 0.6, sign: 0.6, vending: 0.5, car: 0.3,
       van: 0, bosscar: 0, pillar: 0.3, barrier: 0.7, cone: 1, extinguisher: 1,
-      gacha: 1, mannequin: 0.6, showcase: 0.6, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0
+      gacha: 1, mannequin: 0.6, showcase: 0.6, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
+      sofa: 0, plant: 1, flowers: 0.6, copier: 0.5, tank: 0.4, wine: 0.5, champagne: 0.4, piano: 0.05, chandelier: 0
     },
     firstPropOnly: false
   },
@@ -267,7 +322,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     propBreakChance: {
       trash: 1, window: 1, sign: 1, vending: 0.8, car: 0.6,
       van: 0, bosscar: 0, pillar: 0.5, barrier: 1, cone: 1, extinguisher: 1,
-      gacha: 1, mannequin: 1, showcase: 1, fountain: 0.5, escalator: 0.3, ufo: 0, mothership: 0
+      gacha: 1, mannequin: 1, showcase: 1, fountain: 0.5, escalator: 0.3, ufo: 0, mothership: 0,
+      sofa: 0, plant: 1, flowers: 1, copier: 0.8, tank: 0.7, wine: 0.8, champagne: 0.6, piano: 0.1, chandelier: 0
     },
     firstPropOnly: true
   },
@@ -278,7 +334,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     propBreakChance: {
       trash: 1, window: 0.7, sign: 0.5, vending: 0.6, car: 0.4,
       van: 0, bosscar: 0, pillar: 0.3, barrier: 0.6, cone: 1, extinguisher: 0.8,
-      gacha: 1, mannequin: 0.5, showcase: 0.7, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0
+      gacha: 1, mannequin: 0.5, showcase: 0.7, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
+      sofa: 0, plant: 0.8, flowers: 0.5, copier: 0.6, tank: 0.5, wine: 0.6, champagne: 0.5, piano: 0.05, chandelier: 0
     },
     firstPropOnly: false
   },
@@ -289,7 +346,8 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
     propBreakChance: {
       trash: 1, window: 1, sign: 1, vending: 1, car: 1,
       van: 0, bosscar: 0, pillar: 1, barrier: 1, cone: 1, extinguisher: 1,
-      gacha: 1, mannequin: 1, showcase: 1, fountain: 1, escalator: 1, ufo: 0, mothership: 0
+      gacha: 1, mannequin: 1, showcase: 1, fountain: 1, escalator: 1, ufo: 0, mothership: 0,
+      sofa: 0, plant: 1, flowers: 1, copier: 1, tank: 1, wine: 1, champagne: 1, piano: 0.5, chandelier: 0
     },
     firstPropOnly: false
   }
@@ -480,8 +538,9 @@ export const GROUP_WIPE = {
   propBreakChance: {
     trash: 1, window: 0.7, sign: 0.6, vending: 0.6, car: 0.5,
     van: 0, bosscar: 0, pillar: 0.4, barrier: 0.8, cone: 1, extinguisher: 1,
-    // ステージ3にはギャングの組が出ないので使わないが、表はすべての物で埋めておく
-    gacha: 1, mannequin: 0.7, showcase: 0.7, fountain: 0.4, escalator: 0.3, ufo: 0, mothership: 0
+    // ステージ3と4にはギャングの組が出ないので使わないが、表はすべての物で埋めておく
+    gacha: 1, mannequin: 0.7, showcase: 0.7, fountain: 0.4, escalator: 0.3, ufo: 0, mothership: 0,
+    sofa: 0, plant: 1, flowers: 0.6, copier: 0.6, tank: 0.5, wine: 0.6, champagne: 0.5, piano: 0.05, chandelier: 0
   } as Readonly<Record<PropKind, number>>
 } as const;
 
@@ -577,4 +636,135 @@ export const RUSH = {
   glitchShowSec: 0.15,
   /** 帯を出して止めてから、始めるタップを受けつけない秒数 */
   tapLockSec: 0.3
+} as const;
+
+// ─── ステージ4:超能力のヴィラン ───────────────────
+
+/**
+ * もれ(STAGE4「もれ」)。ヴィランは2か所とも出るか、1か所だけ出るか(半々)。1か所だけのときに照明か小物かも半々
+ * (照明だけの割合はSTAGE4にないので、ここで半々に決めた)。波1の練習用のヴィランは2か所とも。
+ * もれは人が出た瞬間からずっと出ていて、待っても増えたり減ったりしない
+ */
+export const LEAK = {
+  /** 2か所とも出る確率(残りは1か所だけ) */
+  bothChance: 0.5,
+  /** 1か所だけのとき、それが照明になる確率(残りは机の小物) */
+  lightOnlyChance: 0.5,
+  /** 練習用のヴィランは2か所とも出す */
+  practiceBoth: true
+} as const;
+
+/**
+ * 紛らわしい市民の出せる見た目(STAGE4「紛らわしい市民」の表)。
+ * 切れかけの蛍光灯はどの見た目でも、手品の糸は手品師だけ、風船は花屋の店員、配達員、ウェイター
+ */
+export const DECOY_LOOKS: Readonly<Record<TowerDecoy, readonly TowerLook[] | 'any'>> = {
+  flicker: 'any',
+  thread: ['magician'],
+  balloon: ['florist', 'courier', 'waiter']
+};
+
+/** 紛らわしい市民の、もれに見えるものが出る場所(蛍光灯は照明、糸と風船は机の小物) */
+export const DECOY_SPOT: Readonly<Record<TowerDecoy, keyof Leak>> = {
+  flicker: 'light',
+  thread: 'item',
+  balloon: 'item'
+};
+
+/**
+ * 念力で運ぶ(STAGE4「念力で運ぶ」)。見逃したヴィランが、すぐ前の壊れる物を持ち上げて、通りがかりの市民の上へ運ぶ。
+ * 手を前に出す0.6秒 → 浮き上がる0.8秒 → 運ぶ3秒(行けのマーク)→ 行けを押さなければ市民の上に落ちる0.4秒。
+ * 行けを押すと、物はその場の真下に落ちる。真下かどうかは、落ちた物の真ん中から左右20ドットの中で決める。
+ * 持ち上げた物と市民の間には、かならずソファを1つ置き、7割くらいで別の壊れる物も1つ置く(順番は決めない)
+ */
+export const PSY = {
+  /** ヴィランが手を前に出す */
+  raiseSec: 0.6,
+  /** 物が浮き上がる */
+  liftSec: 0.8,
+  /** 物が市民の上へ運ばれる(行けのマークが出ている) */
+  carrySec: 3,
+  /** 行けを押さなかったら、物が市民の上に落ちる */
+  dropSec: 0.4,
+  /** 通りがかりの市民が、ヴィランの何ドット先で止まるか */
+  victimDistance: 90,
+  /** 落ちた物の真ん中から左右何ドットまでを「真下」とみなすか */
+  dropWindowPx: 20,
+  /** 持ち上げた物と市民の間にかならず置く物 */
+  cushionProp: 'sofa' as PropKind,
+  /** ソファのほかに、もう1つ壊れる物を間に置く確率 */
+  extraPropChance: 0.7,
+  /** 共有カードの写真を撮る所(運ぶ時間がどこまで進んだか。落ちたときだけ使う) */
+  photoAt: 0.95
+} as const;
+
+/** ステージ4の物の大きさ(STAGE4「壊れる物」の表)。シャンデリアは見本の絵(mocks/stage4_src/scenes.ts)と同じ56×34 */
+export const TOWER_PROP_SIZE: Readonly<Record<
+  'sofa' | 'plant' | 'flowers' | 'copier' | 'tank' | 'wine' | 'champagne' | 'piano' | 'chandelier', PropSize
+>> = {
+  sofa: { w: 48, h: 24 },
+  plant: { w: 24, h: 44 },
+  flowers: { w: 26, h: 50 },
+  copier: { w: 32, h: 32 },
+  tank: { w: 40, h: 32 },
+  wine: { w: 32, h: 48 },
+  champagne: { w: 40, h: 48 },
+  piano: { w: 62, h: 44 },
+  chandelier: { w: 56, h: 34 }
+};
+
+/**
+ * エレベーターラッシュ(STAGE4「エレベーターラッシュ」)。波3の答え合わせのあと、波4の前に1回だけ。
+ * - 6人のうちヴィランは2人か3人(半々)。最初の2人は市民1人とヴィラン1人(どちらが先かはランダム)
+ * - 見た目は8種類から、前の人と続けて同じにはしない
+ * - 1人ぶんの流れ:扉が開く0.3秒 → 乗ってきて止まる0.5秒 → マーク約1秒 → 殴るか奥へ入る0.6秒 → 扉が閉まる0.5秒。
+ *   6人で約17秒。ゆっくりモードでは、扉が開いてからマークが出るまでと、マークの長さを1.5倍にする
+ * - 奥に市民が4人以上いたら、着く前に「定員オーバー」のおまけ(数には関わらない)
+ */
+export const LIFT = {
+  /** 乗ってくる人数 */
+  people: 6,
+  /** ヴィランの数(半々でどちらか) */
+  villains: [2, 3] as const,
+  /** 最初の何人を「市民1人とヴィラン1人」にするか */
+  openingPair: 2,
+  /** 扉が開く */
+  doorSec: 0.3,
+  /** 人が乗ってきて止まる */
+  stepInSec: 0.5,
+  /** マークが出ている長さ(殴る瞬間に消える) */
+  markSec: 1,
+  /** 殴る、または待てで止めて奥へ入る */
+  actSec: 0.6,
+  /** 扉が閉まって次の階へ */
+  closeSec: 0.5,
+  /** ゆっくりモードで、乗ってくる時間とマークの長さにかける倍率 */
+  slowScale: 1.5,
+  /** 始まりの階と、着く階 */
+  fromFloor: 35,
+  toFloor: 50,
+  /** 奥の市民がこの人数以上なら「定員オーバー」のおまけを出す */
+  overCapacityCivs: 4,
+  /** 帯を出して止めてから、始めるタップを受けつけない秒数(タイムセールラッシュと同じ) */
+  tapLockSec: 0.3
+} as const;
+
+/**
+ * ステージ4の親玉(STAGE4「ボス戦」)。体力、最長の秒数、手が止まったときの¥50万はステージ1と同じ。
+ * 体力が半分を切ると1回だけ「念力の選択」:客とシャンデリアを浮かせ、時計を止めて3秒の間に待てと行けを1回ずつ押す。
+ * 行けを押さなかったらシャンデリアが落ちて¥3,000万。倒すとシャンパンタワーに倒れこむ(STAGES.tower.bossDefeatProp)
+ */
+export const BOSS4 = {
+  /** 体力(連打の回数)。ステージ1と同じ */
+  hpTaps: BOSS.hpTaps,
+  /** 手が止まっている間、1秒ごとに増える被害額(ステージ1と同じ) */
+  idleCostPerSec: BOSS.idleCostPerSec,
+  /** 体力の割合がこれを下回ると、念力の選択の場面になる */
+  choiceAtHpRatio: 0.5,
+  /** 念力の選択の時間(秒)。この間は時計が止まる */
+  choiceSec: 3,
+  /** シャンデリアが落ちたときの被害額 */
+  chandelierCost: 30_000_000,
+  /** 選択から連打に戻ってから、倒れるまでの最短の秒数 */
+  afterChoiceMinSec: 1.5
 } as const;

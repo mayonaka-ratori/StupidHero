@@ -153,7 +153,7 @@ export class StatsTracker {
   private escapedByVan = 0;
   private vansStopped = 0;
   private bossDefeated = false;
-  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0, abducted: 0 };
+  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0, abducted: 0, dropped: 0 };
   private damageByProps = 0;
   private damageByMischief = 0;
   private damageByBoss = 0;
@@ -293,7 +293,7 @@ export class StatsTracker {
   /**
    * 市民がけがをした。
    * cause:'hero' はヒーローが殴った、'collateral' は巻きぞえ、'villain' はワルに襲われた、
-   * 'abducted' はUFOにさらわれた(ふつうは ufoEscaped から呼ぶ)。
+   * 'abducted' はUFOにさらわれた(ふつうは ufoEscaped から呼ぶ)、'dropped' は念力で運ばれた物が落ちてきた(ステージ4)。
    * look はけがをした市民の見た目(おばあさんかどうかを見る)。ヒーローの攻撃(殴った、巻きぞえ)で
    * おばあさんに当たったら「おばあさんを殴った」になる。
    */
@@ -324,8 +324,9 @@ export class StatsTracker {
    */
   mischief(look: Look): number {
     const kind = MISCHIEF_BY_LOOK[look];
-    // ギャングの口笛と宇宙人の空への合図は悪さではない(被害額も市民負傷も増えない)
-    if (kind === 'whistle' || kind === 'signal') return 0;
+    // ギャングの口笛、宇宙人の空への合図、ヴィランの念力は悪さではない(被害額も市民負傷も増えない。
+    // 念力は落ちた先で、壊れた物を breakProp、当たった市民を hurtCiv('dropped') で数える)
+    if (kind === 'whistle' || kind === 'signal' || kind === 'psychic') return 0;
     this.damageByMischief += MISCHIEF_COST;
     if (kind && MISCHIEF_HURTS_CIV[kind]) this.hurtCiv('villain');
     return MISCHIEF_COST;
@@ -478,7 +479,7 @@ export class StatsTracker {
   }
 
   get civHurt(): number {
-    return this.hurt.hero + this.hurt.collateral + this.hurt.villain + this.hurt.abducted;
+    return this.hurt.hero + this.hurt.collateral + this.hurt.villain + this.hurt.abducted + this.hurt.dropped;
   }
 
   /** 今の数字をまとめて返す(あとで変えても、返したものは変わらない) */
@@ -506,6 +507,7 @@ export class StatsTracker {
       civHurtByCollateral: this.hurt.collateral,
       civHurtByVillain: this.hurt.villain,
       civHurtByAbduction: this.hurt.abducted,
+      civHurtByDrop: this.hurt.dropped,
       damage: this.damage,
       damageByProps: this.damageByProps,
       damageByMischief: this.damageByMischief,

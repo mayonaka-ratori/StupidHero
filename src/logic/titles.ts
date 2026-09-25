@@ -17,8 +17,9 @@
 // - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)。
 //   逃がした数は、走って逃げたワルと待てで止めたワルだけ。車で逃げた組とUFOで去った宇宙人は、見のがしたのではないので入れない
 // - おばあちゃんの敵:おばあさんを直接なぐったときだけ。巻きぞえは運なので入れない
-// UFOにさらわれた買い物客(ステージ3)は「ワルにやられた」と同じに扱う(完全無欠と街のほんものヒーローが取れなくなり、
-// 市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
+// UFOにさらわれた買い物客(ステージ3)と、念力の物が落ちてきた市民(ステージ4)は「ワルにやられた」と同じに扱う
+// (完全無欠と街のほんものヒーローが取れなくなり、市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
+// TODO: 高層ビルだけで取れる4つの称号(STAGE4「称号」)は、あとで足す。文は towerContent.ts の TOWER_TITLE_COMMENTS にある
 // タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない
 //
 // フリープレイ(stats.free がある)の調べ方(docs/FREEPLAY.md「称号」):
@@ -72,8 +73,11 @@ const T = TITLE_THRESHOLDS;
 
 /** ヒーローの攻撃でけがをした市民の数(殴った、巻きぞえ)。ワルに襲われた人は入れない */
 const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollateral;
-/** 仕分けのまちがいでけがをした市民の数(殴った、ワルに襲われた、UFOにさらわれた)。運で起きる巻きぞえは入れない */
-const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction;
+/**
+ * 仕分けのまちがいでけがをした市民の数(殴った、ワルに襲われた、UFOにさらわれた、念力の物が落ちた)。運で起きる巻きぞえは入れない。
+ * 念力の物が落ちた市民は「ワルにやられた」と同じに扱う(STAGE4「称号」)
+ */
+const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction + s.civHurtByDrop;
 /** 見のがしたワルの数(走って逃げた、待てで止めた)。車で逃げた組とUFOで去った宇宙人は入れない */
 const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.escapedByUfo;
 /** タイムセールラッシュで、市民を全員守り、宇宙人を全員倒したか */

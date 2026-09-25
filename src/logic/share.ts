@@ -30,12 +30,19 @@ const STRONG_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civH
 export const ABDUCTED_CAPTION = '市民がさらわれた!';
 
 /**
+ * 念力で運ばれた物が市民に落ちた場面の見出し(ステージ4。STAGE4「共有」)。
+ * TODO: いちばんひどい場面(WorstScene)に「市民に物が落ちた」を足すとき(「市民がさらわれた」と同じ段)に使う
+ */
+export const DROPPED_CAPTION = '市民に物が落ちた!';
+
+/**
  * ステージごとに言い方を変える見出し(路地裏の文は「街」なので、ほかのステージは変える)。
  * 大きな物が壊れた場面:地下駐車場「駐車場ボロボロ!」、ショッピングモール「モールがこわれた!」
  */
 export const STAGE_WORST_CAPTIONS: Readonly<Partial<Record<StageId, Partial<Record<WorstScene, string>>>>> = {
   garage: { bigPropBroken: '駐車場ボロボロ!' },
-  mall: { bigPropBroken: 'モールがこわれた!' }
+  mall: { bigPropBroken: 'モールがこわれた!' },
+  tower: { bigPropBroken: 'ビルがこわれた!' }
 };
 
 export interface ShareCaptionInput {

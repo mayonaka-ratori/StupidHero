@@ -11,6 +11,17 @@ import { STAGES, sheetKeyFor } from './stages';
 import type { Look, Person, StageId, Wave } from './types';
 
 const UNLOCKS: readonly (readonly StageId[])[] = [['alley'], ['alley', 'garage'], ['alley', 'garage', 'mall']];
+
+describe('高層ビルはフリープレイに入れない', () => {
+  it('高層ビルが開いていても、背景にも人にも出ない', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const plan = createFreePlay(seed, ['alley', 'garage', 'mall', 'tower']);
+      expect(plan.unlocked).toEqual(['alley', 'garage', 'mall']);
+      for (const w of plan.waves) expect(w.bgStage).not.toBe('tower');
+      for (const w of plan.stage.waves) for (const p of w.people) expect(STAGES.tower.looks).not.toContain(p.look);
+    }
+  });
+});
 const SEEDS = Array.from({ length: 150 }, (_, i) => i * 7919 + 3);
 
 /** 開き方と種をすべて回す */

@@ -17,13 +17,14 @@
 
 import { FREE_ITEMS, FREE_ITEM_NAME, FREE_NAME, ruleSignText } from './freeNames';
 import type { Rng } from './rng';
-import type { FreeItem, FreeRule, FreeVillainLook, HeroFace, Look, OperatorFace, Speech, StageId } from './types';
+import type { FreeItem, FreeRule, FreeStageId, FreeVillainLook, HeroFace, Look, OperatorFace, Speech, TowerLook } from './types';
 
 const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
 const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
 
 /** フリープレイに出る見た目(今の見た目と、一目で分かるワル) */
-type FreeLook = Look | FreeVillainLook;
+// 高層ビルの見た目はフリープレイに出ないので除く
+type FreeLook = Exclude<Look, TowerLook> | FreeVillainLook;
 
 /** 文の中の {item}、{from}、{to} を小物の名前に置きかえる */
 function fillItems(text: string, names: { item?: FreeItem; from?: FreeItem; to?: FreeItem }): string {
@@ -68,7 +69,7 @@ export interface FreeDeclareSet {
  * 波の始めの決めつけ。理由は、その背景の見た目だけのこじつけ(路地裏は暗い、ゴミ箱、自販機、看板。
  * 地下駐車場は地下、灰色の柱、コーン、車、白い線。ショッピングモールは明るい、人が多い、マネキン、ガチャ、噴水)
  */
-export const FREE_DECLARES: Readonly<Record<StageId, FreeDeclareSet>> = {
+export const FREE_DECLARES: Readonly<Record<FreeStageId, FreeDeclareSet>> = {
   alley: {
     allBad: [
       pair('暗いから\nワルだらけ！', '暗いってだけで！？', 'panic'),
@@ -150,7 +151,7 @@ export const FREE_DECLARES: Readonly<Record<StageId, FreeDeclareSet>> = {
 };
 
 /** 波の始めの決めつけの一覧(小物の名前を入れたあと) */
-export function declareList(bgStage: StageId, rule: FreeRule): readonly FreeDeclare[] {
+export function declareList(bgStage: FreeStageId, rule: FreeRule): readonly FreeDeclare[] {
   const set = FREE_DECLARES[bgStage];
   if (rule.kind === 'allBad') return set.allBad;
   if (rule.kind === 'allCiv') return set.allCiv;
@@ -667,7 +668,7 @@ export function freeOpTier(key: FreeOpKey, count: number): 0 | 1 | 2 {
 // ─── 選ぶ仕組み ───────────────────────────────────
 
 export interface FreeLines {
-  declare(bgStage: StageId, rule: FreeRule): { hero: Speech; op: Speech };
+  declare(bgStage: FreeStageId, rule: FreeRule): { hero: Speech; op: Speech };
   redeclare(from: FreeItem, to: FreeItem): { hero: Speech; op: Speech };
   /** 殴りかかるときの一言。波3は小物の名前を入れる(「風船だからワル!」) */
   heroAttack(look: Look | FreeVillainLook, rule: FreeRule): Speech;
@@ -727,10 +728,10 @@ export function createFreeLines(rng: Rng): FreeLines {
         const item = rule.item;
         return say('heroAttack', FREE_ITEM_ATTACK[item].map((s) => fillSpeech(s, { item })));
       }
-      return say('heroAttack', FREE_ATTACK[look] ?? FREE_FALLBACK_ATTACK);
+      return say('heroAttack', (FREE_ATTACK as Partial<Record<Look | FreeVillainLook, readonly Speech[]>>)[look] ?? FREE_FALLBACK_ATTACK);
     },
     heroPass(look) {
-      return say('heroPass', FREE_PASS[look] ?? FREE_FALLBACK_PASS);
+      return say('heroPass', (FREE_PASS as Partial<Record<Look | FreeVillainLook, readonly Speech[]>>)[look] ?? FREE_FALLBACK_PASS);
     },
     heroStubborn() {
       return say('heroStubborn', FREE_STUBBORN);
@@ -764,7 +765,7 @@ export function allFreeSpeechTexts(): string[] {
   const out: string[] = [];
   const add = (l: readonly Speech[]): void => { for (const s of l) out.push(s.text); };
   add(FREE_INTRO);
-  const stages = Object.keys(FREE_DECLARES) as StageId[];
+  const stages = Object.keys(FREE_DECLARES) as FreeStageId[];
   for (const id of stages) {
     const rules: FreeRule[] = [{ kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item) => ({ kind: 'item', item }) as FreeRule)];
     for (const rule of rules) for (const d of declareList(id, rule)) out.push(d.hero.text, d.op.text);

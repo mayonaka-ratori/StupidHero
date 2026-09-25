@@ -13,12 +13,17 @@ export type GangLook = 'guard' | 'mechanic' | 'clubber' | 'officelady';
  */
 export type MallLook = 'mascot' | 'clerk' | 'dancer' | 'uncle';
 /**
+ * ステージ4(高層ビル)の見た目。どれも市民とヴィラン(超能力者)の組で、絵も同じ(docs/STAGE4.md「見た目」)。
+ * 1階:花屋の店員、配達員。18階:新人の会社員、清掃員。35階:シェフ、ウェイター。最上階:ドレスの女性、手品師
+ */
+export type TowerLook = 'florist' | 'courier' | 'newbie' | 'janitor' | 'chef' | 'waiter' | 'lady' | 'magician';
+/**
  * フリープレイの、一目で分かるワルの見た目(docs/FREEPLAY.md)。
  * ナイフを振りかざしたモヒカン、バンダナで顔を隠して金属バットを持ったギャング、触角の出た緑の宇宙人
  */
 export type FreeVillainLook = 'fp_mohawk' | 'fp_gang' | 'fp_alien';
 /** 見た目の種類(全部のステージと、フリープレイのワル) */
-export type Look = AlleyLook | GangLook | MallLook | FreeVillainLook;
+export type Look = AlleyLook | GangLook | MallLook | TowerLook | FreeVillainLook;
 /** フリープレイの波3の小物(風船、とんがり帽子、大きな紙袋) */
 export type FreeItem = 'balloon' | 'hat' | 'bag';
 /**
@@ -35,8 +40,10 @@ export type AlleyDisguise = 'suit' | 'granny' | 'shopper';
 export type GarageDisguise = 'guard' | 'mechanic' | 'officelady';
 /** ステージ3の宇宙人の親玉の化けた姿(寝不足の店員、買い物客のおじさん、着ぐるみのバイト) */
 export type MallDisguise = 'clerk' | 'uncle' | 'mascot';
+/** ステージ4の親玉(ビルのオーナー)の化けた姿(ドレスの女性、手品師、ウェイター) */
+export type TowerDisguise = 'lady' | 'magician' | 'waiter';
 /** ボスの化けた姿(全部のステージ) */
-export type DisguiseLook = AlleyDisguise | GarageDisguise | MallDisguise;
+export type DisguiseLook = AlleyDisguise | GarageDisguise | MallDisguise | TowerDisguise;
 /** 本当の正体 */
 export type Truth = 'bad' | 'civ' | 'boss';
 /** プレイヤーの仕分け(左スワイプでワル、右スワイプで市民) */
@@ -69,9 +76,11 @@ export interface OperatorHint {
 /**
  * ワルの悪さの種類(bad のシートの 'mischief' の動き)。
  * 'whistle' はステージ2のギャング:悪さの代わりに口笛で仲間を呼ぶ(被害額も市民負傷も増えない)。
- * 'signal' はステージ3の宇宙人:悪さの代わりに空へ合図を送ってUFOを呼ぶ(合図そのものの被害額は0)
+ * 'signal' はステージ3の宇宙人:悪さの代わりに空へ合図を送ってUFOを呼ぶ(合図そのものの被害額は0)。
+ * 'psychic' はステージ4のヴィラン:悪さの代わりに、念力で物を持ち上げて通りがかりの市民の上へ運ぶ
+ * (持ち上げること自体の被害額は0。落ちた先で決まる)
  */
-export type MischiefKind = 'shove' | 'snatch' | 'pickpocket' | 'threaten' | 'whistle' | 'signal';
+export type MischiefKind = 'shove' | 'snatch' | 'pickpocket' | 'threaten' | 'whistle' | 'signal' | 'psychic';
 
 /** 小物の色の id(ステージ2)。gold は女ボスだけ */
 export type AccessoryColorId = 'red' | 'green' | 'yellow' | 'aqua' | 'purple' | 'orange' | 'gold';
@@ -114,6 +123,24 @@ export interface GlitchTiming {
   practice: boolean;
 }
 
+/**
+ * ステージ4のヴィランのもれ(docs/STAGE4.md「もれ」)。仕分けの画面の決まった2か所に出る。
+ * light は左上の照明が紫になる、item は左下の机の小物が浮く。2か所とも出るか、どちらか1か所だけ(半々)。
+ * 波1の練習用のヴィランは2か所とも
+ */
+export interface Leak {
+  light: boolean;
+  item: boolean;
+}
+
+/**
+ * ステージ4の紛らわしい市民(周りのせいで、もれに見える)。もれと同じ場所の1か所だけに出る。
+ * flicker:切れかけの蛍光灯(左上の照明がうすい黄色。どの見た目でも)。
+ * thread:手品の糸(左下の小物が糸で吊られて浮く。手品師だけ)。
+ * balloon:風船(左下の小物に風船がのっている。花屋の店員、配達員、ウェイター)
+ */
+export type TowerDecoy = 'flicker' | 'thread' | 'balloon';
+
 /** 波の番号。ステージ1〜3は3つ、ステージ4は4つ */
 export type WaveNo = 1 | 2 | 3 | 4;
 /** フリープレイの波の番号(いつも3つ) */
@@ -147,6 +174,10 @@ export interface Person {
   glitch?: GlitchTiming;
   /** フリープレイの波3の人だけ:持っている小物(風船、とんがり帽子、大きな紙袋)。持っていない人もいる */
   item?: FreeItem;
+  /** ステージ4のヴィランだけ:もれが出る場所(練習用のヴィランは両方)。市民と親玉にはない(親玉はもれない) */
+  leak?: Leak;
+  /** ステージ4の紛らわしい市民だけ:もれに見えるものの種類 */
+  decoy?: TowerDecoy;
 }
 
 /** ステージ2のギャングの組 */
@@ -174,8 +205,13 @@ export interface Wave {
   groups: GangGroup[];
 }
 
-/** ステージの id。'alley' は路地裏(ステージ1)、'garage' は地下駐車場(ステージ2)、'mall' はショッピングモール(ステージ3) */
-export type StageId = 'alley' | 'garage' | 'mall';
+/**
+ * ステージの id。'alley' は路地裏(ステージ1)、'garage' は地下駐車場(ステージ2)、'mall' はショッピングモール(ステージ3)、
+ * 'tower' は高層ビル(ステージ4)
+ */
+export type StageId = 'alley' | 'garage' | 'mall' | 'tower';
+/** フリープレイの背景に使えるステージ(高層ビルは、はじめは入れない。docs/STAGE4.md「作るときに気をつけること」) */
+export type FreeStageId = Exclude<StageId, 'tower'>;
 
 /** タイムセールラッシュで走ってくる1人(ステージ3。STAGE3「タイムセールラッシュ」) */
 export interface RushRunner {
@@ -192,9 +228,33 @@ export interface RushRunner {
 
 /** タイムセールラッシュの並び(ステージ3の stage.rush。ラッシュのないステージは null) */
 export interface RushPlan {
+  kind: 'sale';
   runners: RushRunner[];
   /** 宇宙人の数(3か4) */
   alienCount: number;
+  /** 市民の数 */
+  civCount: number;
+}
+
+/** エレベーターラッシュで乗ってくる1人(ステージ4。STAGE4「エレベーターラッシュ」) */
+export interface LiftRider {
+  /** 乗ってくる順(0始まり) */
+  index: number;
+  look: TowerLook;
+  /** 'bad' はヴィラン。ヴィランのもれはいつも2か所(頭の上の小物とボタン) */
+  truth: 'bad' | 'civ';
+  /** 絵のキー(仕分けと同じ 'tw_florist' など。市民とヴィランで同じ) */
+  sheetKey: string;
+  /** 扉が開く階(35と50の間。上がっていく順) */
+  floor: number;
+}
+
+/** エレベーターラッシュの並び(ステージ4の stage.rush) */
+export interface LiftPlan {
+  kind: 'elevator';
+  riders: LiftRider[];
+  /** ヴィランの数(2か3) */
+  villainCount: number;
   /** 市民の数 */
   civCount: number;
 }
@@ -214,8 +274,11 @@ export interface Stage {
   villainTotal: number;
   /** 出てくる人の総数(ボスを含む。路地裏16、地下駐車場18、ショッピングモール18) */
   peopleTotal: number;
-  /** タイムセールラッシュの並び(def.hasRush のステージだけ。ほかは null)。ラッシュの人は villainTotal と peopleTotal に入れない */
-  rush: RushPlan | null;
+  /**
+   * ラッシュの並び(def.rush のあるステージだけ。ほかは null)。ラッシュの人は villainTotal と peopleTotal に入れない。
+   * kind が 'sale' ならタイムセールラッシュ(ステージ3)、'elevator' ならエレベーターラッシュ(ステージ4)
+   */
+  rush: RushPlan | LiftPlan | null;
 }
 
 /** ヒーローの攻撃 */
@@ -223,12 +286,15 @@ export type AttackKind = 'charge' | 'punch' | 'stomp' | 'special';
 /**
  * 壊れる物。路地裏:ゴミ箱、窓、看板、自販機、止めてある車。
  * 地下駐車場:ギャングのワゴン、女ボスの高級車、柱、料金所のバー、三角コーン、消火器の箱(止めてある車も置く)。
- * ショッピングモール:ガチャガチャ、マネキン、ショーケース、噴水、エスカレーター、UFO(行けで落としたとき)、母艦(ボス戦だけ)
+ * ショッピングモール:ガチャガチャ、マネキン、ショーケース、噴水、エスカレーター、UFO(行けで落としたとき)、母艦(ボス戦だけ)。
+ * 高層ビル:ソファ(壊れない)、観葉植物、花のかざり、コピー機、水槽、ワインの棚、シャンパンタワー、ピアノ、
+ * シャンデリア(ボス戦だけ)
  */
 export type PropKind =
   | 'trash' | 'window' | 'sign' | 'vending' | 'car'
   | 'van' | 'bosscar' | 'pillar' | 'barrier' | 'cone' | 'extinguisher'
-  | 'gacha' | 'mannequin' | 'showcase' | 'fountain' | 'escalator' | 'ufo' | 'mothership';
+  | 'gacha' | 'mannequin' | 'showcase' | 'fountain' | 'escalator' | 'ufo' | 'mothership'
+  | 'sofa' | 'plant' | 'flowers' | 'copier' | 'tank' | 'wine' | 'champagne' | 'piano' | 'chandelier';
 
 /**
  * 結果発表でヒーローがその人の前に来たときに起きること。
@@ -242,10 +308,10 @@ export type PropKind =
 export type Encounter = 'hitBad' | 'hitCiv' | 'passCiv' | 'passBad' | 'bossFight' | 'bossRampage';
 
 /**
- * 市民がけがをした理由。'abducted' はステージ3でUFOに連れ去られた買い物客
- * (称号では「ワルにやられた」 'villain' と同じに扱う)
+ * 市民がけがをした理由。'abducted' はステージ3でUFOに連れ去られた買い物客、
+ * 'dropped' はステージ4で念力で運ばれた物が落ちてきた市民(どちらも称号では「ワルにやられた」 'villain' と同じに扱う)
  */
-export type HurtCause = 'hero' | 'collateral' | 'villain' | 'abducted';
+export type HurtCause = 'hero' | 'collateral' | 'villain' | 'abducted' | 'dropped';
 
 /**
  * いちばんひどかった場面の種類。SPECの1〜5の順に、ステージ3の「市民がさらわれた」を足した。上ほどひどい。
@@ -312,13 +378,15 @@ export interface StageStats {
   /** ワゴンを止めた回数(ステージ2) */
   vansStopped: number;
   bossDefeated: boolean;
-  /** 市民負傷数(ヒーローが殴った + 巻きぞえ + ワルに襲われた + UFOにさらわれた) */
+  /** 市民負傷数(ヒーローが殴った + 巻きぞえ + ワルに襲われた + UFOにさらわれた + 物が落ちた) */
   civHurt: number;
   civHurtByHero: number;
   civHurtByCollateral: number;
   civHurtByVillain: number;
   /** UFOにさらわれた買い物客の数(ステージ3。「宇宙人の案内係」) */
   civHurtByAbduction: number;
+  /** 念力で運ばれた物が落ちてきた市民の数(ステージ4。内わけは「物が落ちた」) */
+  civHurtByDrop: number;
   /** 被害額(円) */
   damage: number;
   damageByProps: number;

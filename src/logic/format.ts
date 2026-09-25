@@ -1,5 +1,6 @@
 // 数字の書き方。金額(¥3万、¥2,400万、¥1億2,000万)と、被害額のたとえ
-// (路地裏「自販機30台分」、地下駐車場「ワゴン2台分」、ショッピングモール「噴水5基分」)と、市民のけがの内わけ。
+// (路地裏「自販機30台分」、地下駐車場「ワゴン2台分」、ショッピングモール「噴水5基分」、高層ビル「シャンパンタワー2基分」)と、
+// 市民のけがの内わけ。
 
 import { PROP_COST } from './rules';
 import type { StageId, StageStats } from './types';
@@ -27,13 +28,15 @@ export function formatYen(yen: number): string {
 
 export type AnalogyUnit =
   | 'trash' | 'vending' | 'car' | 'house' | 'cone' | 'van' | 'bosscar'
-  | 'gacha' | 'fountain' | 'escalator';
+  | 'gacha' | 'fountain' | 'escalator'
+  | 'plant' | 'champagne' | 'piano';
 
 /**
  * たとえに使う物の値段と数え方。一軒家のほかは壊れる物の表(PROP_COST)と同じ値段。
  * 一軒家は¥3,000万とした(自販機や車と同じく、ざっくり分かりやすい額)。
  * cone、van、bosscar は地下駐車場のたとえ(三角コーン、ギャングのワゴン、女ボスの高級車)。
- * gacha、fountain、escalator はショッピングモールのたとえ(ガチャガチャ、噴水、エスカレーター)
+ * gacha、fountain、escalator はショッピングモールのたとえ(ガチャガチャ、噴水、エスカレーター)。
+ * plant、champagne、piano は高層ビルのたとえ(観葉植物、シャンパンタワー、ピアノ。STAGE4「共有」)
  */
 export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: number; counter: string }>> = {
   trash: { name: 'ゴミ箱', price: PROP_COST.trash, counter: '個' },
@@ -45,7 +48,10 @@ export const ANALOGY_UNITS: Readonly<Record<AnalogyUnit, { name: string; price: 
   bosscar: { name: '高級車', price: PROP_COST.bosscar, counter: '台' },
   gacha: { name: 'ガチャガチャ', price: PROP_COST.gacha, counter: '台' },
   fountain: { name: '噴水', price: PROP_COST.fountain, counter: '基' },
-  escalator: { name: 'エスカレーター', price: PROP_COST.escalator, counter: '基' }
+  escalator: { name: 'エスカレーター', price: PROP_COST.escalator, counter: '基' },
+  plant: { name: '観葉植物', price: PROP_COST.plant, counter: '鉢' },
+  champagne: { name: 'シャンパンタワー', price: PROP_COST.champagne, counter: '基' },
+  piano: { name: 'ピアノ', price: PROP_COST.piano, counter: '台' }
 };
 
 /**
@@ -68,6 +74,11 @@ const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; unit: An
     { below: 500_000, unit: 'gacha' },
     { below: 200_000_000, unit: 'fountain' },
     { below: Infinity, unit: 'escalator' }
+  ],
+  tower: [
+    { below: 500_000, unit: 'plant' },
+    { below: 200_000_000, unit: 'champagne' },
+    { below: Infinity, unit: 'piano' }
   ]
 };
 
@@ -76,7 +87,8 @@ const ANALOGY_TIERS: Readonly<Record<StageId, readonly { below: number; unit: An
  * 路地裏:数が10〜40くらいに収まるように切りかえる。自販機1台に満たないときはゴミ箱(〜26個)、
  * ¥3,000万未満は自販機(1〜37台)、¥3億未満は車(10〜100台)、それより上は一軒家(10軒〜)。
  * 地下駐車場:¥50万未満は三角コーン(〜49個)、¥2億未満はワゴン(0.1〜39台)、それより上は高級車(10台〜)。
- * ショッピングモール:¥50万未満はガチャガチャ(〜9.9台)、¥2億未満は噴水(0.3〜133基)、それより上はエスカレーター(25基〜)
+ * ショッピングモール:¥50万未満はガチャガチャ(〜9.9台)、¥2億未満は噴水(0.3〜133基)、それより上はエスカレーター(25基〜)。
+ * 高層ビル:¥50万未満は観葉植物(〜9.9鉢)、¥2億未満はシャンパンタワー(0.1〜19基)、それより上はピアノ(6.7台〜)
  */
 function analogyUnitFor(yen: number, stageId: StageId = 'alley'): AnalogyUnit {
   const tiers = ANALOGY_TIERS[stageId];
@@ -125,15 +137,17 @@ export function formatSeconds(sec: number): string {
 
 /**
  * 市民のけがの内わけ(結果画面の小さな1行)。0の理由は書かない。
- * 例:['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた1'] を '・' でつなぐ
+ * 例:['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた1', '物が落ちた1'] を '・' でつなぐ
  */
 export function hurtBreakdown(
-  s: Pick<StageStats, 'civHurtByHero' | 'civHurtByCollateral' | 'civHurtByVillain'> & Partial<Pick<StageStats, 'civHurtByAbduction'>>
+  s: Pick<StageStats, 'civHurtByHero' | 'civHurtByCollateral' | 'civHurtByVillain'>
+    & Partial<Pick<StageStats, 'civHurtByAbduction' | 'civHurtByDrop'>>
 ): string[] {
   return [
     s.civHurtByHero > 0 ? `なぐった${s.civHurtByHero}` : '',
     s.civHurtByCollateral > 0 ? `まきぞえ${s.civHurtByCollateral}` : '',
     s.civHurtByVillain > 0 ? `ワルにやられた${s.civHurtByVillain}` : '',
-    (s.civHurtByAbduction ?? 0) > 0 ? `さらわれた${s.civHurtByAbduction}` : ''
+    (s.civHurtByAbduction ?? 0) > 0 ? `さらわれた${s.civHurtByAbduction}` : '',
+    (s.civHurtByDrop ?? 0) > 0 ? `物が落ちた${s.civHurtByDrop}` : ''
   ].filter(Boolean);
 }

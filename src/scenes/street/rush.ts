@@ -8,8 +8,8 @@ import { layout } from '../../layout';
 import { audio } from '../../audio';
 import { animKey } from '../../art/sheets';
 import {
-  RUSH, RUSH_BAND, hasSeenRush, rushAfter, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, type Speech,
-  type RushRunner
+  RUSH, RUSH_BAND, hasSeenRush, rushAfter, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, saleRushOf,
+  type Speech, type RushRunner
 } from '../../logic';
 import { currentWave } from '../../run';
 import { FS, PixelText, hitStop, impact, waitMs } from '../../ui';
@@ -73,11 +73,11 @@ export class RushPart {
 
   /** この波の結果発表のあとにタイムセールラッシュがあるか */
   rushThisWave(): boolean {
-    return rushAfter(this.s.def, currentWave(this.s.run).no, 'sale') && this.s.run.stage.rush !== null;
+    return rushAfter(this.s.def, currentWave(this.s.run).no, 'sale') && saleRushOf(this.s.run.stage) !== null;
   }
 
   async saleRush(): Promise<void> {
-    const plan = this.s.run.stage.rush!;
+    const plan = saleRushOf(this.s.run.stage)!;
     const h = this.s.hero;
     h.faceLeft(false).play('idle');
     this.rushOn = true;

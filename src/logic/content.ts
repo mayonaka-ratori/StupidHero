@@ -2,8 +2,8 @@
 // 決まり:1行は全角12文字まで、1つのセリフは2行まで(改行は \n)。半角スペースとエムダッシュは使わない。
 // 2人の名前はまだ決まっていないので、文の中で名前を呼ばない。
 // ヒーローは元気で大げさで自信満々、オペレーターはため口でツッコむ幼なじみ。
-// ステージ2(地下駐車場)の文は garageContent.ts、ステージ3(ショッピングモール)の文は mallContent.ts にあり、
-// ここの一覧と関数にまとめて入れている。
+// ステージ2(地下駐車場)の文は garageContent.ts、ステージ3(ショッピングモール)の文は mallContent.ts、
+// ステージ4(高層ビル)の文は towerContent.ts にあり、ここの一覧と関数にまとめて入れている。
 //
 // 使い方(ステージの id を渡すと、そのステージの文が出る):
 //   introFor(stage.id)                       // ステージ前の掛け合い(そのステージで1回だけ。見たか遊んだら出さない)
@@ -13,6 +13,7 @@
 //   mischiefLine(person.look, rng)           // 悪さを始めた一言(ギャングは口笛で仲間を呼ぶ一言、宇宙人は空へ合図する一言)
 //   streetTextsFor(stage.id)                 // 結果発表の帯と本性ちらりの文(宇宙人は「ピピッ…」)
 //   rushIntroFor(seen) / rushEndLine(tally)  // タイムセールラッシュの説明と終わりの一言(ステージ3)
+//   liftIntroFor(seen) / liftEndLine(tally)  // エレベーターラッシュの説明と着いたときの一言(ステージ4)
 
 import {
   BOSS2_HINTS, BOSS2_PROFILE_LINES, GARAGE_AGES, GARAGE_JUDGE_LINES, GARAGE_INTRO, GARAGE_NAMES,
@@ -24,6 +25,12 @@ import {
   MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS, MALL_STREET_TEXTS, MALL_TITLE_COMMENTS,
   MALL_TITLE_COMMENT_OVERRIDES, MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST, type MallReactionKey
 } from './mallContent';
+import {
+  BOSS4_HINTS, BOSS4_PROFILE_LINES, LIFT_BAND, LIFT_INTRO_AGAIN, LIFT_INTRO_FIRST, TOWER_AGES, TOWER_ENDING, TOWER_ENDING_SKIP,
+  TOWER_FLOOR_LABELS, TOWER_GARAGE_OVERRIDES, TOWER_INTRO, TOWER_JUDGE_LINES, TOWER_NAMES, TOWER_OPERATOR_HINTS, TOWER_OVERRIDES,
+  TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_STREET_TEXTS, TOWER_TITLE_COMMENTS, TOWER_TITLE_COMMENT_OVERRIDES, TOWER_WAVE_INTRO,
+  type TowerReactionKey
+} from './towerContent';
 import { ANALOGY_UNITS } from './format';
 import { allFreeTexts } from './freeContent';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
@@ -88,6 +95,7 @@ export const NAMES: Readonly<Record<Look, readonly string[]>> = {
   granny: ['梅田ハナ', '松井トメ', '竹内キヨ', '菊池フミ', '小川ウメ', '杉山チヨ', '野口タマ', '村上シズ', '大野スエ', '今井キク'],
   ...GARAGE_NAMES,
   ...MALL_NAMES,
+  ...TOWER_NAMES,
   ...FREE_VILLAIN_NAMES
 };
 
@@ -100,6 +108,7 @@ export const AGES: Readonly<Record<Look, readonly [number, number]>> = {
   granny: [71, 89],
   ...GARAGE_AGES,
   ...MALL_AGES,
+  ...TOWER_AGES,
   ...FREE_VILLAIN_AGES
 };
 
@@ -223,6 +232,8 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
   ...GARAGE_PROFILE_LINES,
   // ステージ3(mallContent.ts)
   ...MALL_PROFILE_LINES,
+  // ステージ4(towerContent.ts)
+  ...TOWER_PROFILE_LINES,
   ...FREE_VILLAIN_PROFILE_LINES
 };
 
@@ -255,7 +266,8 @@ const ALLEY_BOSS_PROFILE_LINES: Readonly<Record<AlleyDisguise, readonly string[]
 export const BOSS_PROFILE_LINES: Readonly<Record<DisguiseLook, readonly string[]>> = {
   ...ALLEY_BOSS_PROFILE_LINES,
   ...BOSS2_PROFILE_LINES,
-  ...BOSS3_PROFILE_LINES
+  ...BOSS3_PROFILE_LINES,
+  ...BOSS4_PROFILE_LINES
 };
 
 // ─── オペレーターの一言(仕分け中) ────────────────
@@ -340,6 +352,8 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
   ...GARAGE_OPERATOR_HINTS,
   // ステージ3(mallContent.ts)
   ...MALL_OPERATOR_HINTS,
+  // ステージ4(towerContent.ts)
+  ...TOWER_OPERATOR_HINTS,
   ...FREE_VILLAIN_HINTS
 };
 
@@ -369,7 +383,8 @@ const ALLEY_BOSS_HINTS: Readonly<Record<AlleyDisguise, readonly OperatorHint[]>>
 export const BOSS_HINTS: Readonly<Record<DisguiseLook, readonly OperatorHint[]>> = {
   ...ALLEY_BOSS_HINTS,
   ...BOSS2_HINTS,
-  ...BOSS3_HINTS
+  ...BOSS3_HINTS,
+  ...BOSS4_HINTS
 };
 
 // ─── ステージ前の掛け合い ─────────────────────────
@@ -588,6 +603,7 @@ export const JUDGE_LINES: Readonly<Record<Look, readonly Speech[]>> = {
   ...ALLEY_JUDGE_LINES,
   ...GARAGE_JUDGE_LINES,
   ...MALL_JUDGE_LINES,
+  ...TOWER_JUDGE_LINES,
   ...FREE_VILLAIN_JUDGE_LINES
 };
 
@@ -635,10 +651,11 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
 
 /**
  * 結果発表とボス戦のセリフの種類(全部のステージ)。
- * GarageReactionKey は地下駐車場で足した種類、MallReactionKey はショッピングモールで足した種類
+ * GarageReactionKey は地下駐車場で足した種類、MallReactionKey はショッピングモールで足した種類、
+ * TowerReactionKey は高層ビルで足した種類
  */
-export type AnyReactionKey = ReactionKey | GarageReactionKey | MallReactionKey;
-export type { GarageReactionKey, MallReactionKey };
+export type AnyReactionKey = ReactionKey | GarageReactionKey | MallReactionKey | TowerReactionKey;
+export type { GarageReactionKey, MallReactionKey, TowerReactionKey };
 
 /** ステージごとに、路地裏と違う文(stageTexts で引く) */
 export interface StageTextSet {
@@ -668,11 +685,20 @@ const MALL_TEXTS: StageTextSet = {
   titleComments: MALL_TITLE_COMMENT_OVERRIDES
 };
 
+const TOWER_TEXTS: StageTextSet = {
+  intro: TOWER_INTRO,
+  waveIntro: TOWER_WAVE_INTRO,
+  // 親玉を倒してシャンパンタワーに倒れこむ一言(bossWreck)と、開いたときの一言(unlocked)は地下駐車場と同じ種類
+  reactions: { ...TOWER_REACTIONS, ...TOWER_OVERRIDES, ...TOWER_GARAGE_OVERRIDES },
+  titleComments: TOWER_TITLE_COMMENT_OVERRIDES
+};
+
 /** ステージごとの文の表 */
 const STAGE_TEXTS: Readonly<Record<StageId, StageTextSet>> = {
   alley: { intro: INTRO, waveIntro: WAVE_INTRO, reactions: {}, titleComments: {} },
   garage: GARAGE_TEXTS,
-  mall: MALL_TEXTS
+  mall: MALL_TEXTS,
+  tower: TOWER_TEXTS
 };
 
 /**
@@ -747,12 +773,13 @@ export function judgeLine(look: Look | undefined, rng?: Rng): Speech {
 
 /**
  * ワルが悪さを始めたときの一言。ステージ2のギャングは口笛で仲間を呼ぶ一言、
- * ステージ3の宇宙人は空へ合図を送る一言
+ * ステージ3の宇宙人は空へ合図を送る一言、ステージ4のヴィランは念力で物を持ち上げた一言
  */
 export function mischiefLine(look: Look, rng?: Rng): Speech {
   const kind = MISCHIEF_BY_LOOK[look];
   if (kind === 'whistle') return pickSpeech(GARAGE_REACTIONS.whistle, rng);
   if (kind === 'signal') return pickSpeech(MALL_REACTIONS.ufoSignal, rng);
+  if (kind === 'psychic') return pickSpeech(TOWER_REACTIONS.psyLift, rng);
   // フリープレイのモヒカンは、路地裏のモヒカンと同じ「ナイフで脅す」
   const own = look === 'fp_mohawk' ? 'mohawk' : look;
   const key = own in MISCHIEF_LINES ? (own as keyof typeof MISCHIEF_LINES) : 'hoodie';
@@ -761,10 +788,13 @@ export function mischiefLine(look: Look, rng?: Rng): Speech {
 
 /**
  * 結果発表の画面に出る短い文(始まりの帯と、本性ちらり)。宇宙人のステージ(仕組みが 'ufo'。ショッピングモール)は
- * 宇宙人のちらりが「ピピッ…」
+ * 宇宙人のちらりが「ピピッ…」、超能力のステージ(仕組みが 'psychic'。高層ビル)はヴィランのちらりが「フッ…」
  */
 export function streetTextsFor(stageId: StageId): { band: string; peekBad: string; peekCiv: string } {
-  return STAGES[stageId].mechanic === 'ufo' ? MALL_STREET_TEXTS : STREET_TEXTS;
+  const mechanic = STAGES[stageId].mechanic;
+  if (mechanic === 'ufo') return MALL_STREET_TEXTS;
+  if (mechanic === 'psychic') return TOWER_STREET_TEXTS;
+  return STREET_TEXTS;
 }
 
 /**
@@ -778,6 +808,24 @@ export function rushIntroFor(seen: boolean): readonly Speech[] {
 /** タイムセールラッシュが終わったときの一言。市民を全員守れたら「ばっちり!」 */
 export function rushEndLine(t: Pick<RushTally, 'civs' | 'civsSaved'>, rng?: Rng): Speech {
   return pickSpeech(t.civsSaved >= t.civs ? MALL_REACTIONS.rushEndGood : MALL_REACTIONS.rushEndBad, rng);
+}
+
+/**
+ * エレベーターラッシュの始まりの説明(オペレーターのカットイン)。
+ * seen はこれまでにエレベーターラッシュを見たことがあるか(records.ts の hasSeenRush('tower'))。初めては2つ、見たことがあれば1つ
+ */
+export function liftIntroFor(seen: boolean): readonly Speech[] {
+  return seen ? LIFT_INTRO_AGAIN : LIFT_INTRO_FIRST;
+}
+
+/** エレベーターラッシュで最上階に着いたときの一言。市民を全員守れたら「ばっちり!」 */
+export function liftEndLine(t: Pick<RushTally, 'civs' | 'civsSaved'>, rng?: Rng): Speech {
+  return pickSpeech(t.civsSaved >= t.civs ? TOWER_REACTIONS.liftEndGood : TOWER_REACTIONS.liftEndBad, rng);
+}
+
+/** 高層ビルの波の間に出す階の数字(例 '18F')。towerFloorLabel(wave.no) */
+export function towerFloorLabel(no: WaveNo): string {
+  return TOWER_FLOOR_LABELS[no];
 }
 
 /** content.ts のすべてのセリフと一言の文(文字数の確かめ用) */
@@ -818,8 +866,20 @@ export function allTexts(): string[] {
   out.push(...Object.values(MALL_STREET_TEXTS), RUSH_BAND);
   addList(RUSH_INTRO_FIRST);
   addList(RUSH_INTRO_AGAIN);
-  // ラッシュのまとめ(rushSummary)と、市民のけがの内わけ(hurtBreakdown)の字(数字は別に読みこむ)
-  out.push('セール：撃破・守った', 'さらわれた');
+  // ステージ4
+  addList(TOWER_INTRO);
+  for (const list of Object.values(TOWER_WAVE_INTRO)) addList(list);
+  for (const k of Object.keys(TOWER_REACTIONS) as TowerReactionKey[]) addList(TOWER_REACTIONS[k]);
+  for (const l of Object.values(TOWER_OVERRIDES)) addList(l);
+  for (const l of Object.values(TOWER_GARAGE_OVERRIDES)) addList(l);
+  addList(Object.values(TOWER_TITLE_COMMENT_OVERRIDES));
+  addList(Object.values(TOWER_TITLE_COMMENTS));
+  out.push(...Object.values(TOWER_STREET_TEXTS), LIFT_BAND, ...Object.values(TOWER_FLOOR_LABELS), TOWER_ENDING_SKIP);
+  addList(LIFT_INTRO_FIRST);
+  addList(LIFT_INTRO_AGAIN);
+  addList(TOWER_ENDING);
+  // ラッシュのまとめ(rushSummary、liftSummary)と、市民のけがの内わけ(hurtBreakdown)の字(数字は別に読みこむ)
+  out.push('セール：撃破・守った', 'エレベーター：', 'さらわれた', '物が落ちた');
   // 被害額のたとえの物の名前(フォントの読みこみ用。数字は別に読みこむ)
   for (const u of Object.values(ANALOGY_UNITS)) out.push(`${u.name}${u.counter}分`);
   // 小物の色と名前(プロフィールの横などに出すとき用)

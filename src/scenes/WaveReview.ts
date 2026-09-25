@@ -10,7 +10,9 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { reasonFor, rushAfter, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
+import {
+  reasonFor, rushAfter, rushSummary, saleRushOf, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice
+} from '../logic';
 import { Button, DEPTH, FS, PixelText, goto, preloadFont } from '../ui';
 import { addMute, unlockOnTap } from './sort/common';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
@@ -213,11 +215,12 @@ export class WaveReviewScene extends Phaser.Scene {
  */
 function rushTallyFor(run: GameRun): RushTally | null {
   const t = run.stats.rushTally;
-  if (t || !run.debug || !run.stage.rush) return t;
-  run.stats.startRush(run.stage.rush);
+  const plan = saleRushOf(run.stage);
+  if (t || !run.debug || !plan) return t;
+  run.stats.startRush(plan);
   // 最初の宇宙人は待てで止め(逃がした)、最初の市民は殴った。ほかは正しく押した
-  const firsts = new Set(['bad', 'civ'].map((t) => run.stage.rush!.runners.findIndex((r) => r.truth === t)));
-  run.stage.rush.runners.forEach((r, i) => {
+  const firsts = new Set(['bad', 'civ'].map((t) => plan.runners.findIndex((r) => r.truth === t)));
+  plan.runners.forEach((r, i) => {
     const miss = firsts.has(i);
     if ((r.truth === 'bad') !== miss) run.stats.rushHit(r.truth); else run.stats.rushStopped(r.truth);
   });

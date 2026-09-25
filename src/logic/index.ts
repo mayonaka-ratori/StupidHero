@@ -2,7 +2,8 @@
 //
 // 1ステージの呼ぶ順番の例:
 //   // ステージを選ぶ画面:stageSelectInfo() で開いているか、記録、称号の数。開いていなければ def.lockedText
-//   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)
+//   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)、
+//                                                    // 'tower'(高層ビル。画面ができるまで STAGE_IDS には入れない)
 //   const rng = createRng(randomSeed());
 //   const stage = createStage(rng.seed, stageId);    // 3つの波。路地裏16人、地下駐車場18人、ショッピングモール18人
 //   const def = stage.def;                           // 背景 def.bg、曲 def.bgm、ボスの絵 def.bossSheet、置く物 def.props
@@ -61,11 +62,13 @@ export * from './rules';
 export * from './content';
 export * from './garageContent';
 export * from './mallContent';
+export * from './towerContent';
 export * from './stages';
 export * from './garage';
 export * from './gang';
 export * from './mall';
 export * from './ufo';
+export * from './tower';
 export * from './stage';
 export * from './stats';
 export * from './titles';

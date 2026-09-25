@@ -97,8 +97,8 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 画面の担当は、数字や文章を自分で書かずに`src/logic/`から読みます。
 
 - 数字:`rules.ts`(ステージごとの違いは`stages.ts`)
-- 文章:`content.ts`(ステージ2の文は`garageContent.ts`、ステージ3の文は`mallContent.ts`)
-- 人の並び:`stage.ts`(ステージ2は`garage.ts`、ステージ3は`mall.ts`)
+- 文章:`content.ts`(ステージ2の文は`garageContent.ts`、ステージ3の文は`mallContent.ts`、ステージ4の文は`towerContent.ts`)
+- 人の並び:`stage.ts`(ステージ2は`garage.ts`、ステージ3は`mall.ts`、ステージ4は`tower.ts`)
 - ステージ2のギャングの組:`gang.ts`。ステージ3のUFO:`ufo.ts`
 - ボス戦:`boss.ts`
 - 称号:`titles.ts`
