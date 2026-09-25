@@ -1,0 +1,272 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ヒーローの絵 見直し案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0f0d18;
+    --panel:#191628;
+    --stage:#2a2540;
+    --line:#302a46;
+    --ink:#ece8f4;
+    --muted:#a49cba;
+    --yellow:#f5c542;
+    --red:#e5483f;
+    --blue:#3f86e8;
+    --box:#3a1026;
+    --boxline:#e58aa8;
+  }
+  html{background:var(--bg)}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+    font-size:15px;
+    line-height:1.75;
+    padding-inline:16px;
+    padding-block:36px 72px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  h1,h2,h3,.pix{font-family:"DotGothic16","Hiragino Sans","Yu Gothic",monospace;font-weight:400}
+  h1{font-size:clamp(26px,5vw,40px);line-height:1.25;margin:0 0 12px;text-wrap:balance}
+  h1 span{color:var(--yellow)}
+  .lead{color:var(--muted);max-width:62ch;margin:0}
+  section{margin-block-start:52px;padding-block-start:26px;border-top:2px dashed var(--line)}
+  h2{font-size:23px;margin:0 0 4px;text-wrap:balance}
+  h3{font-size:17px;margin:0 0 10px;color:var(--yellow)}
+  .sub{color:var(--muted);margin:0 0 18px;max-width:64ch}
+  .tools{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-block:22px 0}
+  .seg{display:inline-flex;border:2px solid var(--line);background:var(--panel)}
+  .seg button,.btn{
+    font-family:"DotGothic16",monospace;font-size:15px;color:var(--muted);
+    background:transparent;border:0;padding:6px 14px;cursor:pointer;min-height:36px
+  }
+  .seg button[aria-pressed="true"]{background:var(--yellow);color:#1a1200}
+  .btn{border:2px solid var(--line);background:var(--panel);color:var(--ink)}
+  button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+  .note{color:var(--muted);font-size:13px}
+  .pairs{display:grid;gap:26px}
+  .pair{background:var(--panel);border:2px solid var(--line);padding:16px}
+  .pair h3{margin-bottom:12px}
+  .cmp{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  figure{margin:0;display:flex;flex-direction:column;gap:6px}
+  figcaption{font-family:"DotGothic16",monospace;font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .tag{display:inline-block;padding:0 7px;font-size:13px;line-height:1.6;border:1px solid var(--line);color:var(--muted)}
+  .tag.new{background:var(--yellow);border-color:var(--yellow);color:#1a1200}
+  .stage{background:var(--stage);line-height:0;display:inline-block}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  .faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:14px}
+  .face{background:var(--panel);border:2px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px}
+  .face .name{font-family:"DotGothic16",monospace;color:var(--yellow)}
+  .face .cmp{gap:10px;flex-wrap:nowrap}
+  .talks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:22px}
+  .talk{display:flex;flex-direction:column;gap:8px}
+  .box{
+    background:var(--box);border:3px solid var(--boxline);outline:2px solid #12040b;
+    padding:10px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;min-height:120px
+  }
+  .box .fc{border:2px solid #cfd8f0;background:#8fa6d6;line-height:0}
+  .box .who{font-family:"DotGothic16",monospace;color:var(--yellow);font-size:20px;line-height:1.3;align-self:center}
+  .box .say{grid-column:1 / -1;font-family:"DotGothic16",monospace;font-size:22px;line-height:1.35;white-space:pre-line;color:#fff}
+  ul.points{margin:0;padding-left:1.2em;display:grid;gap:8px;max-width:68ch}
+  ul.points b{color:var(--yellow);font-weight:700}
+  .qs{display:grid;gap:14px;max-width:72ch}
+  .q{background:var(--panel);border:2px solid var(--line);padding:14px 16px}
+  .q .id{font-family:"DotGothic16",monospace;color:var(--yellow);margin-right:8px}
+  .q p{margin:6px 0 0;color:var(--muted)}
+  .palette{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .palette i{width:18px;height:18px;display:block;border:1px solid #0006}
+  @media (prefers-reduced-motion: reduce){ .anim-note{display:none} }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>ヒーローと<span>オペレーター</span>の絵 見直し案</h1>
+    <p class="lead">メガドライブのベルトアクション(ベア・ナックル、ゴールデンアックスあたり)に近づけるため、ヒーローの体と、ヒーロー、オペレーターの顔を1ドットずつ描き直した見本です。どの見本も左がいまの絵、右が新しい案です。コマの大きさと色の数は、いまの決まりのままです。</p>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="拡大の倍率">
+        <button type="button" data-zoom="2" id="zoom2">2倍</button>
+        <button type="button" data-zoom="4" id="zoom4" aria-pressed="true">4倍</button>
+        <button type="button" data-zoom="6" id="zoom6">6倍</button>
+      </div>
+      <span class="note">スマホのゲーム画面では、1ドットがおよそ2倍の大きさで出ます。画面の幅に入りきらないときは、入る大きさまで小さくします。</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>ヒーローの体(64×64ドット)</h2>
+    <p class="sub">いまのポーズと同じ立ち方、同じ位置で描き直しました。足の裏の高さと体の真ん中は、ゲームの決まりどおりにそろえてあります。</p>
+    <div class="pairs">
+      <div class="pair">
+        <h3>待機</h3>
+        <div class="cmp">
+          <figure><div class="stage"><canvas data-img="old_idle" data-kind="body"></canvas></div><figcaption><span class="tag">いま</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="new_idle" data-kind="body"></canvas></div><figcaption><span class="tag new">新しい案</span></figcaption></figure>
+        </div>
+      </div>
+      <div class="pair">
+        <h3>光のパンチ(腕を伸ばしきったコマ)</h3>
+        <div class="cmp">
+          <figure><div class="stage"><canvas data-img="old_punch" data-kind="body"></canvas></div><figcaption><span class="tag">いま</span></figcaption></figure>
+          <figure><div class="stage"><canvas data-img="new_punch" data-kind="body"></canvas></div><figcaption><span class="tag new">新しい案</span></figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>顔のカットイン(32×32ドット)</h2>
+    <p class="sub">会話の窓と、仕分けの画面の下に出る顔です。しゃべるときは、口を閉じた顔と開けた顔を交互に出します。</p>
+    <div class="tools" style="margin-block:0 18px">
+      <button type="button" class="btn" id="talkToggle" aria-pressed="true">口を止める</button>
+      <span class="note anim-note">口の開け閉めは、ゲームと同じ速さで動かしています。</span>
+    </div>
+    <h3>ヒーロー</h3>
+    <div class="faces" id="heroFaces"></div>
+    <h3 style="margin-top:22px">オペレーター</h3>
+    <div class="faces" id="opFaces"></div>
+  </section>
+
+  <section>
+    <h2>会話の窓で見る</h2>
+    <p class="sub">ゲームの会話の窓と同じ形に、顔を入れてみました。顔は1ドットを3倍で出しています(スマホで見たときより少し大きめ)。セリフはゲームの中の文です。</p>
+    <div class="talks" id="talks"></div>
+  </section>
+
+  <section>
+    <h2>変えたところ</h2>
+    <ul class="points">
+      <li><b>手足の形</b>:丸い棒をつないだ形をやめて、太もも、ひざ、ふくらはぎ、ブーツの形を1本ずつ描きました。待機は足を開いて立つ形にして、ヒーローらしく見えるようにしました。</li>
+      <li><b>陰の付け方</b>:明るい、ふつう、暗いの3段を、形に沿ってはっきり分けました。いまの絵にある細かい点々のむらをなくしました。</li>
+      <li><b>光る点</b>:ブーツ、髪、マスクに、白や明るい色の点を置いてつやを出しました。</li>
+      <li><b>顔</b>:頭を少し大きくして、マスクの穴の中に白目と瞳と光を描きました。前髪は毛の束ごとに分けて、すき間からおでこが見えるようにしました。</li>
+      <li><b>マント</b>:しま模様をやめて、肩の一点から広がるひだにしました。</li>
+      <li><b>オペレーター</b>:目を大きくして、瞳に光を入れました。髪につやと毛の筋を入れ、あごを細くしました。マイクが口にかからないようにしました。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>変えていないところ</h2>
+    <ul class="points">
+      <li>コマの大きさ(体は64×64、顔は32×32)。ゲームの動き、当たりの位置、会話の窓の形はそのままで、絵を差し替えるだけで入ります。</li>
+      <li>1枚15色まで。色はR、G、Bそれぞれ8段階から選ぶ決まり(メガドライブと同じ)。ふちの色と、左上から光が当たる向きも同じです。</li>
+    </ul>
+    <p class="sub" style="margin-top:14px">新しい案で使った15色(ヒーロー)</p>
+    <div class="palette" id="palHero"></div>
+    <p class="sub" style="margin-top:10px">新しい案で使った15色(オペレーター)</p>
+    <div class="palette" id="palOp"></div>
+  </section>
+
+  <section>
+    <h2>決めてほしいこと</h2>
+    <div class="qs">
+      <div class="q"><span class="id">Q3</span>この方向で、ヒーローの絵を全部描き直してよいか
+        <p>よければ、ヒーローの17の動き(全部で78コマ)と、顔の7つの表情を描き直します。そのあと、市民、悪党、ボス、背景も同じ細かさにそろえます。</p></div>
+      <div class="q"><span class="id">Q4</span>会話の窓の顔を、32×32より大きくするか
+        <p>48×48にすると、目や口をもっと細かく描けます。そのかわり会話の窓の形を少し変えます。32×32のままなら、窓はいまのままです。</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const cache = new Map();
+function sprite(name) {
+  if (cache.has(name)) return cache.get(name);
+  const img = DATA.img[name], pal = DATA.pal[img.p];
+  const h = img.r.length, w = Math.max(...img.r.map((r) => r.length));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d');
+  img.r.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = pal[row[x]]; if (!c) continue; cx.fillStyle = c; cx.fillRect(x, y, 1, 1); } });
+  cache.set(name, cv);
+  return cv;
+}
+let zoom = 4;
+function paint(cv, name) {
+  const src = sprite(name);
+  if (cv.width !== src.width) { cv.width = src.width; cv.height = src.height; }
+  const cx = cv.getContext('2d');
+  cx.clearRect(0, 0, cv.width, cv.height);
+  cx.drawImage(src, 0, 0);
+}
+function fit() {
+  document.querySelectorAll('canvas[data-kind]').forEach((cv) => {
+    const kind = cv.dataset.kind;
+    const want = kind === 'talk' ? 3 : kind === 'face' ? Math.max(2, zoom - 1) : zoom;
+    if (kind === 'talk') { cv.style.width = cv.width * 3 + 'px'; cv.style.height = cv.height * 3 + 'px'; return; }
+    const holder = cv.closest('.cmp') || cv.parentElement;
+    const room = holder.clientWidth;
+    const per = kind === 'body' ? (room - 16) / 2 : kind === 'face' ? (room - 10) / 2 : room;
+    const s = Math.max(1, Math.min(want, Math.floor(per / cv.width)));
+    cv.style.width = cv.width * s + 'px';
+    cv.style.height = cv.height * s + 'px';
+  });
+}
+const HERO = [['ドヤ顔', 0], ['やっちまった', 1], ['笑顔', 2]];
+const OP = [['ふつう', 0], ['あせり', 1], ['あきれ', 2], ['ノリノリ', 3]];
+const talkers = [];
+function faceCard(label, oldKey, newKey) {
+  const d = document.createElement('div');
+  d.className = 'face';
+  d.innerHTML = `<div class="name">${label}</div><div class="cmp">
+    <figure><div class="stage"><canvas data-kind="face"></canvas></div><figcaption><span class="tag">いま</span></figcaption></figure>
+    <figure><div class="stage"><canvas data-kind="face"></canvas></div><figcaption><span class="tag new">新しい案</span></figcaption></figure></div>`;
+  const [a, b] = d.querySelectorAll('canvas');
+  talkers.push([a, oldKey], [b, newKey]);
+  return d;
+}
+HERO.forEach(([n, i]) => document.getElementById('heroFaces').append(faceCard(n, `old_fh${i}`, `new_fh${i}`)));
+OP.forEach(([n, i]) => document.getElementById('opFaces').append(faceCard(n, `old_fo${i}`, `new_fo${i}`)));
+const LINES = [
+  ['hero', 'ヒーロー', 0, '見分けるのは相棒！\n殴るのは任せて！'],
+  ['op', 'オペレーター', 1, 'ポケットの中、\n何が入ってるの！？'],
+  ['hero', 'ヒーロー', 1, 'あっ…\nやっちまったー！'],
+  ['op', 'オペレーター', 2, '殴ったら\n一生言われるよ']
+];
+const talks = document.getElementById('talks');
+LINES.forEach(([who, name, i, line]) => {
+  ['old', 'new'].forEach((v) => {
+    const t = document.createElement('div');
+    t.className = 'talk';
+    const key = `${v}_${who === 'hero' ? 'fh' : 'fo'}${i}`;
+    t.innerHTML = `<span><span class="tag ${v === 'new' ? 'new' : ''}">${v === 'new' ? '新しい案' : 'いま'}</span></span>
+      <div class="box"><div class="fc"><canvas data-kind="talk"></canvas></div><div class="who">${name}</div><div class="say"></div></div>`;
+    t.querySelector('.say').textContent = line;
+    talkers.push([t.querySelector('canvas'), key]);
+    talks.append(t);
+  });
+});
+document.querySelectorAll('canvas[data-img]').forEach((cv) => paint(cv, cv.dataset.img));
+let open = false;
+function drawFaces() { talkers.forEach(([cv, key]) => paint(cv, key + (open ? 'b' : 'a'))); }
+drawFaces();
+function swatches(id, pal) {
+  const el = document.getElementById(id);
+  [...new Set(Object.values(DATA.pal[pal]))].forEach((c) => { const i = document.createElement('i'); i.style.background = c; i.title = c; el.append(i); });
+}
+swatches('palHero', 'hero');
+swatches('palOp', 'op');
+fit();
+addEventListener('resize', fit);
+document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
+  zoom = Number(b.dataset.zoom);
+  document.querySelectorAll('[data-zoom]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  fit();
+}));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let talking = !reduce, timer = null;
+const tb = document.getElementById('talkToggle');
+function setTalk(on) {
+  talking = on;
+  tb.textContent = on ? '口を止める' : '口を動かす';
+  tb.setAttribute('aria-pressed', String(on));
+  clearInterval(timer);
+  if (on) timer = setInterval(() => { open = !open; drawFaces(); }, 125);
+  else { open = false; drawFaces(); }
+}
+tb.addEventListener('click', () => setTalk(!talking));
+setTalk(talking);
+</script>

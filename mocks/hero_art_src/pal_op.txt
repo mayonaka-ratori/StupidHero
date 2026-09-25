@@ -1,0 +1,15 @@
+PAL o 1,0,1
+PAL a 7,6,5
+PAL b 7,5,4
+PAL c 5,3,3
+PAL K 3,3,6
+PAL k 1,1,4
+PAL q 0,0,2
+PAL T 2,6,5
+PAL t 1,4,4
+PAL D 0,2,3
+PAL w 7,7,7
+PAL R 6,1,1
+PAL p 7,4,4
+PAL s 5,5,6
+PAL S 2,2,3
