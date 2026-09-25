@@ -42,6 +42,8 @@ const BOSS_X = 152;
 /** ボスの体の、ラッシュが当たるあたり(ボスは左向き) */
 const HIT_X = BOSS_X - 12;
 const HIT_Y = FEET_Y - 52;
+/** ボス出現!の帯の真ん中の高さ。体力のバー(y=26〜34)の下で、ボスの頭(触角の先で y=104 ほど)より上に出す */
+const BANNER_Y = 52;
 /** 最後の連打からこの時間がたったら、ラッシュの動きをやめる(ms) */
 const RUSH_HOLD_MS = 380;
 /** 連打で出す技の順番(くり返す)。10連打ごとは飛び蹴りをはさむ */
@@ -281,7 +283,7 @@ export class BossScene extends Phaser.Scene {
     this.quake(3, 300);
     spawnFx(this, 'fx_dust', BOSS_X - 20, FEET_Y - 8);
     spawnFx(this, 'fx_dust', BOSS_X + 22, FEET_Y - 6);
-    await banner(this, 'ボス出現!');
+    await banner(this, 'ボス出現!', { y: BANNER_Y });
     const boss = findBoss(this.run.stage);
     const sortedCiv = boss ? this.run.sorts[boss.id] === 'civ' : false;
     const rng = this.run.rng;
