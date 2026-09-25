@@ -7,9 +7,11 @@
 //   await card.unlock()      鍵がこわれて開く演出
 // 上に背景の絵を小さく切り出して、そのステージの人とボスを立たせる。下にステージの名前と記録。
 // 開いていないカードは、絵を暗くして人を黒い影にし、鍵のマークと def.lockedText を出す。
-// 絵が細いとき(ステージが3つで画面が低いとき)は、人の胸から上が見えるように足もとを絵の下の外に出し、
+// 絵が細いとき(絵の高さが60くらいまで)は、人の胸から上が見えるように足もとを絵の下の外に出し、
 // STAGE の札を絵の左下に移す(左上のままだとヒーローの顔が隠れる)。称号の数も「称号2/14」と短くする。
-// 絵を出さないカード(thumbH が0)は、上に STAGE の番号、名前、記録を並べ、鍵は名前の右に出す。
+// 絵を出さないカード(thumbH が0)は、上に STAGE の番号、名前、記録を並べ、鍵は名前の右に出す
+// (いまの画面はカードをずらして見せるので、絵はいつも出る。stageselect/scroll.ts の listLayout)。
+// 画面はカードの root.y を動かしてずらす。box.y はずらしていないときの上の端。
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
@@ -364,7 +366,7 @@ export class StageCard {
       if (def.hero || !def.anim || !def.key.includes('_')) continue;
       if (this.scene.anims.exists(animKey(s.texture.key, 'surprised'))) s.play(animKey(s.texture.key, 'surprised'));
     }
-    this.scene.tweens.add({ targets: this.root, y: this.box.y - 3, duration: 60, yoyo: true, ease: 'Stepped' });
+    this.scene.tweens.add({ targets: this.root, y: this.root.y - 3, duration: 60, yoyo: true, ease: 'Stepped' });
   }
 
   /** 開いていないカードをタップしたとき:鍵がガタガタ揺れる */

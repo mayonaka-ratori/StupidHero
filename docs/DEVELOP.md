@@ -126,6 +126,8 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | `&free=1` | フリープレイで始める(`Street`か`Result`)。`Street`では`&wave`で始める波を決められる(時計は0から)。ゆっくりモードは一時停止のメニューの設定のまま |
 | `&unlocked=alley,garage` | フリープレイで開いているステージ(出てくる人と背景)。書かなければ路地裏だけ |
 | `&threat=8` | フリープレイで、モヒカンが逃げるまでの秒数をのばす(行けのマークが2つ出る場面を作るため) |
+| `&cards=4` | ステージを選ぶ画面(`?scene=StageSelect`)で、カードを4枚に増やして並べ方とずらし方を見る(足りない分は前のカードをくり返す) |
+| `&justunlocked=mall` | ステージを選ぶ画面で、そのステージが開いたばかりの演出をする(自動でずらしてから鍵がこわれる。ページを開いて最初の1回だけ) |
 
 場面の名前は大文字と小文字を区別しません(`?scene=street`でもよい)。
 
@@ -177,7 +179,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | キー | 中身 |
 |---|---|
 | `stupidhero.settings.v1` | 設定 |
-| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`も) |
+| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`、最後に遊んだステージ`lastStage`も) |
 | `stupidHero.muted` | 音を切ったか |
 
 初めての人の流れ(ステージ選びをとばす、掛け合いを出す)を見直すときは、記録を消してから開きます(古い`stupidhero.records.v1`が残っていれば、それも消す。あると読みこんで遊んだことになる)。
@@ -196,7 +198,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは29ファイル、336件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは30ファイル、359件)
 npm run typecheck   # tsc
 ```
 
@@ -236,6 +238,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 | `textcheck.mjs` | | ゲームの全部の文を折り返して、禁則のまちがいがないか見る |
 | `audioCheck.mjs` | | 曲と効果音の音の大きさを測り、音が割れていないか、無音でないかを見る。フリープレイの曲(`free1`〜`free3`)の切りかえと、決めつけと空押しの音も見る |
 | `uitest.mjs` | | UIの部品(`/dev/ui.html`)をタッチで試す |
+| `stageselect_scroll.mjs` | | ステージを選ぶ画面を高さ384と468で開いて撮り、指で上下にずらせるか、はじくとすべって端で止まるか、8ドットまでの動きならカードを選ぶか、開いたばかりのステージまで自動でずれるかを見る(4枚の並べ方も`&cards=4`で見る) |
 | `shot.mjs` | URLで決める | 1枚だけ画面を撮る |
 | `timeshots.mjs` | URLで決める | 決めた時間ごとに画面を撮る |
 | `dashboard.mjs` | | 開発のダッシュボードを作る(下の「開発のダッシュボード」) |
