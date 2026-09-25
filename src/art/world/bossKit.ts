@@ -289,7 +289,7 @@ export interface HeadArt {
  * 首と頭を描く。首は頭の格子のつながる点から胴の首のつけ根まで、太さ neckW でつなぐ
  * (頭がどこにずれても、あごの下から首が出るように)。頭はふちの線を付けて上に重ねる
  */
-export function drawNeckAndHead(P: Painter, pose: BPose, head: HeadArt, neckW: number, neckRamp: Ramp4, flip = false): void {
+export function drawNeckAndHead(P: Painter, pose: BPose, head: HeadArt, neckW: number, neckRamp: Ramp4, flip = false, jaw?: string): void {
   const hx = pose.head[0], hy = pose.head[1];
   const nk = P.mask().poly([
     [hx - neckW, hy - 3], [hx + neckW, hy - 3],
@@ -303,6 +303,8 @@ export function drawNeckAndHead(P: Painter, pose: BPose, head: HeadArt, neckW: n
     }
   });
   shade(P, nk, neckRamp, { sep: 'none', hi: 0.2, lo: 0.5 });
+  // あごの下の濃い影(頭と胸を分ける)
+  if (jaw) nk.each((x, y) => { if (y <= hy + 2) P.g.px(x, y, jaw); });
   let g = flip ? head.g.flipped() : head.g;
   let nx = flip ? head.g.w - 1 - head.nx : head.nx, ny = head.ny;
   if (pose.tilt) {

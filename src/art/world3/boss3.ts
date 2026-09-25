@@ -123,12 +123,13 @@ function drawLeg(P: Painter, hipJ: Pt, leg: BLeg, far: boolean): void {
   boot.each((x, y) => { if (!boot.has(x, y - 1) && y < leg.a[1] - 3) P.px(x, y, cp[0]); });
 }
 
-/** 目から出る黄緑の光線(暴れるコマ)。from から向き ang へ */
+/** 目から出る黄緑の光線(暴れるコマ)。from から向き ang へ。先はコマの中で細くとがらせて終える */
 function eyeBeam(P: Painter, from: Pt, ang: number): void {
   const ux = Math.cos(ang), uy = Math.sin(ang);
-  const end: Pt = [from[0] + ux * 60, from[1] + uy * 60];
-  const outer = P.mask().capsule(from, end, 1.2, 3.2);
-  const inner = P.mask().capsule(from, end, 0.3, 1.4);
+  const L = Math.min((88 - from[0]) / Math.max(0.01, ux), (84 - from[1]) / Math.max(0.01, uy));
+  const at = (t: number): Pt => [from[0] + ux * L * t, from[1] + uy * L * t];
+  const outer = P.mask().capsule(from, at(0.6), 1.2, 3.2).union(P.mask().capsule(at(0.6), at(1), 3.2, 0.4));
+  const inner = P.mask().capsule(from, at(0.6), 0.3, 1.4).union(P.mask().capsule(at(0.6), at(0.9), 1.4, 0.2));
   shade(P, outer, GLITCH[1], { sep: 'none' });
   shade(P, inner, GLITCH[0], { sep: 'none' });
   outer.each((x, y) => { if (!outer.has(x, y - 1) || !outer.has(x, y + 1)) P.px(x, y, GLITCH[2]); });
