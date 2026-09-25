@@ -5,6 +5,7 @@
 //   → Intro → Sort(波1) → Street(波1) → WaveReview(波1の答え合わせ) → Sort(波2) → Street(波2) → WaveReview
 //   → Sort(波3) → Street(波3) → Boss → WaveReview(波3の答え合わせ) → Result
 //   高層ビル(波4つ)は、WaveReview と次の波の Sort の間に Floor(階の数字、1秒)をはさむ(波3のあとはラッシュなので、はさまない)
+//   (高層ビルのボスを初めて倒したときだけ、最後の答え合わせと Result の間に Ending。sceneAfterLastReview)
 //   → (もう一回なら同じステージで startRun して Intro、タイトルへなら Title)
 // Sort は時間切れのとき fillUnsorted() で残りを決める(Street も入口で念のため呼ぶ)。
 // Street は波の最後まで進んだら nextAfterStreet() を呼ぶ。波3ではボスの前まで来たら Boss へ行く。
@@ -22,7 +23,7 @@
 
 import type Phaser from 'phaser';
 import { SCENES } from './config';
-import { createFreePlay, createRng, createStage, decideUnsorted, randomSeed, rushAfter, StatsTracker, unlockedStages } from './logic';
+import { ENDING_STAGE, createFreePlay, createRng, createStage, decideUnsorted, needsEnding, randomSeed, rushAfter, StatsTracker, unlockedStages } from './logic';
 import type { FreePlan, FreeWave } from './logic/freeplay';
 import type { Rng } from './logic/rng';
 import { tallySorts } from './logic/stats';
@@ -185,13 +186,24 @@ export function recordAllSorts(run: GameRun): void {
 }
 
 /**
- * 答え合わせの次へ。最後の波でなければ次の波の Sort(ここで波を進める)、最後の波なら Result。
+ * 最後の波の答え合わせのあと。高層ビルのボスを初めて倒したときだけ終わりの場面(Ending)、ほかは Result。
+ * 開発用に途中から始めたとき(run.debug)は、記録を見ずに、高層ビルのボスを倒していれば出す
+ */
+export function sceneAfterLastReview(run: GameRun): string {
+  if (run.mode !== 'stage') return SCENES.result;
+  const s = run.stats.snapshot();
+  const show = run.debug ? run.stage.id === ENDING_STAGE && s.bossDefeated : needsEnding(run.stage.id, s);
+  return show ? SCENES.ending : SCENES.result;
+}
+
+/**
+ * 答え合わせの次へ。最後の波でなければ次の波の Sort(ここで波を進める)、最後の波なら Result(高層ビルは終わりの場面のことも)。
  * 波ごとに階が変わるステージ(def.floors。高層ビル)は、Sort の前に階の数字の場面(SCENES.floor)をはさむ。
  * ただしラッシュのある波のあと(高層ビルの波3のあと)ははさまない
  */
 export function nextAfterReview(run: GameRun): string {
   recordWaveSorts(run);
-  if (isLastWave(run)) return SCENES.result;
+  if (isLastWave(run)) return sceneAfterLastReview(run);
   const def = run.stage.def;
   const doneNo = currentWave(run).no;
   run.waveIndex += 1;

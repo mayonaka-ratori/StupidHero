@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { SCENES } from './config';
 import { createStage } from './logic';
 import {
-  currentFreeWave, currentWave, fillUnsorted, getRun, nextAfterFreeStreet, nextAfterReview, nextAfterStreet, recordAllSorts, setSort,
-  startFreeRun, startRun
+  currentFreeWave, currentWave, fillUnsorted, getRun, nextAfterFreeStreet, nextAfterReview, nextAfterStreet, recordAllSorts, sceneAfterLastReview,
+  setSort, startFreeRun, startRun
 } from './run';
+import { clearRecords, markEndingSeen } from './logic/records';
 import { createFreePlay } from './logic/freeplay';
 import type Phaser from 'phaser';
 
@@ -173,5 +174,26 @@ describe('フリープレイ', () => {
     expect(run.waveIndex).toBe(2);
     // ステージの run でフリープレイの波を聞くと投げる
     expect(() => currentFreeWave(startRun(fakeScene(), 1))).toThrow();
+  });
+});
+
+describe('終わりの場面(高層ビルのボスを初めて倒したとき)', () => {
+  it('最後の答え合わせのあと、高層ビルのボスを倒していれば Ending、見たあとと、ほかのステージは Result', () => {
+    clearRecords(null);
+    const tower = startRun(fakeScene(), 9, false, 'tower');
+    tower.waveIndex = tower.stage.waves.length - 1;
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.result);   // ボスを倒していない
+    tower.stats.defeatBoss(8);
+    expect(nextAfterReview(tower)).toBe(SCENES.ending);
+    const mall = startRun(fakeScene(), 9, false, 'mall');
+    mall.waveIndex = mall.stage.waves.length - 1;
+    mall.stats.defeatBoss(8);
+    expect(nextAfterReview(mall)).toBe(SCENES.result);
+    markEndingSeen(null);
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.result);
+    // 開発用に途中から始めたときは、見たことがあっても出す
+    tower.debug = true;
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.ending);
+    clearRecords(null);
   });
 });

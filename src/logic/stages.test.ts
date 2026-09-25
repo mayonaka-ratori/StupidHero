@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { IMAGES, sheetByKey } from '../art/sheets';
 import { ATTACKS, ATTACK_KINDS, BIG_PROPS, BOSS4, LEAK, LIFT, MALL_PROP_SIZE, PROP_COST, PSY, TOWER_PROP_SIZE, TOWER_WAVES } from './rules';
 import {
-  ALL_STAGE_IDS, FREE_STAGE_IDS, MALL_SHEETS, STAGES, STAGE_IDS, bgForWave, isStageId, propsForWave, rushAfter, sheetKeyFor, stageTexts,
+  ALL_STAGE_IDS, FREE_STAGE_IDS, MALL_SHEETS, STAGES, STAGE_IDS, bgForWave, isStageId, propsForWave, rushAfter, sheetKeyFor, stageTexts, unlockBannerText,
   type StageDef
 } from './stages';
 import { TITLES } from './titles';
@@ -215,5 +215,13 @@ describe('ステージ4(高層ビル)の定義', () => {
       .toEqual([6, [2, 3], 0.3, 0.5, 1, 0.6, 0.5, 1.5]);
     expect([BOSS4.hpTaps, BOSS4.choiceAtHpRatio, BOSS4.choiceSec, BOSS4.chandelierCost, BOSS4.idleCostPerSec])
       .toEqual([40, 0.5, 3, 30_000_000, 500_000]);
+    // 念力の選択は、女ボスが車に乗るのと同じ仕組みで知らせる(戻ってから倒れるまで最短1.5秒)
+    expect(d.bossFight).toEqual({ carAtHpRatio: 0.5, carMinSec: 1.5 });
+  });
+
+  it('開いたときの帯は短い名前(STAGE4「ステージを選ぶ画面」)', () => {
+    expect(unlockBannerText('garage')).toBe('地下駐車場が遊べる!');
+    expect(unlockBannerText('mall')).toBe('モールが遊べる!');
+    expect(unlockBannerText('tower')).toBe('ビルが遊べる!');
   });
 });

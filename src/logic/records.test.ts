@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markIntroSeen,
-  markRushSeen,
+  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markEndingSeen,
+  markIntroSeen, markRushSeen, needsEnding,
   needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
 import type { StageStats } from './types';
@@ -81,7 +81,7 @@ describe('records', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
     expect(loadRecords(st)).toEqual({
-      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null
+      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false
     });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
@@ -266,5 +266,32 @@ describe('ボスを初めて倒したか(最上階のヒーロー)', () => {
     expect(saveResult('tower', won, 'soSo', st).firstClear).toBe(false);
     // ステージごとに数える
     expect(isFirstClear('alley', stats(), loadRecords(st))).toBe(true);
+  });
+});
+
+describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () => {
+  beforeEach(() => clearRecords(null));
+
+  it('高層ビルのボスを初めて倒したときだけ出す。見たら、もう出さない', () => {
+    const st = new MemStorage();
+    const won = stats({ stageId: 'tower' });
+    const lost = stats({ stageId: 'tower', bossDefeated: false, bossFightSec: null });
+    expect(loadRecords(st).endingSeen).toBe(false);
+    expect(needsEnding('tower', won, loadRecords(st))).toBe(true);
+    expect(needsEnding('tower', lost, loadRecords(st))).toBe(false);
+    // ほかのステージにはない
+    expect(needsEnding('mall', stats({ stageId: 'mall' }), loadRecords(st))).toBe(false);
+    markEndingSeen(st);
+    expect(loadRecords(st).endingSeen).toBe(true);
+    expect(needsEnding('tower', won, loadRecords(st))).toBe(false);
+  });
+
+  it('見る前にボスを倒した記録があれば(2回目のクリア)出さない。前の記録(endingSeen がない)は見ていないとして読む', () => {
+    const st = new MemStorage();
+    saveResult('tower', stats({ stageId: 'tower' }), 'soSo', st);
+    expect(needsEnding('tower', stats({ stageId: 'tower' }), loadRecords(st))).toBe(false);
+    const old = new MemStorage();
+    old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [] }));
+    expect(loadRecords(old).endingSeen).toBe(false);
   });
 });

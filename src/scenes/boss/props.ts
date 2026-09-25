@@ -19,6 +19,10 @@ interface PropPlace {
    * モールの噴水は、倒した母艦が落ちてくるところ(stage.def.bossDefeatProp)
    */
   spare?: boolean;
+  /** 飾りとして置くだけで、ボスが暴れても壊さない物(高層ビルのソファとピアノ) */
+  keep?: boolean;
+  /** 絵のコマ(ソファは階ごとの色。最上階は3の赤) */
+  frame?: number;
 }
 
 /**
@@ -28,6 +32,9 @@ interface PropPlace {
  * 右の奥(x=148 あたり)は女ボスの高級車を止める場所なので空けておく。
  * ショッピングモール:奥の列にエスカレーターとガチャガチャ、手前の左にマネキン、手前の右にショーケース。
  * 噴水は親玉のうしろ(母艦の塔の真うしろ。母艦が倒れて落ちてくるところ)に置き、暴れても壊さない。
+ * 高層ビル(パーティ会場):奥の左にピアノ、手前の左にソファ、親玉の右うしろにシャンパンタワー。
+ * 親玉は皿やグラスを窓へ投げる(窓のひびは choice.ts の WindowCracks)ので、置いた物は壊さない。
+ * シャンパンタワーは親玉が倒れこむところ(stage.def.bossDefeatProp)なので取っておく。
  * 表にないステージは路地裏の並びを使い、そのステージの物でないものは置かない
  */
 const PLACES: Partial<Record<StageId, PropPlace[]>> = {
@@ -55,6 +62,11 @@ const PLACES: Partial<Record<StageId, PropPlace[]>> = {
     { kind: 'mannequin', x: 14, y: 190 },
     { kind: 'escalator', x: 30, y: 148, depth: DEPTH_OF.propBack },
     { kind: 'fountain', x: 176, y: 150, spare: true }
+  ],
+  tower: [
+    { kind: 'piano', x: 30, y: 152, depth: DEPTH_OF.propBack, keep: true },
+    { kind: 'sofa', x: 22, y: 206, keep: true, frame: 3 },
+    { kind: 'champagne', x: 188, y: 176, spare: true }
   ]
 };
 
@@ -73,14 +85,14 @@ export class BossProps {
     for (const p of sorted) {
       if (stageId !== 'alley' && kinds && !kinds.includes(p.kind)) continue;
       const key = `prop_${p.kind}`;
-      const s = scene.add.sprite(p.x, p.y, key, 0).setOrigin(...originFor(key)).setDepth(p.depth ?? DEPTH_OF.prop);
+      const s = scene.add.sprite(p.x, p.y, key, p.frame ?? 0).setOrigin(...originFor(key)).setDepth(p.depth ?? DEPTH_OF.prop);
       made.set(p, s);
     }
     for (const p of places) {
       const s = made.get(p);
       if (!s) continue;
       if (p.spare) this.spares.set(p.kind, s);
-      else this.sprites.push(s);
+      else if (!p.keep) this.sprites.push(s);
     }
   }
 

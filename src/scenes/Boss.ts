@@ -9,6 +9,12 @@
 //   そのあとは母艦ごと殴る。手が止まると母艦が光線で床を焼く(1秒ごとに shipBeam)。
 //   倒すと母艦が噴水に落ちて爆発し(噴水は stats.breakProp(def.bossDefeatProp))、親玉が目を回して出てくる。
 //   親玉を市民に仕分けていたときは、始まりに空から母艦の光線が落ちてモールを焼く(被害額は Street の bossRampage で数え済み)。
+// ステージ4(高層ビル)の親玉は、手が止まると念力で皿やグラスを窓へ投げる(窓にひび)。体力が半分を切ると1回だけ
+//   「念力の選択」(docs/STAGE4.md):客とシャンデリアを浮かせる。時計を止め、下に待てと行けのボタンを両方出す。
+//   3秒の間に待て(客を下ろす)と行け(シャンデリアを押し返す)を1回ずつ押す。押さなかった分は logic の applyChoice で数える。
+//   BossFight の車の仕組み(carAtHpRatio、carMinSec)で知らせるので、戻ってから倒れるまで最短1.5秒。
+//   倒すと親玉はシャンパンタワーに倒れこみ(stats.breakProp(def.bossDefeatProp))、窓の外が明るくなって朝日が出る。
+//   親玉を市民に仕分けていたときは、始まりに家具が浮いて窓の外へ飛ぶ(見た目だけ)。演出の部品は boss/choice.ts と boss/sunrise.ts
 // 背景、曲、ボスの絵、置く物は stage.def から。
 // 一時停止中はシーンごと止まるので update が呼ばれず、BossFight の時計も止まる。
 
@@ -18,8 +24,8 @@ import { layout } from '../layout';
 import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
 import { audio } from '../audio';
 import {
-  BOSS, BossFight, bgForWave, findBoss, formatSeconds, formatYen, propsForWave, say,
-  type AnyReactionKey, type Speech, type StageDef, type StageId
+  BOSS, BossFight, PsyChoice, applyChoice, bgForWave, findBoss, formatSeconds, formatYen, propsForWave, say, sheetKeyFor,
+  type AnyReactionKey, type ChoicePress, type Look, type Speech, type StageDef, type StageId
 } from '../logic';
 import { currentWave, getRun, type GameRun } from '../run';
 import {
@@ -33,6 +39,8 @@ import { flyPunch, spawnFx, SpeedLines, throwDebris } from './boss/effects';
 import { BossHud, RushMeter } from './boss/hud';
 import { BossProps } from './boss/props';
 import { breakCeiling, ScorchMarks, skyBeam, splash } from './boss/mothership';
+import { ChoiceStage, WindowCracks, furnitureOut } from './boss/choice';
+import { Sunrise } from './boss/sunrise';
 import { px, snapshotLogical } from '../hires';
 
 /** 足の裏の高さ */
@@ -79,7 +87,13 @@ const SHIP_Y = FEET_Y;
 /** 母艦の塔から上だけ見せる(親玉の絵の上から何ドットまで見せるか) */
 const SHIP_RIDER_CROP_H = 56;
 
-type Phase = 'intro' | 'fight' | 'end';
+// ─── ステージ4:念力の選択 ───
+/** 選択が終わってから連打に戻るまで(シャンデリアが落ちたときは長め) */
+const CHOICE_RESUME_MS = 350;
+const CHOICE_RESUME_FELL_MS = 750;
+
+/** choice はステージ4の念力の選択(時計を止めている) */
+type Phase = 'intro' | 'fight' | 'choice' | 'end';
 /** 女ボスが車に乗るまで(foot)、飛び乗って出てくるところ(boarding)、車の中(car)。親玉の母艦も同じ */
 type CarMode = 'foot' | 'boarding' | 'car';
 
@@ -148,6 +162,28 @@ export class BossScene extends Phaser.Scene {
   private idleLinePending = false;
   /** 「効いてない!」を最後に出した時刻 */
   private lastNoEffectAt = -1e9;
+  // ─── ステージ4の念力の選択 ───
+  /** 天井のシャンデリアと、浮かせる客(高層ビルだけ) */
+  private party: ChoiceStage | null = null;
+  /** 窓のひび(高層ビルだけ) */
+  private cracks: WindowCracks | null = null;
+  /** 倒したあとの朝日(高層ビルだけ) */
+  private sunrise: Sunrise | null = null;
+  private choice: PsyChoice | null = null;
+  /** 選択の場面でボタンを受け付けているか(客とシャンデリアが浮いてから、終わるまで) */
+  private choiceOpen = false;
+  private choiceStop: Button | null = null;
+  private choiceGo: Button | null = null;
+  private choiceBar: Phaser.GameObjects.Graphics | null = null;
+  private choiceBarY = 0;
+  /** 浮かせる客の見た目 */
+  private guestLook: Look = 'waiter';
+  /** 行けでシャンデリアを押し返している途中 */
+  private pushing: Promise<void> | null = null;
+  /** 選択の場面のセリフを順に出す */
+  private reactions: Promise<void> = Promise.resolve();
+  /** 選択から連打に戻った時刻(「連打!」を点滅させる) */
+  private resumeAt = -1e9;
 
   constructor() { super(SCENES.boss); }
 
@@ -179,11 +215,26 @@ export class BossScene extends Phaser.Scene {
     this.speakSeq = 0;
     this.idleLinePending = false;
     this.lastNoEffectAt = -1e9;
+    this.party = this.cracks = this.sunrise = null;
+    this.choice = null;
+    this.choiceOpen = false;
+    this.choiceStop = this.choiceGo = null;
+    this.choiceBar = null;
+    this.pushing = null;
+    this.reactions = Promise.resolve();
+    this.resumeAt = -1e9;
     if (import.meta.env.DEV && this.run.debug) (window as unknown as { bossScene?: BossScene }).bossScene = this;
 
     const { W, actionH } = layout;
-    this.drawBackground();
+    const wallScroll = this.drawBackground();
     this.props = new BossProps(this, this.stageId, propsForWave(this.def, currentWave(this.run).no));
+    // 高層ビル:天井のシャンデリア、窓のひび、倒したあとの朝日
+    if (this.def.bossProp === 'chandelier') {
+      this.party = new ChoiceStage(this, HERO_X, BOSS_X, FEET_Y);
+      this.cracks = new WindowCracks(this, wallScroll);
+      this.sunrise = new Sunrise(this, wallScroll, DEPTH_OF.far + 0.3);
+      this.guestLook = this.pickGuest();
+    }
     // 女ボスの高級車は、最初は奥に止めてある
     if (this.def.bossProp === 'bosscar') this.car = new BossCar(this, CAR_PARK_X, CAR_PARK_Y);
     // 親玉の母艦は、最初は天井の上(画面の外)で待っている
@@ -239,6 +290,16 @@ export class BossScene extends Phaser.Scene {
     this.go.setEnabled(false);
     this.meter = new RushMeter(this, r.x + 8, by + 6, r.w - 16);
     this.meter.setVisible(false);
+    // 念力の選択のときだけ、行け!の場所に待てと行けを並べる(ふだんは隠す)
+    if (this.party) {
+      const half = Math.floor((r.w - 6) / 2);
+      this.choiceStop = new Button(this, r.x, by, half, bh, '待て!', { color: 'stop', size: 32, onPress: (p) => this.onChoicePress('stop', p) });
+      this.choiceGo = new Button(this, r.x + r.w - half, by, half, bh, '行け!', { color: 'go', size: 32, onPress: (p) => this.onChoicePress('go', p) });
+      for (const b of [this.choiceStop, this.choiceGo]) b.setVisible(false).setEnabled(false);
+      // 残りの時間のバー(カットインとボタンの間)
+      this.choiceBarY = by - 4;
+      this.choiceBar = this.add.graphics().setDepth(1000);
+    }
 
     // どこを触っても音を出せるようにし、始まりのセリフは触ると早送りする
     this.input.on('pointerdown', () => {
@@ -252,8 +313,16 @@ export class BossScene extends Phaser.Scene {
 
   // ─── 背景 ───
 
-  private drawBackground(): void {
-    drawStageBg(this, bgForWave(this.def, currentWave(this.run).no), Math.round(this.run.scrollX), { depth: DEPTH_OF });
+  /** 背景を描いて、壁の絵のずらし量を返す(高層ビルの窓のカーテンの位置を知るため) */
+  private drawBackground(): number {
+    const l = drawStageBg(this, bgForWave(this.def, currentWave(this.run).no), Math.round(this.run.scrollX), { depth: DEPTH_OF });
+    return l.wall.tilePositionX;
+  }
+
+  /** 念力で浮かせる客:その回の波4に出た市民の見た目から1人 */
+  private pickGuest(): Look {
+    const civs = currentWave(this.run).people.filter((p) => p.truth === 'civ');
+    return civs.length ? this.run.rng.pick(civs).look : 'waiter';
   }
 
   private playAnim(s: Phaser.GameObjects.Sprite, sheet: string, anim: string, ignoreIfPlaying = true): void {
@@ -289,6 +358,12 @@ export class BossScene extends Phaser.Scene {
     const rng = this.run.rng;
     // 母艦のあるステージで親玉を見逃していたら、空から母艦の光線が落ちてモールを焼く
     if (sortedCiv && this.car?.flies) await this.beamFromSky();
+    // 高層ビルで親玉を見逃していたら、家具が浮いて窓の外へ飛んでいく(見た目だけ)
+    if (sortedCiv && this.cracks) {
+      this.playAnim(this.boss, this.bossKey, 'cast', false);
+      await furnitureOut(this, this.cracks, FEET_Y);
+      this.playAnim(this.boss, this.bossKey, 'idle');
+    }
     await this.speak(this.line(sortedCiv ? 'bossRampageHero' : 'bossStartHero', rng));
     await waitMs(this, 250);
     await this.speak(this.line('bossStart', rng));
@@ -409,12 +484,14 @@ export class BossScene extends Phaser.Scene {
       void this.speak(this.line('bossRush'));
     }
 
-    if (res.boardedCar) this.boardCar();
+    if (res.boardedCar) this.onHalfHp();
     if (res.defeated) this.onDefeated();
   }
 
   override update(_time: number, delta: number): void {
     this.frame++;
+    this.party?.update(this.time.now);
+    if (this.phase === 'choice') { this.updateChoice(delta); return; }
     if (this.phase !== 'fight') {
       if (this.phase === 'end') this.lines.update(0);
       return;
@@ -425,9 +502,12 @@ export class BossScene extends Phaser.Scene {
       const each = r.damageYen / Math.max(1, r.idleTicks);
       for (let i = 0; i < r.idleTicks; i++) this.rampageTick(each);
     }
-    if (r.boardedCar) this.boardCar();
     this.hp.setValue(this.fight.hpRatio);
     this.hud.refresh(this.run.stats);
+    if (r.boardedCar) {
+      this.onHalfHp();
+      if (this.phase !== 'fight') return;
+    }
     if (r.defeated) { this.onDefeated(); return; }
 
     const tps = this.fight.tapsPerSec;
@@ -468,7 +548,7 @@ export class BossScene extends Phaser.Scene {
     this.meter.update(tps);
     // 「連打!」:始まりの0.9秒と、車に飛び乗った直後と、手が止まっている間だけ点滅
     const intro = this.time.now - this.fightStartAt < 900;
-    const boarded = this.carMode === 'car' && this.time.now - this.boardAt < 1600;
+    const boarded = (this.carMode === 'car' && this.time.now - this.boardAt < 1600) || this.time.now - this.resumeAt < 1200;
     this.mashText.setVisible(((intro || boarded) && this.frame % 4 < 2) || (idle && Math.floor(this.frame / 8) % 2 === 0));
 
     const t = formatSeconds(this.fight.elapsedSec);
@@ -519,6 +599,140 @@ export class BossScene extends Phaser.Scene {
     if (!ship.firing || ship.y < FEET_Y - 4 || this.time.now - this.lastFloorSparkAt < 150) return;
     this.lastFloorSparkAt = this.time.now;
     spawnFx(this, 'fx_hit', ship.x + Phaser.Math.Between(-5, 5), FEET_Y - 4, { depth: DEPTH_OF.car + 0.5 });
+  }
+
+  /** 体力が半分を切った:高層ビルは念力の選択、ほかは乗り物に乗る(路地裏は何もしない) */
+  private onHalfHp(): void {
+    if (this.party) void this.startChoice();
+    else this.boardCar();
+  }
+
+  // ─── ステージ4:念力の選択 ───
+
+  /**
+   * 親玉が両手を上げて、客とシャンデリアを浮かせる。時計を止め(update で fight.update を呼ばない)、
+   * 浮き終わったら待てと行けのマークとボタンを出して、3秒の選択を始める
+   */
+  private async startChoice(): Promise<void> {
+    const party = this.party;
+    if (!party || this.phase !== 'fight' || this.choice) return;
+    this.phase = 'choice';
+    this.choice = new PsyChoice();
+    this.choiceOpen = false;
+    this.reactions = Promise.resolve();
+    // 連打の見た目を止める
+    this.endIdle();
+    this.mashText.setVisible(false);
+    this.comboText.setVisible(false);
+    this.combo = 0;
+    this.aura.setVisible(false);
+    this.lines.update(0);
+    this.heroPush = this.bossPush = 0;
+    this.hero.x = this.aura.x = HERO_X;
+    this.hero.anims.timeScale = 1;
+    this.playAnim(this.hero, 'hero', 'idle');
+    this.boss.x = BOSS_X;
+    this.boss.clearTint();
+    this.whiteFrames = 0;
+    this.playAnim(this.boss, this.bossKey, 'cast', false);
+    this.go.setVisible(false);
+    this.meter.setVisible(false);
+    this.quake(2, 200);
+    await party.start(sheetKeyFor(this.guestLook, 'civ', this.stageId));
+    if (this.phase !== 'choice') return;
+    party.showMarks();
+    for (const b of [this.choiceStop, this.choiceGo]) b?.setVisible(true).setEnabled(true);
+    this.choiceOpen = true;
+    audio.sfx('mark');
+    this.drawChoiceBar(1);
+    // 初めてこの場面が出たとき(ボス戦は1回のプレイに1回なので、毎回)のオペレーターの一言。時計は止めたまま
+    void this.speak(this.line('bossChoice', this.run.rng), true);
+  }
+
+  /** 残りの時間のバー(ratio 1〜0) */
+  private drawChoiceBar(ratio: number): void {
+    const g = this.choiceBar;
+    if (!g) return;
+    const { W } = layout;
+    g.clear();
+    if (ratio <= 0) return;
+    const w = Math.round((W - 8) * ratio);
+    g.fillStyle(UI.black, 1).fillRect(4, this.choiceBarY, W - 8, 3);
+    g.fillStyle(ratio > 0.34 ? UI.gold : UI.danger, 1).fillRect(4, this.choiceBarY, w, 3);
+  }
+
+  /** 選択の間の毎フレーム:3秒の時計を進める(ボス戦の時計は止めたまま) */
+  private updateChoice(delta: number): void {
+    const c = this.choice;
+    if (!c || !this.choiceOpen) return;
+    const r = c.update(Math.min(delta, 100));
+    this.drawChoiceBar(c.leftRatio);
+    if (r.ended) void this.endChoice();
+  }
+
+  /** 選択の間の待てと行け。同じボタンの2回目は受け付けない */
+  private onChoicePress(which: ChoicePress, p: Phaser.Input.Pointer): void {
+    audio.unlock();
+    const c = this.choice;
+    const party = this.party;
+    if (this.phase !== 'choice' || !this.choiceOpen || !c || !party) return;
+    if (!c.press(which)) return;
+    const q = px(p);
+    tapSpark(this, q.x, q.y, which === 'stop' ? UI.stop : UI.gold);
+    audio.sfx(which);
+    if (which === 'stop') {
+      this.choiceStop?.setEnabled(false);
+      party.lowerGuest();
+      this.react('bossGuestSaved');
+    } else {
+      this.choiceGo?.setEnabled(false);
+      this.pushing = party.pushBack(this.hero, FEET_Y);
+      this.react('bossChandelierGo');
+    }
+    if (c.done) void this.endChoice();
+  }
+
+  /** 選択の場面のセリフを、前のセリフのあとに出す(はじめの1つはオペレーターの指示を上書きする) */
+  private react(key: AnyReactionKey): void {
+    this.reactions = this.reactions.then(() => (this.phase === 'end' ? undefined : this.speak(this.line(key, this.run.rng))));
+  }
+
+  /** 両方押したか3秒たった:押さなかった分を落として数え、少ししてから連打に戻る */
+  private async endChoice(): Promise<void> {
+    const c = this.choice;
+    const party = this.party;
+    if (!c || !party || !this.choiceOpen) return;
+    this.choiceOpen = false;
+    const o = c.outcome;
+    const cost = applyChoice(this.run.stats, o, this.guestLook);
+    for (const b of [this.choiceStop, this.choiceGo]) b?.setVisible(false).setEnabled(false);
+    this.drawChoiceBar(0);
+    party.hideMark();
+    if (!o.guestSaved) party.dropGuest();
+    if (!o.chandelierSaved) {
+      this.react('bossChandelierFell');
+      this.playAnim(this.hero, 'hero', 'oops', false);
+      void party.fall().then(() => {
+        if (!this.sys.isActive()) return;
+        this.quake(6, 260);
+        hitStop(this, 60);
+        this.hud.refresh(this.run.stats);
+        popText(this, Phaser.Math.Clamp(party.chandelier.x, 44, 172), FEET_Y - 34, formatYen(cost), { color: UI.danger, size: FS.big });
+      });
+    }
+    this.hud.refresh(this.run.stats);
+    if (this.pushing) await this.pushing;
+    await waitMs(this, o.chandelierSaved ? CHOICE_RESUME_MS : CHOICE_RESUME_FELL_MS);
+    if (this.phase !== 'choice') return;
+    // 連打に戻る
+    this.phase = 'fight';
+    this.resumeAt = this.time.now;
+    this.hero.y = FEET_Y;
+    this.playAnim(this.hero, 'hero', 'idle');
+    this.playAnim(this.boss, this.bossKey, 'idle');
+    this.go.setVisible(true).setEnabled(true);
+    this.meter.setVisible(true);
+    audio.sfx('go');
   }
 
   /** 体力が半分を切った:女ボスが奥の高級車に飛び乗り、エンジンをふかして手前へ出てくる(親玉は母艦を呼ぶ) */
@@ -777,10 +991,19 @@ export class BossScene extends Phaser.Scene {
       else this.carRampageTick(yen);
       return;
     }
+    const label = formatYen(yen);
+    // 高層ビル:親玉が念力で皿やグラスを窓へ投げる。当たった窓にひびが入る
+    if (this.cracks) {
+      this.cracks.throwDish(BOSS_X - 18, FEET_Y - 70, (at) => {
+        if (this.phase !== 'fight') return;
+        // 体力のバー(y=26〜34)にかからないよう、当たった所の少し下に出す
+        popText(this, Phaser.Math.Clamp(at.x, 30, 186), Math.max(at.y + 30, 62), label, { color: UI.danger, size: FS.big });
+      });
+      return;
+    }
     audio.sfx('rampage', { pitch: 0.9 + Math.random() * 0.2 });
     spawnFx(this, 'fx_dust', BOSS_X + Phaser.Math.Between(-24, 24), FEET_Y - 8);
     const prop = this.props.takeNext();
-    const label = formatYen(yen);
     if (prop) {
       const c = BossProps.centerOf(prop);
       // ボスが投げたがれきが飛んでいって当たる
@@ -978,6 +1201,8 @@ export class BossScene extends Phaser.Scene {
     if (this.car) {
       if (this.car.flies) this.wreckShip();
       else this.wreckCar();
+    } else if (this.party) {
+      this.collapseIntoChampagne();
     } else {
       this.playAnim(this.boss, this.bossKey, 'defeat', false);
       this.tweens.add({ targets: this.boss, x: BOSS_X + 22, duration: 500, ease: 'Cubic.easeOut', onUpdate: () => { this.boss.x = Math.round(this.boss.x); } });
@@ -1005,10 +1230,17 @@ export class BossScene extends Phaser.Scene {
     await waitMs(this, 350);
     title.setVisible(true);
     blink(title, 500);
+    // 高層ビル:窓の外が明るくなり、朝日が出る
+    this.sunrise?.start(1800);
     await waitMs(this, 300);
     time.setVisible(true);
 
-    if (this.car) {
+    if (this.party) {
+      // シャンパンタワーに倒れこんだ親玉へのひとこと
+      await waitMs(this, 900);
+      await this.speak(this.line('bossWreck', this.run.rng));
+      await waitMs(this, 150);
+    } else if (this.car) {
       // 最後の大きな爆発のあと、車が燃えている間に、目を回した女ボスへのひとこと
       await waitMs(this, 1100);
       await this.speak(this.line('bossWreck', this.run.rng));
@@ -1032,6 +1264,57 @@ export class BossScene extends Phaser.Scene {
     await this.speak(this.line('bossDefeatedOp', this.run.rng));
     await waitMs(this, 900);
     gotoWhenFree(this, SCENES.waveReview, undefined, { kind: 'wipe' });
+  }
+
+  /**
+   * ステージ4:殴られた親玉が右へ飛ばされ、うしろのシャンパンタワー(def.bossDefeatProp)に倒れこむ。
+   * シャンパンタワーが壊れた分は被害額に足す(stats.breakProp)
+   */
+  private collapseIntoChampagne(): void {
+    this.party?.destroy();
+    const boss = this.boss;
+    const kind = this.def.bossDefeatProp;
+    const tower = kind ? this.props.spare(kind) : null;
+    this.playAnim(boss, this.bossKey, 'defeat', false);
+    const x0 = boss.x;
+    // 倒れた絵(横に長い)が画面の右の端から出ないように
+    const x1 = Math.min(170, (tower?.x ?? 188) - 18);
+    // 火花を何発か(画面全体の光は最初の1回だけ)
+    for (let i = 0; i < 4; i++) {
+      this.time.delayedCall(i * 110, () => {
+        const x = BOSS_X + Phaser.Math.Between(-16, 24), y = FEET_Y - 40 + Phaser.Math.Between(-24, 16);
+        spawnFx(this, 'fx_hit_big', x, y, { depth: DEPTH_OF.fxTop });
+        for (let k = 0; k < 2; k++) throwDebris(this, x, y, Phaser.Math.Between(-40, 60), Phaser.Math.Between(0, 40));
+      });
+    }
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: 520, ease: 'Linear',
+      onUpdate: (tw) => {
+        const t = tw.getValue() ?? 0;
+        boss.x = Math.round(x0 + (x1 - x0) * t);
+        boss.y = Math.round(FEET_Y - 26 * 4 * t * (1 - t));
+      },
+      onComplete: () => {
+        boss.setPosition(x1, FEET_Y);
+        this.bossShadow.setX(x1);
+        this.quake(5, 240);
+        audio.sfx('bossDown');
+        if (!tower || !kind) return;
+        // グラスが割れて、シャンパンが飛び散る
+        tower.setFrame(1);
+        audio.sfx('break');
+        audio.sfx('smash', { volume: 0.6, pitch: 1.3 });
+        spawnFx(this, 'fx_hit_big', tower.x, tower.y - 30, { depth: DEPTH_OF.fxTop });
+        for (let i = 0; i < 6; i++) this.time.delayedCall(i * 90, () => spawnFx(this, 'fx_sparkle', tower.x + Phaser.Math.Between(-22, 22), tower.y - Phaser.Math.Between(20, 56), { depth: DEPTH_OF.fxTop }));
+        for (let i = 0; i < 6; i++) throwDebris(this, tower.x, tower.y - 30, Phaser.Math.Between(-50, 30), Phaser.Math.Between(-10, 30), 460);
+        const cost = this.run.stats.breakProp(kind);
+        this.hud.refresh(this.run.stats);
+        popText(this, Phaser.Math.Clamp(tower.x, 40, 174), tower.y - 52, formatYen(cost), { color: UI.danger, size: FS.big });
+        // 目を回した星
+        const stars = this.add.sprite(x1 - 16, FEET_Y - 24, 'fx_stars', 0).setDepth(DEPTH_OF.fxTop);
+        this.playAnim(stars, 'fx_stars', 'play');
+      }
+    });
   }
 
   /** 倒したとき:乗り物の動きを止め、乗っていたボスを隠す(このあと壊れた乗り物から出てくる) */

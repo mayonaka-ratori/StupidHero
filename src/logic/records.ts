@@ -15,6 +15,7 @@
 //   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
 //   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
 //   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
+//   endingSeen(高層ビルの終わりの場面を見たか)もあとから足した。ない記録は、見ていないとして読む。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
@@ -24,7 +25,8 @@
 //   const title = decideTitle(stats, { firstClear });
 //   const saved = saveResult(stage.id, stats, title.id);   // 結果画面が出たときに1回だけ
 //   saved.titlesCollected / saved.titlesTotal               // 「称号5/24」
-//   saved.firstClear                                        // 今回ボスを初めて倒したか(高層ビルの終わりの場面を出すか)
+//   saved.firstClear                                        // 今回ボスを初めて倒したか
+//   needsEnding('tower', stats) / markEndingSeen()          // 高層ビルの終わりの場面を出すか(saveResult の前に) / 出したときに呼ぶ
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
 //                                                           // ['mall'] なら「モールが開いた」。say('unlocked', rng, id))
 //   stageSelectInfo()                                       // ステージを選ぶ画面:開いているか、いちばん良い記録、称号の数
@@ -109,6 +111,8 @@ export interface Records {
   freeMoreHintShown: boolean;
   /** 最後に結果画面まで遊んだステージ(ステージを選ぶ画面で、そのカードを見える所に出す)。まだなければ null */
   lastStage: StageId | null;
+  /** 高層ビルの終わりの場面を見たか */
+  endingSeen: boolean;
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -145,7 +149,7 @@ export const emptyFreeRecord = (): FreeRecord => ({
   bestSec: null, bestSlowSec: null, mostStopSaved: null, mostGoScenes: null, highestDamage: null, plays: 0, titles: []
 });
 const emptyRecords = (): Records => ({
-  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null
+  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false
 });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
@@ -193,7 +197,7 @@ function sanitize(raw: unknown): Records {
   if (!raw || typeof raw !== 'object') return out;
   const r = raw as {
     version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown;
-    free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown; lastStage?: unknown;
+    free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown; lastStage?: unknown; endingSeen?: unknown;
   };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
@@ -240,6 +244,7 @@ function sanitize(raw: unknown): Records {
   out.freeIntroSeen = r.freeIntroSeen === true;
   out.freeMoreHintShown = r.freeMoreHintShown === true;
   out.lastStage = isStageId(r.lastStage) ? r.lastStage : null;
+  out.endingSeen = r.endingSeen === true;
   return out;
 }
 
@@ -325,6 +330,25 @@ export function markRushSeen(stageId: StageId, storage: RecordStorage | null = d
  */
 export function isFirstClear(stageId: StageId, stats: Pick<StageStats, 'bossDefeated'>, records: Records = loadRecords()): boolean {
   return stats.bossDefeated && (records.stages[stageId]?.clears ?? 0) === 0;
+}
+
+/** 終わりの場面があるステージ(最後のステージ) */
+export const ENDING_STAGE: StageId = 'tower';
+
+/**
+ * 終わりの場面を出すか。最後のステージのボスを初めて倒したときだけで、見たことがあれば出さない。
+ * 波4の答え合わせのあと、結果画面(saveResult)より前に呼ぶ
+ */
+export function needsEnding(stageId: StageId, stats: Pick<StageStats, 'bossDefeated'>, records: Records = loadRecords()): boolean {
+  return stageId === ENDING_STAGE && !records.endingSeen && isFirstClear(stageId, stats, records);
+}
+
+/** 終わりの場面を見たことを残す(出し始めたときに呼ぶ)。書けなくても、その場では覚えている */
+export function markEndingSeen(storage: RecordStorage | null = defaultStorage()): void {
+  const records = loadRecords(storage);
+  if (records.endingSeen) return;
+  records.endingSeen = true;
+  writeRecords(records, storage);
 }
 
 /** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */

@@ -79,6 +79,7 @@ export * from './stage';
 export * from './stats';
 export * from './titles';
 export * from './boss';
+export * from './bossChoice';
 export * from './format';
 export * from './share';
 export * from './records';

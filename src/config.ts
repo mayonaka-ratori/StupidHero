@@ -23,6 +23,8 @@ export const SCENES = {
   waveReview: 'WaveReview',
   /** 高層ビルの波の間の、階の数字だけの短い場面(波1と2、波2と3の間) */
   floor: 'Floor',
+  /** 終わりの場面(高層ビルのボスを初めて倒したときだけ、最後の答え合わせと結果画面の間) */
+  ending: 'Ending',
   result: 'Result',
   /** 称号の一覧(結果画面から開く) */
   titleList: 'TitleList'

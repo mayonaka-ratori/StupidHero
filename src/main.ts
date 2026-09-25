@@ -12,6 +12,7 @@ import { BossScene } from './scenes/Boss';
 import { WaveReviewScene } from './scenes/WaveReview';
 import { FloorScene } from './scenes/Floor';
 import { ResultScene } from './scenes/Result';
+import { EndingScene } from './scenes/Ending';
 import { TitleListScene } from './scenes/TitleList';
 import { WipeScene } from './ui/transition';
 import { PauseOverlay, watchOrientation } from './ui/pause';
@@ -33,7 +34,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   audio: { noAudio: true },
   banner: false,
-  scene: [BootScene, TitleScene, StageSelectScene, IntroScene, SortScene, StreetScene, BossScene, WaveReviewScene, FloorScene, ResultScene, TitleListScene, PauseOverlay, WipeScene]
+  scene: [BootScene, TitleScene, StageSelectScene, IntroScene, SortScene, StreetScene, BossScene, WaveReviewScene, FloorScene, EndingScene, ResultScene, TitleListScene, PauseOverlay, WipeScene]
 });
 
 const refit = (): void => {
