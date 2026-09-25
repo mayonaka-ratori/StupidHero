@@ -59,6 +59,7 @@ export class BootScene extends Phaser.Scene {
  *     書かなければ路地裏だけ。ゆっくりモードは一時停止のメニューの設定のまま。
  *     &threat=8 でモヒカンが逃げるまでを8秒にのばす。行けのマークが2つ出る場面を作るため。street/free.ts)
  *   ?scene=Result&free=1   フリープレイの結果画面(見本の数字。result/sample.ts)
+ *   ?scene=Elevator&stage=tower   エレベーターラッシュ(波1〜3の仕分けを埋めて、波4の前から)
  * 始める波より前の波と、Street以降なら始める波の仕分けも sorts の決め方で埋める。
  * scene の名前は大文字と小文字を区別しない(street でもよい)。
  */
@@ -81,10 +82,12 @@ function debugJump(scene: Phaser.Scene): string | null {
   const stageId = isStageId(stageParam) ? stageParam : 'alley';
   const run = startRun(scene, Number(q.get('seed') ?? 12345), true, stageId);
   const last = run.stage.waves.length;
-  const wave = Math.min(last, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? last : 1))));
+  // エレベーターラッシュは、ラッシュの次の波(高層ビルは波4)の前から始める
+  const liftWave = run.stage.def.rush?.kind === 'elevator' ? run.stage.def.rush.afterWave + 1 : 1;
+  const wave = Math.min(last, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? last : target === SCENES.elevator ? liftWave : 1))));
   run.waveIndex = wave - 1;
   const mode = q.get('sorts') ?? 'random';
-  const lastFilled = target === SCENES.sort || target === SCENES.intro || target === SCENES.title || target === SCENES.floor ? wave - 1 : wave;
+  const lastFilled = target === SCENES.sort || target === SCENES.elevator || target === SCENES.intro || target === SCENES.title || target === SCENES.floor ? wave - 1 : wave;
   for (const w of run.stage.waves.slice(0, lastFilled)) {
     for (const p of w.people) {
       const truthChoice = p.truth === 'civ' ? 'civ' : 'bad';

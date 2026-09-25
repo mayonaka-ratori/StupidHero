@@ -3,8 +3,6 @@
 // シーンの create のたびに作り直す(回をまたいで状態を持ちこまない)。
 
 import Phaser from 'phaser';
-import { UI } from '../../config';
-import { layout } from '../../layout';
 import { audio } from '../../audio';
 import { animKey } from '../../art/sheets';
 import {
@@ -12,7 +10,8 @@ import {
   type Speech, type RushRunner
 } from '../../logic';
 import { currentWave } from '../../run';
-import { FS, PixelText, hitStop, impact, waitMs } from '../../ui';
+import { hitStop, impact, waitMs } from '../../ui';
+import { rushBand, rushTapIntro } from './rushIntro';
 import { Actor, HEAD } from './actor';
 import { settings } from '../../settings';
 import type { StreetScene } from '../Street';
@@ -116,20 +115,7 @@ export class RushPart {
 
   /** 「タイムセール開始!」の大きな帯。タップで始めるまで出しておき、out() で左へ去る */
   private saleBand(): { out: () => void } {
-    const { W } = layout;
-    const bandH = 34;
-    const c = this.s.add.container(W, 52).setDepth(1500).setScrollFactor(0);
-    const g = this.s.add.graphics();
-    g.fillStyle(UI.black, 1).fillRect(0, 0, W, bandH);
-    g.fillStyle(UI.gold, 1).fillRect(0, 2, W, 2).fillRect(0, bandH - 4, W, 2);
-    g.fillStyle(UI.bad, 1).fillRect(0, 5, W, 1).fillRect(0, bandH - 6, W, 1);
-    const label = new PixelText(this.s, Math.floor(W / 2), 9, RUSH_BAND, { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0);
-    c.add([g, label]);
-    const slide = (x: number, ms: number, ease: string, done?: () => void): void => {
-      this.s.tweens.add({ targets: c, x, duration: ms, ease, onUpdate: () => { c.x = Math.round(c.x); }, onComplete: () => done?.() });
-    };
-    slide(0, 180, 'Cubic.easeOut');
-    return { out: () => slide(-W, 160, 'Cubic.easeIn', () => c.destroy()) };
+    return rushBand(this.s, RUSH_BAND);
   }
 
   /**
@@ -155,57 +141,9 @@ export class RushPart {
     }
   }
 
-  /**
-   * 説明のカットイン(初めては2つ、見たことがあれば1つ)と、▼タップ。
-   * 止めてから lockUntil まではタップを受けない。始めるタップは待てや行けに効かない(このあいだは合図がないので、ボタンは押せない)。
-   * 一時停止のメニューの「つづける」のタップでも始まらないように、戻ってから少しの間も受けない
-   */
-  private async rushIntro(lines: readonly Speech[], lockUntil: number): Promise<void> {
-    let lock = lockUntil;
-    let tapped: (() => void) | null = null;
-    const onDown = (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void => {
-      if (this.s.time.now < lock) return;
-      // 中断、音、早送りのボタンは、それぞれのボタンとして効かせる
-      if (over.some((o) => o.parentContainer && this.s.icons.includes(o.parentContainer))) return;
-      if (this.s.cut.isTyping) {
-        // カットインを押したときは、カットインが自分で文字送りを飛ばす
-        if (!over.some((o) => o.parentContainer === this.s.cut)) this.s.cut.skip();
-        return;
-      }
-      tapped?.();
-    };
-    const onResume = (): void => { lock = Math.max(lock, this.s.time.now + RUSH.tapLockSec * 1000); };
-    this.s.input.on('pointerdown', onDown);
-    this.s.events.on(Phaser.Scenes.Events.RESUME, onResume);
-    // 説明の途中でシーンを出たとき(タイトルへ、など)も外す
-    const off = (): void => {
-      this.s.input.off('pointerdown', onDown);
-      this.s.events.off(Phaser.Scenes.Events.RESUME, onResume);
-    };
-    this.s.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
-    /** タップを待つ(ms を渡すと、その時間がたっても進む) */
-    const waitTap = (ms?: number): Promise<void> => new Promise((resolve) => {
-      let over = false;
-      const go = (): void => { if (over) return; over = true; tapped = null; resolve(); };
-      tapped = go;
-      if (ms !== undefined) this.s.time.delayedCall(ms, go);
-    });
-    for (let i = 0; i < lines.length; i++) {
-      const sp = lines[i];
-      await this.s.cut.say(sp.text, sp.face, { who: sp.who, alarm: sp.face === 'panic' });
-      if (i < lines.length - 1) await waitTap(1200);
-    }
-    // ▼タップ(ゆっくり点滅)
-    const { W, actionH } = layout;
-    const tip = new PixelText(this.s, W - 6, actionH - 18, '▼タップ', { size: FS.big, color: UI.gold, outline: true })
-      .setOrigin(1, 0).setScrollFactor(0).setDepth(1500);
-    const blinkEv = this.s.time.addEvent({ delay: 420, loop: true, callback: () => tip.setVisible(!tip.visible) });
-    await waitTap();
-    blinkEv.remove();
-    tip.destroy();
-    off();
-    this.s.events.off(Phaser.Scenes.Events.SHUTDOWN, off);
-    audio.unlock();
+  /** 説明のカットイン(初めては2つ、見たことがあれば1つ)と、▼タップ(street/rushIntro.ts) */
+  private rushIntro(lines: readonly Speech[], lockUntil: number): Promise<void> {
+    return rushTapIntro({ scene: this.s, cut: this.s.cut, icons: this.s.icons }, lines, lockUntil, RUSH.tapLockSec);
   }
 
   stepRush(ms: number): void {

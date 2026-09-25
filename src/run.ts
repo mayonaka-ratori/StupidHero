@@ -10,6 +10,7 @@
 // Sort は時間切れのとき fillUnsorted() で残りを決める(Street も入口で念のため呼ぶ)。
 // Street は波の最後まで進んだら nextAfterStreet() を呼ぶ。波3ではボスの前まで来たら Boss へ行く。
 // Boss はボスを倒したら WaveReview へ。WaveReview は次へで nextAfterReview() を呼ぶ(波を進めるのはここ)。
+// 高層ビル(波が4つ)は、波3の WaveReview のあと Elevator(エレベーターラッシュ)を通って波4の Sort へ。
 // 開発用に Boot から途中のシーンへ飛ぶときは startRun(scene, seed, true, stageId)(Boot.ts の debugJump)。
 //
 // フリープレイ(docs/FREEPLAY.md。run.mode === 'free'):
@@ -198,6 +199,7 @@ export function sceneAfterLastReview(run: GameRun): string {
 
 /**
  * 答え合わせの次へ。最後の波でなければ次の波の Sort(ここで波を進める)、最後の波なら Result(高層ビルは終わりの場面のことも)。
+ * 高層ビルの波3のあとはエレベーターラッシュ(SCENES.elevator)。
  * 波ごとに階が変わるステージ(def.floors。高層ビル)は、Sort の前に階の数字の場面(SCENES.floor)をはさむ。
  * ただしラッシュのある波のあと(高層ビルの波3のあと)ははさまない
  */
@@ -208,7 +210,7 @@ export function nextAfterReview(run: GameRun): string {
   const doneNo = currentWave(run).no;
   run.waveIndex += 1;
   if (def.floors && !rushAfter(def, doneNo)) return SCENES.floor;
-  // TODO: 高層ビルの波3のあとは、ここでエレベーターラッシュ(rushAfter(def, doneNo, 'elevator'))へ行く。
-  // ラッシュの場面ができるまでは、そのまま波4の Sort へ
+  // 高層ビルの波3のあとは、エレベーターラッシュ(Elevator が波4の Sort へ行く)
+  if (rushAfter(def, doneNo, 'elevator')) return SCENES.elevator;
   return SCENES.sort;
 }
