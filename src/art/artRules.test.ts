@@ -9,6 +9,14 @@ import { drawLogo } from './world/logo';
 import { WORLD2_IMAGES, buildWorld2Sheets } from './world2';
 import { WORLD3_IMAGES, buildWorld3Sheets } from './world3';
 import { GLITCH } from './world3/palette';
+import { WORLD4_BG_SETS, WORLD4_IMAGES, buildWorld4Sheets } from './world4';
+import { PSY } from './world4/palette';
+
+/**
+ * 超能力の紫のうち、決まった所にしか使わない2色(R219 G109 B255、R146 G36 B219)。
+ * いちばん明るい R255 G219 B255 は、前から路地裏の看板のネオンにも使っているので確かめない
+ */
+const PSY_ONLY = [PSY[1], PSY[2]];
 import { buildFreeSheets } from './free';
 
 /** 担当ごとのシート(ヒーローと顔とエフェクト、ステージ1〜3、フリープレイ) */
@@ -17,10 +25,18 @@ const SETS: Record<string, Record<string, PixelGrid[][]>> = {
   world: buildWorldSheets(),
   world2: buildWorld2Sheets(),
   world3: buildWorld3Sheets(),
+  world4: buildWorld4Sheets(),
   free: buildFreeSheets()
 };
-/** ステージごとの背景3枚(奥、壁、地面の順) */
-const BGS: Record<string, Record<string, () => PixelGrid>> = { alley: WORLD_BGS, garage: WORLD2_IMAGES, mall: WORLD3_IMAGES };
+/** 背景の1枚絵(キー → 描く関数) */
+const IMAGE_DRAW: Record<string, () => PixelGrid> = { ...WORLD_BGS, ...WORLD2_IMAGES, ...WORLD3_IMAGES, ...WORLD4_IMAGES };
+/**
+ * 色の数を確かめる背景の組(奥の絵1枚と、それに組む壁と床で45色まで)。1枚目は奥の絵で、透明なし。
+ * ステージ1〜3は1組ずつ、高層ビルは階ごとの4組とエレベーター
+ */
+const BG_SETS: Record<string, string[]> = {
+  alley: Object.keys(WORLD_BGS), garage: Object.keys(WORLD2_IMAGES), mall: Object.keys(WORLD3_IMAGES), ...WORLD4_BG_SETS
+};
 
 const GREEN = 'rgb(0,255,0)';
 
@@ -35,6 +51,9 @@ const okLevel = (c: string): boolean => {
 };
 
 /** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人と、その見た目に化けた女ボスだけ */
+/** 超能力の紫を使ってよい絵(もれと念力のエフェクト、親玉の光、念力で浮くシャンデリア) */
+const mayUsePsy = (key: string): boolean => key.startsWith('fx_psy_') || key === 'boss4' || key === 'prop_chandelier';
+
 const mayUseAccessory = (key: string): boolean =>
   /^(guard|mechanic|clubber|officelady)_(civ|bad)$/.test(key) || key.startsWith('boss2_disguise_');
 
@@ -69,6 +88,14 @@ describe('絵の色の決まり', () => {
         }
       });
 
+      it('超能力の紫(濃いほうの2色)は、ステージ4のもれ、念力、親玉の光だけ', () => {
+        for (const [key, rows] of Object.entries(sheets)) {
+          if (mayUsePsy(key)) continue;
+          const cs = colorsOf(rows.flat());
+          for (const c of PSY_ONLY) expect(cs.has(c), `${key} ${c}`).toBe(false);
+        }
+      });
+
       if (set !== 'world3') {
         it('黄緑の3色(くずれと合図の色)はステージ3だけ(フリープレイの宇宙人の触角と合図はよい)', () => {
           for (const [key, rows] of Object.entries(sheets)) {
@@ -81,21 +108,26 @@ describe('絵の色の決まり', () => {
     });
   }
 
-  for (const [stage, images] of Object.entries(BGS)) {
-    it(`${stage}の背景は3枚で45色まで、8段階の色だけ、明るい緑と赤紫なし、奥の絵に透明なし`, () => {
-      const grids = Object.entries(images).map(([key, draw]) => {
-        const g = draw();
+  for (const [name, keys] of Object.entries(BG_SETS)) {
+    it(`${name}の背景(奥の絵1枚と、組む壁と床)は45色まで、8段階の色だけ、明るい緑と赤紫と超能力の紫なし、奥の絵に透明なし`, () => {
+      const grids = keys.map((key) => {
+        const g = IMAGE_DRAW[key]();
         const def = IMAGES.find((d) => d.key === key)!;
         expect([g.w, g.h], key).toEqual([def.w, def.h]);
         return g;
       });
-      expect(grids.length).toBe(3);
       const cs = colorsOf(grids);
       expect(cs.size).toBeLessThanOrEqual(45);
-      for (const c of cs) expect(okLevel(c) && c !== GREEN && c !== KEY_ACCESSORY, c).toBe(true);
+      const psy = new Set<string>(PSY_ONLY);
+      for (const c of cs) expect(okLevel(c) && c !== GREEN && c !== KEY_ACCESSORY && !psy.has(c), c).toBe(true);
       expect(grids[0].cells.every((row) => row.every((c) => c !== null))).toBe(true);
     });
   }
+
+  it('背景の1枚絵は全部、どれかの組に入っている', () => {
+    const inSet = new Set(Object.values(BG_SETS).flat());
+    expect(IMAGES.map((d) => d.key).filter((k) => k !== 'logo' && !inSet.has(k))).toEqual([]);
+  });
 
   it('ロゴは15色まで、8段階の色だけ、明るい緑と赤紫なし', () => {
     const g = drawLogo();

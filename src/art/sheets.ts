@@ -143,6 +143,27 @@ const fx = (key: string, w: number, h: number, frames: number, fps: number, loop
   key, frameW: w, frameH: h, cols: frames, anchor, rows: [a('play', frames, fps, loop, note)]
 });
 
+/**
+ * ステージ4の人:市民とヴィランが同じシート。市民の6行に、行6「念力で物を持ち上げる」を足した7行。
+ * 行の名前は悪党のシートと同じ mischief にしてある(結果発表で同じように流せるように)
+ */
+const towerPerson = (key: string): SheetDef => ({
+  key, frameW: 64, frameH: 64, cols: 4, anchor: 'feet',
+  rows: [...civRows(), a('mischief', 4, 8, false, '悪さ:念力で物を持ち上げる(片手を前に出して指を広げる。3コマ目で物が浮き始める)', [3])]
+});
+
+const BOSS4: SheetDef = {
+  key: 'boss4', frameW: 96, frameH: 96, cols: 4, anchor: 'feet',
+  rows: [
+    a('reveal', 4, 10, false, '正体を現す。化けた服を念力で吹き飛ばし、白いスーツと紫のマント'),
+    a('idle', 2, 4, true, '待機。腕を組んで少し浮かぶように揺れる。目が紫に光る'),
+    a('rampage', 4, 10, true, '暴れる。念力で皿やグラスを窓へ投げる(手を振る)'),
+    a('hit', 2, 15, true, 'ラッシュを受ける'),
+    a('defeat', 4, 8, false, 'やられる。目を回して倒れる'),
+    a('cast', 4, 8, false, '念力の選択。両手を上げて客とシャンデリアを浮かせる(2〜4コマ目は手を上げたまま。くり返すなら3〜4コマ目)')
+  ]
+};
+
 /** フリープレイの一目で分かるワル:ふつうのワルと同じ7行。悪さの中身だけ書く */
 const freeVillain = (key: string, mischief: string): SheetDef => ({
   key, frameW: 64, frameH: 64, cols: 4, anchor: 'feet',
@@ -222,6 +243,34 @@ export const SHEETS: SheetDef[] = [
   fx('fx_gaan', 64, 64, 2, 8, true, '「ガーン」の稲妻'),
   fx('fx_kiran', 32, 32, 4, 12, false, '「キラーン」の光'),
   fx('fx_explosion', 96, 96, 6, 12, false, '勝利ポーズの背中の爆発'),
+  // ─── ステージ4(docs/STAGE4.md)───
+  // 人は市民とヴィランで同じシート(もれは周りに重ねるので、人の絵は変えない)
+  towerPerson('tw_florist'), towerPerson('tw_courier'), towerPerson('tw_newbie'), towerPerson('tw_janitor'),
+  towerPerson('tw_chef'), towerPerson('tw_waiter'), towerPerson('tw_lady'), towerPerson('tw_magician'),
+  disguise('tw_boss_lady'), disguise('tw_boss_magician'), disguise('tw_boss_waiter'),
+  BOSS4,
+  // ソファは壊れない。4コマは階ごとの色
+  propN('prop_sofa', 48, 24, 4, '0:灰色(1階)、1:紺(18階)、2:茶色(35階)、3:赤(最上階)。攻撃でも念力でも壊れない'),
+  prop('prop_plant', 24, 44, 'bottom'),
+  prop('prop_flowers', 26, 50, 'bottom'),
+  prop('prop_copier', 32, 32, 'bottom'),
+  prop('prop_tank', 40, 32, 'bottom'),
+  prop('prop_wine', 32, 48, 'bottom'),
+  prop('prop_champagne', 40, 48, 'bottom'),
+  prop('prop_piano', 62, 44, 'bottom'),
+  // シャンデリアは天井から下げるので、上の真ん中を基準にする
+  { key: 'prop_chandelier', frameW: 56, frameH: 34, cols: 3, anchor: 'top',
+    rows: [a('state', 3, 8, false, '0:ふつう、1:念力で浮く(炎が紫)、2:落ちて壊れた')] },
+  // 仕分けの画面の左下の机(小物は fx_psy_items を上に置く)
+  still('tw_desk', 40, 32, 'bottom', '仕分けの画面の左下の机。天板の上の面は上から3〜4段目。小物はこの上に置く'),
+  // エレベーターの扉の1枚(右の扉の口に2枚並べ、左の1枚は反転して置く。開くときは左右へずらす)
+  still('tw_lift_door', 15, 114, 'top', 'エレベーターの扉の1枚。bg_lift の扉の口(左上 x=182、y=30、30×114)に2枚並べる'),
+  // もれと念力のエフェクト。紫の3色(docs/ART_SPEC.md の「決まった所にしか使わない色」)
+  fx('fx_psy_spark', 9, 9, 4, 10, true, '紫の小さな火花(十字)。光と揺れを弱くするときは1コマ目で止める'),
+  fx('fx_psy_haze', 16, 14, 2, 4, true, '浮いた小物を包む紫のもや(市松の輪)。2コマは市松の向きを入れかえたもの'),
+  fx('fx_psy_lamp', 40, 24, 4, 8, false, '仕分けの画面の左上の照明。0:ふつう(白)、1:もれ(紫)、2〜3:切れかけ(うすい黄色で端が黒い。3は暗いほう)。上の真ん中を天井に合わせる', 'top'),
+  { key: 'fx_psy_items', frameW: 12, frameH: 12, cols: 6, anchor: 'center',
+    rows: [a('item', 6, 1, false, '机の上の小物。0:ペン、1:名刺、2:マグカップ、3:グラス、4:ナプキン、5:キャンドル(コマを選んで止めて使う)')] },
   // ─── フリープレイ(docs/FREEPLAY.md)───
   // 一目で分かるワル。武器は顔の向きの側に、波3の小物は頭の上と後ろに来るように描いてある
   freeVillain('fp_mohawk', '悪さ:ナイフで脅す(振りかぶる → 踏みこむ → 前へ突き出す(当たり) → 突きつけたまま)'),
@@ -255,7 +304,17 @@ export const IMAGES: ImageDef[] = [
   { key: 'bg_garage_ground', w: 648, h: 90, note: '駐車場の床。白い線。y=124〜214に置く。左右がつながる' },
   { key: 'bg_mall_far', w: 216, h: 214, note: '閉店まぎわのモールの吹き抜け。上の階の店と天窓の夜空。左右がつながる' },
   { key: 'bg_mall_wall', w: 648, h: 130, note: '1階の店の並び。シャッター、ショーウィンドウ、天井の照明。上の吹き抜けは透明。左右がつながる' },
-  { key: 'bg_mall_ground', w: 648, h: 90, note: 'みがいたタイルの床。照明の映りこみ。y=124〜214に置く。左右がつながる' }
+  { key: 'bg_mall_ground', w: 648, h: 90, note: 'みがいたタイルの床。照明の映りこみ。y=124〜214に置く。左右がつながる' },
+  { key: 'bg_tower1_far', w: 216, h: 214, note: '高層ビルの1階(ロビーとお店)の奥。ガラスの壁の向こうに近い夜の街。左右がつながる' },
+  { key: 'bg_tower2_far', w: 216, h: 214, note: '18階(オフィス)の奥。机の並ぶ部屋と、窓のすぐ外の明かりのついたビル。左右がつながる' },
+  { key: 'bg_tower3_far', w: 216, h: 214, note: '35階(レストラン街)の奥。お店の並びと、窓の外の遠い夜景。左右がつながる' },
+  { key: 'bg_tower4_far', w: 216, h: 214, note: '最上階(パーティ会場)の大きな窓の外。月と星と、はるか下の小さな街。左右がつながる' },
+  { key: 'bg_tower_wall', w: 648, h: 130, note: 'ふつうの階(1階、18階、35階)の手前。天井、柱、ガラスのわく。柱のあいだは透明で奥の絵が見える。左右がつながる' },
+  { key: 'bg_tower_ground', w: 648, h: 90, note: 'ふつうの階の床。みがいた石の床。y=124〜214に置く。左右がつながる' },
+  { key: 'bg_party_wall', w: 648, h: 130, note: 'パーティ会場の手前。赤いカーテン、金の窓わく、腰の高さの木の壁。窓は透明で奥の絵が見える。左右がつながる' },
+  { key: 'bg_party_ground', w: 648, h: 90, note: 'パーティ会場の床。寄せ木と赤いじゅうたん(金の模様)。y=124〜214に置く。左右がつながる' },
+  { key: 'bg_lift', w: 216, h: 214, note: 'エレベーターの中。後ろのガラスは透明で、bg_lift_view が見える。右に扉、扉の左にボタンの板、右上に階の数字の枠(数字はコードで出す)' },
+  { key: 'bg_lift_view', w: 216, h: 256, note: 'エレベーターの後ろのガラスの向こうの夜景。上下がつながるので、縦に流して上っているように見せる。透明なし' }
 ];
 
 export const sheetByKey = (key: string): SheetDef => {
