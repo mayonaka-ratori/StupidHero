@@ -15,7 +15,7 @@
 | `src/run.ts` | 1回のプレイの状態。シーンの間はこれで受け渡す。波のあとの行き先(`nextAfterStreet`、`nextAfterReview`)もここ。フリープレイを始める`startFreeRun`と、フリープレイの波のあとの行き先`nextAfterFreeStreet`もここ |
 | `src/settings.ts` | 一時停止のメニューで切りかえる設定(光と揺れを弱くする、ゆっくりモード)。そのスマホの中に覚える |
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
-| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`)。結果発表のギャング、UFO、タイムセールラッシュは`street/gang.ts`、`street/ufo.ts`、`street/rush.ts`、フリープレイの流れは`street/free.ts`。高層ビルの仕分けの画面の照明と机ともれは`sort/towerDesk.ts`、波の間の階の数字の場面は`Floor.ts` |
+| `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`)。結果発表のギャング、UFO、タイムセールラッシュ、念力は`street/gang.ts`、`street/ufo.ts`、`street/rush.ts`、`street/psychic.ts`(並べ方は`street/plan.ts`の`planTower`)、フリープレイの流れは`street/free.ts`。高層ビルの仕分けの画面の照明と机ともれは`sort/towerDesk.ts`、波の間の階の数字の場面は`Floor.ts` |
 | `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)、煙や光の粒(`particles.ts`。動きの計算は`flow.ts`)などの画面の部品 |
 | `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3、`world4/`がステージ4、`free/`がフリープレイ。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`(高層ビルの照明と机と小物の場所、「まわり」の窓の四角、もれの見せ方は`towerSpots.ts`)、ステージ2の小物の塗り替えは`recolor.ts` |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
@@ -198,7 +198,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは33ファイル、451件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは34ファイル、467件)
 npm run typecheck   # tsc
 ```
 

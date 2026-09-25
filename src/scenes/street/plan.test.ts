@@ -2,10 +2,13 @@
 // Phaser は読みこまない(読みこんだら失敗にする)。
 
 import { describe, expect, it, vi } from 'vitest';
-import { createFreePlay, createRng, createStage, freeRoleOf, freeTiming, STAGES, type Person, type Stage, type StageId } from '../../logic';
 import {
-  FIRST_X, GAP, GATHER_ROOM, RUSH_DX, THREAT_DX, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y, planFree, planGarage, planMall, planStreet,
-  type StreetPlan
+  FLOOR_LOOKS, PSY, PSY_LAYOUT, createFreePlay, createRng, createStage, freeRoleOf, freeTiming, propsForWave, resolvePsyDrop, STAGES,
+  type Person, type Stage, type StageId
+} from '../../logic';
+import {
+  FIRST_X, GAP, GATHER_ROOM, PSY_AHEAD, PSY_ROOM, PSY_ROWS, RUSH_DX, THREAT_DX, TOWER_HALF, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y,
+  planFree, planGarage, planMall, planStreet, planTower, type StreetPlan
 } from './plan';
 
 vi.mock('phaser', () => {
@@ -29,7 +32,9 @@ function cases(stageId: StageId, n: number): Case[] {
         ? planGarage(w.people, passBad, STAGES.garage.props, rng)
         : stageId === 'mall'
           ? planMall(w.people, passBad, STAGES.mall.props, rng, w.no === 2)
-          : planStreet(w.people, passBad, rng);
+          : stageId === 'tower'
+            ? planTower(w.people, passBad, propsForWave(STAGES.tower, w.no), FLOOR_LOOKS[w.no - 1], w.no - 1, rng)
+            : planStreet(w.people, passBad, rng);
       out.push({ stage, people: w.people, passBad, plan });
     }
   }
@@ -222,6 +227,96 @@ describe('planMall(ショッピングモール)', () => {
       }
     }
     expect(bad).toEqual([]);
+  });
+});
+
+describe('planTower(高層ビル)', () => {
+  const all = cases('tower', 50);
+
+  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
+    expect(all.flatMap(commonRules)).toEqual([]);
+  });
+
+  it('見逃したヴィランごとに念力の場面が1つ。ヴィランは PSY_AHEAD 先に出て、次の人との間は PSY_ROOM 空ける', () => {
+    let seen = 0;
+    for (const { plan, passBad } of all) {
+      const psy = plan.psy ?? [];
+      const ids = plan.people.filter((s) => passBad.has(s.person.id)).map((s) => s.person.id);
+      expect(psy.map((p) => p.villainId)).toEqual(ids);
+      for (const p of psy) {
+        seen++;
+        const i = plan.people.findIndex((s) => s.person.id === p.villainId);
+        expect(p.plan.villainX).toBe(plan.people[i].x + PSY_AHEAD);
+        const next = plan.people[i + 1];
+        if (next) {
+          expect(next.x - plan.people[i].x).toBeGreaterThanOrEqual(GAP + PSY_ROOM - 12);
+          // 次の人は、歩いてくる市民より先
+          expect(next.x).toBeGreaterThan(p.plan.victimX + 40);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(80);
+  });
+
+  it('念力の場面の物は、決めた所と列に置く(持ち上げる物は奥、1つ目の場所は手前、2つ目の場所は奥)', () => {
+    for (const { plan } of all) {
+      for (const p of plan.psy ?? []) {
+        const at = (x: number, y: number, kind: string): boolean => plan.props.some((q) => q.x === x && q.y === y && q.kind === kind);
+        expect(at(p.plan.lift.x, PSY_ROWS.back, p.plan.lift.kind)).toBe(true);
+        p.plan.floor.forEach((f, j) => {
+          const front = f.x - p.plan.villainX === PSY_LAYOUT.slotDx[0];
+          expect(p.floorY[j]).toBe(front ? PSY_ROWS.front : PSY_ROWS.back);
+          expect(at(f.x, p.floorY[j], f.kind)).toBe(true);
+          // その物の真上で落とすと、その物に落ちる
+          expect(resolvePsyDrop(p.plan, f.x).target).toEqual(f);
+        });
+        expect(p.plan.floor.filter((f) => f.kind === PSY.cushionProp)).toHaveLength(1);
+      }
+    }
+  });
+
+  it('念力の場面には、ほかの物も通りがかりの市民も置かない', () => {
+    const bad: string[] = [];
+    for (const { plan, stage } of all) {
+      for (const p of plan.psy ?? []) {
+        const own = [p.plan.lift, ...p.plan.floor];
+        const l = p.plan.villainX - 24;
+        const r = p.plan.victimX + 20;
+        for (const q of plan.props) {
+          if (own.some((o) => o.x === q.x && o.kind === q.kind)) continue;
+          const h = TOWER_HALF[q.kind] ?? 12;
+          if (q.x + h > l && q.x - h < r) bad.push(`seed ${stage.seed}: ${q.kind} ${q.x}`);
+        }
+        for (const q of plan.passers) if (q.x > l - 14 && q.x < r + 14) bad.push(`seed ${stage.seed}: 通りがかり ${q.x}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('同じ列の物はほとんど重ならない(念力の場面の大きな物どうしで2ドットまで)', () => {
+    const bad: string[] = [];
+    for (const { plan, stage } of all) {
+      for (const y of [PSY_ROWS.back, PSY_ROWS.front, 214]) {
+        const row = plan.props.filter((p) => p.y === y).sort((a, b) => a.x - b.x);
+        for (let i = 1; i < row.length; i++) {
+          const a = row[i - 1];
+          const b = row[i];
+          const over = a.x + (TOWER_HALF[a.kind] ?? 12) - (b.x - (TOWER_HALF[b.kind] ?? 12));
+          if (over > 2) bad.push(`seed ${stage.seed}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('物はその階の物だけ。ソファは階ごとの色のコマ。通りがかりの市民はその階の市民の絵', () => {
+    for (const { plan, people } of all) {
+      const no = people[0].wave;
+      const kinds = propsForWave(STAGES.tower, no);
+      expect(plan.props.filter((p) => !kinds.includes(p.kind))).toEqual([]);
+      expect(plan.props.filter((p) => p.kind === 'sofa' && p.frame !== no - 1)).toEqual([]);
+      expect(plan.passers.filter((p) => !FLOOR_LOOKS[no - 1].includes(p.look as never) || p.key !== `tw_${p.look}`)).toEqual([]);
+    }
   });
 });
 
