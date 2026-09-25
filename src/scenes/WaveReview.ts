@@ -1,7 +1,7 @@
 // 答え合わせ。波1と波2は Street のあと、波3は Boss のあとに出す。
 // その波の人を1人1行で並べ、顔、名前、自分の仕分けと正体、見分ける決め手、○か×を出す。まちがえた行は赤黒くする。
 // 時間切れでヒーローが決めた人は「あなた」の代わりに「ヒーローの勘」と出す。ボスは化けた姿と偽名で、正体はボス。
-// 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result)。
+// 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result。高層ビルは階の数字の Floor)。
 // 行はタップで一気に出せる。ステージ2の波3(6人と女ボスで7行)も、いちばん低い画面(高さ384)に入る高さにする。
 // タイムセールラッシュのあるステージ(def.rush)の波2は、人の行のあとにラッシュのまとめを1行出す
 // (「セール：撃破3/4・守った2/4」。ラッシュの数は仕分けの正解に入れない)。
@@ -205,7 +205,7 @@ export class WaveReviewScene extends Phaser.Scene {
     const run = getRun(this);
     const to = nextAfterReview(run);
     if (goto(this, to, undefined, { kind: 'wipe' })) this.leaving = true;
-    else if (to === SCENES.sort) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す
+    else if (to !== SCENES.result) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す(Sort と Floor)
   }
 }
 
