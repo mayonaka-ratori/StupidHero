@@ -79,7 +79,8 @@ function debugJump(scene: Phaser.Scene): string | null {
   const stageParam = q.get('stage');
   const stageId = isStageId(stageParam) ? stageParam : 'alley';
   const run = startRun(scene, Number(q.get('seed') ?? 12345), true, stageId);
-  const wave = Math.min(3, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? 3 : 1))));
+  const last = run.stage.waves.length;
+  const wave = Math.min(last, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? last : 1))));
   run.waveIndex = wave - 1;
   const mode = q.get('sorts') ?? 'random';
   const lastFilled = target === SCENES.sort || target === SCENES.intro || target === SCENES.title ? wave - 1 : wave;

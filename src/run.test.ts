@@ -64,6 +64,26 @@ describe('場面の流れ', () => {
     }
   });
 
+  it('波が4つのステージ(ステージ4)は、波3のあとも答え合わせを通って波4の Sort へ行き、波4のあとに Boss', () => {
+    const run = startRun(fakeScene(), 7, false, 'mall');
+    // ステージ4はまだないので、ショッピングモールの並びに波4を足して流れだけを確かめる
+    const w3 = run.stage.waves[2];
+    run.stage.waves.push({ ...w3, no: 4, people: w3.people.map((p) => ({ ...p, id: `w4-${p.index}`, wave: 4 })) });
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      expect(currentWave(run).no).toBe(i + 1);
+      fillUnsorted(run);
+      const next = nextAfterStreet(run);
+      seen.push(next);
+      if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
+    }
+    expect(seen).toEqual([
+      SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.boss
+    ]);
+    expect(run.waveIndex).toBe(3);
+    expect(nextAfterReview(run)).toBe(SCENES.result);
+  });
+
   it('答え合わせを通らずに結果画面へ来ても、仕分けの済んだ波は recordAllSorts で数える', () => {
     const run = startRun(fakeScene(), 3);
     for (const w of run.stage.waves.slice(0, 2)) for (const p of w.people) setSort(run, p, p.truth === 'civ' ? 'civ' : 'bad');

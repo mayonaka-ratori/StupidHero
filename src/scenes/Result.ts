@@ -7,7 +7,7 @@
 //
 // 下の数字の窓の並び:仕分け正解、悪党を倒した、市民のけが(その下に小さく内わけ)、逃がした、被害額(その下にたとえ)。
 // ステージ2(def.mechanic が 'gang')は組ごと撃破と車で逃げた組を小さく1行足す。
-// ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、ラッシュのあるステージ(def.hasRush)はラッシュのまとめを、小さく1行ずつ足す。
+// ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、タイムセールラッシュのあるステージ(def.rush)はラッシュのまとめを、小さく1行ずつ足す。
 // 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
 //
@@ -27,7 +27,7 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  FREE_NAME, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, randomSeed, rushSummary, saveFreeResult,
+  FREE_NAME, bgForWave, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, randomSeed, rushSummary, saveFreeResult,
   saveResult, say, shareCaption, STAGES, titleCommentFor, type FreeSaveOutcome, type SaveOutcome, type StageId, type StageStats,
   type TitleDef
 } from '../logic';
@@ -35,7 +35,7 @@ import {
   Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
 } from '../ui';
 import { addMute, drawStageBg, unlockOnTap } from './sort/common';
-import { getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '../run';
+import { currentWave, getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '../run';
 import { settings } from '../settings';
 import { buildCard, cardTexts, freeWorstCaption, makeFallbackShot, worstCaption, type Card, type CardStage } from './result/card';
 import { makeCanvas } from './result/draw';
@@ -155,7 +155,7 @@ export class ResultScene extends Phaser.Scene {
     unlockOnTap(this);
 
     // ─── 上:ステージの背景と勝利ポーズ ───
-    drawStageBg(this, def.bg, run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
+    drawStageBg(this, bgForWave(def, currentWave(run).no), run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
 
     const fist = t.pose === 'win_fist';
     const hx = 108;
@@ -530,7 +530,7 @@ function stageWindow(env: WindowEnv, s: StageStats, run: GameRun): StatsWindow {
   const hurtParts = hurtBreakdown(s);
   // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
   const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
-  const rushText = def.hasRush && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
+  const rushText = def.rush?.kind === 'sale' && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
   const extraRows = (f: Fit): number =>
     (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
   const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);

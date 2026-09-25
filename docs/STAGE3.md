@@ -11,9 +11,9 @@
 | 結果発表で足した遊び | 待てと行け | 集まった組を行けでまとめて倒す、車で逃げる | UFOが通りがかりの市民を連れ去る。行けで助けると店が壊れる |
 | 途中のイベント | なし | なし | 波2のあとにタイムセールラッシュ。仕分けなしで、その場で待てを押す |
 | ボス戦で足したこと | 連打 | 途中で車に乗って逃げる | 途中で母艦を呼ぶ |
-| ステージの定義(`src/logic/stages.ts`の`STAGES`) | `mechanic: 'none'`、`hasRush: false` | `mechanic: 'gang'`、`hasRush: false` | `mechanic: 'ufo'`、`hasRush: true` |
+| ステージの定義(`src/logic/stages.ts`の`STAGES`) | `mechanic: 'none'`、`rush: null` | `mechanic: 'gang'`、`rush: null` | `mechanic: 'ufo'`、`rush: { kind: 'sale', afterWave: 2 }` |
 
-画面のコードは、ステージの名前ではなく`mechanic`(結果発表で見逃したワルが何をするか)と`hasRush`(波2のあとにタイムセールラッシュがあるか)を見て分ける。
+画面のコードは、ステージの名前ではなく`mechanic`(結果発表で見逃したワルが何をするか)と`rush`(どの波のあとに、どの種類のラッシュがあるか)を見て分ける。
 
 ## 決まったこと
 
@@ -350,7 +350,7 @@
 
 | 中身 | ファイル |
 |---|---|
-| ステージの定義(mechanic、hasRush、shortName、bossDefeatProp など)と、UFO、母艦、光、ノイズの絵のキー(`MALL_SHEETS`) | `src/logic/stages.ts` |
+| ステージの定義(mechanic、rush、shortName、bossDefeatProp など)と、UFO、母艦、光、ノイズの絵のキー(`MALL_SHEETS`) | `src/logic/stages.ts` |
 | 波の表(`MALL_WAVES`)、くずれ(`GLITCH`)、UFO(`UFO`)、ラッシュ(`RUSH`)、物の値段と大きさ、親玉のボス戦(`BOSS3`) | `src/logic/rules.ts` |
 | 3つの波とラッシュの並びを作る、くずれの時間 | `src/logic/mall.ts` |
 | UFOの時間の流れ(`UfoCall`、`UfoQueue`) | `src/logic/ufo.ts` |

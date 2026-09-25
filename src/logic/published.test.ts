@@ -115,7 +115,7 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
   // ステージ前の掛け合い(INTRO)は、初めての1分を短くするためにわざと変えたので比べない
   it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
-    for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no]);
+    for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no as 1 | 2 | 3]);
     for (const [k, list] of Object.entries(sp.REACTIONS)) {
       if (REDESIGNED_REACTIONS.has(k)) continue;
       expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);

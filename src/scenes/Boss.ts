@@ -18,10 +18,10 @@ import { layout } from '../layout';
 import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
 import { audio } from '../audio';
 import {
-  BOSS, BossFight, findBoss, formatSeconds, formatYen, say,
+  BOSS, BossFight, bgForWave, findBoss, formatSeconds, formatYen, propsForWave, say,
   type AnyReactionKey, type Speech, type StageDef, type StageId
 } from '../logic';
-import { getRun, type GameRun } from '../run';
+import { currentWave, getRun, type GameRun } from '../run';
 import {
   Button, CurlSmoke, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
   SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
@@ -183,7 +183,7 @@ export class BossScene extends Phaser.Scene {
 
     const { W, actionH } = layout;
     this.drawBackground();
-    this.props = new BossProps(this, this.stageId, this.def.props);
+    this.props = new BossProps(this, this.stageId, propsForWave(this.def, currentWave(this.run).no));
     // 女ボスの高級車は、最初は奥に止めてある
     if (this.def.bossProp === 'bosscar') this.car = new BossCar(this, CAR_PARK_X, CAR_PARK_Y);
     // 親玉の母艦は、最初は天井の上(画面の外)で待っている
@@ -253,7 +253,7 @@ export class BossScene extends Phaser.Scene {
   // ─── 背景 ───
 
   private drawBackground(): void {
-    drawStageBg(this, this.def.bg, Math.round(this.run.scrollX), { depth: DEPTH_OF });
+    drawStageBg(this, bgForWave(this.def, currentWave(this.run).no), Math.round(this.run.scrollX), { depth: DEPTH_OF });
   }
 
   private playAnim(s: Phaser.GameObjects.Sprite, sheet: string, anim: string, ignoreIfPlaying = true): void {

@@ -8,7 +8,7 @@ import { layout } from '../../layout';
 import { audio } from '../../audio';
 import { animKey } from '../../art/sheets';
 import {
-  RUSH, RUSH_BAND, hasSeenRush, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, type Speech,
+  RUSH, RUSH_BAND, hasSeenRush, rushAfter, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, type Speech,
   type RushRunner
 } from '../../logic';
 import { currentWave } from '../../run';
@@ -73,7 +73,7 @@ export class RushPart {
 
   /** この波の結果発表のあとにタイムセールラッシュがあるか */
   rushThisWave(): boolean {
-    return this.s.def.hasRush && this.s.run.stage.rush !== null && currentWave(this.s.run).no === RUSH.afterWave;
+    return rushAfter(this.s.def, currentWave(this.s.run).no, 'sale') && this.s.run.stage.rush !== null;
   }
 
   async saleRush(): Promise<void> {

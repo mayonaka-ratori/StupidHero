@@ -18,7 +18,7 @@ import { audio } from '../audio';
 import { settings } from '../settings';
 import { animKey, originFor } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
-import { HURRY_AT_SEC, glitchCount, glitchShowing, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
+import { HURRY_AT_SEC, bgForWave, glitchCount, glitchShowing, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
@@ -187,7 +187,7 @@ export class SortScene extends Phaser.Scene {
 
   private buildAction(W: number): void {
     // 暗くしたステージの背景と、真ん中のスポットライト
-    drawStageBg(this, this.run.stage.def.bg);
+    drawStageBg(this, bgForWave(this.run.stage.def, currentWave(this.run).no));
     this.add.image(0, 0, spotlightDim(this, CX, FEET_Y)).setOrigin(0).setDepth(Z.dim);
     const pool = this.add.graphics().setDepth(Z.dim + 0.5);
     drawLightPool(pool, CX, FEET_Y + 1, 46, 7);

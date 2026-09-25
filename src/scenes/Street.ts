@@ -7,11 +7,11 @@
 // 早送り(▶▶)は、時計、動き(tween)、アニメ、毎フレームの動きをまとめて2倍にする(update の applySpeed)。
 // 待てと行けの合図が出ている間だけは、ふつうの速さに戻す(考える時間を減らさないため)。
 //
-// ステージごとの違いは def.mechanic と def.hasRush で分ける(ステージの名前では比べない)。
+// ステージごとの違いは def.mechanic と def.rush で分ける(ステージの名前では比べない)。
 // - mechanic 'gang'(ステージ2):見逃したギャングが口笛で仲間を呼び、集まった組を行けでまとめて倒す。車で逃げる
 // - mechanic 'ufo'(ステージ3):見逃した宇宙人が空へ合図 → UFOが下りて通りがかりの買い物客を吸い上げる。
 //   行けでUFOを殴り落とす(真下の物が壊れる)。押さなければ連れ去られる。時間は UfoQueue(logic/ufo.ts)が数える
-// - hasRush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
+// - rush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
 //   ヒーローは全員に光のパンチ。市民にだけ待てを押す。時間は update から呼ぶ stepRush が数える(一時停止とヒットストップで止まる)
 // 3つの仕組みは部品に分けてある:street/gang.ts(GangPart)、street/ufo.ts(UfoPart)、street/rush.ts(RushPart)。
 // 部品はこのシーンを受け取り、シーンの道具(fx、heroSay、knock など)を使う。部品から使う道具は private にしていない。
@@ -28,7 +28,7 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
 import {
-  MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
+  MARK, MISCHIEF_BY_LOOK, bgForWave, propsForWave, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
   mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
   type AnyReactionKey, type AttackKind, type Encounter, type ReactionKey, type Rng, type Speech, type StageDef,
   type StatsTracker, type WorstScene
@@ -209,7 +209,7 @@ export class StreetScene extends Phaser.Scene {
 
   private buildWorld(): void {
     const { actionH } = layout;
-    this.bg = drawStageBg(this, this.def.bg, 0, { depth: { far: -30, wall: -20, ground: -10 } });
+    this.bg = drawStageBg(this, bgForWave(this.def, currentWave(this.run).no), 0, { depth: { far: -30, wall: -20, ground: -10 } });
     for (const s of Object.values(this.bg)) s.setScrollFactor(0);
 
     const wave = currentWave(this.run);
@@ -219,9 +219,9 @@ export class StreetScene extends Phaser.Scene {
     const plan = this.free
       ? this.free.plan(wave.people)
       : this.def.mechanic === 'gang'
-        ? planGarage(wave.people, passBad, this.def.props, this.rng)
+        ? planGarage(wave.people, passBad, propsForWave(this.def, wave.no), this.rng)
         : this.def.mechanic === 'ufo'
-          ? planMall(wave.people, passBad, this.def.props, this.rng, this.rushPart.rushThisWave())
+          ? planMall(wave.people, passBad, propsForWave(this.def, wave.no), this.rng, this.rushPart.rushThisWave())
           : planStreet(wave.people, passBad, this.rng);
     this.rushPart.rushX = plan.rushX ?? null;
 

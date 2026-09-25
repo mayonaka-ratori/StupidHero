@@ -271,7 +271,7 @@ export const MALL_INTRO: readonly Speech[] = [
 ];
 
 /** ショッピングモールの波の始まりの一言。上から順に出す */
-export const MALL_WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+export const MALL_WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]>>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', '少し待つと\n動きがくずれるかも')

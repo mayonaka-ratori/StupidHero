@@ -1,8 +1,9 @@
 // ステージごとの定義。画面の担当はここを見て、ステージごとの違い(背景、曲、ボスの絵、置く物)を出す。
+// 背景と置く物は波ごとに変わることがある(ステージ4)ので、bgForWave と propsForWave で読む。
 //
 // 使い方:
 //   const def = STAGES[stage.id];          // または stage.def(同じもの)
-//   this.add.image(0, 0, def.bg.far);       // 背景は def.bg.far / wall / ground
+//   const bg = bgForWave(def, wave.no);     // 背景は bg.far / wall / ground(波ごとに変わることがある)
 //   audio.playBgm(def.bgm.street);          // 結果発表の曲。ボス戦は def.bgm.boss
 //   const boss = this.add.sprite(x, y, def.bossSheet);
 //   const fight = new BossFight(def.bossFight);
@@ -14,7 +15,7 @@ import { BOSS2_AGES } from './garageContent';
 import {
   BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, WAVES, type WavePlan
 } from './rules';
-import type { DisguiseLook, FreeVillainLook, Look, PropKind, StageId, Truth } from './types';
+import type { DisguiseLook, FreeVillainLook, Look, PropKind, StageId, Truth, WaveNo } from './types';
 
 /**
  * ステージの仕組み(結果発表で見逃したワルが何をするか)。
@@ -24,16 +25,35 @@ import type { DisguiseLook, FreeVillainLook, Look, PropKind, StageId, Truth } fr
  */
 export type StageMechanic = 'none' | 'gang' | 'ufo';
 
+/**
+ * 途中のイベント(ラッシュ)。afterWave の波のあとに1回だけ起きる。
+ * - sale:ステージ3のタイムセールラッシュ(波2の結果発表のあと、答え合わせの前)
+ * - elevator:ステージ4のエレベーターラッシュ(STAGE4「エレベーターラッシュ」。まだ作っていない)
+ */
+export interface StageRush {
+  kind: 'sale' | 'elevator';
+  afterWave: WaveNo;
+}
+
+/** 背景の画像のキー(src/art/sheets.ts の IMAGES) */
+export interface StageBg { far: string; wall: string; ground: string }
+
+/** 波ごとに変わる舞台(ステージ4の階)。背景と、通りに置く壊れる物 */
+export interface StageFloor {
+  bg: StageBg;
+  props: readonly PropKind[];
+}
+
 export interface StageDef {
   id: StageId;
-  /** ステージの番号(1、2、3) */
-  no: 1 | 2 | 3;
+  /** ステージの番号(1〜4) */
+  no: 1 | 2 | 3 | 4;
   /** 表示用の名前(ステージを選ぶ画面、仕分けの画面など) */
   name: string;
   /** 共有カードの「いちばんひどい場面」の右上に出す短い名前(幅が足りないときのため) */
   shortName: string;
   /** 背景の画像のキー(src/art/sheets.ts の IMAGES) */
-  bg: { far: string; wall: string; ground: string };
+  bg: StageBg;
   /** 曲の名前(src/audio の BgmName)。street は結果発表、boss はボス戦、rush はタイムセールラッシュ(なければ null) */
   bgm: { street: BgmName; boss: BgmName; rush: BgmName | null };
   /** ボスの正体の絵のキー */
@@ -66,8 +86,13 @@ export interface StageDef {
   waves: readonly WavePlan[];
   /** 仕組み(none、gang、ufo)。画面は `def.mechanic === 'gang'` のように見て分ける */
   mechanic: StageMechanic;
-  /** 波2の結果発表のあとにタイムセールラッシュがあるか */
-  hasRush: boolean;
+  /** 途中のイベント(ラッシュ)。なければ null */
+  rush: StageRush | null;
+  /**
+   * 波ごとに変わる舞台(波1から順に。ステージ4の階)。null なら、どの波も bg と props を使う。
+   * 画面は def.bg と def.props を直接見ずに、bgForWave と propsForWave を使う
+   */
+  floors: readonly StageFloor[] | null;
   /** ボスを市民に仕分けていたとき、正体を現したあとに足す被害額 */
   bossRampageCost: number;
   /** ボス戦の設定。new BossFight(def.bossFight) */
@@ -98,7 +123,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: null,
     waves: WAVES,
     mechanic: 'none',
-    hasRush: false,
+    rush: null,
+    floors: null,
     bossRampageCost: BOSS_RAMPAGE_COST,
     bossFight: {},
     unlockAfter: null,
@@ -123,7 +149,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: null,
     waves: GARAGE_WAVES,
     mechanic: 'gang',
-    hasRush: false,
+    rush: null,
+    floors: null,
     bossRampageCost: BOSS2_RAMPAGE_COST,
     bossFight: BOSS2,
     unlockAfter: 'alley',
@@ -148,13 +175,29 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: 'fountain',
     waves: MALL_WAVES,
     mechanic: 'ufo',
-    hasRush: true,
+    rush: { kind: 'sale', afterWave: 2 },
+    floors: null,
     bossRampageCost: BOSS3_RAMPAGE_COST,
     bossFight: BOSS3,
     unlockAfter: 'garage',
     lockedText: '地下駐車場をクリアすると遊べる'
   }
 };
+
+/** その波の背景(波ごとに変わるステージは floors から) */
+export function bgForWave(def: StageDef, no: WaveNo): StageBg {
+  return def.floors?.[no - 1]?.bg ?? def.bg;
+}
+
+/** その波の通りに置く壊れる物(波ごとに変わるステージは floors から) */
+export function propsForWave(def: StageDef, no: WaveNo): readonly PropKind[] {
+  return def.floors?.[no - 1]?.props ?? def.props;
+}
+
+/** この波のあとにラッシュがあるか(kind を渡すと、その種類のときだけ) */
+export function rushAfter(def: StageDef, no: WaveNo, kind?: StageRush['kind']): boolean {
+  return def.rush !== null && def.rush.afterWave === no && (kind === undefined || def.rush.kind === kind);
+}
 
 /** ステージを選ぶ画面の並び */
 export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall'];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { IMAGES, sheetByKey } from '../art/sheets';
 import { ATTACKS, ATTACK_KINDS, BIG_PROPS, MALL_PROP_SIZE, PROP_COST } from './rules';
-import { MALL_SHEETS, STAGES, STAGE_IDS, sheetKeyFor, stageTexts } from './stages';
+import { MALL_SHEETS, STAGES, STAGE_IDS, bgForWave, propsForWave, rushAfter, sheetKeyFor, stageTexts, type StageDef } from './stages';
 import { TITLES } from './titles';
 import type { StageId } from './types';
 
@@ -25,7 +25,9 @@ describe('ステージの定義', () => {
     expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });
     expect(STAGES.garage.unlockAfter).toBe('alley');
     // 仕組みとラッシュ
-    expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].hasRush])).toEqual([['none', false], ['gang', false], ['ufo', true]]);
+    expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].rush])).toEqual([['none', null], ['gang', null], ['ufo', { kind: 'sale', afterWave: 2 }]]);
+    // ステージ1〜3は、どの波も同じ背景と物
+    for (const id of STAGE_IDS) expect(STAGES[id].floors).toBeNull();
   });
 
   it('ステージ3:地下駐車場のボスを倒すと開く。親玉は¥2,000万、母艦は1秒¥150万、倒すと噴水が壊れる', () => {
@@ -94,5 +96,36 @@ describe('ステージの定義', () => {
       expect(ATTACKS[k].propBreakChance.van).toBe(0);
       expect(ATTACKS[k].propBreakChance.bosscar).toBe(0);
     }
+  });
+});
+
+describe('波ごとの舞台とラッシュ', () => {
+  it('floors がないステージは、どの波も bg と props。あるステージは波ごとに floors から読む', () => {
+    const mall = STAGES.mall;
+    for (const no of [1, 2, 3] as const) {
+      expect(bgForWave(mall, no)).toBe(mall.bg);
+      expect(propsForWave(mall, no)).toBe(mall.props);
+    }
+    const bg = (n: number) => ({ far: `far${n}`, wall: `wall${n}`, ground: `ground${n}` });
+    const tower: StageDef = {
+      ...mall,
+      floors: [1, 2, 3, 4].map((n) => ({ bg: bg(n), props: n === 4 ? ['fountain'] : ['gacha'] }))
+    };
+    expect(bgForWave(tower, 1)).toEqual(bg(1));
+    expect(bgForWave(tower, 4)).toEqual(bg(4));
+    expect(propsForWave(tower, 4)).toEqual(['fountain']);
+    // 波の数より floors が短いときは bg と props にもどる
+    expect(bgForWave({ ...tower, floors: tower.floors!.slice(0, 2) }, 3)).toBe(mall.bg);
+  });
+
+  it('ラッシュは rush の波のあとだけ。種類を渡すとその種類のときだけ', () => {
+    expect(rushAfter(STAGES.mall, 2)).toBe(true);
+    expect(rushAfter(STAGES.mall, 2, 'sale')).toBe(true);
+    expect(rushAfter(STAGES.mall, 2, 'elevator')).toBe(false);
+    expect(rushAfter(STAGES.mall, 3)).toBe(false);
+    expect(STAGE_IDS.filter((id) => id !== 'mall').some((id) => [1, 2, 3].some((no) => rushAfter(STAGES[id], no as 1 | 2 | 3)))).toBe(false);
+    const tower: StageDef = { ...STAGES.mall, rush: { kind: 'elevator', afterWave: 3 } };
+    expect(rushAfter(tower, 3, 'elevator')).toBe(true);
+    expect(rushAfter(tower, 3, 'sale')).toBe(false);
   });
 });

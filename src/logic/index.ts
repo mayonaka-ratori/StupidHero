@@ -6,7 +6,7 @@
 //   const rng = createRng(randomSeed());
 //   const stage = createStage(rng.seed, stageId);    // 3つの波。路地裏16人、地下駐車場18人、ショッピングモール18人
 //   const def = stage.def;                           // 背景 def.bg、曲 def.bgm、ボスの絵 def.bossSheet、置く物 def.props
-//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo')、ラッシュは def.hasRush
+//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo')、ラッシュは def.rush
 //   const stats = new StatsTracker(stage.villainTotal, stage.id);
 //   // 掛け合い:introFor(stage.id)(そのステージで1回だけ。needsIntro / markIntroSeen)。波の始まり:waveIntroFor(stage.id, wave.no)
 //   // 仕分け:wave.people を順に出す。時間切れの人は decideUnsorted(rng)

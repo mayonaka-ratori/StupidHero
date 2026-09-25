@@ -15,7 +15,8 @@
 | ボス戦で足したこと | 連打 | 途中で車に乗って逃げる | 途中で母艦を呼ぶ | 途中で客とシャンデリアを浮かせる。待てと行けを選ぶ |
 | ステージの定義 | `mechanic: 'none'` | `mechanic: 'gang'` | `mechanic: 'ufo'`、ラッシュは`sale` | `mechanic: 'psychic'`、ラッシュは`elevator` |
 
-- ステージの定義の`hasRush`(あるかないか)は、`rush: { kind: 'sale' | 'elevator', afterWave: number } | null`に変える。ショッピングモールは`{ kind: 'sale', afterWave: 2 }`、高層ビルは`{ kind: 'elevator', afterWave: 3 }`
+- ステージの定義の`rush`は`{ kind: 'sale' | 'elevator', afterWave }`か`null`(前の`hasRush`から変えた)。ショッピングモールは`{ kind: 'sale', afterWave: 2 }`、高層ビルは`{ kind: 'elevator', afterWave: 3 }`
+- 波ごとに変わる背景と物は、ステージの定義の`floors`に書き、画面は`bgForWave`と`propsForWave`で読む(ステージ1〜3は`floors: null`)
 - 画面のコードは、今と同じくステージの名前ではなく`mechanic`と`rush`を見て分ける
 
 ## 決まったこと

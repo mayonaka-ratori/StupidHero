@@ -114,7 +114,10 @@ export interface GlitchTiming {
   practice: boolean;
 }
 
-export type WaveNo = 1 | 2 | 3;
+/** 波の番号。ステージ1〜3は3つ、ステージ4は4つ */
+export type WaveNo = 1 | 2 | 3 | 4;
+/** フリープレイの波の番号(いつも3つ) */
+export type FreeWaveNo = 1 | 2 | 3;
 
 /** 仕分けに出てくる1人 */
 export interface Person {

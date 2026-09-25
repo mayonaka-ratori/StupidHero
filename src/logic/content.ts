@@ -385,7 +385,7 @@ export const INTRO: readonly Speech[] = [
 ];
 
 /** 波の始まりの一言。上から順に出す */
-const WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+const WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]>>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', '一目で分かる\nワルもいるからね')
@@ -645,7 +645,8 @@ export interface StageTextSet {
   /** ステージ前の掛け合い */
   intro: readonly Speech[];
   /** 波の始まりの一言 */
-  waveIntro: Readonly<Record<WaveNo, readonly Speech[]>>;
+  /** 波の始まりの一言。波が3つのステージは4がない */
+  waveIntro: Readonly<Partial<Record<WaveNo, readonly Speech[]>>>;
   /** そのステージで足したセリフの種類と、言い方を変えた種類(ReactionKey)。ないものは路地裏の文 */
   reactions: Readonly<Partial<Record<AnyReactionKey, readonly Speech[]>>>;
   /** 言い方を変えた称号のひとこと。ないものは TITLE_COMMENTS */
@@ -722,7 +723,7 @@ export function introFor(stageId: StageId): readonly Speech[] {
 
 /** 波の始まりの一言 */
 export function waveIntroFor(stageId: StageId, no: WaveNo): readonly Speech[] {
-  return STAGE_TEXTS[stageId].waveIntro[no];
+  return STAGE_TEXTS[stageId].waveIntro[no] ?? [];
 }
 
 /** 攻撃の叫びを1つ選ぶ */
@@ -793,7 +794,7 @@ export function allTexts(): string[] {
     addList(BOSS_HINTS[d]);
   }
   addList(INTRO);
-  for (const w of [1, 2, 3] as WaveNo[]) addList(WAVE_INTRO[w]);
+  for (const list of Object.values(WAVE_INTRO)) addList(list);
   for (const k of Object.keys(ATTACK_SHOUTS) as AttackKind[]) addList(ATTACK_SHOUTS[k]);
   for (const k of Object.keys(REACTIONS) as ReactionKey[]) addList(REACTIONS[k]);
   for (const k of Object.keys(MISCHIEF_LINES) as (keyof typeof MISCHIEF_LINES)[]) addList(MISCHIEF_LINES[k]);
@@ -802,14 +803,14 @@ export function allTexts(): string[] {
   addList(Object.values(TITLE_COMMENTS));
   // ステージ2
   addList(GARAGE_INTRO);
-  for (const w of [1, 2, 3] as WaveNo[]) addList(GARAGE_WAVE_INTRO[w]);
+  for (const list of Object.values(GARAGE_WAVE_INTRO)) addList(list);
   for (const k of Object.keys(GARAGE_REACTIONS) as GarageReactionKey[]) addList(GARAGE_REACTIONS[k]);
   for (const l of Object.values(GARAGE_OVERRIDES)) addList(l);
   out.push(...allLinkTexts());
   addList(Object.values(GARAGE_TITLE_COMMENT_OVERRIDES));
   // ステージ3
   addList(MALL_INTRO);
-  for (const w of [1, 2, 3] as WaveNo[]) addList(MALL_WAVE_INTRO[w]);
+  for (const list of Object.values(MALL_WAVE_INTRO)) addList(list);
   for (const k of Object.keys(MALL_REACTIONS) as MallReactionKey[]) addList(MALL_REACTIONS[k]);
   for (const l of Object.values(MALL_OVERRIDES)) addList(l);
   for (const l of Object.values(MALL_GARAGE_OVERRIDES)) addList(l);

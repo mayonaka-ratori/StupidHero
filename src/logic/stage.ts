@@ -36,7 +36,7 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
   const badTotal = waves.reduce((sum, w) => sum + w.badCount, 0);
   const bossTotal = waves.filter((w) => w.hasBoss).length;
   // タイムセールラッシュの並びは波を作ったあとに決める(ラッシュのないステージの乱数の引き方は変わらない)
-  const rush = def.hasRush ? buildRush(rng) : null;
+  const rush = def.rush?.kind === 'sale' ? buildRush(rng) : null;
   return {
     id: stageId,
     def,

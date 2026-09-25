@@ -348,7 +348,7 @@ export const GARAGE_INTRO: readonly Speech[] = [
 ];
 
 /** 地下駐車場の波の始まりの一言。上から順に出す */
-export const GARAGE_WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+export const GARAGE_WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]>>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', 'ギャングの組が\n1組まぎれてる')

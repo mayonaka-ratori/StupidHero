@@ -3,14 +3,14 @@
 // 時間切れでヒーローが決めた人は「あなた」の代わりに「ヒーローの勘」と出す。ボスは化けた姿と偽名で、正体はボス。
 // 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result)。
 // 行はタップで一気に出せる。ステージ2の波3(6人と女ボスで7行)も、いちばん低い画面(高さ384)に入る高さにする。
-// タイムセールラッシュのあるステージ(def.hasRush)の波2は、人の行のあとにラッシュのまとめを1行出す
+// タイムセールラッシュのあるステージ(def.rush)の波2は、人の行のあとにラッシュのまとめを1行出す
 // (「セール：撃破3/4・守った2/4」。ラッシュの数は仕分けの正解に入れない)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { RUSH, reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
+import { reasonFor, rushAfter, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
 import { Button, DEPTH, FS, PixelText, goto, preloadFont } from '../ui';
 import { addMute, unlockOnTap } from './sort/common';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
@@ -92,7 +92,7 @@ export class WaveReviewScene extends Phaser.Scene {
     // ─── 行 ───
     // 1人1つの箱。当たりは青、はずれは赤黒。箱の高さは人数で割って、広すぎないようにする
     // ラッシュのまとめを出すときは、その1行ぶんを下にとっておく
-    const rush = wave.no === RUSH.afterWave && run.stage.def.hasRush ? rushTallyFor(run) : null;
+    const rush = rushAfter(run.stage.def, wave.no, 'sale') ? rushTallyFor(run) : null;
     const rushText = rush ? rushSummary(rush) : null;
     dev.rush = rushText;
     const listTop = 42;

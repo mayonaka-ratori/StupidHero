@@ -547,8 +547,6 @@ export const MALL_PROP_SIZE: Readonly<Record<'gacha' | 'mannequin' | 'showcase' 
  * 全体は8人で約16秒(最後の人が出るのが12.5秒、走ってマークまで2.2秒、マーク1秒、終わるまで0.6秒で16.3秒)
  */
 export const RUSH = {
-  /** どの波の結果発表のあとに起きるか(波2の答え合わせの前) */
-  afterWave: 2,
   /** 走ってくる人数 */
   people: 8,
   /** 宇宙人の数(半々でどちらか) */
