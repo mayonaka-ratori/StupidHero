@@ -16,7 +16,8 @@ const CONC = [md(4, 4, 5), md(3, 3, 4), md(2, 2, 3), md(1, 1, 2)];
 const METAL = [md(6, 6, 6), md(4, 4, 5), md(3, 3, 4)];
 const PINK = md(7, 3, 6), PINK_C = md(7, 6, 7), CYAN = md(3, 7, 7);
 const DOOR = [md(3, 4, 4), md(2, 3, 3), md(1, 2, 2)];
-const ASPHALT = [md(2, 2, 3), md(1, 1, 2), md(1, 0, 1)];
+/** 車道。紺の服の人が沈まないように、青みのない灰色にする */
+const ASPHALT = [md(3, 3, 3), md(2, 2, 2), md(1, 0, 1)], ASPHALT_HI = md(4, 4, 4);
 
 // =====================================================================
 // 遠くのビルと夜空 216×214
@@ -366,15 +367,15 @@ export function drawGround(): PixelGrid {
     const x = Math.floor(hash(i, 3, 31) * W), y = roadTop + 2 + Math.floor(hash(i, 4, 31) * (H - roadTop - 2));
     const t = (y - roadTop) / (H - roadTop);
     const len = t > 0.5 ? 3 : 2;
-    G.rect(x, y, len, 1, CONC[3]);
-    G.rect(x + 1, y - 1, len - 1, 1, CONC[2]);
+    G.rect(x, y, len, 1, ASPHALT[1]);
+    G.rect(x + 1, y - 1, len - 1, 1, ASPHALT_HI);
   }
   // 側溝の影
   G.dither(0, roadTop, W, 2, ASPHALT[1], ASPHALT[2]);
   // 掘り返して埋めたあと(つぎはぎの四角)。上と左のふちに光、中は少し暗い
   const patch = (x: number, y: number, w: number, h: number) => {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) G.px(x + i, y + j, dith(x + i, y + j) ? ASPHALT[1] : ASPHALT[0]);
-    G.rect(x, y, w, 1, CONC[3]).rect(x, y, 1, h, CONC[3]).rect(x, y + h, w + 1, 1, ASPHALT[2]).rect(x + w, y, 1, h, ASPHALT[2]);
+    G.rect(x, y, w, 1, ASPHALT_HI).rect(x, y, 1, h, ASPHALT_HI).rect(x, y + h, w + 1, 1, ASPHALT[2]).rect(x + w, y, 1, h, ASPHALT[2]);
   };
   patch(214, 34, 40, 9); patch(560, 52, 30, 12); patch(20, 38, 22, 7);
   // 排水の格子
@@ -417,7 +418,7 @@ export function drawGround(): PixelGrid {
     let cx = x, cy = y;
     for (let i = 0; i < len; i++) {
       G.px(cx, cy, ASPHALT[2]);
-      if (G.get(cx, cy + 1) !== ASPHALT[2]) G.px(cx, cy + 1, CONC[3]);
+      if (G.get(cx, cy + 1) !== ASPHALT[2]) G.px(cx, cy + 1, ASPHALT_HI);
       cx += 1; cy += hash(i, s, 51) > 0.5 ? 1 : hash(i, s, 52) > 0.6 ? -1 : 0;
       if (cy < roadTop + 2) cy = roadTop + 2;
       if (cy >= H) break;

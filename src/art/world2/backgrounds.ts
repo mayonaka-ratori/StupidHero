@@ -11,6 +11,8 @@ const LIGHT = md(7, 7, 7), GLOW = md(5, 6, 6), GLOW2 = md(4, 5, 5);
 const HAZ_Y = md(7, 6, 1), HAZ_YD = md(5, 4, 0);
 const BAND = [md(2, 4, 6), md(1, 2, 4)];
 const LINE_W = md(6, 6, 6);
+/** 床の白線(白い服の人とまぎれないように、少し暗い灰色) */
+const LINE_F = md(4, 4, 5);
 const RED = md(7, 1, 1), RED_D = md(5, 1, 1);
 const EXIT = md(1, 6, 3);
 const PIPE = [md(5, 5, 6), md(4, 4, 5), md(3, 3, 4)];
@@ -203,17 +205,17 @@ export function drawGround(): PixelGrid {
   // 駐車の区画:奥から手前へ斜めに広がる白線と車止め
   const bayTop = 16, bayBot = 50;
   for (let x = 0; x < W; x += 54) {
-    G.line(x, bayTop, x - 9, bayBot, LINE_W);
-    G.line(x + 1, bayTop, x - 8, bayBot, LINE_W);
+    G.line(x, bayTop, x - 9, bayBot, LINE_F);
+    G.line(x + 1, bayTop, x - 8, bayBot, LINE_F);
     // 車止め
     const sx = x + 18;
     G.rect(sx, 18, 16, 3, C[1]).rect(sx, 18, 16, 1, C[0]).outlineRect(sx, 18, 16, 3);
     G.rect(sx + 3, 18, 3, 1, HAZ_Y).rect(sx + 10, 18, 3, 1, HAZ_Y);
   }
-  G.rect(0, bayBot, W, 2, LINE_W);
+  G.rect(0, bayBot, W, 2, LINE_F);
   // 走る道の中央の破線と、床の矢印
   for (let x = 0; x < W; x += 24) G.rect(x, 70, 12, 2, HAZ_Y).rect(x, 72, 12, 1, HAZ_YD);
-  for (const ax of [60, 276, 492]) arrow(G, ax, 61, 40, 3, LINE_W, C[4]);
+  for (const ax of [60, 276, 492]) arrow(G, ax, 61, 40, 3, LINE_F, C[4]);
   // 油じみ
   const stain = (cx: number, cy: number, rx: number, ry: number) => {
     for (let j = -ry; j <= ry; j++) for (let i = -rx; i <= rx; i++) {
