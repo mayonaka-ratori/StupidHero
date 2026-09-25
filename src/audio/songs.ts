@@ -34,7 +34,7 @@ export interface SongDef {
   intro?: SectionDef;
   /** くり返す部分 */
   loop: SectionDef;
-  /** エコー(ステージ2と3の曲だけ) */
+  /** エコー(ステージ2から4の曲だけ) */
   echo?: EchoDef;
 }
 
@@ -540,8 +540,206 @@ const FREE2: SongDef = { ...FREE1, bpm: 158 };
 /** 波3:さらに少し速く */
 const FREE3: SongDef = { ...FREE1, bpm: 166 };
 
+// ================================================================ street4
+// 変ホ長調。Ebmaj7 Cm7 Fm7 Bb7 / Abmaj7 Db7 Fm7 Bb7。夜の高層ビルのラウンジのような結果発表。
+// ゆったりしたジャズ風のエレピと、1拍に1つずつ歩くウッドベース。リムとハイハットは小さく。
+// 4小節目の後半と、6小節目の Db7(半音ずれた和音)で、紫のうなりのようなパッドがときどき重なる。
+const STREET4_CHORDS = ['G3 Bb3 D4 F4', 'Eb3 G3 Bb3 D4', 'Ab3 C4 Eb4 G4', 'Ab3 C4 D4 G4', 'C4 Eb4 G4 Bb4', 'B3 Eb4 F4 Bb4', 'Ab3 C4 Eb4 G4', 'Ab3 C4 D4 G4'];
+const STREET4: SongDef = {
+  bpm: 108,
+  echo: { steps: 3, feedback: 0.25, wet: 0.22, damp: 2400 },
+  loop: {
+    bars: 8,
+    tracks: [
+      {
+        inst: 'epiano',
+        vol: 1,
+        echo: true,
+        notes: [
+          '. . . . G4 - - Bb4 D5 - - - - - - -',
+          'C5 - - Bb4 G4 - - - Eb5 - - - D5 - - -',
+          'C5 - - - Ab4 - - C5 Eb5 - - - G5 - - -',
+          'F5 - - D5 Ab4 - - - C5 - - - . . . .',
+          '. . . . Eb5 - - G5 Bb5 - - - G5 - - -',
+          'F5 - - - B4 - - Eb5 Ab5 - - - F5 - - -',
+          'Eb5 - - C5 Ab4 - - - G4 - - Ab4 C5 - - -',
+          'D5 - - - - - - - . . . . . . . .'
+        ].join(' ')
+      },
+      // 和音(根音を抜いた形):1拍目、2拍目の裏、4拍目の裏で、のんびり鳴らす
+      { inst: 'epiano', vol: 0.45, notes: arp(STREET4_CHORDS, '0 - - - . . 0 - . . . . . . 0 -') },
+      { inst: 'epiano', vol: 0.45, notes: arp(STREET4_CHORDS, '1 - - - . . 1 - . . . . . . 1 -') },
+      { inst: 'epiano', vol: 0.45, notes: arp(STREET4_CHORDS, '3 - - - . . 2 - . . . . . . 3 -') },
+      // 歩くベース(1拍に1つ。次の和音へ半音で近づく)
+      {
+        inst: 'upright',
+        vol: 1,
+        notes: [
+          'Eb2 - - . G2 - - . Bb2 - - . B1 - - .',
+          'C2 - - . D2 - - . Eb2 - - . E2 - - .',
+          'F1 - - . Ab1 - - . C2 - - . A1 - - .',
+          'Bb1 - - . D2 - - . F2 - - . A1 - - .',
+          'Ab1 - - . C2 - - . Eb2 - - . D2 - - .',
+          'Db2 - - . F2 - - . Ab1 - - . Gb1 - - .',
+          'F1 - - . Ab1 - - . C2 - - . B1 - - .',
+          'Bb1 - - . D2 - - . F2 - - . E2 - - .'
+        ].join(' ')
+      },
+      // 紫のうなり:4小節目の後半と、6小節目から7小節目の頭まで
+      { inst: 'psypad', vol: 0.9, notes: [rep('.', 56), 'D4', rep('-', 7), rep('.', 16), 'B3', rep('-', 19), rep('.', 28)].join(' ') },
+      { inst: 'psypad', vol: 0.9, notes: [rep('.', 56), 'Ab4', rep('-', 7), rep('.', 16), 'F4', rep('-', 19), rep('.', 28)].join(' ') },
+      { inst: 'drums', vol: 0.55, notes: [rep('k . . . r . . h k . . h r . . h', 7), 'k . . . r . . h k . r . r . o .'].join(' ') }
+    ]
+  }
+};
+
+// ================================================================ boss4
+// ハ短調。Cm Cm Ab Bb / Cm Cm Fm G / Ab Bb Db G。最後のボス(超能力者の親玉)とのボス戦。
+// 重いオルガンがメロディと和音を弾き、16分で走るベースが急かす。ほかのボス戦(8小節)より長い12小節。
+// 11小節目の Db(半音上の和音)で、念力のようにぐにゃりとさせてから頭に戻る。
+const BOSS4_ROOTS = ['C2', 'C2', 'Ab1', 'Bb1', 'C2', 'C2', 'F1', 'G1', 'Ab1', 'Bb1', 'Db2', 'G1'];
+const BOSS4_CHORDS = ['C4 Eb4 G4', 'C4 Eb4 G4', 'C4 Eb4 Ab4', 'D4 F4 Bb4', 'C4 Eb4 G4', 'C4 Eb4 G4', 'C4 F4 Ab4', 'B3 D4 G4', 'C4 Eb4 Ab4', 'D4 F4 Bb4', 'Db4 F4 Ab4', 'B3 D4 G4'];
+const BOSS4: SongDef = {
+  bpm: 172,
+  echo: { steps: 3, feedback: 0.2, wet: 0.16, damp: 2600 },
+  loop: {
+    bars: 12,
+    tracks: [
+      {
+        inst: 'organ',
+        vol: 1,
+        echo: true,
+        notes: [
+          'C5 - - - G4 - C5 - Eb5 - D5 - C5 - G4 -',
+          'Ab4 - G4 - - - F4 - Eb4 - F4 - G4 - - -',
+          'Ab4 - - - Eb5 - Ab5 - C6 - Bb5 - Ab5 - Eb5 -',
+          'F5 - G5 - Ab5 - Bb5 - D6 - - - Bb5 - - -',
+          'C6 - - - G5 - C6 - Eb6 - D6 - C6 - G5 -',
+          'Bb5 - Ab5 - G5 - F5 - Eb5 - D5 - C5 - - -',
+          'F5 - - - Ab5 - C6 - F6 - - - Eb6 - C6 -',
+          'D6 - - - B5 - G5 - F5 - D5 - B4 - - -',
+          'C5 - Eb5 - Ab5 - Eb5 - C6 - Ab5 - Eb5 - C5 -',
+          'D5 - F5 - Bb5 - F5 - D6 - Bb5 - F5 - D5 -',
+          'Db6 - - - Ab5 - F5 - Db5 - F5 - Ab5 - Db6 -',
+          'B5 - - - D6 - - - G6 - - - F6 - D6 -'
+        ].join(' ')
+      },
+      // オルガンの和音:1拍目と2拍目の裏と4拍目に重く
+      { inst: 'organ', vol: 0.5, notes: arp(BOSS4_CHORDS, '0 - - . . . 0 - - . . . 0 - . .') },
+      { inst: 'organ', vol: 0.5, notes: arp(BOSS4_CHORDS, '2 - - . . . 2 - - . . . 2 - . .') },
+      { inst: 'bass', vol: 0.9, notes: bars('r r R r r r R r r r R r R r f R', BOSS4_ROOTS) },
+      { inst: 'stab', vol: 0.7, notes: bars('R . . . . . . . . . . . . . . .', BOSS4_ROOTS) },
+      {
+        inst: 'drums',
+        notes: ['kc h s h k h s k h k s h k h s o', rep('k h s h k h s k h k s h k h s h', 10), 'k . s s T T t t l l s s kc . kc .'].join(' ')
+      }
+    ]
+  }
+};
+
+// ================================================================ lift4
+// エレベーターラッシュ(約17秒)の曲。エレベーターの中で流れるような明るい音楽が、だんだん速く高くなる。
+// 同じ4小節の節を、ヘ長調(137)→ト長調(160)→イ長調(192)と、1回ごとに1音上げて速くする(かっこの中は1分の拍の数)。
+// ここまでで18秒。そのあとは変ロ長調(240)の4小節(4秒)をくり返す。1回ごとの頭で、高いベルが「チン」と鳴る。
+// 曲のテンポは1つなので、細かいマス(1分に240拍の16分)の上で、1拍を7マス、6マス、5マス、4マスと短くしていく。
+interface Pace {
+  /** 調の主音(4オクターブ目の音の番号) */
+  key: number;
+  /** 1拍のマスの数 */
+  spb: number;
+  /** 何拍か */
+  beats: number;
+}
+/** [何拍目か, 音の番号(ドラムなら文字), 何拍のばすか] */
+type Hit = [number, number | string, number?];
+/** テンポを変えながら書く。部分ごとに fn が返した音を、その部分の1拍の長さでマスに並べる */
+function paced(parts: Pace[], fn: (p: Pace, i: number) => Hit[]): string {
+  const toks: string[] = [];
+  parts.forEach((p, i) => {
+    const n = p.spb * p.beats;
+    const seg: string[] = Array<string>(n).fill('.');
+    for (const [b, note, len] of fn(p, i)) {
+      const s = Math.round(b * p.spb);
+      if (s >= n) continue;
+      seg[s] = typeof note === 'number' ? nameOf(note) : note;
+      if (len) for (let k = s + 1; k < Math.min(n, Math.round((b + len) * p.spb)); k++) if (seg[k] === '.') seg[k] = '-';
+    }
+    toks.push(...seg);
+  });
+  return toks.join(' ');
+}
+// 前奏(ここで速く高くなる)と、くり返し
+const LIFT4_UP: Pace[] = [
+  { key: 65, spb: 7, beats: 16 },
+  { key: 67, spb: 6, beats: 16 },
+  { key: 69, spb: 5, beats: 16 }
+];
+const LIFT4_TOP: Pace[] = [{ key: 70, spb: 4, beats: 16 }];
+// I、vi、ii、V7 の和音(主音からの半音の数)。1小節に1つ
+const LIFT4_CHORDS = [[0, 4, 7, 11], [-3, 0, 4, 7], [2, 5, 9, 12], [-5, -1, 2, 5]];
+// 節:[拍, 主音からの半音の数, のばす拍]
+const LIFT4_TUNE: [number, number, number][] = [
+  [0, 4, 1], [1, 7, 1], [2, 11, 1.5], [3.5, 9, 0.5],
+  [4, 12, 1.5], [5.5, 9, 0.5], [6, 7, 1],
+  [8, 5, 1], [9, 9, 1], [10, 12, 1], [11, 14, 0.5], [11.5, 12, 0.5],
+  [12, 11, 1], [13, 14, 1], [14, 17, 1], [15, 16, 0.5], [15.5, 14, 0.5]
+];
+/** first は最初の部分のにぎやかさ(0〜3)。部分が進むごとに1つずつにぎやかにする */
+function liftTracks(parts: Pace[], first: number): TrackDef[] {
+  const each = (fn: (p: Pace, lv: number) => Hit[]) => paced(parts, (p, i) => fn(p, first + i));
+  const chordHits = (voice: number, p: Pace, lv: number): Hit[] =>
+    LIFT4_CHORDS.flatMap((c, m) => (lv >= 2 ? [0.5, 1.5, 2.5, 3.5] : [1, 3]).map((b): Hit => [m * 4 + b, p.key + c[voice], 0.4]));
+  return [
+    { inst: 'vibes', vol: 1, notes: each((p) => LIFT4_TUNE.map(([b, n, l]): Hit => [b, p.key + n, l])) },
+    // 階に着いたベル:1回ごとの頭で「チン」
+    { inst: 'bell', vol: 0.7, notes: each((p) => [[0, p.key + 24, 2]]) },
+    { inst: 'epiano', vol: 0.4, notes: each((p, lv) => chordHits(1, p, lv)) },
+    { inst: 'epiano', vol: 0.4, notes: each((p, lv) => chordHits(3, p, lv)) },
+    // 最初はのんびりしたパッド。速くなるとなくなる
+    { inst: 'pad', vol: 0.8, notes: each((p, lv) => (lv < 2 ? LIFT4_CHORDS.map((c, m): Hit => [m * 4, p.key + c[2], 4]) : [])) },
+    {
+      inst: 'upright',
+      vol: 1,
+      notes: each((p, lv) =>
+        LIFT4_CHORDS.flatMap((c, m): Hit[] => {
+          const root = p.key - 24 + c[0];
+          if (lv === 0) return [[m * 4, root, 1.6], [m * 4 + 2, root + 7, 1.6]];
+          // 歩くベース:根音、3度、5度、次の根音の半音上
+          const next = p.key - 24 + LIFT4_CHORDS[(m + 1) % 4][0];
+          return [[m * 4, root, 0.8], [m * 4 + 1, root + c[1] - c[0], 0.8], [m * 4 + 2, root + 7, 0.8], [m * 4 + 3, next + 1, 0.8]];
+        })
+      )
+    },
+    // いちばん速くなってからの、はずむPSG
+    { inst: 'sq', vol: 0.6, notes: each((p, lv) => (lv < 3 ? [] : LIFT4_CHORDS.flatMap((c, m) => [0.5, 1.5, 2.5, 3.5].map((b): Hit => [m * 4 + b, p.key + 12 + c[2]])))) },
+    {
+      inst: 'drums',
+      vol: 0.8,
+      notes: each((_p, lv) => {
+        const out: Hit[] = [];
+        for (let b = 0; b < 16; b++) {
+          const back = b % 2 === 1;
+          let d = '';
+          if (lv >= 1 && (lv >= 3 || !back)) d += 'k';
+          if (back) d += lv >= 2 ? 's' : 'r';
+          if (lv >= 1 && b === 0) d += 'c';
+          if (d) out.push([b, d]);
+          out.push([b + 0.5, lv >= 3 ? 'o' : 'h']);
+        }
+        return out;
+      })
+    }
+  ];
+}
+const LIFT4: SongDef = {
+  bpm: 240,
+  intro: { bars: 18, tracks: liftTracks(LIFT4_UP, 0) },
+  loop: { bars: 4, tracks: liftTracks(LIFT4_TOP, 3) }
+};
+
 export const SONGS = {
   title: TITLE, sort: SORT, street: STREET, boss: BOSS, result: RESULT, street2: STREET2, boss2: BOSS2,
   street3: STREET3, boss3: BOSS3, sale3: SALE3,
+  street4: STREET4, boss4: BOSS4, lift4: LIFT4,
   free1: FREE1, free2: FREE2, free3: FREE3
 } as const;

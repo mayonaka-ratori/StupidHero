@@ -27,6 +27,24 @@ describe('曲のデータ', () => {
     }
   });
 
+  it('エレベーターラッシュの曲は、17〜20秒かけて速く高くなってから、いちばん速いところをくり返す', () => {
+    const s = compile(SONGS.lift4);
+    const introSec = (s.intro?.steps ?? 0) * (60 / s.bpm / 4);
+    expect(introSec).toBeGreaterThanOrEqual(17);
+    expect(introSec).toBeLessThanOrEqual(20);
+    // 節の最初の音(ビブラフォン)の高さと、2つめの音までのマスの数を、前奏の区切りごとに見る
+    const lead = (at: { inst: string; midi: number }[][]) =>
+      at.flatMap((evs, i) => evs.filter((e) => e.inst === 'vibes').map((e) => ({ i, midi: e.midi })));
+    const intro = lead(s.intro?.at ?? []);
+    const loop = lead(s.loop.at);
+    const heads = [0, 17, 34].map((k) => intro[k]);
+    const gaps = [0, 17, 34].map((k) => intro[k + 1].i - intro[k].i);
+    expect(heads.map((h) => h.midi)).toEqual([69, 71, 73]);
+    expect(gaps).toEqual([7, 6, 5]);
+    expect(loop[0].midi).toBe(74);
+    expect(loop[1].i - loop[0].i).toBe(4);
+  });
+
   it('フリープレイの曲は同じ曲で、波ごとに少しずつ速い', () => {
     const { free1, free2, free3 } = SONGS;
     expect(free2.loop).toBe(free1.loop);
