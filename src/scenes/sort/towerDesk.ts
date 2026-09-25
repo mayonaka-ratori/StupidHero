@@ -27,6 +27,10 @@ const BALLOON_DARK = 0xa01e30;
 const OUTLINE = 0x240024;
 /** 浮いた小物の上下のゆれ(1往復のミリ秒) */
 const BOB_MS = 1400;
+/** 手品の糸を吊る点を、つえの先より何ドット上に置くか(小物の真上。ここから糸がまっすぐ下りる) */
+const HANG_ABOVE_TIP = 16;
+/** 吊る点からつえの先へ渡る糸の、真ん中のたるみ(ドット) */
+const THREAD_SAG = 6;
 
 export interface TowerDeskOptions {
   floor: WaveNo;
@@ -82,6 +86,8 @@ export class TowerDesk {
   private spotX: number;
   private reduce = settings.reduceFx;
   private lastThread = '';
+  /** 手品の糸を吊る点の高さ。つえの先がいちばん高かったときに合わせる(コマごとに上下させない) */
+  private hangY = Infinity;
 
   constructor(private scene: Phaser.Scene, opt: TowerDeskOptions) {
     this.spot = towerDeskFor(opt.floor);
@@ -123,6 +129,7 @@ export class TowerDesk {
     this.look = look;
     this.tip = tip;
     this.lastThread = '';
+    this.hangY = Infinity;
     this.apply();
   }
 
@@ -192,33 +199,61 @@ export class TowerDesk {
     });
   }
 
-  /** つえの先から小物の上の端まで、細い糸を引く(1ドットの点を並べる。にじませない) */
+  /**
+   * 手品の糸。小物の真上の、つえの先より高い所に吊る点を置き、そこから小物の上の端まで糸をまっすぐ下ろす。
+   * 吊る点からつえの先へは、少したるんだ糸を1ドットおきの点で渡す(つえで吊っていると分かるように。
+   * 前はつえの先から小物まで1本の線を引いていて、横に長い棒に見えた)。1ドットの点を並べる。にじませない
+   */
   private drawThread(y: number): void {
     const tip = this.tip?.() ?? null;
     const x1 = this.spotX, y1 = this.itemTop(y);
-    const key = tip ? `${Math.round(tip.x)},${Math.round(tip.y)},${y1}` : 'none';
+    if (tip) this.hangY = Math.min(this.hangY, Math.round(tip.y) - HANG_ABOVE_TIP, y1 - HANG_ABOVE_TIP);
+    const key = tip ? `${Math.round(tip.x)},${Math.round(tip.y)},${y1},${this.hangY}` : 'none';
     if (key === this.lastThread) return;
     this.lastThread = key;
     const g = this.thread.clear();
     if (!tip) return;
-    const pts: [number, number][] = [];
-    let x0 = Math.round(tip.x), y0 = Math.round(tip.y);
-    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-    let err = dx + dy;
-    for (let n = 0; n < 400; n++) {
-      pts.push([x0, y0]);
-      if (x0 === x1 && y0 === y1) break;
-      const e2 = 2 * err;
-      if (e2 >= dy) { err += dy; x0 += sx; }
-      if (e2 <= dx) { err += dx; y0 += sy; }
+    const hy = this.hangY;
+    // 吊る点から小物まで、まっすぐ下りる糸
+    const drop: [number, number][] = [];
+    for (let py = hy; py <= y1; py++) drop.push([x1, py]);
+    drawLine(g, drop);
+    // 吊る点からつえの先まで、たるんだ糸(放物線)。すき間ができないように、となりの点どうしを線でつなぐ
+    const tx = Math.round(tip.x), ty = Math.round(tip.y);
+    const steps = Math.max(1, Math.abs(tx - x1), Math.abs(ty - hy));
+    const span: [number, number][] = [];
+    let prev: [number, number] = [x1, hy];
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const p: [number, number] = [Math.round(x1 + (tx - x1) * t), Math.round(hy + (ty - hy) * t + 4 * THREAD_SAG * t * (1 - t))];
+      for (const q of linePoints(prev, p).slice(1)) span.push(q);
+      prev = p;
     }
-    drawLine(g, pts);
+    // 1ドットおきにして、うすく見せる(手品の見えにくい糸)
+    drawLine(g, span.filter((_, i) => i % 2 === 1));
   }
 
   destroy(): void {
     for (const o of this.objects) o.destroy();
   }
+}
+
+/** 2つの点を結ぶ1ドットの線の点(両端を含む) */
+function linePoints(a: readonly [number, number], b: readonly [number, number]): [number, number][] {
+  const pts: [number, number][] = [];
+  let [x0, y0] = a;
+  const [x1, y1] = b;
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (let n = 0; n < 400; n++) {
+    pts.push([x0, y0]);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+  return pts;
 }
 
 /** 1ドットの糸を点で描く。右と下に濃い影をつけて、暗い壁の上でも明るい床の上でも見えるようにする */

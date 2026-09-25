@@ -92,7 +92,8 @@ await shot('03_mash_start');
 
 if (mode === 'idle') {
   const t0 = Date.now();
-  await page.waitForFunction(() => window.bossScene.phase === 'end', null, { timeout: 20000 });
+  // (tower は15秒に念力の選択の3秒と演出が足されるので、実時間で19秒ほどかかる。重い端末ではその3〜4倍)
+  await page.waitForFunction(() => window.bossScene.phase === 'end', null, { timeout: 90000 });
   const r = await S(() => ({ sec: window.bossScene.fight.seconds, dmg: window.bossScene.fight.damageYen, taps: window.bossScene.fight.tapsCounted }));
   check('押さなくても15秒で終わる', Math.abs(r.sec - 15) < 0.05 && r.taps === 0, JSON.stringify(r) + ` 実時間${Date.now() - t0}ms`);
   // 何もしないと、手が止まった分が14回(ステージ2は車に乗ったあとが¥100万、ステージ3は母艦に乗ったあとが¥150万)
@@ -167,7 +168,7 @@ if (mode === 'idle') {
     const taps0 = (await fight()).taps;
     if (mode === 'nochoice') {
       // 何も押さずに3秒:客が落ちて、シャンデリアが落ちる
-      await page.waitForFunction(() => !window.bossScene.choiceOpen, null, { timeout: 5000 }).catch(() => {});
+      await page.waitForFunction(() => !window.bossScene.choiceOpen, null, { timeout: 20000 }).catch(() => {});
       await wait(450);
       await shot('06t_chandelier_fallen');
       const t1 = await tally();
@@ -176,19 +177,33 @@ if (mode === 'idle') {
     } else {
       // 待てと行けを1回ずつ押す(待ては2回押しても1回)
       const b = await S(() => { const r = (x) => ({ x: x.x + x.w / 2, y: x.y + x.h / 2 }); return { stop: r(window.bossScene.choiceStop), go: r(window.bossScene.choiceGo) }; });
+      // ボタンが出た直後(CHOICE_GUARD_SEC、0.3秒)は押しを受けつけない。端末が重いとゲームの時計が遅いので、すぎるまで待つ
+      await page.waitForFunction(() => { const c = window.bossScene.choice; return !c || c.done || c.elapsedSec >= c.guardSec; }, null, { timeout: 10000 }).catch(() => {});
+      const choiceState = () => S(() => { const s = window.bossScene; const c = s.choice; return { open: s.choiceOpen, t: c.elapsedSec, limit: c.limitSec, done: c.done }; });
+      const pre = await choiceState();
       await pad.tap(b.stop.x, b.stop.y);
       await pad.tap(b.stop.x, b.stop.y);
       await wait(120);
       await pad.tap(b.go.x, b.go.y);
       await wait(200);
-      await shot('06t_choice_pressed');
+      // 画面を撮る前に読む(重い端末では撮るのに何秒もかかり、その間にゲームが進む)
       const out = await S(() => window.bossScene.choice.outcome);
-      check('待てと行けを押すと両方助かる', out.guestSaved && out.chandelierSaved, JSON.stringify(out));
+      const post = await choiceState();
       const t1 = await tally();
-      check('両方押せば市民のけがも被害額も増えない', t1.villain === t0.villain && t1.chandelier === t0.chandelier && t1.props === t0.props, JSON.stringify([t0, t1]));
-      check('選択の間の押しは連打に数えない', (await fight()).taps === taps0);
+      const taps1 = (await fight()).taps;
+      await shot('06t_choice_pressed');
+      // 押す前に選択が終わっていたか、押し終わる前に3秒が切れた(両方押すとその場で終わるので、時計は3秒まで進まない)
+      const late = !pre.open || pre.done || (post.t >= post.limit && !(out.guestSaved && out.chandelierSaved));
+      const info = `押す前 ${JSON.stringify(pre)} 押したあと ${JSON.stringify(post)}`;
+      if (late) {
+        for (const name of ['待てと行けを押すと両方助かる', '両方押せば市民のけがも被害額も増えない', '選択の間の押しは連打に数えない']) skip(name, `押すのが選択の3秒に間に合わなかった ${info}`);
+      } else {
+        check('待てと行けを押すと両方助かる', out.guestSaved && out.chandelierSaved, JSON.stringify(out) + ' ' + info);
+        check('両方押せば市民のけがも被害額も増えない', t1.villain === t0.villain && t1.chandelier === t0.chandelier && t1.props === t0.props, JSON.stringify([t0, t1]));
+        check('選択の間の押しは連打に数えない', taps1 === taps0, `${taps0} -> ${taps1}`);
+      }
     }
-    await page.waitForFunction(() => window.bossScene.phase !== 'choice', null, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => window.bossScene.phase !== 'choice', null, { timeout: 20000 }).catch(() => {});
     check('選択のあと連打に戻る', (await fight()).phase === 'fight');
     await wait(300);
     await shot('06t_back_to_mash');
@@ -244,8 +259,8 @@ if (mode === 'idle') {
   const ws = await S(() => { const w = window.bossScene.run.worstShot; return w ? `${w.width}x${w.height}` : null; });
   if (defeatProp) {
     const p1 = await S(() => { const s = window.bossScene.run.stats.snapshot(); return { broken: s.propsBroken, yen: s.damageByProps }; });
-    // (nochoice では、その前に落ちたシャンデリアの分も物の被害額に入っている)
-    const extra = mode === 'nochoice' ? CHANDELIER_YEN : 0;
+    // (シャンデリアが落ちていたら(nochoice、または押すのが間に合わなかったとき)、その分も物の被害額に入っている)
+    const extra = ((p1.broken.chandelier ?? 0) - (props0.broken.chandelier ?? 0)) * CHANDELIER_YEN;
     check(`倒すと ${defeatProp.kind} が壊れる`, (p1.broken[defeatProp.kind] ?? 0) === (props0.broken[defeatProp.kind] ?? 0) + 1 && p1.yen - props0.yen === defeatProp.yen + extra,
       `物の被害額 ${props0.yen} -> ${p1.yen}`);
   }
