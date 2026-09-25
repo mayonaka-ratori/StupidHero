@@ -97,19 +97,23 @@ export const dark = (r: Ramp): Ramp => [r[1], r[2], r[2]];
 
 // ---------- 頭 ----------
 
-/** 頭のドット(右向き)。S s d:肌、H h k:髪、e:目(ふち色)、m:口 */
+/**
+ * 頭のドット(右向き)。S s d:肌(明るい、ふつう、影)、H h k:髪、e:目(ふち色)、m:口
+ * 顔は明るい色で平らに塗り、耳の下からあごの下へ影を入れて、あごの形を見せる。
+ * 顔の部品の位置(まゆ3行目、目4〜5行目の9列、口8行目、鼻12列)は、ほかのステージの頭の小物がこれに合わせている。
+ */
 const FACE = [
   '....SSSSS....',
   '..SSSSSSSSS..',
   '.SSSSSSSSSSS.',
   '.SSSSSSSSSSS.',
   '.SSSSSSSSSSS.',
-  '.SSSSSSSSSSSS',
+  '.sSSSSSSSSSSS',
   '.sSSSSSSSSSSs',
   '.ssSSSSSSSSS.',
-  '..ssSSSSSSSs.',
-  '...ssSSSSSs..',
-  '.....ssss....'
+  '..sdsSSSSSSS.',
+  '...ddsSSSSs..',
+  '.....dssss...'
 ];
 /** 首がつながる点(頭の格子の中) */
 const NECK_COL = 5;
@@ -123,19 +127,20 @@ export interface HairStyle {
   ear?: boolean;
 }
 
+// 髪は左上に明るい房(H)を置き、房の分かれ目にだけ濃い線(k)を入れる。
 export const HAIR_SHORT: HairStyle = {
   top: 1,
   ear: true,
   rows: [
-    '....hHh.h....',
-    '...hhHHhhh...',
-    '..hHHHhhhhhh.',
-    '.hHHhhhhhhhhh',
-    '.hhhhhhhhh.h.',
-    '.hhhh........',
+    '...hh.hh.....',
+    '..hhHHhhhh...',
+    '.hhHHhhhhhhh.',
+    '.hHhhhhhhkhhk',
+    '.hhhhhhk.....',
+    '.hhhhh.......',
     '.hhh.........',
-    '.hh..........',
-    '.h...........'
+    '.hhk.........',
+    '.hk..........'
   ]
 };
 
@@ -144,14 +149,14 @@ export const HAIR_SLICK: HairStyle = {
   ear: true,
   rows: [
     '....hhhhh....',
-    '..hHHHHHHhh..',
-    '.hHHhhhhhhhk.',
-    '.hhhhhhhhhk..',
+    '..hhHHHHhhh..',
+    '.hHHhhhhhhhhk',
+    '.hhkkhhhhk...',
     '.hhhhhh......',
     '.hhhh........',
     '.hhh.........',
-    '.hh..........',
-    '.h...........'
+    '.hhk.........',
+    '.hk..........'
   ]
 };
 
@@ -159,18 +164,18 @@ export const HAIR_BUN: HairStyle = {
   top: 2,
   ear: false,
   rows: [
-    '.hHHhh.......',
-    '.hHhhh.......',
-    '..hhhhhhh....',
-    '..hHHHhhhhh..',
-    '.hHHhhhhhhhh.',
-    '.hhhhhhhhhhhh',
-    '.hhhhhhhhh.h.',
+    '.hHHh........',
+    '.hHhhk.......',
+    '..hhkhhhh....',
+    '..hHHHHhhhh..',
+    '.hHHHhhhhhhh.',
+    '.hHHhhhhhhhhh',
+    '.hhhhhhhhk.h.',
     '.hhhhhh......',
     '.hhhhh.......',
     '.hhhhh.......',
-    '.hhhhh.......',
-    '..hhhh.......',
+    '.hhhhk.......',
+    '..hhhk.......',
     '...hh........'
   ]
 };
@@ -181,12 +186,14 @@ export const HAIR_MOHAWK: HairStyle = {
   rows: [
     '...hHH.H.....',
     '..hHHHHHh....',
-    '.hHHHhhhhh...',
-    '.hHhhhhhhhh..',
-    '.shhhhhhhhs..',
-    '.sss.........',
-    '.ss..........',
-    '.s...........'
+    '.hHHHhhhhk...',
+    '.hHhhhhhhhk..',
+    '.dhhhhhhhhd..',
+    '.ddssss......',
+    '.dsss........',
+    '.dss.........',
+    '.ds..........',
+    '.d...........'
   ]
 };
 
@@ -197,15 +204,15 @@ export const HAIR_GRANNY: HairStyle = {
     '...HHh.......',
     '..HHhhh......',
     '..hhhhk......',
-    '...hhhhhh....',
+    '...hhkhhh....',
     '..hHHHHhhhh..',
     '.hHHHhhhhhhh.',
     '.hHhhhhhhhhhh',
-    '.hhhhhhhhh.h.',
+    '.hhhhhhhhk.h.',
     '.hhhhhh......',
-    '.hhhhh.......',
-    '..hhhh.......',
-    '..hhh........'
+    '.hhhhk.......',
+    '..hhhk.......',
+    '..hhk........'
   ]
 };
 
@@ -228,56 +235,69 @@ function drawHead(look: Look, pose: Pose): { g: PixelGrid; nx: number; ny: numbe
   const g = new PixelGrid(14, HEAD_ROWS + top + 1);
   const S = look.skin, H = look.hair;
   paintTemplate(g, FACE, top, S, H);
-  // 耳
+  // 耳(外が明るく、穴のところが影)
   if (hs.ear) {
-    g.px(5, top + 4, S[1]).px(5, top + 5, S[2]).px(4, top + 5, S[1]).px(5, top + 6, S[1]);
+    g.px(4, top + 4, S[1]).px(5, top + 4, S[1]);
+    g.px(4, top + 5, S[0]).px(5, top + 5, S[2]);
+    g.px(4, top + 6, S[1]).px(5, top + 6, S[1]);
   }
   paintTemplate(g, hs.rows, 0, S, H);
   const y = (r: number) => top + r + (pose.down ? 1 : 0);
   const P = (x: number, r: number, c: string) => g.px(x, y(r), c);
   const brow = H[2] === OUTLINE ? H[1] : H[2];
-  // 表情
+  const O = OUTLINE, D = S[2];
+  // 表情。顔は斜め前を向き、目は手前(8列)と奥(11列)の2つ。目は縦2ドット、口は8行目。
+  // 縮めても読めるように、まゆの傾きと口の形をはっきり変える
+  const eyes = (r = 4, h = 2) => { for (let j = 0; j < h; j++) { P(8, r + j, O); P(11, r + j, O); } };
+  const brows = (l: number, m: number, r: number) => { P(7, l, brow); P(8, m, brow); P(11, r, brow); };
   switch (pose.face) {
     case 'normal':
+      brows(3, 3, 3); eyes();
+      P(9, 8, D); P(10, 8, D);
+      break;
     case 'sly':
-      P(8, 3, brow); P(9, 3, brow); P(10, 3, brow);
-      P(9, 4, OUTLINE); P(9, 5, OUTLINE);
-      if (pose.face === 'sly') { P(10, 4, OUTLINE); P(9, 4, S[1]); }
-      P(9, 8, S[2]); P(10, 8, S[2]);
+      // 目を細め(上まぶたが下りる)、口のはしを上げる
+      brows(3, 3, 3);
+      P(8, 4, S[1]); P(11, 4, S[1]); P(8, 5, O); P(11, 5, O); P(9, 5, O);
+      P(9, 8, D); P(10, 8, D); P(11, 7, D);
       break;
     case 'grin':
-      P(8, 3, brow); P(9, 3, brow); P(10, 3, brow);
-      P(9, 4, OUTLINE); P(9, 5, OUTLINE);
-      P(8, 8, S[2]); P(9, 8, OUTLINE); P(10, 8, OUTLINE); P(11, 7, S[2]);
+      brows(3, 2, 2); eyes();
+      P(8, 8, D); P(9, 8, O); P(10, 8, O); P(11, 7, O); P(9, 9, D); P(10, 9, D);
       break;
     case 'angry':
-      P(8, 2, brow); P(9, 3, brow); P(10, 4, brow);
-      P(9, 5, OUTLINE); P(10, 5, OUTLINE);
-      P(9, 8, OUTLINE); P(10, 8, OUTLINE); P(10, 9, S[2]);
+      // まゆの奥の端を上げ、手前(鼻の側)を下げる
+      P(6, 2, brow); P(7, 3, brow); P(8, 3, brow); P(10, 3, brow); P(11, 3, brow);
+      P(8, 4, O); P(8, 5, O); P(11, 4, O); P(11, 5, O);
+      P(9, 8, O); P(10, 8, O); P(11, 8, O);
       break;
     case 'worried':
-      P(8, 3, brow); P(9, 2, brow); P(10, 2, brow);
-      P(9, 4, OUTLINE); P(9, 5, OUTLINE);
-      P(9, 8, S[2]); P(10, 9, S[2]); P(10, 8, S[2]);
+      // まゆの手前を上げる。口はへの字
+      P(7, 3, brow); P(8, 2, brow); P(11, 2, brow);
+      eyes();
+      P(9, 8, D); P(10, 8, D); P(8, 9, D);
       break;
     case 'surprised':
-      P(8, 2, brow); P(9, 1, brow); P(10, 2, brow);
-      P(9, 3, OUTLINE); P(9, 4, OUTLINE); P(9, 5, OUTLINE);
-      P(9, 8, OUTLINE); P(10, 8, OUTLINE); P(9, 9, OUTLINE); P(10, 9, OUTLINE);
+      P(7, 2, brow); P(8, 1, brow); P(11, 1, brow);
+      eyes(3, 3);
+      P(9, 8, O); P(10, 8, O); P(9, 9, O); P(10, 9, O);
       break;
     case 'hurt':
-      P(8, 3, brow); P(9, 3, brow);
-      P(8, 5, OUTLINE); P(9, 5, OUTLINE); P(10, 4, OUTLINE);
-      P(9, 8, OUTLINE); P(10, 8, OUTLINE); P(10, 9, OUTLINE);
+      // ぎゅっとつぶった目(>の形)と、ゆがんだ口
+      P(7, 3, brow); P(8, 3, brow);
+      P(7, 4, O); P(8, 5, O); P(7, 6, O); P(11, 4, O); P(10, 5, O); P(11, 6, O);
+      P(9, 8, O); P(10, 8, O); P(10, 9, O);
       break;
     case 'ko':
-      P(8, 3, OUTLINE); P(10, 3, OUTLINE); P(9, 4, OUTLINE); P(8, 5, OUTLINE); P(10, 5, OUTLINE);
-      P(9, 8, OUTLINE); P(10, 8, OUTLINE); P(10, 9, OUTLINE);
+      // ×の目
+      P(7, 3, O); P(9, 3, O); P(8, 4, O); P(7, 5, O); P(9, 5, O);
+      P(11, 3, O); P(11, 5, O);
+      P(9, 8, O); P(10, 8, O); P(10, 9, O);
       break;
     case 'shut':
-      P(8, 3, brow); P(9, 3, brow); P(10, 3, brow);
-      P(8, 5, OUTLINE); P(9, 5, OUTLINE);
-      P(9, 8, S[2]); P(10, 8, S[2]);
+      brows(3, 3, 3);
+      P(7, 5, O); P(8, 5, O); P(11, 5, O);
+      P(9, 8, D); P(10, 8, D);
       break;
   }
   look.headExtra?.(g, pose);
@@ -286,41 +306,60 @@ function drawHead(look: Look, pose: Pose): { g: PixelGrid; nx: number; ny: numbe
 
 // ---------- 体 ----------
 
+/** 靴の形。かかとから、つま先を丸く高くした、ずんぐりした形 */
 const shoePoly = (a: Pt, ang: number, k = 1): Pt[] => {
-  const pts: Pt[] = [[-2, -1], [2, -1], [4, 0.6], [4.4, 2.5], [-2, 2.5]];
+  const pts: Pt[] = [[-2.5, -1.5], [1.6, -1.5], [3.4, -0.3], [4.8, 0.7], [5.2, 2.5], [-2.5, 2.5]];
   const c = Math.cos(ang), s = Math.sin(ang);
   return pts.map(([x, y]) => [a[0] + k * (x * c - y * s), a[1] + k * (x * s + y * c)]);
 };
 
 function drawShoe(P: Painter, look: Look, leg: Leg, far: boolean): void {
   const k = look.build.scale ?? 1;
-  const m = P.mask().poly(shoePoly(leg.a, leg.toe ?? 0, k));
+  const ang = leg.toe ?? 0;
+  const m = P.mask().poly(shoePoly(leg.a, ang, k));
   const r = far ? dark(look.shoes) : look.shoes;
-  P.fill(m, r, { sep: 'outline', hi: 0.35, lo: 0.75 });
-  if (look.sole && !leg.toe) {
-    let y = 0;
-    for (let j = 0; j < 8; j++) for (let x = Math.round(leg.a[0] - 2 * k); x <= Math.round(leg.a[0] + 4 * k); x++) if (m.has(x, Math.round(leg.a[1]) + j)) y = Math.round(leg.a[1]) + j;
-    for (let x = Math.round(leg.a[0] - 2 * k); x <= Math.round(leg.a[0] + 5 * k); x++) if (m.has(x, y)) P.px(x, y, look.sole);
+  P.fill(m, r, { sep: 'outline', hi: 0.3, lo: 0.72, clean: true });
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const at = (x: number, y: number): Pt => [Math.round(leg.a[0] + k * (x * c - y * s)), Math.round(leg.a[1] + k * (x * s + y * c))];
+  // 底(いちばん下の段)。底の色がなければ影の色
+  const sole = look.sole ?? r[2];
+  const byX = new Map<number, number>();
+  m.each((x, y) => { if (!m.has(x, y + 1) && (byX.get(x) ?? -1) < y) byX.set(x, y); });
+  if (!leg.toe || Math.abs(ang) < 0.35) for (const [x, y] of byX) P.px(x, y, sole);
+  // つま先の上の小さな光
+  if (!far) {
+    const [tx, ty] = at(2.6, 0);
+    if (m.has(tx, ty)) P.px(tx, ty, r[0]);
+    const [ux, uy] = at(3.6, 0.8);
+    if (m.has(ux, uy) && m.has(ux, uy + 1)) P.px(ux, uy, r[0]);
   }
 }
 
 function legMask(P: Painter, b: Build, hipJ: Pt, leg: Leg): Mask {
   const m = P.mask();
   m.capsule(hipJ, leg.k, b.thigh, b.thigh * 0.9);
-  m.capsule(leg.k, add(leg.a, 0, -1), b.shin, b.shin * 0.8);
+  m.capsule(leg.k, add(leg.a, 0, -1), b.shin, b.shin * 0.88);
   return m;
+}
+
+/** 手の大きさ(半径)。ずんぐりした手にする */
+export const HAND_R = 2;
+
+/** 手足をヒーローに合わせて太くする */
+function thicken(b: Build): Build {
+  return { ...b, arm: b.arm + 0.35, thigh: b.thigh + 0.3, shin: b.shin + 0.45 };
 }
 
 function armMasks(P: Painter, look: Look, s: Pt, arm: Arm): { sleeve: Mask; skin: Mask; wrist: Pt } {
   const b = look.build;
   const dx = arm.h[0] - arm.e[0], dy = arm.h[1] - arm.e[1];
   const L = Math.hypot(dx, dy) || 1;
-  const wrist: Pt = [arm.h[0] - (dx / L) * 1.6 * (b.scale ?? 1), arm.h[1] - (dy / L) * 1.6 * (b.scale ?? 1)];
+  const wrist: Pt = [arm.h[0] - (dx / L) * 1.8 * (b.scale ?? 1), arm.h[1] - (dy / L) * 1.8 * (b.scale ?? 1)];
   const upper = P.mask().capsule(s, arm.e, b.arm, b.arm * 0.92);
   const fore = P.mask().capsule(arm.e, wrist, b.arm * 0.9, b.arm * 0.75);
   const hand = P.mask();
   const hk = b.scale ?? 1;
-  if (!arm.noHand) hand.ellipse(arm.h[0], arm.h[1], 1.7 * hk, 1.7 * hk);
+  if (!arm.noHand) hand.ellipse(arm.h[0], arm.h[1], HAND_R * hk, HAND_R * hk);
   const sleeve = P.mask(), skin = P.mask();
   switch (look.sleeve) {
     case 'long': sleeve.union(upper).union(fore); break;
@@ -341,6 +380,23 @@ function armMasks(P: Painter, look: Look, s: Pt, arm: Arm): { sleeve: Mask; skin
   return { sleeve, skin, wrist };
 }
 
+/**
+ * 曲げた関節(ひじ、ひざ)の内側に、服のしわを2ドット入れる。a と c は関節の両どなりの点。
+ * 曲がりが小さいときは入れない。m の中で、いま色が ramp のところだけを塗る
+ */
+function bendFold(P: Painter, m: Mask, a: Pt, j: Pt, c: Pt, ramp: Ramp): void {
+  const mx = (a[0] + c[0]) / 2 - j[0], my = (a[1] + c[1]) / 2 - j[1];
+  const L = Math.hypot(mx, my);
+  if (L < 1.6) return;
+  const ux = mx / L, uy = my / L;
+  const ok = new Set<string>([ramp[0], ramp[1]]);
+  for (const d of [0.8, 1.8]) {
+    const x = Math.round(j[0] + ux * d), y = Math.round(j[1] + uy * d);
+    const cur = P.g.get(x, y);
+    if (m.has(x, y) && cur && ok.has(cur)) P.px(x, y, ramp[2]);
+  }
+}
+
 function drawArm(P: Painter, look: Look, s: Pt, arm: Arm, far: boolean, first: boolean): void {
   const { sleeve, skin, wrist } = armMasks(P, look, s, arm);
   const top = far ? dark(look.top) : look.top;
@@ -349,8 +405,11 @@ function drawArm(P: Painter, look: Look, s: Pt, arm: Arm, far: boolean, first: b
   // 腕の全体を1つの形として境目を付け、袖と肌を塗り分ける
   const all = sleeve.clone().union(skin);
   if (sep === 'outline') P.fill(all, OUTLINE, { sep: 'outline', flat: true });
-  if (!sleeve.empty()) P.fill(sleeve, top, { sep: 'none' });
-  if (!skin.empty()) P.fill(skin, sk, { sep: 'none', hi: 0.25, lo: 0.7 });
+  if (!sleeve.empty()) {
+    P.fill(sleeve, top, { sep: 'none', clean: true });
+    if (look.sleeve === 'long' && !far) bendFold(P, sleeve, s, arm.e, arm.h, top);
+  }
+  if (!skin.empty()) P.fill(skin, sk, { sep: 'none', hi: 0.25, lo: 0.7, clean: true });
   if (look.cuff && look.sleeve === 'long' && !arm.noHand) {
     const c = mix(wrist, arm.h, 0.2);
     P.px(c[0], c[1], look.cuff);
@@ -393,8 +452,9 @@ function drawSweat(P: Painter, pose: Pose, c: string): void {
 }
 
 /** 人を1コマ描く */
-export function drawPerson(look: Look, pose: Pose, w = 64, h = 64): PixelGrid {
+export function drawPerson(look0: Look, pose: Pose, w = 64, h = 64): PixelGrid {
   const P = new Painter(w, h);
+  const look: Look = { ...look0, build: thicken(look0.build) };
   const b = look.build;
   const k = b.scale ?? 1;
   const { sB, sF } = shoulders(pose, k);
@@ -405,17 +465,18 @@ export function drawPerson(look: Look, pose: Pose, w = 64, h = 64): PixelGrid {
   look.farHand?.(P, pose);
   // 奥の脚
   if (look.legs === 'pants') {
-    P.fill(legMask(P, b, hB, pose.lB), dark(look.bottom), { sep: 'outline' });
+    P.fill(legMask(P, b, hB, pose.lB), dark(look.bottom), { sep: 'outline', clean: true });
   } else {
-    P.fill(P.mask().capsule(pose.lB.k, add(pose.lB.a, 0, -1), 1.6, 1.4), dark(look.skin), { sep: 'outline' });
+    P.fill(P.mask().capsule(pose.lB.k, add(pose.lB.a, 0, -1), 1.9, 1.6), dark(look.skin), { sep: 'outline', clean: true });
   }
   drawShoe(P, look, pose.lB, true);
   // 手前の脚と腰
   if (look.legs === 'pants') {
     const m = legMask(P, b, hF, pose.lF).union(pelvisMask(P, b, pose));
-    P.fill(m, look.bottom, { sep: 'outline' });
+    P.fill(m, look.bottom, { sep: 'outline', clean: true });
+    bendFold(P, m, hF, pose.lF.k, pose.lF.a, look.bottom);
   } else {
-    P.fill(P.mask().capsule(pose.lF.k, add(pose.lF.a, 0, -1), 1.6, 1.4), look.skin, { sep: 'outline' });
+    P.fill(P.mask().capsule(pose.lF.k, add(pose.lF.a, 0, -1), 1.9, 1.6), look.skin, { sep: 'outline', clean: true });
   }
   drawShoe(P, look, pose.lF, false);
   if (look.legs === 'longskirt') {
@@ -424,21 +485,22 @@ export function drawPerson(look: Look, pose: Pose, w = 64, h = 64): PixelGrid {
     const xs = [pose.lF.k[0], pose.lB.k[0], pose.lF.a[0], pose.lB.a[0]];
     const x0 = Math.min(...xs) - 3.5, x1 = Math.max(...xs) + 3.5;
     const m = P.mask().poly([[p[0] - b.wa, p[1] - 5], [p[0] + b.wa, p[1] - 5], [p[0] + b.wa + 1, p[1]], [x1, ay], [x0, ay], [p[0] - b.wa - 1, p[1]]]);
-    P.fill(m, look.bottom, { sep: 'outline', hi: 0.25, lo: 0.6 });
+    P.fill(m, look.bottom, { sep: 'outline', hi: 0.25, lo: 0.6, clean: true });
     // ひだ
     const fx = Math.round((x0 + x1) / 2);
     for (let y = Math.round(p[1] + 2); y < ay - 1; y++) if (m.has(fx, y)) P.px(fx, y, look.bottom[2]);
   }
   // 胴
   const top = torsoMask(P, b, pose);
-  P.fill(top, look.top, { sep: 'outline', hi: 0.32, lo: 0.64 });
+  P.fill(top, look.top, { sep: 'outline', hi: 0.32, lo: 0.64, clean: true });
   look.torso?.(P, pose, top);
   look.mid?.(P, pose);
   // 首と頭
   const neckLen = look.neckLen ?? 0;
   const nk = P.mask().capsule(add(pose.head, 0, -1 - neckLen), add(pose.neck, 0, 1), 1.6 * k);
   P.fill(nk, [look.skin[1], look.skin[2], look.skin[2]], { sep: 'outline', flat: true });
-  P.px(pose.head[0] + 1, pose.head[1] + 1, look.skin[2]);
+  // あごの下の影(首の上の段)
+  nk.each((x, y) => { if (y === Math.round(pose.head[1] - neckLen) + 1 || (y === Math.round(pose.head[1] - neckLen) + 2 && x > pose.head[0])) P.px(x, y, look.skin[2]); });
   const hd = look.customHead ? look.customHead(pose) : drawHead(look, pose);
   const hg = pose.look === -1 ? hd.g.flipped() : hd.g;
   const nx = pose.look === -1 ? hd.g.w - 1 - hd.nx : hd.nx;
