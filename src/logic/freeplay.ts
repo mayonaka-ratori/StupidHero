@@ -44,9 +44,9 @@ import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { ACCESSORY_COLORS, GANG, MARK, UFO } from './rules';
-import { STAGE_IDS, STAGES } from './stages';
+import { FREE_STAGE_IDS, STAGE_IDS, STAGES } from './stages';
 import type {
-  AccessoryColorId, FreeItem, FreeRule, FreeVillainLook, GangGroup, GangLook, Look, Person, SortChoice, Stage, StageId,
+  AccessoryColorId, FreeItem, FreeRule, FreeStageId, FreeVillainLook, GangGroup, GangLook, Look, Person, SortChoice, Stage, StageId,
   FreeWaveNo, Wave
 } from './types';
 
@@ -111,8 +111,8 @@ export const FREE = {
 /** 1つの波の決めつけ */
 export interface FreeWave {
   no: FreeWaveNo;
-  /** 背景に使うステージ(STAGES[bgStage].bg) */
-  bgStage: StageId;
+  /** 背景に使うステージ(STAGES[bgStage].bg)。高層ビルは、はじめは入れない */
+  bgStage: FreeStageId;
   /** 波の始めのルール */
   rule: FreeRule;
   /** 波3だけ:言い直しのあとのルールと、何人目のあとに言い直すか(ふつうは6) */
@@ -124,8 +124,8 @@ export interface FreePlan {
   waves: FreeWave[];
   /** run.stage に入れる。id と def は波1の背景のステージ、name は「フリープレイ」 */
   stage: Stage;
-  /** 開いているステージ(出てくる人と背景はここから) */
-  unlocked: StageId[];
+  /** 開いているステージ(出てくる人と背景はここから。高層ビルは開いていても入れない) */
+  unlocked: FreeStageId[];
   /** チャンスの数(場面で数える。ギャングの組は1つ)。いつも待て9、行け8、ヒーローが正しい10、場面27 */
   chances: { stop: number; go: number; heroRight: number; scenes: number };
 }
@@ -291,12 +291,12 @@ export class DryPress {
 export const canCarry = (look: Look, item: FreeItem): boolean => !(item === 'bag' && (look === 'shopper' || look === 'uncle'));
 
 /** 見た目がどのステージの人か(フリープレイのワルは、そのワルが出るステージ) */
-const FREE_VILLAIN_STAGE: Readonly<Record<FreeVillainLook, StageId>> = {
+const FREE_VILLAIN_STAGE: Readonly<Record<FreeVillainLook, FreeStageId>> = {
   fp_mohawk: 'alley', fp_gang: 'garage', fp_alien: 'mall'
 };
 
 /** ステージごとの市民の見た目(おばあさんは別に1人だけ入れる) */
-const CIV_LOOKS: Readonly<Record<StageId, readonly Look[]>> = {
+const CIV_LOOKS: Readonly<Record<FreeStageId, readonly Look[]>> = {
   alley: ['hoodie', 'suit', 'shopper'],
   garage: GANG_LOOKS,
   mall: MALL_LOOKS
@@ -328,7 +328,7 @@ interface Draft {
 interface Dealer {
   rng: Rng;
   used: UsedTexts;
-  unlocked: StageId[];
+  unlocked: FreeStageId[];
   civCount: Record<string, number>;
   soloCount: Record<string, number>;
 }
@@ -519,15 +519,15 @@ function buildWave3(d: Dealer, plan: FreeWavePlan, rules: readonly [FreeItem, Fr
 /**
  * フリープレイを1回ぶん作る。
  * @param seed 種。同じ種と同じ開いているステージなら、毎回同じ並び
- * @param unlocked 開いているステージ(records.ts の unlockedStages())。路地裏はいつも入れる
+ * @param unlocked 開いているステージ(records.ts の unlockedStages())。路地裏はいつも入れる。高層ビルは開いていても入れない
  */
 export function createFreePlay(seed: number | string = randomSeed(), unlocked: readonly StageId[] = ['alley']): FreePlan {
   const rng = createRng(seed);
-  const open = STAGE_IDS.filter((id) => id === 'alley' || unlocked.includes(id));
+  const open = FREE_STAGE_IDS.filter((id) => id === 'alley' || unlocked.includes(id));
   const d: Dealer = { rng, used: { names: new Set(), texts: new Set() }, unlocked: open, civCount: {}, soloCount: {} };
 
   // 背景:開いているステージを混ぜて1つずつ。足りなければ、前の波と違うものからもう一度
-  const bgs: StageId[] = rng.shuffle(open);
+  const bgs: FreeStageId[] = rng.shuffle(open);
   while (bgs.length < 3) {
     const prev = bgs[bgs.length - 1];
     const others = open.filter((id) => id !== prev);

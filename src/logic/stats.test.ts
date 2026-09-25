@@ -266,4 +266,21 @@ describe('StatsTracker(ステージ3)', () => {
     expect(s.bossRampage()).toBe(20_000_000);
     expect(s.snapshot().bossSortedCiv).toBe(true);
   });
+
+  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない。親玉を見逃すと¥2,000万', () => {
+    const s = new StatsTracker(9, 'tower');
+    expect(s.mischief('chef')).toBe(0);
+    s.hurtCiv('dropped');
+    const r = s.snapshot();
+    expect(r.civHurt).toBe(1);
+    expect(r.civHurtByDrop).toBe(1);
+    expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain, r.civHurtByAbduction]).toEqual([0, 0, 0, 0]);
+    expect(r.damage).toBe(0);
+    expect(s.heroMistakes).toBe(0);
+    expect(s.breakProp('sofa')).toBe(0);
+    expect(s.breakProp('piano')).toBe(30_000_000);
+    expect(s.bossRampage()).toBe(20_000_000);
+    // ほかのステージでは物が落ちたけがは0
+    expect(new StatsTracker(3, 'mall').snapshot().civHurtByDrop).toBe(0);
+  });
 });

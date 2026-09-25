@@ -135,5 +135,5 @@ export function buildRush(rng: Rng): RushPlan {
     prev = look;
     return { index, look, truth, sheetKey: sheetKeyFor(look, truth, 'mall'), spawnSec: rushSpawnSec(index) };
   });
-  return { runners, alienCount, civCount };
+  return { kind: 'sale', runners, alienCount, civCount };
 }

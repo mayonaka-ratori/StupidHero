@@ -8,16 +8,17 @@ import {
 } from './freeContent';
 import { FREE_ITEMS, FREE_ITEM_NAME } from './freeNames';
 import { createRng } from './rng';
-import { STAGE_IDS } from './stages';
-import type { FreeRule, FreeVillainLook, Look } from './types';
+import { FREE_STAGE_IDS } from './stages';
+import type { FreeRule, FreeVillainLook, Look, TowerLook } from './types';
 
-const LOOKS: readonly Look[] = [
+// 高層ビルの見た目はフリープレイに出ない
+const LOOKS: readonly Exclude<Look, TowerLook>[] = [
   'hoodie', 'suit', 'shopper', 'mohawk', 'granny',
   'guard', 'mechanic', 'clubber', 'officelady',
   'mascot', 'clerk', 'dancer', 'uncle'
 ];
 const FREE_VILLAINS: readonly FreeVillainLook[] = ['fp_mohawk', 'fp_gang', 'fp_alien'];
-const ALL_LOOKS: readonly (Look | FreeVillainLook)[] = [...LOOKS, ...FREE_VILLAINS];
+const ALL_LOOKS: readonly (Exclude<Look, TowerLook> | FreeVillainLook)[] = [...LOOKS, ...FREE_VILLAINS];
 const RULES: readonly FreeRule[] = [
   { kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))
 ];
@@ -58,7 +59,7 @@ describe('フリープレイの文の決まり', () => {
 
 describe('フリープレイの文の数', () => {
   it('全部の背景とルールに、決めつけが2〜3通りある', () => {
-    for (const id of STAGE_IDS) {
+    for (const id of FREE_STAGE_IDS) {
       expect(FREE_DECLARES[id], id).toBeDefined();
       for (const rule of RULES) {
         const list = declareList(id, rule);
@@ -172,7 +173,7 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
       checkRun('stubborn', () => lines.heroStubborn().text);
       checkRun('toldYou', () => lines.heroToldYou().text);
       checkRun('dryPress', () => lines.heroDryPress().text);
-      for (const id of STAGE_IDS) for (const rule of RULES) checkRun(`declare ${id}`, () => lines.declare(id, rule).hero.text);
+      for (const id of FREE_STAGE_IDS) for (const rule of RULES) checkRun(`declare ${id}`, () => lines.declare(id, rule).hero.text);
       checkRun('redeclare', () => lines.redeclare('balloon', 'hat').hero.text);
       for (const key of FREE_OP_KEYS) {
         for (const count of [1, 2, 3, 5, 9]) checkRun(`op ${key} ${count}`, () => lines.op(key, count).text);
