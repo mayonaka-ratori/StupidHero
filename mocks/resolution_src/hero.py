@@ -4,8 +4,15 @@ from rig import *
 def cape_fold(u, r):
     return 0.42 * np.sin(u * 0.55 + r * 0.05) - 0.004 * np.maximum(r + 60, 0) * 0
 
-def head(f, ox, oy, shout=False):
-    O = lambda p: (p[0] + ox, p[1] + oy)
+NECK = (1.4, -80.0)
+class Scaled:
+    def __init__(self, f, k): self.f, self.k = f, k
+    def cap(self, a, b, r0, r1, *a2, **kw): self.f.cap(a, b, r0 * self.k, r1 * self.k, *a2, **kw)
+    def ell(self, c, rx, ry, *a2, **kw): self.f.ell(c, rx * self.k, ry * self.k, *a2, **kw)
+    def poly(self, *a2, **kw): self.f.poly(*a2, **kw)
+def head(f, ox, oy, shout=False, k=1.0):
+    O = lambda p: (NECK[0] + (p[0] - NECK[0]) * k + ox, NECK[1] + (p[1] - NECK[1]) * k + oy)
+    f = Scaled(f, k)
     f.cap(O((1.4, -83)), O((1.4, -79.5)), 2.2, 2.4, 'skin', group='neck', shift=-0.2)
     f.ell(O((0.2, -92.6)), 7.6, 7.4, 'gold', group='hair')
     f.ell(O((3.4, -88.8)), 6.0, 6.7, 'skin', group='face', shift=0.35)
@@ -13,25 +20,25 @@ def head(f, ox, oy, shout=False):
            'gold', group='hair', axis=90, wr=0.15)
     f.poly([O((1.0, -90.9)), O((5.6, -91.2)), O((9.5, -91.0)), O((9.4, -88.2)), O((6.4, -88.0)), O((5.6, -88.9)), O((4.8, -88.0)), O((1.0, -88.4))], 'blue', group='mask', shift=-0.3)
 
-def face(f, ox, oy, shout=False):
-    O = lambda p: (p[0] + ox, p[1] + oy)
+def face(f, ox, oy, shout=False, k=1.0):
+    O = lambda p: (NECK[0] + (p[0] - NECK[0]) * k + ox, NECK[1] + (p[1] - NECK[1]) * k + oy)
     W, K = MAT['gold'][0], MAT['blue'][3]
-    big = f.s >= 0.85
-    if big:
-        # 目:白目2×2、瞳1×2
-        for ex in (3.0, 7.2):
-            f.dot(O((ex, -89.9)), W, 2, 2); f.dot(O((ex + 1.2, -89.9)), K, 1, 2)
-        if shout:
-            f.dot(O((6.6, -85.2)), D, 3, 2); f.dot(O((6.8, -84.0)), MAT['red'][2], 2, 1)
-        else:
-            f.dot(O((6.4, -84.4)), MAT['skin'][2], 2, 1)
+    e = f.s * k
+    ew = 1 if e < 0.9 else 2
+    eh = 1 if e < 0.6 else 2 if e < 1.3 else 3
+    for ex in (3.0, 7.2):
+        x, y = f.P(O((ex, -89.9)))
+        x, y = int(x), int(y) - (eh - 1) // 2
+        for j in range(eh):
+            for i in range(ew): f.px(x + i, y + j, W)
+            f.px(x + ew, y + j, K)
+    mx, my = f.P(O((6.8, -84.6)))
+    mx, my = int(mx), int(my)
+    if shout:
+        w = 2 if e < 0.9 else 3
+        for i in range(w): f.px(mx + i, my, D); f.px(mx + i, my + 1, MAT['red'][2] if 0 < i < w - 1 or w == 2 else D)
     else:
-        f.dot(O((3.3, -89.4)), W); f.dot(O((7.5, -89.5)), W)
-        f.dot(O((4.3, -89.4)), K); f.dot(O((8.4, -89.5)), K)
-        if shout:
-            f.dot(O((7.2, -84.8)), D); f.dot(O((7.2, -83.9)), MAT['red'][2])
-        else:
-            f.dot(O((7.0, -84.4)), MAT['skin'][2])
+        for i in range(1 if e < 0.9 else 2): f.px(mx + i, my, MAT['skin'][2])
 
 def hero_idle(size):
     f = Fig(size)

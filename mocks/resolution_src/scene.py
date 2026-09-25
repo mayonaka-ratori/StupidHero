@@ -1,7 +1,7 @@
 from PIL import Image
 from bg import alley
-from hero import hero_idle, hero_punch
-from civ import hoodie
+from hero2 import idle2 as hero_idle, punch2 as hero_punch
+from civ2 import hoodie2 as hoodie
 import numpy as np
 
 def shadow(img, cx, y, rx):
@@ -35,13 +35,10 @@ def current():
 
 if __name__ == '__main__':
     current().save('sc_now.png')
-    for W, size, name in ((216, 56, 'A'), (360, 93, 'B'), (432, 112, 'C')):
+    for W, size, name in ((216, 54, 'A'), (360, 90, 'B'), (432, 108, 'C')):
         scene(W, size).save(f'sc_{name}.png')
-    from hero import hero_punch
-    for n in (56, 93, 112):
-        hero_idle(n).save(f'hi_{n}.png'); hero_punch(n).save(f'hp_{n}.png')
-    import civ
-    for n in (56, 93, 112): civ.hoodie(n).save(f'cv_{n}.png')
+    for n in (54, 90, 108):
+        hero_idle(n).save(f'hi_{n}.png'); hero_punch(n).save(f'hp_{n}.png'); hoodie(n).save(f'cv_{n}.png')
     ims = [Image.open(f'sc_{n}.png') for n in ('now', 'A', 'B', 'C')]
     sc = [390 / i.width for i in ims]
     rs = [i.resize((390, round(i.height * 390 / i.width)), Image.NEAREST) for i in ims]
