@@ -14,3 +14,11 @@
 | `base_*.txt`、`cur_face_*.json` | 比べるための、いまの絵 |
 
 作り直すときは、`idle.py`、`punch.py`、`idle2.py`、`punch2.py`、`fh_hand2.py`、`op.py`を順に動かしてから`build.py`を動かします。
+
+## 48×48の顔(`mocks/face48.html`)
+
+| ファイル | 中身 |
+|---|---|
+| `face48.py` | ヒーローの48×48の顔。`f48h*.txt`を書き出す |
+| `op48.py` | オペレーターの48×48の顔。`f48o*.txt`を書き出す |
+| `build48.py`、`page48.html` | 32×32(`fh_hand2.py`と`op.py`が書き出すもの)と48×48を並べて、`mocks/face48.html`を作る |

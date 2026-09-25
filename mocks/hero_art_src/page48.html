@@ -1,0 +1,227 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>顔48×48の見本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0f0d18;
+    --panel:#191628;
+    --stage:#2a2540;
+    --line:#302a46;
+    --ink:#ece8f4;
+    --muted:#a49cba;
+    --yellow:#f5c542;
+    --blue:#3f86e8;
+    --warn:#f0a35a;
+  }
+  html{background:var(--bg)}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+    font-size:15px;line-height:1.75;
+    padding-inline:16px;padding-block:36px 72px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  h1,h2,h3{font-family:"DotGothic16","Hiragino Sans","Yu Gothic",monospace;font-weight:400}
+  h1{font-size:clamp(26px,5vw,40px);line-height:1.25;margin:0 0 12px;text-wrap:balance}
+  h1 span{color:var(--yellow)}
+  .lead{color:var(--muted);max-width:64ch;margin:0}
+  section{margin-block-start:48px;padding-block-start:24px;border-top:2px dashed var(--line)}
+  h2{font-size:23px;margin:0 0 4px;text-wrap:balance}
+  h3{font-size:17px;margin:0 0 10px;color:var(--yellow)}
+  .sub{color:var(--muted);margin:0 0 18px;max-width:68ch}
+  .btn{font-family:"DotGothic16",monospace;font-size:15px;color:var(--ink);background:var(--panel);border:2px solid var(--line);padding:6px 14px;cursor:pointer;min-height:36px}
+  button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+  .faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
+  .face{background:var(--panel);border:2px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px}
+  .face .name{font-family:"DotGothic16",monospace;color:var(--yellow)}
+  .cmp{display:flex;gap:12px;align-items:flex-end}
+  figure{margin:0;display:flex;flex-direction:column;gap:6px}
+  figcaption{font-family:"DotGothic16",monospace;font-size:13px;color:var(--muted)}
+  .tag{display:inline-block;padding:0 7px;font-size:13px;line-height:1.6;border:1px solid var(--line);color:var(--muted)}
+  .tag.new{background:var(--yellow);border-color:var(--yellow);color:#1a1200}
+  .stage{background:var(--stage);line-height:0;display:inline-block}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  .boxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:22px;align-items:start}
+  .boxcard{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .boxcard .head{display:flex;gap:10px;align-items:baseline}
+  .key{display:inline-grid;place-items:center;min-width:32px;height:30px;padding-inline:6px;background:var(--yellow);color:#1a1200;font-family:"DotGothic16",monospace;font-size:17px}
+  .key.now{background:var(--line);color:var(--ink)}
+  .boxcard .title{font-family:"DotGothic16",monospace;font-size:17px}
+  .screen{background:#141026;border:3px solid #2c2742;border-radius:14px;padding:8px;line-height:0;overflow:hidden}
+  @media (max-width:520px){ .screen{margin-inline:-16px;border:0;border-radius:0;padding:0} }
+  .screen canvas{margin:0 auto}
+  dl.facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13.5px}
+  dl.facts dt{color:var(--muted)}
+  dl.facts dd{margin:0}
+  ul.points{margin:0;padding-left:1.2em;display:grid;gap:8px;max-width:70ch}
+  ul.points b{color:var(--yellow);font-weight:700}
+  .qs{display:grid;gap:14px;max-width:72ch}
+  .q{background:var(--panel);border:2px solid var(--line);padding:14px 16px}
+  .q .id{font-family:"DotGothic16",monospace;color:var(--yellow);margin-right:8px}
+  .q p{margin:6px 0 0;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>会話の窓の顔を <span>48×48</span> にする見本</h1>
+    <p class="lead">ヒーローとオペレーターの顔を、32×32と同じデザインのまま48×48で描き直しました。目や口に使えるドットが増えるので、表情がはっきりします。色は1枚15色のままです。下の会話の窓の見本では、窓の形も2通り試しています。</p>
+    <div style="margin-top:18px"><button type="button" class="btn" id="talkToggle" aria-pressed="true">口を止める</button></div>
+  </header>
+
+  <section>
+    <h2>32×32と48×48を並べる</h2>
+    <p class="sub">どちらも1ドットを同じ大きさ(3倍)で出しています。32×32は、この前の見直し案(2回目)の顔です。</p>
+    <h3>ヒーロー</h3>
+    <div class="faces" id="heroFaces"></div>
+    <h3 style="margin-top:22px">オペレーター</h3>
+    <div class="faces" id="opFaces"></div>
+  </section>
+
+  <section>
+    <h2>会話の窓で見る</h2>
+    <p class="sub">縦長の画面の結果発表と、ステージ前の掛け合いで使う会話の窓です(横208ドット)。ゲームと同じ決め方で拡大しているので、スマホで開くと実際の大きさで見えます。セリフはゲームの中の文です。</p>
+    <div class="boxes" id="boxes"></div>
+  </section>
+
+  <section>
+    <h2>2つの窓の形のちがい</h2>
+    <ul class="points">
+      <li><b>窓1(顔の下にセリフ)</b>:いまと同じ並べ方です。1行に12字まで入るので、セリフはそのまま使えます。そのかわり窓が16ドット高くなり(80から96)、結果発表の画面では、下の「待て!」「行け!」のボタンがその分だけ低くなります。</li>
+      <li><b>窓2(顔の右にセリフ)</b>:窓は約60ドットで、いまより低くなります。ボタンは大きくなります。そのかわり1行に入るのが9字までになります。いまのセリフのうち、1行が10字以上のものが88行(全部で1425行のうち約6%)あるので、そこを書き直します。</li>
+      <li><b>高さ46ドットの小さな窓</b>(ボス戦、ステージを選ぶ画面、結果画面)には48の顔が入りません。そこは32×32の顔のままにするか、窓を少し高くするかを決めます。32のままにするなら、顔の絵を32と48の2通り用意します。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>決めてほしいこと</h2>
+    <div class="qs">
+      <div class="q"><span class="id">Q4</span>会話の窓の顔を48×48にするか
+        <p>するなら、窓の形を窓1と窓2のどちらにするかも決めてください。</p></div>
+      <div class="q"><span class="id">Q6</span>小さな窓(高さ46)の顔をどうするか
+        <p>32×32の顔を残して使い分けるか、窓を高くして48×48にそろえるか。</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const cache = new Map();
+function sprite(name) {
+  if (cache.has(name)) return cache.get(name);
+  const img = DATA.img[name], pal = DATA.pal[img.p];
+  const h = img.r.length, w = Math.max(...img.r.map((r) => r.length));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d');
+  img.r.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = pal[row[x]]; if (!c) continue; cx.fillStyle = c; cx.fillRect(x, y, 1, 1); } });
+  cache.set(name, cv);
+  return cv;
+}
+let open = false;
+const faceCanvases = [];
+function faceCard(label, k32, k48) {
+  const d = document.createElement('div');
+  d.className = 'face';
+  d.innerHTML = `<div class="name">${label}</div><div class="cmp">
+    <figure><div class="stage"><canvas></canvas></div><figcaption><span class="tag">32×32</span></figcaption></figure>
+    <figure><div class="stage"><canvas></canvas></div><figcaption><span class="tag new">48×48</span></figcaption></figure></div>`;
+  const [a, b] = d.querySelectorAll('canvas');
+  faceCanvases.push([a, k32], [b, k48]);
+  return d;
+}
+[['ドヤ顔', 0], ['やっちまった', 1], ['笑顔', 2]].forEach(([n, i]) => document.getElementById('heroFaces').append(faceCard(n, `h32_${i}`, `h48_${i}`)));
+[['ふつう', 0], ['あせり', 1], ['あきれ', 2], ['ノリノリ', 3]].forEach(([n, i]) => document.getElementById('opFaces').append(faceCard(n, `o32_${i}`, `o48_${i}`)));
+function drawFaces() {
+  for (const [cv, key] of faceCanvases) {
+    const src = sprite(key + (open ? 'b' : 'a'));
+    cv.width = src.width; cv.height = src.height;
+    cv.getContext('2d').drawImage(src, 0, 0);
+    cv.style.width = src.width * 3 + 'px'; cv.style.height = src.height * 3 + 'px';
+  }
+}
+
+// ---- 会話の窓(論理ドットで組み立てて、ゲームと同じ決め方で拡大する) ----
+const BW = 208, SCREEN = 216;
+const LINES = [
+  { who: 'hero', name: 'ヒーロー', face: 0, text: '見分けるのは相棒！\n殴るのは任せて！' },
+  { who: 'op', name: 'オペレーター', face: 1, text: 'ポケットの中、\n何が入ってるの！？' }
+];
+const LAYOUTS = [
+  { key: 'now', title: 'いま(32×32)', face: 32, top: true, h: 80, facts: [['窓の高さ', '80ドット'], ['1行の字', '12字まで']] },
+  { key: '1', title: '窓1:48×48、顔の下にセリフ', face: 48, top: true, h: 96, facts: [['窓の高さ', '96ドット(16高くなる)'], ['1行の字', '12字まで']] },
+  { key: '2', title: '窓2:48×48、顔の右にセリフ', face: 48, top: false, h: 60, facts: [['窓の高さ', '60ドット(20低くなる)'], ['1行の字', '9字まで']] }
+];
+const boxesEl = document.getElementById('boxes');
+const boxCanvases = [];
+LAYOUTS.forEach((L) => {
+  const d = document.createElement('div');
+  d.className = 'boxcard';
+  d.innerHTML = `<div class="head"><span class="key ${L.key === 'now' ? 'now' : ''}">${L.key === 'now' ? 'いま' : '窓' + L.key}</span><span class="title">${L.title}</span></div>
+    <div class="screen"><canvas></canvas></div><dl class="facts"></dl>`;
+  const dl = d.querySelector('dl');
+  for (const [k, v] of L.facts) dl.insertAdjacentHTML('beforeend', `<dt>${k}</dt><dd>${v}</dd>`);
+  boxesEl.append(d);
+  boxCanvases.push({ L, cv: d.querySelector('canvas'), holder: d.querySelector('.screen') });
+});
+function drawBoxes() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const { L, cv, holder } of boxCanvases) {
+    const room = holder.clientWidth - parseFloat(getComputedStyle(holder).paddingLeft) * 2;
+    const cssW = Math.min(390, Math.floor(room));
+    const devW = Math.floor(cssW * dpr);
+    let s = devW / SCREEN;
+    const si = Math.floor(s);
+    if (si >= 1 && si / s >= 0.85) s = si;
+    const gap = 6;
+    const H = LINES.length * (L.h + gap) + gap;
+    cv.width = Math.round(SCREEN * s); cv.height = Math.round(H * s);
+    cv.style.width = cv.width / dpr + 'px'; cv.style.height = cv.height / dpr + 'px';
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.fillStyle = '#0c0a16'; cx.fillRect(0, 0, cv.width, cv.height);
+    const R = (x, y, w, h, c) => { cx.fillStyle = c; cx.fillRect(Math.round(x * s), Math.round(y * s), Math.round(w * s), Math.round(h * s)); };
+    LINES.forEach((ln, k) => {
+      const bx = 4, by = gap + k * (L.h + gap);
+      R(bx, by, BW, L.h, '#12040b'); R(bx + 1, by + 1, BW - 2, L.h - 2, '#e58aa8'); R(bx + 2, by + 2, BW - 4, L.h - 4, '#3a1026');
+      const fx = bx + 5, fy = by + 5, F = L.face;
+      R(fx, fy, F + 2, F + 2, '#ffffff'); R(fx + 1, fy + 1, F, F, '#7fb0e6');
+      const key = (F === 48 ? (ln.who === 'hero' ? 'h48_' : 'o48_') : (ln.who === 'hero' ? 'h32_' : 'o32_')) + ln.face + (open ? 'b' : 'a');
+      const img = sprite(key);
+      cx.drawImage(img, Math.round((fx + 1) * s), Math.round((fy + 1) * s), Math.round(F * s), Math.round(F * s));
+      cx.textBaseline = 'top';
+      cx.fillStyle = '#f5c542';
+      cx.font = `${Math.round(12 * s)}px "DotGothic16", monospace`;
+      const tx = fx + F + 2 + 4;
+      if (L.top) {
+        cx.fillText(ln.name, Math.round(tx * s), Math.round((fy + (F + 2 - 12) / 2) * s));
+        cx.fillStyle = '#ffffff';
+        cx.font = `${Math.round(16 * s)}px "DotGothic16", monospace`;
+        ln.text.split('\n').forEach((t, i) => cx.fillText(t, Math.round((bx + 6) * s), Math.round((fy + F + 2 + 3 + i * 18) * s)));
+      } else {
+        cx.fillText(ln.name, Math.round(tx * s), Math.round((fy) * s));
+        cx.fillStyle = '#ffffff';
+        cx.font = `${Math.round(16 * s)}px "DotGothic16", monospace`;
+        ln.text.split('\n').forEach((t, i) => cx.fillText(t, Math.round(tx * s), Math.round((fy + 15 + i * 18) * s)));
+      }
+    });
+  }
+}
+function drawAll() { drawFaces(); drawBoxes(); }
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let timer = null;
+const tb = document.getElementById('talkToggle');
+function setTalk(on) {
+  tb.textContent = on ? '口を止める' : '口を動かす';
+  tb.setAttribute('aria-pressed', String(on));
+  clearInterval(timer);
+  if (on) timer = setInterval(() => { open = !open; drawAll(); }, 125);
+  else { open = false; drawAll(); }
+}
+tb.addEventListener('click', () => setTalk(tb.getAttribute('aria-pressed') !== 'true'));
+drawAll();
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { drawAll(); setTalk(!reduce); });
+addEventListener('resize', drawBoxes);
+</script>
