@@ -166,10 +166,10 @@ function clean(g: PixelGrid): void {
   despeckle(g);
 }
 
-/** ふちを付けたときにコマの端にかかるか(端から1ドットの内側まで) */
+/** ふちを付けたときにコマの端にかかるか(ふちも端から1ドット離す) */
 function touchesEdge(g: PixelGrid): boolean {
   for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-    if (g.cells[y][x] && (x < 1 || y < 1 || x > g.w - 2 || y > g.h - 2)) return true;
+    if (g.cells[y][x] && (x < 2 || y < 2 || x > g.w - 3 || y > g.h - 3)) return true;
   }
   return false;
 }

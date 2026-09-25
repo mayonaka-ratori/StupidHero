@@ -30,7 +30,7 @@ const STAND_F: Leg = { a: -17, k: 0, f: -90 };
 const STAND_B: Leg = { a: 19, k: 0 };
 const idle: Pose[] = [
   P({ x: 30.5, lean: 0, lf: STAND_F, lb: STAND_B, cape: capeIdle(0), tail: { a: -40, ph: 0 } }),
-  P({ x: 30.5, lean: 0, lf: { a: 45, k: 80 }, lb: { a: 8, k: 0 }, cape: capeIdle(1.6), tail: { a: -45, ph: 1.5 } }),
+  P({ x: 30.5, lean: 0, lf: { a: 8, k: 72 }, lb: { a: 15, k: 0 }, cape: capeIdle(1.6), tail: { a: -45, ph: 1.5 } }),
   P({ x: 30.5, lean: 0, lf: STAND_F, lb: STAND_B, cape: capeIdle(3.1), tail: { a: -40, ph: 3 } }),
   P({ x: 30.5, lean: 0, lf: { a: -8, k: 0, f: -90 }, lb: { a: 48, k: 80 }, cape: capeIdle(4.7), tail: { a: -45, ph: 4.5 } })
 ];
@@ -66,8 +66,8 @@ const run: Pose[] = runLegs.map(([fa, fk, ba, bk], i) => {
 
 // ---------- 2 光の突撃 ----------
 const dive = (ph: number, dy: number): Pose => P({
-  ground: false, x: 30, y: 34 + dy, lean: 72, face: 'shout', hy: -5, hx: -1,
-  af: { a: 104, e: -6, hand: 'fist' },
+  ground: false, x: 30, y: 34 + dy, lean: 72, face: 'shout', hy: -3, hx: 0,
+  af: { a: 80, e: 4, hand: 'fist' },
   ab: { a: -60, e: 20, hand: 'fist' },
   lf: { a: -58, k: 22 },
   lb: { a: -40, k: 58 },
@@ -102,12 +102,12 @@ const punch: Pose[] = [
 const stomp: Pose[] = [
   P({ lean: 16, squash: 0.12, face: 'normal', af: { a: -45, e: 20 }, ab: { a: -25, e: 30 },
     lf: { a: 62, k: 105 }, lb: { a: 38, k: 100 }, cape: { a: -62, len: 20, ph: 0.3, w: 7 }, tail: { a: -60, ph: 0 } }),
-  P({ ground: false, y: 34, lean: -4, face: 'grin', af: { a: -150, e: 10 }, ab: { a: 148, e: 34 },
-    lf: { a: -8, k: 15, f: 40 }, lb: { a: 6, k: 25, f: 50 }, cape: { a: 10, len: 28, ph: 1, w: 8, amp: 2 }, tail: { a: 10, ph: 1 } }),
+  P({ ground: false, y: 32, lean: -4, face: 'grin', af: { a: -145, e: 25 }, ab: { a: 128, e: 72 },
+    lf: { a: 6, k: 40, f: 60 }, lb: { a: 22, k: 55, f: 70 }, cape: { a: 10, len: 28, ph: 1, w: 8, amp: 2 }, tail: { a: -50, ph: 1 } }),
   P({ ground: false, y: 34, lean: 10, face: 'grin', af: { a: -120, e: 20 }, ab: { a: 120, e: 30 },
     lf: { a: 95, k: 150 }, lb: { a: 75, k: 140 }, cape: { a: -20, len: 26, ph: 2, w: 11, amp: 2 }, tail: { a: -10, ph: 2 } }),
-  P({ ground: false, y: 36, lean: -6, face: 'shout', af: { a: -128, e: -34, hand: 'fist' }, ab: { a: 150, e: 10 },
-    lf: { a: 25, k: 10, f: 100 }, lb: { a: 70, k: 130 }, cape: { a: -160, len: 14, ph: 3, w: 10, amp: 2 }, tail: { a: -125, ph: 3, len: 7, curl: -6 } }),
+  P({ ground: false, y: 34, lean: -6, face: 'shout', af: { a: -128, e: -34, hand: 'fist' }, ab: { a: 150, e: 10 },
+    lf: { a: 25, k: 10, f: 100 }, lb: { a: 70, k: 130 }, cape: { a: -160, len: 14, ph: 3, w: 10, amp: 2 }, tail: { a: -60, ph: 3, len: 8 } }),
   P({ lean: 20, squash: 0.12, face: 'shout', af: { a: 50, e: 15 }, ab: { a: -70, e: 20 },
     lf: { a: 70, k: 105 }, lb: { a: -32, k: 82 }, cape: { a: -58, len: 22, ph: 4, w: 9, amp: 2 }, tail: { a: -70, ph: 4 } }),
   P({ lean: -2, face: 'grin', af: HIP_F, ab: { a: 150, e: 28, hand: 'fist' },
@@ -149,10 +149,10 @@ const pass: Pose[] = walkLegs.map(([fa, fk, ba, bk], i) => P({
 /** 敬礼は奥の腕で。ひじを前に張り、手の先を額の前に出す(手前の腕だと顔が隠れる) */
 const SALUTE: Arm = { a: 100, e: 90, hand: 'flat', ha: 250 };
 const stop: Pose[] = [
-  P({ lean: -26, face: 'shock', af: { a: -130, e: -20, hand: 'open' }, ab: { a: -160, e: -10, hand: 'open' },
-    lf: { a: -22, k: 28 }, lb: { a: 50, k: 0, f: 125 }, cape: { a: 95, len: 22, ph: 0, w: 8, amp: 2 }, tail: { a: 60, ph: 0 } }),
-  P({ lean: -32, squash: 0.06, face: 'shock', af: { a: -120, e: -30, hand: 'open' }, ab: { a: -150, e: -20, hand: 'open' },
-    lf: { a: -26, k: 38 }, lb: { a: 56, k: 0, f: 130 }, cape: { a: 105, len: 24, ph: 1.5, w: 9, amp: 2 }, tail: { a: 80, ph: 1 } }),
+  P({ lean: -26, face: 'shock', af: { a: -130, e: -20, hand: 'open' }, ab: { a: -112, e: -18, hand: 'open' },
+    lf: { a: -22, k: 28 }, lb: { a: 50, k: 0, f: 125 }, cape: { a: 95, len: 22, ph: 0, w: 8, amp: 2 }, tail: { a: -70, ph: 0 } }),
+  P({ lean: -32, squash: 0.06, face: 'shock', af: { a: -120, e: -30, hand: 'open' }, ab: { a: -104, e: -24, hand: 'open' },
+    lf: { a: -26, k: 38 }, lb: { a: 56, k: 0, f: 130 }, cape: { a: 105, len: 24, ph: 1.5, w: 9, amp: 2 }, tail: { a: -75, ph: 1 } }),
   P({ lean: -4, face: 'normal', af: HANG_F, ab: HANG_B,
     lf: { a: -4, k: 0 }, lb: { a: 6, k: 0 }, cape: { a: 8, len: 30, ph: 3, w: 9 }, tail: { a: -25, ph: 2 } }),
   P({ lean: -4, face: 'grin', af: HANG_F, ab: SALUTE,
@@ -203,7 +203,7 @@ const winArms: Pose[] = [0, 1].map((i) => P({
   cape: { a: -30, len: 30, ph: i * 3, w: 11, amp: 1.6 }, tail: { a: -55, ph: i * 3 }
 }));
 const winFist: Pose[] = [0, 1].map((i) => P({
-  lean: -4, face: 'shout', af: HIP_F, ab: { a: 160, e: 30, hand: 'fist' },
+  lean: -4, face: 'shout', af: HIP_F, ab: { a: 158, e: 44, hand: 'fist' },
   lf: { a: -22, k: 0 }, lb: { a: 24, k: 4 },
   cape: { a: -36, len: 29, ph: i * 3, w: 10, amp: 2 }, tail: { a: -60, ph: i * 3 }
 }));
@@ -251,7 +251,7 @@ const flyKick: Pose[] = [
     lf: { a: 70, k: 120 }, lb: { a: 30, k: 100 }, cape: { a: -40, len: 26, ph: 1.5, w: 10, amp: 2 }, tail: { a: -40, ph: 1.5 } }),
   P({ ground: false, y: 34, lean: -26, face: 'shout', af: { a: -80, e: 30, hand: 'fist' }, ab: { a: 110, e: 30, hand: 'fist' },
     lf: { a: 96, k: 4 }, lb: { a: 40, k: 115 }, cape: capeWind(2.5, -115), tail: { a: -98, ph: 2.5, len: 8 } }),
-  P({ ground: false, x: 30, y: 34, lean: -30, face: 'shout', af: { a: -90, e: 20, hand: 'fist' }, ab: { a: 115, e: 25, hand: 'fist' },
+  P({ ground: false, x: 31, y: 34, lean: -30, face: 'shout', af: { a: -90, e: 34, hand: 'fist' }, ab: { a: 115, e: 25, hand: 'fist' },
     lf: { a: 102, k: 0 }, lb: { a: 45, k: 120 }, cape: capeWind(3.5, -120), tail: { a: -100, ph: 3.5, len: 8 } }),
   P({ ground: false, y: 31, lean: -10, face: 'grin', af: { a: -40, e: 50, hand: 'fist' }, ab: { a: 60, e: 60, hand: 'fist' },
     lf: { a: 40, k: 70 }, lb: { a: 10, k: 60 }, cape: { a: -20, len: 27, ph: 4.5, w: 10, amp: 2 }, tail: { a: -30, ph: 4.5 } }),

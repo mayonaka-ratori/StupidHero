@@ -46,8 +46,10 @@ const FACES: Record<FaceId, Record<number, string>> = {
     10: '__________ob'
   },
   oops: {
-    6: '______wwNNNw',
-    7: '______NNwNwN',
+    // ぎゅっとつぶった目(手前は >、奥は <)
+    5: '______wNNNNw',
+    6: '______NwNNwN',
+    7: '______wNNNNw',
     9: '_________oddo',
     10: '_________ooo'
   },
