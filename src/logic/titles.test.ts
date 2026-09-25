@@ -258,7 +258,18 @@ describe('称号(ステージ4)', () => {
     }
   });
 
-  it('最上階のヒーロー:高層ビルのボスを初めて倒した回だけ。完全無欠にも当たるときは完全無欠が先', () => {
+  it('完全無欠:高層ビルでボスを倒したときは、かならず壊れるシャンパンタワー(¥1,000万)を被害額に数えない', () => {
+    // 実際の高層ビルでは、全員倒すとシャンパンタワーの¥1,000万がかならず入る
+    const allDown = (damage: number) => tower({ allDefeated: true, civHurt: 0, civHurtByHero: 0, damage });
+    expect(decideTitle(allDown(10_000_000), { firstClear: false }).id).toBe('flawless');
+    expect(decideTitle(allDown(14_999_999), { firstClear: false }).id).toBe('flawless');
+    expect(decideTitle(allDown(15_000_000), { firstClear: false }).id).not.toBe('flawless');
+    // ほかのステージは前のまま¥500万未満
+    const alley = base({ allDefeated: true, civHurt: 0, civHurtByHero: 0, bossDefeated: true, damage: 5_000_000 });
+    expect(decideTitle(alley).id).not.toBe('flawless');
+  });
+
+  it('最上階のヒーロー:高層ビルのボスを初めて倒した回だけ。完全無欠にも当たるときは最上階のヒーローが先', () => {
     const s = tower();
     expect(decideTitle(s, { firstClear: true }).id).toBe('topHero');
     expect(decideTitle(s, { firstClear: false }).id).toBe('soSo');
@@ -266,8 +277,10 @@ describe('称号(ステージ4)', () => {
     expect(decideTitle({ ...s, bossDefeated: false }, { firstClear: true }).id).toBe('soSo');
     // ほかのステージのボスを初めて倒したときは出ない
     expect(decideTitle(base(), { firstClear: true }).id).toBe('soSo');
-    const perfect = tower({ allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 1_000_000 });
-    expect(decideTitle(perfect, { firstClear: true }).id).toBe('flawless');
+    // 初めて倒した回は、完全無欠にも当たっても最上階のヒーロー(2回目からは取れないので)。2回目からは完全無欠
+    const perfect = tower({ allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 10_000_000 });
+    expect(decideTitle(perfect, { firstClear: true }).id).toBe('topHero');
+    expect(decideTitle(perfect, { firstClear: false }).id).toBe('flawless');
     // 歩く解体工事などより先
     expect(decideTitle(tower({ damage: 60_000_000 }), { firstClear: true }).id).toBe('topHero');
   });
@@ -281,11 +294,12 @@ describe('称号(ステージ4)', () => {
   });
 
   it('念力の物が落ちた市民は「ワルにやられた」と同じ:完全無欠とほんものヒーローが取れず、天敵と暴走機関車とやさしすぎるには入れない', () => {
-    const allDown = tower({ allDefeated: true, defeated: 9, damage: 1_000_000, bossFightSec: 9, escaped: 0, civHurt: 0, civHurtByHero: 0 });
+    // 高層ビルでボスを倒した回は、シャンパンタワーの¥1,000万がかならず入っている
+    const allDown = tower({ allDefeated: true, defeated: 9, damage: 11_000_000, bossFightSec: 9, escaped: 0, civHurt: 0, civHurtByHero: 0 });
     expect(decideTitle(allDown).id).toBe('flawless');
     expect(decideTitle({ ...allDown, civHurt: 1, civHurtByDrop: 1 }).id).toBe('soSo');
-    expect(decideTitle({ ...allDown, damage: 6_000_000 }).id).toBe('realHero');
-    expect(decideTitle({ ...allDown, damage: 6_000_000, civHurt: 1, civHurtByDrop: 1 }).id).toBe('soSo');
+    expect(decideTitle({ ...allDown, damage: 16_000_000 }).id).toBe('realHero');
+    expect(decideTitle({ ...allDown, damage: 16_000_000, civHurt: 1, civHurtByDrop: 1 }).id).toBe('soSo');
     const nemesis = tower({ civHurt: 5, civHurtByHero: 3, civHurtByDrop: 2, defeated: 3, bossDefeated: false, bossFightSec: null });
     expect(decideTitle(nemesis).id).not.toBe('civNemesis');
     const runaway = tower({ allDefeated: true, civHurt: 3, civHurtByHero: 2, civHurtByDrop: 1 });
@@ -308,7 +322,7 @@ describe('称号(ステージ4)', () => {
     expect(decideTitle(tower({ rush: perfectLift })).id).not.toBe('liftGuardian');
     // 街のほんものヒーローより後、連打の申し子より先
     expect(decideTitle(tower({ lift: perfectLift, bossFightSec: 5 })).id).toBe('liftGuardian');
-    const real = tower({ lift: perfectLift, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 6_000_000 });
+    const real = tower({ lift: perfectLift, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 16_000_000 });
     expect(decideTitle(real).id).toBe('realHero');
   });
 

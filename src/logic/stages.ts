@@ -195,7 +195,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     unlockAfter: 'garage',
     lockedText: '地下駐車場をクリアすると遊べる'
   },
-  // ステージ4(docs/STAGE4.md)。画面と絵はまだないので、STAGE_IDS(ステージを選ぶ画面)にはまだ入れない
+  // ステージ4(docs/STAGE4.md)
   tower: {
     id: 'tower',
     no: 4,

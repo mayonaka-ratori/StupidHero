@@ -3,11 +3,11 @@
 // 1ステージの呼ぶ順番の例:
 //   // ステージを選ぶ画面:stageSelectInfo() で開いているか、記録、称号の数。開いていなければ def.lockedText
 //   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)、
-//                                                    // 'tower'(高層ビル。画面ができるまで STAGE_IDS には入れない)
+//                                                    // 'tower'(高層ビル)
 //   const rng = createRng(randomSeed());
 //   const stage = createStage(rng.seed, stageId);    // 3つの波。路地裏16人、地下駐車場18人、ショッピングモール18人
 //   const def = stage.def;                           // 背景 def.bg、曲 def.bgm、ボスの絵 def.bossSheet、置く物 def.props
-//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo')、ラッシュは def.rush
+//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo' | 'psychic')、ラッシュは def.rush
 //   const stats = new StatsTracker(stage.villainTotal, stage.id);
 //   // 掛け合い:introFor(stage.id)(そのステージで1回だけ。needsIntro / markIntroSeen)。波の始まり:waveIntroFor(stage.id, wave.no)
 //   // 仕分け:wave.people を順に出す。時間切れの人は decideUnsorted(rng)

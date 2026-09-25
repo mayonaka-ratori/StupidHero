@@ -8,7 +8,7 @@
 //
 // 使い方:reasonFor(person, wave)   // 地下駐車場は同じ波の組を見て、小物の色の文を作る
 //        rushSummary(stats.rush)   // タイムセールラッシュのまとめ(波2の答え合わせの最後の1行と、結果画面)
-//        liftSummary(stats.rush)   // エレベーターラッシュのまとめ(着いたときと結果画面。答え合わせには出さない)
+//        liftSummary(stats.lift)   // エレベーターラッシュのまとめ(着いたときと結果画面。答え合わせには出さない)
 // 返す文には {#rrggbb}…{/} の色の書き方が入ることがある(小物の色)。字の数は stripReasonMarkup で数える。
 
 import { ACCESSORY_COLORS } from './rules';
@@ -159,7 +159,7 @@ export function rushSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'ci
 /**
  * エレベーターラッシュのまとめの1行。例:'エレベーター：撃破2/3・守った3/3'
  * (撃破は倒したヴィラン/ヴィランの数、守ったは待てで守った市民/市民の数)。
- * 数は StatsTracker のラッシュの数を使う(aliens はヴィランの数として数える。stats.startRush({ alienCount: plan.villainCount, civCount }))。
+ * 数は StatsTracker のラッシュの数を使う(aliens はヴィランの数として数える。stats.startLift({ villainCount, civCount }))。
  * 答え合わせには出さないので、14文字の決まりの外(着いたときの帯と結果画面の数字の窓に出す)
  */
 export function liftSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {

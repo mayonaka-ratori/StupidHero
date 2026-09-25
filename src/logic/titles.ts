@@ -43,6 +43,7 @@
 //   const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });   // どのステージでも同じ関数。saveResult より前に
 //   const saved = saveResult(stage.id, s, title.id);
 
+import { PROP_COST } from './rules';
 import type { RushTally, StageId, StageStats, TitleContext, TitleDef, TitleId } from './types';
 
 const TITLE_THRESHOLDS = {
@@ -86,6 +87,16 @@ const TITLE_THRESHOLDS = {
 
 const T = TITLE_THRESHOLDS;
 
+/**
+ * 完全無欠で見る被害額。高層ビルでボスを倒すとシャンパンタワー(¥1,000万)がかならず壊れるので、その分は数えない
+ * (数えると、高層ビルでは完全無欠が取れない)。ほかのステージは被害額のまま
+ */
+const flawlessDamage = (s: StageStats): number =>
+  s.stageId === 'tower' && s.bossDefeated ? s.damage - PROP_COST.champagne : s.damage;
+/** 高層ビルのボスを初めて倒した回か。この回は完全無欠にも当たっても、最上階のヒーローを出す(2回目からは取れないので) */
+const towerFirstClear = (s: StageStats, c: TitleContext): boolean =>
+  c.firstClear === true && s.bossDefeated && s.stageId === 'tower';
+
 /** ヒーローの攻撃でけがをした市民の数(殴った、巻きぞえ)。ワルに襲われた人は入れない */
 const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollateral;
 /**
@@ -110,8 +121,8 @@ export const TITLES: readonly TitleDef[] = [
     condition: '全員倒して、市民のけが0、被害額¥500万未満(まきぞえは2人まで)',
     hint: '全員倒して、市民のけが0、被害額¥500万未満',
     modes: ['stage'],
-    test: (s) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
-      && s.damage < T.flawlessDamageBelow
+    test: (s, c) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
+      && flawlessDamage(s) < T.flawlessDamageBelow && !towerFirstClear(s, c)
   },
   {
     id: 'topHero', name: '最上階のヒーロー', pose: 'win_pose',
@@ -120,7 +131,7 @@ export const TITLES: readonly TitleDef[] = [
     stages: ['tower'],
     modes: ['stage'],
     // ほかのステージのボスを初めて倒したときには出さない
-    test: (s, c) => c.firstClear === true && s.bossDefeated && s.stageId === 'tower'
+    test: (s, c) => towerFirstClear(s, c)
   },
   {
     id: 'civNemesis', name: '市民の天敵', pose: 'win_shy',
