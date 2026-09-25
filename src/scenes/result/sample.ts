@@ -12,7 +12,10 @@
 //   ?scene=Result&sample=guide&stage=mall   宇宙人の案内係(2人さらわれた)
 //   ?scene=Result&sample=sale&stage=mall    タイムセールの守り神(セールで1人も間違えない)
 //   ?scene=Result&sample=hunter&stage=mall  UFOハンター(UFOを2機落とした。エスカレーターが壊れた)
-//   &unlock=1 で、そのステージのクリアで次のステージが開いた知らせを出す(路地裏なら地下駐車場、地下駐車場ならモール)
+//   &stage=tower を足すと高層ビルの見本(念力で運ばれた物が市民に落ちた、エレベーターのまとめ、最上階の背景と絵)
+//   ?scene=Result&sample=top&stage=tower    最上階のヒーロー(高層ビルのボスを初めて倒した。記録はまだ倒していないことにする)
+//   &unlock=1 で、そのステージのクリアで次のステージが開いた知らせを出す(路地裏なら地下駐車場、地下駐車場ならモール、
+//   モールなら高層ビル。開く先がステージを選ぶ画面の並び STAGE_IDS に入っているときだけ)
 // フリープレイ(?scene=Result&free=1。Boot の debugJump が startFreeRun する):
 //   ?scene=Result&free=1                 ふつう:『風船の人はワル!』でおばあちゃんを殴った(おばあちゃんの敵)
 //   ?scene=Result&free=1&sample=sitter   ヒーローのお守り役(だれも傷つけず、逃がさない。ギリギリセーフ)
@@ -23,13 +26,13 @@
 import { emptyFreeRecord, emptyStageRecord } from '../../logic/records';
 import type Phaser from 'phaser';
 import type { RecordStorage, StageId, StatsTracker } from '../../logic';
-import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, loadRecords } from '../../logic';
+import { ACCESSORY_COLORS, RECORDS_KEY, STAGES, STAGE_IDS, bgForWave, loadRecords } from '../../logic';
 import { accessorySheet } from '../../art/recolor';
 import { FREE_ITEM_SHEETS, itemAnchor } from '../../art/free/items';
 import { paintStageBg, drawSprite, frameOf, makeCanvas } from './draw';
 
 const SAMPLE_NAMES = [
-  'granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter', 'sitter', 'interp', 'letitbe'
+  'granny', 'demolition', 'flawless', 'runaway', 'kind', 'roundup', 'driver', 'guide', 'sale', 'hunter', 'sitter', 'interp', 'letitbe', 'top'
 ] as const;
 export type SampleName = typeof SAMPLE_NAMES[number];
 
@@ -196,6 +199,41 @@ function fillMallSample(stats: StatsTracker, name: SampleName): void {
 }
 
 /**
+ * 高層ビルの見本の数字。エレベーターはヴィラン3人と市民3人。
+ * ふつうは念力で運ばれたコピー機が市民に落ちた(いちばんひどい場面は「市民に物が落ちた!」)
+ */
+function fillTowerSample(stats: StatsTracker, name: SampleName): void {
+  const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
+  const lift = (villainMiss: number, civMiss: number): void => {
+    stats.startLift({ villainCount: 3, civCount: 3 });
+    n(3 - villainMiss, () => stats.liftHit('bad')); n(villainMiss, () => stats.liftStopped('bad'));
+    n(3 - civMiss, () => stats.liftStopped('civ')); n(civMiss, () => stats.liftHit('civ'));
+  };
+  if (name === 'top') {
+    // 最上階のヒーロー:1人だけ逃がした(完全無欠にはならない)。ソファで1回受けた
+    n(stats.villainTotal - 3, () => stats.defeatBad('sort'));
+    stats.psyDowned({ on: 'sofa', broken: [] });
+    stats.escaped();
+    stats.defeatBoss(8.2);
+    stats.breakProp('plant'); stats.breakProp('champagne');
+    lift(0, 0);
+    stats.reportScene('bossDefeated');
+    return;
+  }
+  // ふつう:念力で運ばれたコピー機が市民に落ちた。シャンデリアも落ちた
+  n(6, () => stats.defeatBad('sort'));
+  stats.psyDowned({ on: 'floor', broken: ['copier'] });
+  stats.psyEscaped();
+  stats.hurtCiv('hero', 'newbie');
+  stats.defeatBoss(7.9);
+  stats.hurtCiv('villain', 'waiter');
+  stats.breakProp('chandelier'); stats.breakProp('champagne'); stats.breakProp('flowers');
+  stats.addBossDamage(1_500_000);
+  lift(1, 1);
+  stats.reportScene('dropped');
+}
+
+/**
  * フリープレイの見本の数字(待てのチャンス9、行けのチャンス8、場面27)。
  * 波1はみんなワル、波2はみんないい人、波3は風船の人はワル(6人目のあとで帽子に言い直す)
  */
@@ -256,6 +294,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
   if (stats.isFree) { fillFreeSample(stats, name); return; }
   if (stats.stageId === 'garage') { fillGarageSample(stats, name); return; }
   if (stats.stageId === 'mall') { fillMallSample(stats, name); return; }
+  if (stats.stageId === 'tower') { fillTowerSample(stats, name); return; }
   const n = (k: number, f: () => void): void => { for (let i = 0; i < k; i++) f(); };
   switch (name) {
     case 'granny':
@@ -379,6 +418,35 @@ function mallSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElemen
 }
 
 /**
+ * 高層ビルの見本の場面。ふつうは18階で、念力で運ばれたコピー機が、新人の会社員の頭の上に落ちる直前(運ばれる時間の95%)。
+ * 最上階のヒーローは、パーティ会場で親玉がシャンパンタワーに倒れこんだところ
+ */
+function towerSampleShot(scene: Phaser.Scene, name: SampleName): HTMLCanvasElement {
+  const { canvas, ctx } = makeCanvas(216, 214);
+  const def = STAGES.tower;
+  const feet = 196;
+  if (name === 'top') {
+    paintStageBg(ctx, scene, 0, 0, 180, 216, bgForWave(def, 4));
+    drawSprite(ctx, scene, 'prop_champagne', 1, 176, feet - 18, { anchor: 'bottom' });
+    drawSprite(ctx, scene, 'boss4', frameOf('boss4', 'defeat', 3), 158, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'hero', frameOf('hero', 'punch', 5), 76, feet, { anchor: 'feet' });
+    drawSprite(ctx, scene, 'fx_stars', frameOf('fx_stars', 'play', 1), 140, feet - 26, { anchor: 'center' });
+    return canvas;
+  }
+  paintStageBg(ctx, scene, 0, 0, 180, 216, bgForWave(def, 2));
+  // 念力の持ち主(配達員)は右で手を前に出し、コピー機が新人の会社員の頭の上に来ている。ヒーローは笑顔で見送っている
+  // (共有カードは写真の y 126〜196 だけを使い、左上に見出しの札がかかるので、コピー機は真ん中より右の、頭のすぐ上に描く)
+  drawSprite(ctx, scene, 'tw_courier', frameOf('tw_courier', 'mischief', 2), 188, feet, { anchor: 'feet', flipX: true });
+  drawSprite(ctx, scene, 'tw_newbie', frameOf('tw_newbie', 'surprised'), 134, feet, { anchor: 'feet' });
+  drawSprite(ctx, scene, 'prop_copier', 0, 134, feet - 52, { anchor: 'bottom' });
+  for (const [dx, dy] of [[-20, -70], [18, -62], [-16, -56], [20, -80]] as const) {
+    drawSprite(ctx, scene, 'fx_psy_spark', 0, 134 + dx, feet + dy, { anchor: 'center' });
+  }
+  drawSprite(ctx, scene, 'hero', frameOf('hero', 'pass', 1), 40, feet, { anchor: 'feet' });
+  return canvas;
+}
+
+/**
  * フリープレイの見本の場面(背景は stageId のステージ)。
  * ふつうは風船を持ったおばあちゃんを殴った瞬間、お守り役は拳が当たる寸前、通訳はナイフ男に笑顔で手を振った瞬間
  */
@@ -414,6 +482,7 @@ export function makeSampleShot(scene: Phaser.Scene, name: SampleName, stageId: S
   if (free) return freeSampleShot(scene, name, stageId);
   if (stageId === 'garage') return garageSampleShot(scene, name);
   if (stageId === 'mall') return mallSampleShot(scene, name);
+  if (stageId === 'tower') return towerSampleShot(scene, name);
   if (name === 'kind') return null;
   const { canvas, ctx } = makeCanvas(216, 214);
   paintStageBg(ctx, scene, 0, 0, 180);
@@ -460,6 +529,8 @@ export function memoryStorage(stageId: StageId = 'alley'): RecordStorage {
   // (路地裏なら地下駐車場、地下駐車場ならショッピングモール。次のステージがなければ何もしない)
   const opens = STAGE_IDS.some((id) => STAGES[id].unlockAfter === stageId);
   if (q.get('unlock') === '1' && opens) rec.stages[stageId] = { ...(rec.stages[stageId] ?? emptyStageRecord()), clears: 0 };
+  // 最上階のヒーローの見本:このステージのボスをまだ倒していないことにする(今回が初めて)
+  if (sampleName() === 'top') rec.stages[stageId] = { ...(rec.stages[stageId] ?? emptyStageRecord()), clears: 0 };
   m.set(RECORDS_KEY, JSON.stringify(rec));
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v); } };
 }

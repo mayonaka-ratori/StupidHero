@@ -21,6 +21,8 @@ export const SCENES = {
   boss: 'Boss',
   /** 答え合わせ(波1と波2は Street のあと、波3は Boss のあと) */
   waveReview: 'WaveReview',
+  /** 終わりの場面(高層ビルのボスを初めて倒したときだけ、最後の答え合わせと結果画面の間) */
+  ending: 'Ending',
   result: 'Result',
   /** 称号の一覧(結果画面から開く) */
   titleList: 'TitleList'

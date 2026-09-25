@@ -8,6 +8,9 @@
 // 下の数字の窓の並び:仕分け正解、悪党を倒した、市民のけが(その下に小さく内わけ)、逃がした、被害額(その下にたとえ)。
 // ステージ2(def.mechanic が 'gang')は組ごと撃破と車で逃げた組を小さく1行足す。
 // ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、タイムセールラッシュのあるステージ(def.rush)はラッシュのまとめを、小さく1行ずつ足す。
+// エレベーターラッシュのあるステージ(ステージ4)は、エレベーターのまとめ(liftSummary)を小さく1行足す。
+// 称号は decideTitle(s, { firstClear })。firstClear(このプレイでボスを初めて倒したか)は保存する前の記録で決める(最上階のヒーロー)。
+// 次のステージが開いたときの帯は unlockBannerText(短い名前。「ビルが遊べる!」)。開く順は STAGES の unlockAfter で決まる。
 // 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
 //
@@ -27,9 +30,9 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  FREE_NAME, bgForWave, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, randomSeed, rushSummary, saveFreeResult,
-  saveResult, say, shareCaption, STAGES, titleCommentFor, type FreeSaveOutcome, type SaveOutcome, type StageId, type StageStats,
-  type TitleDef
+  FREE_NAME, bgForWave, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, isFirstClear, liftSummary, loadRecords,
+  randomSeed, rushSummary, saveFreeResult, saveResult, say, shareCaption, STAGES, titleCommentFor, unlockBannerText, type FreeSaveOutcome,
+  type SaveOutcome, type StageId, type StageStats, type TitleDef
 } from '../logic';
 import {
   Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
@@ -132,8 +135,11 @@ export class ResultScene extends Phaser.Scene {
         // 答え合わせを通らずに来たとき(開発用に途中から始めたときなど)も、仕分けの済んだ波は数える
         recordAllSorts(run);
         const stats = run.stats.snapshot();
-        const title = decideTitle(stats);
-        const saved = saveResult(run.stage.id, stats, title.id, run.debug ? memoryStorage(run.stage.id) : undefined);
+        const storage = run.debug ? memoryStorage(run.stage.id) : undefined;
+        // ボスを初めて倒したか(保存する前の記録で決める。最上階のヒーロー)
+        const firstClear = isFirstClear(run.stage.id, stats, loadRecords(storage));
+        const title = decideTitle(stats, { firstClear });
+        const saved = saveResult(run.stage.id, stats, title.id, storage);
         rec = { stats, title, saved: fromStage(saved) };
         // 次のステージが開いた:ステージを選ぶ画面で鍵がこわれる演出をする
         markJustUnlocked(this, saved.unlockedNow);
@@ -215,7 +221,7 @@ export class ResultScene extends Phaser.Scene {
     // ─── いちばんひどかった場面(小さく)と、称号の一覧のボタン ───
     const thumbTop = boxY + boxH + 5;
     const thumbRoom = shareY - 5 - thumbTop;
-    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX, def);
+    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX, free ? def : { ...def, bg: bgForWave(def, currentWave(run).no) });
     // Street が撮った画像がまだ読みこみ中なら、読めてから描き直す
     const pending = shot instanceof HTMLImageElement && !shot.complete ? shot : null;
     const shotReady = pending
@@ -352,12 +358,8 @@ export class ResultScene extends Phaser.Scene {
         return;
       }
       const opened = saved.unlockedNow[0];
-      // 名前が長くて帯の字が画面の端につくとき(「ショッピングモール」)は、短い名前(「モール」)にする
-      const full = `${STAGES[opened].name}が遊べる!`;
-      const probe = new PixelText(this, 0, 0, full, { size: FS.big, outline: true });
-      const text = probe.width > W - 16 ? `${STAGES[opened].shortName}が遊べる!` : full;
-      probe.destroy();
-      void banner(this, text, { y: 128, hold: 1500, band: UI.gold });
+      // 帯の字は短い名前(「モールが遊べる!」「ビルが遊べる!」)
+      void banner(this, unlockBannerText(opened), { y: 128, hold: 1500, band: UI.gold });
       audio.sfx('fanfare');
       flash(this, 0xfff0c0, 2);
       const u = say('unlocked', undefined, opened);
@@ -411,8 +413,11 @@ export class ResultScene extends Phaser.Scene {
       this.share?.arm();
     });
 
-    // フリープレイのカードは、右上のステージ名を「フリープレイ」にする(背景は波3のステージ)
-    const cardStage: CardStage = free ? { bg: def.bg, bossSheet: def.bossSheet, name: FREE_NAME, shortName: FREE_NAME } : def;
+    // フリープレイのカードは、右上のステージ名を「フリープレイ」にする(背景は波3のステージ)。
+    // ステージのカードの背景は、遊び終わった波の背景(高層ビルは最上階のパーティ会場)
+    const cardStage: CardStage = free
+      ? { bg: def.bg, bossSheet: def.bossSheet, name: FREE_NAME, shortName: FREE_NAME }
+      : { ...def, bg: bgForWave(def, currentWave(run).no) };
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: cardStage, textStage };
     const texts = [
       ...cardTexts(cardIn), ...sw.texts, 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, caption,
@@ -530,7 +535,9 @@ function stageWindow(env: WindowEnv, s: StageStats, run: GameRun): StatsWindow {
   const hurtParts = hurtBreakdown(s);
   // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
   const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
-  const rushText = def.rush?.kind === 'sale' && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
+  const rushText = def.rush?.kind === 'sale' && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}')
+    // エレベーターラッシュのまとめ(タイムセールのまとめと同じ出し方)
+    : def.rush?.kind === 'elevator' && s.lift ? liftSummary(s.lift).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
   const extraRows = (f: Fit): number =>
     (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
   const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);

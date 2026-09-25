@@ -13,7 +13,7 @@ import type { BgmName } from '../audio';
 import type { BossFightOptions } from './boss';
 import { BOSS2_AGES } from './garageContent';
 import {
-  BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, TOWER_RAMPAGE_COST, TOWER_WAVES,
+  BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS4, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, TOWER_RAMPAGE_COST, TOWER_WAVES,
   WAVES, type WavePlan
 } from './rules';
 import type { DisguiseLook, FreeStageId, FreeVillainLook, Look, PropKind, StageId, TowerLook, Truth, WaveNo } from './types';
@@ -219,8 +219,10 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     rush: { kind: 'elevator', afterWave: 3 },
     floors: TOWER_FLOORS,
     bossRampageCost: TOWER_RAMPAGE_COST,
-    // 連打の数字はステージ1と同じ(念力の選択の数字は rules.ts の BOSS4。ボス戦の画面を作るときに使う)
-    bossFight: {},
+    // 連打の数字はステージ1と同じ。体力が半分を切ると念力の選択(rules.ts の BOSS4)。
+    // 選択の場面は、女ボスが車に乗るのと同じ仕組み(carAtHpRatio)で知らせる。選択の間は画面が時計を止めるので、
+    // carMinSec が「連打に戻ってから倒れるまでの最短の秒数」になる。手が止まったときの被害額は乗る前と同じ
+    bossFight: { carAtHpRatio: BOSS4.choiceAtHpRatio, carMinSec: BOSS4.afterChoiceMinSec },
     unlockAfter: 'mall',
     lockedText: 'モールをクリアすると遊べる'
   }
@@ -235,6 +237,12 @@ export function bgForWave(def: StageDef, no: WaveNo): StageBg {
 export function propsForWave(def: StageDef, no: WaveNo): readonly PropKind[] {
   return def.floors?.[no - 1]?.props ?? def.props;
 }
+
+/**
+ * 次のステージが開いたときに結果画面で出す帯の文。短い名前(shortName)を使う
+ * (「地下駐車場が遊べる!」「モールが遊べる!」「ビルが遊べる!」。「!」は半角)
+ */
+export const unlockBannerText = (id: StageId): string => `${STAGES[id].shortName}が遊べる!`;
 
 /** この波のあとにラッシュがあるか(kind を渡すと、その種類のときだけ) */
 export function rushAfter(def: StageDef, no: WaveNo, kind?: StageRush['kind']): boolean {
