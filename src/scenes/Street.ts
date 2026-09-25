@@ -1354,10 +1354,15 @@ export class StreetScene extends Phaser.Scene {
   /** ワルに仕分けたボス:殴りかかった瞬間に正体を現す */
   private async bossReveal(a: Actor): Promise<void> {
     const h = this.hero;
-    void this.arc(h, h.x - 26, 20, 300);
+    const backX = h.x - 26;
+    void this.arc(h, backX, 20, 300);
+    // 高層ビル:正体を現すと、会場のグラスや料理が念力でいっせいに浮く(見た目だけ。浮いたままボス戦へ)。
+    // 小物は正体を現し始めたときに床やテーブルに置いておき、正体を現したら浮かせる。
+    // 置く所は、ヒーローが下がったあとの画面(カメラはヒーローの HERO_SCREEN_X 後ろを追う)
+    const psychic = this.def.mechanic === 'psychic';
+    if (psychic) this.psyPart.setParty(a, { left: backX - HERO_SCREEN_X, heroX: backX });
     await this.revealBoss(a);
-    // 高層ビル:正体を現すと、会場のグラスや料理が念力でいっせいに浮く(見た目だけ。浮いたままボス戦へ)
-    if (this.def.mechanic === 'psychic') this.psyPart.liftAround(a);
+    if (psychic) this.psyPart.liftAround(a);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
     this.opSay(this.line('bossReveal', this.rng), true);
     h.play('idle');

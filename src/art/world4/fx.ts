@@ -88,9 +88,13 @@ function lamp(w: number, h: number, n: number): PixelGrid[] {
   });
 }
 
-/** 机の上の小物 12×12:ペン、名刺、マグカップ、グラス、ナプキン、キャンドル(どれも3×3ドット以上) */
+/**
+ * 机の上の小物 12×12:ペン、名刺、マグカップ、グラス、ナプキン、キャンドル、ケーキ、肉料理(どれも3×3ドット以上)。
+ * ケーキと肉料理は、親玉が正体を現したときに会場で浮く料理(白い皿にのせる)。どれも下の端は7段目にそろえる
+ */
 function items(w: number, h: number, n: number): PixelGrid[] {
   const INK = md(2, 3, 6), CAP = GOLD[1], PAPER = WHITE[2], COFFEE = md(3, 2, 1), GLASS = md(6, 7, 7), FIZZ = md(7, 6, 2);
+  const SPONGE = md(7, 6, 3), BERRY = md(6, 1, 1), MEAT = md(4, 2, 1), MEAT_HI = md(5, 3, 1), LEAF = md(2, 4, 1);
   const draw: ((P: Painter) => void)[] = [
     // ペン(紺の軸、金の先)
     (P) => sprite(P, 2, 4, ['.......b', '....bbb.', '.bbb....', 'w.......'], { b: INK, w: CAP }),
@@ -103,7 +107,11 @@ function items(w: number, h: number, n: number): PixelGrid[] {
     // ナプキン(三角に折った白い布。折り目は灰色)
     (P) => sprite(P, 2, 4, ['....w...', '...wgw..', '..wwgww.', '.wwwgwww'], { w: W0, g: PAPER }),
     // キャンドル(白いろうそく、黄色い炎、金の台)
-    (P) => sprite(P, 4, 1, ['.f.', '.y.', 'www', 'www', 'www', 'wwp', 'ooo'], { f: FIZZ, y: W0, w: W0, p: PAPER, o: CAP })
+    (P) => sprite(P, 4, 1, ['.f.', '.y.', 'www', 'www', 'www', 'wwp', 'ooo'], { f: FIZZ, y: W0, w: W0, p: PAPER, o: CAP }),
+    // ケーキ(白い皿に、いちごをのせたショートケーキ。スポンジとクリームの2段)
+    (P) => sprite(P, 2, 2, ['...rr...', '..wwww..', '..ssss..', '..wrrw..', '..ssss..', 'pwwwwwwp'], { r: BERRY, w: W0, s: SPONGE, p: PAPER }),
+    // 肉料理(白い皿に、焼いた肉と葉っぱ)
+    (P) => sprite(P, 2, 3, ['...l.l..', '..mmmm..', '.mhhmmm.', '.mmmmmm.', 'pwwwwwwp'], { l: LEAF, m: MEAT, h: MEAT_HI, w: W0, p: PAPER })
   ];
   return Array.from({ length: n }, (_, i) => {
     const P = new Painter(w, h);

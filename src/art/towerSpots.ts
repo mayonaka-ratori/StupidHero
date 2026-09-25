@@ -18,6 +18,11 @@ import { CLUE_H, CLUE_W, type ClueRect } from './clueSpots';
 /** fx_psy_items のコマ */
 export const TOWER_ITEM_FRAMES = { pen: 0, card: 1, cup: 2, glass: 3, napkin: 4, candle: 5 } as const;
 export type TowerItem = keyof typeof TOWER_ITEM_FRAMES;
+/**
+ * fx_psy_items の料理のコマ(机には置かない)。親玉が正体を現したときに、グラスなどといっしょに会場で浮く
+ * (src/scenes/street/psychic.ts の liftAround)。絵の下の端は、ほかの小物と同じ7段目
+ */
+export const PARTY_FOOD_FRAMES = { cake: 6, dish: 7 } as const;
 
 /** fx_psy_items の1コマ(12×12)の中で、絵がある行の上と下(src/art/world4/fx.ts の items に合わせる) */
 export const TOWER_ITEM_ROWS: Readonly<Record<TowerItem, { top: number; bottom: number }>> = {

@@ -40,9 +40,9 @@ describe('ステージ4の絵', () => {
     for (const g of [normal, weak, weak2]) expect(hasPsy(g)).toBe(false);
   });
 
-  it('机の小物は6つとも3×3ドット以上で、紫を使わない(もやはコードで重ねる)', () => {
+  it('机と会場の小物は8つとも3×3ドット以上で、紫を使わない(もやはコードで重ねる)', () => {
     const items = sheets.fx_psy_items[0];
-    expect(items.length).toBe(6);
+    expect(items.length).toBe(8);
     for (const g of items) {
       const b = bbox(g)!;
       expect(b.x1 - b.x0 + 1).toBeGreaterThanOrEqual(3);
