@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1からステージ3とフリープレイ。ボス戦の連打の技、煙とUFOの光の粒、称号の直しまで)
-        default: 2d94ccfda1361adabcff5cf88976bff7d75a9e3a
+        # いま公開している版(ステージ1からステージ3とフリープレイ。絵の全面の描き直しと、会話の窓の48×48の顔まで)
+        default: ea60130d978a2d1ab0efbc76b0f9fa31d9f2d931
 
 permissions:
   contents: read
