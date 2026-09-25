@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1からステージ3とフリープレイ。絵の全面の描き直しと、会話の窓の48×48の顔まで)
-        default: ea60130d978a2d1ab0efbc76b0f9fa31d9f2d931
+        # いま公開している版(ステージ1からステージ4とフリープレイ。ステージ4の確かめとレビュー、ステージ3と4の文の見直しまで)
+        default: 01a3fd6eb0e4c7911f3dfa36e7eeb91c8245f02f
 
 permissions:
   contents: read
