@@ -2,6 +2,7 @@
 //   const demo = new IntroDemo(this, 118, 34, 94, 118);   // 6つ目に人の絵のキーを渡すと、ふつうのお手本の人がその人になる
 //   demo.show(demoKindFor(line.text));   // セリフの言葉から、何を見せるか決める(なければ隠す)
 //   demo.update(delta);                  // シーンの update から毎フレーム呼ぶ
+// ステージ4(高層ビル)の4つ(surround、psyLeak、thread、psyCarry)は、仕分けの画面と同じ照明と机(towerDesk.ts)を小さく置いて見せる。
 import Phaser from 'phaser';
 import { UI } from '../../config';
 import { animKey, originFor } from '../../art/sheets';
@@ -9,13 +10,24 @@ import { accessorySheet } from '../../art/recolor';
 import { ACCESSORY_COLORS } from '../../logic';
 import { Button, FS, PixelText, TimeBar, WindowFrame } from '../../ui';
 import { makeStamp } from './stamp';
+import { CALM_LOOK, leakLook } from '../../art/towerSpots';
+import { TowerDesk, caneTipOf } from './towerDesk';
+
+/** 念力で運ぶ物のふち(超能力の紫のまん中の色。src/art/world4/palette.ts の PSY[1]) */
+const PSY_EDGE = 0xdb6dff;
 
 export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go'
-  | 'match' | 'signal' | 'whistle' | 'van' | 'glitch' | 'awkward' | 'ufo';
+  | 'match' | 'signal' | 'whistle' | 'van' | 'glitch' | 'awkward' | 'ufo'
+  | 'surround' | 'psyLeak' | 'thread' | 'psyCarry';
 
 /** セリフの言葉から、お手本の種類を決める */
 export function demoKindFor(text: string): DemoKind | null {
   const t = text.replace(/\n/g, '');
+  // ステージ4(高層ビル)の、照明と机、紫のもれ、手品の糸、念力で運ぶ物。「見た目」で手がかりのお手本を出さないように先に見る
+  if (/周り/.test(t)) return 'surround';
+  if (/紫/.test(t)) return 'psyLeak';
+  if (/手品|風船/.test(t)) return 'thread';
+  if (/念力/.test(t)) return 'psyCarry';
   // ステージ3(ショッピングモール)の、動きのくずれ、ぎこちない市民、UFO。「待てない」で待てのお手本を出さないように先に見る
   if (/くずれ/.test(t)) return 'glitch';
   if (/ぎこちない/.test(t)) return 'awkward';
@@ -79,6 +91,10 @@ export class IntroDemo {
   private alien?: Phaser.GameObjects.Sprite;
   /** UFO と光と、吸い上げられる市民(ufo) */
   private ufo?: { ship: Phaser.GameObjects.Sprite; beam: Phaser.GameObjects.Sprite; civ: Phaser.GameObjects.Sprite };
+  /** ステージ4の照明と机 */
+  private desk?: TowerDesk;
+  /** 念力で運ばれる観葉植物と、その紫のふち(psyCarry) */
+  private carry?: { plant: Phaser.GameObjects.Image; edges: Phaser.GameObjects.Image[]; spark: Phaser.GameObjects.Sprite };
   private kind: DemoKind | null = null;
   private t = 0;
   private readonly cx: number;
@@ -120,6 +136,9 @@ export class IntroDemo {
     this.van = undefined;
     this.alien = undefined;
     this.ufo = undefined;
+    this.desk?.destroy();
+    this.desk = undefined;
+    this.carry = undefined;
     if (!kind) { this.root.setVisible(false); return; }
     this.root.setVisible(true);
     // 開くときに縦に広がる(3コマ)
@@ -213,6 +232,37 @@ export class IntroDemo {
         this.caption.setText('たすけて！');
         break;
       }
+      case 'surround':
+      case 'psyLeak':
+      case 'thread': {
+        // 仕分けの画面と同じ、左上の照明と左下の机(小さく)。人は右に立つ
+        const thread = kind === 'thread';
+        this.desk = this.makeDesk(thread ? 1 : 2);
+        const key = thread ? 'tw_magician' : 'tw_newbie';
+        this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx + 20);
+        this.person.play(animKey(key, 'sortIdle'));
+        if (kind === 'psyLeak') this.desk.setLook(leakLook({ light: 'leak', item: 'leak' }));
+        if (thread) this.desk.setLook(leakLook({ light: null, item: 'thread' }), caneTipOf(this.person, 1));
+        this.caption.setText(kind === 'surround' ? '照明と机' : kind === 'psyLeak' ? '紫に光った！' : '糸で吊ってる');
+        break;
+      }
+      case 'psyCarry': {
+        // ヴィランが手を前に出すと、観葉植物が浮いて右の市民の上へ運ばれる
+        const key = 'tw_courier';
+        this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx - 26);
+        this.person.play({ key: animKey(key, 'mischief'), repeat: -1, repeatDelay: 1800 });
+        const civ = add(sc.add.sprite(this.cx + 28, this.feetY, 'tw_florist').setOrigin(...originFor('tw_florist')).setFlipX(true));
+        civ.play(animKey('tw_florist', 'idle'));
+        const edges = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([ex, ey]) =>
+          add(sc.add.image(ex, ey, 'prop_plant', 0).setOrigin(0.5, 1).setTintFill(PSY_EDGE)));
+        const plant = add(sc.add.image(0, 0, 'prop_plant', 0).setOrigin(0.5, 1));
+        const spark = add(sc.add.sprite(0, 0, 'fx_psy_spark', 0));
+        spark.play(animKey('fx_psy_spark', 'play'));
+        for (const o of [civ, plant, spark, ...edges]) o.setMask(this.mask);
+        this.carry = { plant, edges, spark };
+        this.caption.setText('あぶない！');
+        break;
+      }
       case 'swipe':
         this.hand.setVisible(true);
         break;
@@ -280,6 +330,10 @@ export class IntroDemo {
       case 'glitch':
       case 'awkward': this.glitchStep(); break;
       case 'ufo': this.ufoStep(); break;
+      case 'surround': this.cluesStep(); this.desk?.update(this.scene.time.now); break;
+      case 'psyLeak':
+      case 'thread': this.desk?.update(this.scene.time.now); break;
+      case 'psyCarry': this.carryStep(); break;
       default: break;
     }
   }
@@ -393,6 +447,35 @@ export class IntroDemo {
     u.civ.y = Math.round(this.feetY - lift * (this.feetY - 72));
     u.civ.setVisible(lift < 0.8 || (lift < 1 && Math.floor(this.t / 50) % 2 === 0));
     this.cluesStep();
+  }
+
+  /** 仕分けの画面と同じ照明と机を、小さな画面の左に置く。floor は小物を決める階(1は名刺とペン、2はペンとマグカップ) */
+  private makeDesk(floor: 1 | 2): TowerDesk {
+    const desk = new TowerDesk(this.scene, {
+      floor, lamp: { x: 26, y: 3 }, desk: { x: 24, y: this.feetY }, depth: 0, container: this.root
+    });
+    for (const o of desk.objects) (o as unknown as Phaser.GameObjects.Components.Mask).setMask(this.mask);
+    desk.setLook(CALM_LOOK);
+    return desk;
+  }
+
+  /** 観葉植物が浮いて(0.8秒)、右の市民の上へ運ばれ(1.4秒)、少し止まってまた初めから */
+  private carryStep(): void {
+    const c = this.carry;
+    if (!c) return;
+    const cycle = 3000;
+    const k = this.t % cycle;
+    const x0 = this.cx - 4, x1 = this.cx + 28, ground = this.feetY, high = this.feetY - 58;
+    let x = x0, y = ground;
+    if (k < 400) { x = x0; y = ground; }
+    else if (k < 1200) { y = Math.round(ground + (high - ground) * ((k - 400) / 800)); }
+    else if (k < 2600) { x = Math.round(x0 + (x1 - x0) * ((k - 1200) / 1400)); y = high; }
+    else { x = x1; y = high; }
+    const lifted = k >= 400;
+    c.plant.setPosition(x, y);
+    c.edges.forEach((e, i) => e.setPosition(x + [-1, 1, 0, 0][i], y + [0, 0, -1, 1][i]).setVisible(lifted));
+    c.spark.setPosition(x + 10, y - 40).setVisible(lifted);
+    this.caption.setVisible(k >= 1200 && Math.floor(this.t / 250) % 2 === 0);
   }
 
   /** ボタンをトントンと押す */

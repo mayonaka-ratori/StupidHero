@@ -84,6 +84,22 @@ describe('場面の流れ', () => {
     expect(nextAfterReview(run)).toBe(SCENES.result);
   });
 
+  it('高層ビルは、波1と2、波2と3の間に階の数字の場面(Floor)をはさむ。波3のあと(ラッシュの前)ははさまない', () => {
+    const run = startRun(fakeScene(), 7, false, 'tower');
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      expect(currentWave(run).no).toBe(i + 1);
+      fillUnsorted(run);
+      const next = nextAfterStreet(run);
+      seen.push(next);
+      if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
+    }
+    expect(seen).toEqual([
+      SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.sort, SCENES.boss
+    ]);
+    expect(nextAfterReview(run)).toBe(SCENES.result);
+  });
+
   it('答え合わせを通らずに結果画面へ来ても、仕分けの済んだ波は recordAllSorts で数える', () => {
     const run = startRun(fakeScene(), 3);
     for (const w of run.stage.waves.slice(0, 2)) for (const p of w.people) setSort(run, p, p.truth === 'civ' ? 'civ' : 'bad');

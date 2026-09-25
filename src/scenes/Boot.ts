@@ -54,6 +54,7 @@ export class BootScene extends Phaser.Scene {
  *   ?scene=Sort&wave=2&seed=123
  *   ?scene=Street&wave=3&sorts=truth   (sorts: truth=全部正しく、random=でたらめ、bad=全員ワル、civ=全員市民)
  *   ?scene=Boss   ?scene=Result   (&stage=garage でステージ2、&stage=mall でステージ3)
+ *   ?scene=Floor&stage=tower&wave=2   (高層ビルの波の間の階の数字。そのあと波2の Sort)
  *   ?scene=Street&free=1&wave=3&unlocked=alley,garage,mall   (フリープレイの波3。unlocked は開いているステージ。
  *     書かなければ路地裏だけ。ゆっくりモードは一時停止のメニューの設定のまま。
  *     &threat=8 でモヒカンが逃げるまでを8秒にのばす。行けのマークが2つ出る場面を作るため。street/free.ts)
@@ -83,7 +84,7 @@ function debugJump(scene: Phaser.Scene): string | null {
   const wave = Math.min(last, Math.max(1, Number(q.get('wave') ?? (target === SCENES.boss || target === SCENES.result ? last : 1))));
   run.waveIndex = wave - 1;
   const mode = q.get('sorts') ?? 'random';
-  const lastFilled = target === SCENES.sort || target === SCENES.intro || target === SCENES.title ? wave - 1 : wave;
+  const lastFilled = target === SCENES.sort || target === SCENES.intro || target === SCENES.title || target === SCENES.floor ? wave - 1 : wave;
   for (const w of run.stage.waves.slice(0, lastFilled)) {
     for (const p of w.people) {
       const truthChoice = p.truth === 'civ' ? 'civ' : 'bad';
