@@ -1,13 +1,18 @@
-// ステージを選ぶ画面。タイトルでタップしたあとに出る(docs/STAGE2.md、docs/STAGE3.md「ステージを選ぶ画面」)。
-// ステージ1「路地裏」、ステージ2「地下駐車場」、ステージ3「ショッピングモール」を、背景の絵を小さく見せたカードで縦に並べる。
-// カードの高さは画面の高さで決める。3枚だと絵を細くし、それでも細くなりすぎる低い画面(高さ384など)では、
-// 絵を出さずに名前と記録だけのカードにする(cardLayout)。
+// ステージを選ぶ画面。タイトルでタップしたあとに出る(docs/SPEC.md「ステージを選ぶ画面」)。
+// STAGE_IDS のステージを、背景の絵を小さく見せたカードで縦に並べる(何枚でもよい)。
+// 全部のカードが入る高い画面では、今までどおり高さを分けて並べる。入らないときは、カードの高さを絵が入る高さに決め、
+// 指で上下にずらして見る(並べ方とずらす動きの計算は stageselect/scroll.ts)。次のカードの頭が少し見え、右の端に
+// いまどのあたりを見ているかの細い印を出す。指が8ドットより動いたらずらす操作で、カードのタップにしない。
+// ずらすときは、カードは指を離したときに選ぶ(ずらさないときは、今までどおり触れた瞬間に選ぶ)。
+// 開いたときは、まだ遊んでいない開いたカード(NEW!)か、最後に遊んだステージのカードを見える所に出す(initialCard)。
+// 見出し、「◀タイトルへ」「フリープレイ▶」、音のボタンはずれない。カードを並べる所の上と下は、背景と同じしま模様で
+// ふたをして、ずれたカードをかくす。
 // 開いていないステージは暗くして鍵のマークと def.lockedText。記録と称号の数は stageSelectInfo() から。
 // カードをタップすると startRun(this, seed, false, stageId) をして掛け合い(Intro)へ。掛け合いを見たか遊んだことが
 // あるステージは、すぐ仕分け(Sort)へ(entrySceneFor)。「◀タイトルへ」でタイトルへ。
-// 結果画面でステージが開いたとき(stageselect/state.ts の印)は、鍵がこわれて開く演出をする。
+// 結果画面でステージが開いたとき(stageselect/state.ts の印)は、そのカードまで自動でずらしてから、鍵がこわれて開く演出をする。
 // 下の「◀タイトルへ」の右に「フリープレイ▶」のボタン(stageselect/freeButton.ts。docs/FREEPLAY.md「始め方」)。
-// カードは増やさない(低い画面に入らないため)。路地裏のボスを倒すと開き、押すと startFreeRun をして
+// フリープレイはカードにしない。路地裏のボスを倒すと開き、押すと startFreeRun をして
 // 初回だけ掛け合い(Intro)、2回目からはすぐ Street へ(freeEntryScene)。路地裏をクリアした直後は、
 // カードの鍵のあとにボタンの鍵もこわれて開く。
 
@@ -16,7 +21,7 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { purgeAccessorySheets } from '../art/recolor';
-import { freeSelectInfo, randomSeed, say, stageSelectInfo, type StageId } from '../logic';
+import { freeSelectInfo, loadRecords, randomSeed, say, stageSelectInfo, type StageId, type StageSelectEntry } from '../logic';
 import { startFreeRun, startRun } from '../run';
 import { settings } from '../settings';
 import { px } from '../hires';
@@ -26,25 +31,32 @@ import { drawHand } from './sort/introDemo';
 import { entrySceneFor, freeEntryScene } from './Intro';
 import { StageCard } from './stageselect/card';
 import { FreeButton } from './stageselect/freeButton';
-import { takeJustUnlocked } from './stageselect/state';
+import { ListScroll, cardTop, initialCard, listLayout, showTarget, type ListLayout } from './stageselect/scroll';
+import { markJustUnlocked, takeJustUnlocked } from './stageselect/state';
 
 const HEADER_H = 38;
 const STRIPES = 'ss_stripes';
-/** カードの名前と記録の欄の高さ(絵の下)。縦に余裕があるときは「タップで出発」の行も足す */
-const INFO_H = 64;
-const INFO_H_TALL = 80;
-/** 絵をこれより細くしない(人の顔と胸が見える高さ)。これより細くなるなら絵を出さない */
-const THUMB_MIN = 44;
-const THUMB_MAX = 118;
+/** 並べる所の上と下のふた(カードより前、ボタンより奥) */
+const COVER_DEPTH = 200;
 
 /**
- * n 枚のカードを高さ room に並べるときの、1枚の高さと絵の高さ(0なら絵なし)。
- * 絵のないカードは STAGE の番号、名前、記録の2行で、高さ60あれば入る
+ * 指の動きがあった時刻(ミリ秒)。ブラウザのイベントの時刻を使う(ゲームのコマが遅い端末でも、はじいた速さを正しく測れる)
  */
-function cardLayout(room: number, n: number, gap: number): { cardH: number; thumbH: number } {
-  const cardH = Math.min(186, Math.floor((room - gap * (n - 1)) / n));
-  const thumbH = Math.min(THUMB_MAX, cardH - (cardH >= 176 ? INFO_H_TALL : INFO_H));
-  return { cardH, thumbH: thumbH >= THUMB_MIN ? thumbH : 0 };
+const eventTime = (p: Phaser.Input.Pointer): number => p.event?.timeStamp || performance.now();
+
+/**
+ * 開発用の URL(公開した版では効かない)。&cards=4 でカードを4枚に増やして並べ方を見る(足りない分は前のカードをくり返す)。
+ * &justunlocked=mall で、そのステージが開いたばかりの演出をする(ページを開いて最初にこの画面に来たときだけ)
+ */
+let devUnlockUsed = false;
+function devEntries(scene: Phaser.Scene, entries: StageSelectEntry[]): StageSelectEntry[] {
+  if (!import.meta.env.DEV) return entries;
+  const q = new URLSearchParams(location.search);
+  const ids = (q.get('justunlocked') ?? '').split(',').filter((id): id is StageId => entries.some((e) => e.id === id));
+  if (ids.length && !devUnlockUsed) { devUnlockUsed = true; markJustUnlocked(scene, ids); }
+  const n = Number(q.get('cards') ?? 0);
+  if (!(n > entries.length) || !entries.length) return entries;
+  return Array.from({ length: Math.min(9, n) }, (_, i) => entries[i % entries.length]);
 }
 
 export class StageSelectScene extends Phaser.Scene {
@@ -54,7 +66,17 @@ export class StageSelectScene extends Phaser.Scene {
   private bgTile!: Phaser.GameObjects.TileSprite;
   private bgT = 0;
   private hand?: Phaser.GameObjects.Graphics;
+  private handReady = false;
   private free!: FreeButton;
+  private lay!: ListLayout;
+  private scroll!: ListScroll;
+  /** カードを並べる所の上の端と高さ(画面の座標) */
+  private viewTop = 0;
+  private viewH = 0;
+  private bar?: Phaser.GameObjects.Graphics;
+  private covers: Phaser.GameObjects.TileSprite[] = [];
+  /** ずらすときに指が触れた所(離したときのタップに使う) */
+  private downAt: { x: number; y: number } | null = null;
 
   constructor() { super(SCENES.stageSelect); }
 
@@ -65,6 +87,10 @@ export class StageSelectScene extends Phaser.Scene {
     this.busy = false;
     this.bgT = 0;
     this.hand = undefined;
+    this.handReady = false;
+    this.bar = undefined;
+    this.covers = [];
+    this.downAt = null;
     // ステージ2で人ごとに塗り替えた絵を捨てる(このあとカードの絵の分だけ作り直す)
     purgeAccessorySheets(this);
     unlockOnTap(this);
@@ -96,10 +122,14 @@ export class StageSelectScene extends Phaser.Scene {
     // 選べるカードの上に、ときどきキラキラ
     this.time.addEvent({
       delay: 420, loop: true, callback: () => {
-        const open = this.cards.filter((c) => !c.locked);
+        // 見えているカードの、見えている所だけ
+        const vTop = this.viewTop + 8, vBottom = this.viewTop + this.viewH - 8;
+        const span = (c: StageCard): [number, number] => [Math.max(c.root.y + 8, vTop), Math.min(c.root.y + (c.box.thumbH || c.box.h - 8), vBottom)];
+        const open = this.cards.filter((c) => { const [a, b] = span(c); return !c.locked && a < b; });
         if (!open.length || this.leaving) return;
         const c = Phaser.Utils.Array.GetRandom(open);
-        spawnFx(this, 'fx_sparkle', c.root.x + Phaser.Math.Between(10, c.box.w - 10), c.root.y + Phaser.Math.Between(8, c.box.thumbH || c.box.h - 8), { depth: 300 });
+        const [y0, y1] = span(c);
+        spawnFx(this, 'fx_sparkle', c.root.x + Phaser.Math.Between(10, c.box.w - 10), Phaser.Math.Between(y0, y1), { depth: 300 });
       }
     });
 
@@ -112,18 +142,18 @@ export class StageSelectScene extends Phaser.Scene {
     this.free = new FreeButton(this, 108, bottom - backH, W - 114, backH, freeInfo, () => this.chooseFree());
 
     // ─── カード ───
-    const entries = stageSelectInfo();
+    const entries = devEntries(this, stageSelectInfo());
     const justUnlocked = takeJustUnlocked(this);
     const top = HEADER_H + 6;
-    const room = bottom - backH - 8 - top;
-    const gap = 8;
-    const n = entries.length;
-    // 縦に余裕があれば、下に「タップで出発」の行をあける
-    const { cardH, thumbH } = cardLayout(room, n, gap);
-    const spare = room - cardH * n - gap * (n - 1);
-    const y0 = top + Math.floor(spare / 2);
+    this.viewTop = top;
+    this.viewH = bottom - backH - 8 - top;
+    // 全部入るなら高さを分けて並べる(縦に余裕があれば、下に「タップで出発」の行をあける)。入らなければずらす
+    const lay = listLayout(this.viewH, entries.length);
+    this.lay = lay;
+    this.scroll = new ListScroll(lay.scrollMax);
+    const { cardH, thumbH } = lay;
     entries.forEach((e, i) => {
-      const card = new StageCard(this, e, { x: 6, y: y0 + i * (cardH + gap), w: W - 12, h: cardH, thumbH });
+      const card = new StageCard(this, e, { x: 6, y: top + cardTop(lay, i), w: W - 12, h: cardH, thumbH });
       this.cards.push(card);
       // 左右から順に飛びこんでくる
       const tx = card.root.x;
@@ -145,8 +175,19 @@ export class StageSelectScene extends Phaser.Scene {
       drawHand(g);
       g.setScale(2).setVisible(false);
       this.hand = g;
-      this.time.delayedCall(700, () => g.setVisible(true));
+      this.time.delayedCall(700, () => { this.handReady = true; });
     }
+
+    // ─── ずらす ───
+    if (lay.scrollMax > 0) this.buildScroller();
+    // 開いたときに見せるカード:まだ遊んでいない開いたカードか、最後に遊んだステージ
+    const last = loadRecords().lastStage;
+    const shown = initialCard(
+      entries.map((e) => ({ unlocked: e.unlocked, played: !!e.record, justUnlocked: justUnlocked.includes(e.id) })),
+      last ? entries.findIndex((e) => e.id === last) : -1
+    );
+    this.scroll.set(showTarget(shown, lay, 0));
+    this.applyScroll();
 
     // 開いたばかりのステージ:鍵がこわれて開く
     const opening = this.cards.filter((c) => c.entry.unlocked && justUnlocked.includes(c.entry.id));
@@ -156,16 +197,50 @@ export class StageSelectScene extends Phaser.Scene {
     if (opening.length) void this.playUnlock(opening, freeOpening);
 
     // ─── タップ ───
+    // ずらさないときは、今までどおり触れた瞬間に選ぶ。ずらすときは、指を離したときに、8ドットより動いていなければ選ぶ
+    const scrolls = lay.scrollMax > 0;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.some((o) => o.parentContainer === backBtn || o.parentContainer === this.free.btn) || this.leaving || this.busy) return;
       const { x, y } = px(p);
+      if (scrolls) {
+        // カードを並べる所の中で触れたときだけ(ふたの上やボタンのまわりは見ない)
+        if (y < this.viewTop || y >= this.viewTop + this.viewH || this.scroll.touching) return;
+        this.scroll.down(p.id, y, eventTime(p));
+        this.downAt = { x, y };
+        return;
+      }
       const card = this.cards.find((c) => c.contains(x, y));
       if (card) this.choose(card);
     });
+    if (scrolls) {
+      this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+        if (this.scroll.move(p.id, px(p).y, eventTime(p))) this.applyScroll();
+      });
+      const up = (p: Phaser.Input.Pointer): void => {
+        const at = this.downAt;
+        const r = this.scroll.up(p.id, eventTime(p));
+        // ほかの指を離しただけなら、触れている指はそのまま
+        if (this.scroll.touching) return;
+        this.downAt = null;
+        if (r !== 'tap' || !at || this.leaving || this.busy) return;
+        const card = this.cards.find((c) => c.contains(at.x, at.y));
+        if (card) this.choose(card);
+      };
+      this.input.on('pointerup', up);
+      this.input.on('pointerupoutside', up);
+      this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+        if (this.busy || this.leaving) return;
+        this.scroll.set(this.scroll.pos + dy / 4);
+        this.applyScroll();
+      });
+      // シーンが止まったら、触れている指を放す(再開したときに勝手にずれたり選んだりしないように)
+      this.events.on(Phaser.Scenes.Events.PAUSE, () => { this.scroll.cancel(); this.downAt = null; });
+    }
     this.input.keyboard?.on('keydown-ESC', () => this.back());
-    this.input.keyboard?.on('keydown-ONE', () => this.cards[0] && this.choose(this.cards[0]));
-    this.input.keyboard?.on('keydown-TWO', () => this.cards[1] && this.choose(this.cards[1]));
-    this.input.keyboard?.on('keydown-THREE', () => this.cards[2] && this.choose(this.cards[2]));
+    // 数字のキーで、その番号のカードを選ぶ
+    ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'].forEach((k, i) => {
+      this.input.keyboard?.on(`keydown-${k}`, () => this.cards[i] && this.choose(this.cards[i]));
+    });
     this.input.keyboard?.on('keydown-ENTER', () => this.cards[0] && this.choose(this.cards[0]));
     this.input.keyboard?.on('keydown-F', () => this.chooseFree());
 
@@ -174,9 +249,12 @@ export class StageSelectScene extends Phaser.Scene {
       back: () => this.back(),
       free: () => this.chooseFree(),
       freeButton: () => ({ x: this.free.x, y: this.free.y, w: this.free.w, h: this.free.h, locked: this.free.locked }),
+      // top は、ずらしていないときの上の端。y はいまの真ん中(ずらした分を引いた画面の座標)
       cards: () => this.cards.map((c) => ({
         id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2, top: c.box.y, h: c.box.h, thumbH: c.box.thumbH
-      }))
+      })),
+      scroll: () => ({ pos: this.scroll.pos, max: this.lay.scrollMax, moving: this.scroll.moving, viewTop: this.viewTop, viewH: this.viewH }),
+      scrollTo: (v: number) => { this.scroll.set(v); this.applyScroll(); }
     });
   }
 
@@ -185,13 +263,60 @@ export class StageSelectScene extends Phaser.Scene {
     const step = Math.floor(this.bgT / 40);
     this.bgTile.tilePositionX = -step;
     this.bgTile.tilePositionY = -step;
+    // ふたのしま模様を、うしろの背景とつなげる
+    for (const c of this.covers) {
+      c.tilePositionX = -step;
+      c.tilePositionY = -step + c.y;
+    }
+    if (this.scroll.step(dt)) this.applyScroll();
     for (const c of this.cards) c.update(dt);
     this.free.update(dt);
     if (this.hand && this.cards[0]) {
       const c = this.cards[0];
       const bob = Math.floor(this.bgT / 180) % 2;
-      this.hand.setPosition(c.root.x + c.box.w - 30, c.root.y + c.box.h - 14 + bob * 3);
+      const hy = c.root.y + c.box.h - 14;
+      this.hand.setPosition(c.root.x + c.box.w - 30, hy + bob * 3);
+      // カードがずれて見えなくなったら、手もかくす
+      this.hand.setVisible(this.handReady && !this.leaving && hy > this.viewTop && hy < this.viewTop + this.viewH);
     }
+  }
+
+  // ─── ずらす ─────────────────────────────────────
+
+  /** 並べる所の上と下のふたと、右の端の印を作る(ずらすときだけ) */
+  private buildScroller(): void {
+    const { W, H } = layout;
+    const vBottom = this.viewTop + this.viewH;
+    this.covers = [
+      this.add.tileSprite(0, HEADER_H, W, this.viewTop - HEADER_H, STRIPES),
+      this.add.tileSprite(0, vBottom, W, H - vBottom, STRIPES)
+    ].map((t) => t.setOrigin(0).setDepth(COVER_DEPTH));
+    this.bar = this.add.graphics().setDepth(COVER_DEPTH + 1);
+  }
+
+  /** いまのずれに合わせて、カードと右の端の印を動かす */
+  private applyScroll(): void {
+    const pos = Math.round(this.scroll.pos);
+    for (const c of this.cards) c.root.y = c.box.y - pos;
+    const bar = this.bar;
+    const lay = this.lay;
+    if (!bar || lay.scrollMax <= 0) return;
+    // 右の端の細い印(称号の一覧と同じ形)。黒いみぞの中を、見ている所の長さの線が動く
+    const W = layout.W;
+    const top = this.viewTop, viewH = this.viewH;
+    const th = Math.max(16, Math.round((viewH * viewH) / lay.contentH));
+    const ty = top + Math.round(((viewH - th) * pos) / lay.scrollMax);
+    bar.clear();
+    bar.fillStyle(UI.black, 1).fillRect(W - 4, top, 3, viewH);
+    bar.fillStyle(UI.textDim, 1).fillRect(W - 3, ty, 1, th);
+  }
+
+  /** i 番目のカードが見えるまで自動でずらし、止まるまで待つ */
+  private async slideToCard(i: number): Promise<void> {
+    if (this.lay.scrollMax <= 0) return;
+    this.scroll.cancel();
+    this.scroll.slideTo(showTarget(i, this.lay, this.scroll.pos));
+    while (this.scroll.moving && this.scene.isActive()) await waitMs(this, 30);
   }
 
   // ─── 選ぶ ───────────────────────────────────────
@@ -259,6 +384,12 @@ export class StageSelectScene extends Phaser.Scene {
     this.busy = true;
     await waitMs(this, 750);
     for (const card of cards) {
+      // 下の方のカードなら、見える所までずらしてから
+      const i = this.cards.indexOf(card);
+      if (i >= 0 && this.lay.scrollMax > 0) {
+        await this.slideToCard(i);
+        await waitMs(this, 200);
+      }
       audio.sfx('tick');
       await card.unlock((x, y) => {
         audio.sfx('explosion');

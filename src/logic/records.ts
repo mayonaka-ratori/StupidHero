@@ -14,6 +14,7 @@
 //     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...} }, titles, introSeen, rushSeen }
 //   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
 //   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
+//   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
@@ -103,6 +104,8 @@ export interface Records {
   freeIntroSeen: boolean;
   /** 「ステージを進めると、出てくる人が増えるよ」を出したか */
   freeMoreHintShown: boolean;
+  /** 最後に結果画面まで遊んだステージ(ステージを選ぶ画面で、そのカードを見える所に出す)。まだなければ null */
+  lastStage: StageId | null;
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -137,7 +140,7 @@ export const emptyFreeRecord = (): FreeRecord => ({
   bestSec: null, bestSlowSec: null, mostStopSaved: null, mostGoScenes: null, highestDamage: null, plays: 0, titles: []
 });
 const emptyRecords = (): Records => ({
-  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false
+  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null
 });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
@@ -185,7 +188,7 @@ function sanitize(raw: unknown): Records {
   if (!raw || typeof raw !== 'object') return out;
   const r = raw as {
     version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown;
-    free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown;
+    free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown; lastStage?: unknown;
   };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
@@ -231,6 +234,7 @@ function sanitize(raw: unknown): Records {
   out.rushSeen = stageList(r.rushSeen);
   out.freeIntroSeen = r.freeIntroSeen === true;
   out.freeMoreHintShown = r.freeMoreHintShown === true;
+  out.lastStage = isStageId(r.lastStage) ? r.lastStage : null;
   return out;
 }
 
@@ -376,6 +380,7 @@ export function saveResult(
 
   addUnique(next.titles, [titleId]);
   records.stages[stageId] = next;
+  records.lastStage = stageId;
   const titleIsNew = !records.titles.includes(titleId);
   addUnique(records.titles, [titleId]);
 

@@ -65,11 +65,22 @@ describe('records', () => {
     expect(loadRecords(st).titles).toEqual(['soSo', 'demolition']);
   });
 
+  it('最後に遊んだステージを覚える(ない記録や知らない id は null)', () => {
+    const st = new MemStorage();
+    expect(loadRecords(st).lastStage).toBeNull();
+    saveResult('garage', stats(), 'soSo', st);
+    expect(loadRecords(st).lastStage).toBe('garage');
+    saveResult('alley', stats(), 'soSo', st);
+    expect(loadRecords(st).lastStage).toBe('alley');
+    st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, lastStage: 'moon' }));
+    expect(loadRecords(st).lastStage).toBeNull();
+  });
+
   it('壊れたデータや知らない称号は捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
     expect(loadRecords(st)).toEqual({
-      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false
+      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null
     });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
