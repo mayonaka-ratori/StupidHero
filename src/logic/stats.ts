@@ -23,6 +23,19 @@
 //   ラッシュの数はほかの数字(悪党を倒した、市民のけが、逃がした、仕分け正解、全員倒した)に入れない。
 //   ラッシュで市民を殴った場面は stats.reportScene('civHit', 'punch')(市民を殴った瞬間と同じ段)
 //
+// ステージ4(STAGE4「数え方の追加」「エレベーターラッシュ」の数え方):
+//   ヴィランの念力(見逃したヴィラン)では stats.mischief を呼ばない(呼んでも何も足さない)。
+//   stats.psyDowned(drop)  // 行けで念力を止めた。ヴィランを撃破に数え(「行けで倒した」にも)、落ちた先
+//                          // (resolvePsyDrop の答え)で壊れた物を足す。ソファならソファで受けた数(称号「ソファの名人」)に、
+//                          // 市民の上なら市民のけが(物が落ちた)に数える
+//   stats.psyEscaped()     // 行けを押さずに物が市民に落ちた。市民を「市民のけが」(物が落ちた)に、ヴィランを「逃がした」に数える。
+//                          // 物は壊れない。いちばんひどい場面は stats.reportScene('dropped')
+//   念力のあとに逃げたヴィランは「逃がした」に入るが、やさしすぎるヒーローの「見のがした数」には入れない(escapedByPsy)
+//   エレベーターラッシュ:stats.startLift(stage.rush) で始め、1人ごとに
+//   stats.liftHit(truth)(待てを押さずに殴った)か stats.liftStopped(truth)(待てで止めた)。数は snapshot().lift に
+//   タイムセールラッシュと同じ形(RushTally)でまとめる(まとめの文は liftSummary)。ほかの数字には入れない。
+//   ラッシュで市民を殴った場面は stats.reportScene('civHit', 'punch')
+//
 // フリープレイ(docs/FREEPLAY.md「数え方」):
 //   const stats = new StatsTracker(plan.stage.villainTotal, plan.stage.id);
 //   stats.startFree(plan, settings.slowMode);   // 待てと行けのチャンスの数を覚える
@@ -48,9 +61,10 @@
 import { clearTimeSec, type FreePlan } from './freeplay';
 import { GANG, isBigProp, MISCHIEF_COST, MISCHIEF_HURTS_CIV, MISCHIEF_BY_LOOK, PROP_COST } from './rules';
 import { STAGES } from './stages';
+import type { PsyDrop } from './psychic';
 import type {
-  AttackKind, FreeRule, FreeTally, FreeWorstScene, HurtCause, Look, Person, PropKind, RushPlan, RushTally, SortChoice, SortTally,
-  StageId, StageStats, Truth, WorstScene
+  AttackKind, FreeRule, FreeTally, FreeWorstScene, HurtCause, LiftPlan, Look, Person, PropKind, RushPlan, RushTally, SortChoice,
+  SortTally, StageId, StageStats, Truth, WorstScene
 } from './types';
 
 /** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
@@ -58,13 +72,15 @@ export const isGroup = (size: number): boolean => size >= GANG.groupSize.min;
 
 /**
  * いちばんひどかった場面の段階。数が小さいほどひどい(SPECの1〜5に、STAGE3の「市民がさらわれた」を
- * 「市民を殴った瞬間」のすぐあと、「車や自販機が壊れた瞬間」の前に足した)
+ * 「市民を殴った瞬間」のすぐあと、「車や自販機が壊れた瞬間」の前に足した。STAGE4の「市民に物が落ちた」も同じ段)。
+ * 同じ段なら先に起きた1枚を残す
  */
 export const WORST_SCENE_RANK: Readonly<Record<WorstScene, number>> = {
   grannyHit: 1,
   specialOnCiv: 2,
   civHit: 3,
   abducted: 4,
+  dropped: 4,
   bigPropBroken: 5,
   bossDefeated: 6
 };
@@ -152,8 +168,11 @@ export class StatsTracker {
   private groupsEscaped = 0;
   private escapedByVan = 0;
   private vansStopped = 0;
+  private defeatedByPsy = 0;
+  private escapedByPsy = 0;
+  private sofaSaves = 0;
   private bossDefeated = false;
-  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0, abducted: 0 };
+  private hurt: Record<HurtCause, number> = { hero: 0, collateral: 0, villain: 0, abducted: 0, dropped: 0 };
   private damageByProps = 0;
   private damageByMischief = 0;
   private damageByBoss = 0;
@@ -169,6 +188,7 @@ export class StatsTracker {
   private worstAttack: AttackKind | null = null;
   private sortWaves = new Map<number, SortTally>();
   private rush: RushTally | null = null;
+  private lift: RushTally | null = null;
   private free: FreeState | null = null;
 
   /**
@@ -278,8 +298,69 @@ export class StatsTracker {
   }
 
   private ensureRush(): RushTally {
-    if (!this.rush) this.rush = { aliens: 0, aliensDefeated: 0, aliensSpared: 0, civs: 0, civsSaved: 0, civsHit: 0 };
+    if (!this.rush) this.rush = emptyRushTally();
     return this.rush;
+  }
+
+  // ─── ステージ4:念力 ───
+
+  /**
+   * 運ばれている間に行けを押して、念力のヴィランを倒した(撃破に数え、「行けで倒した」にも数える)。
+   * drop は落ちた先(resolvePsyDrop の答え)。壊れた物(drop.broken)を被害額に足し、足した額を返す。
+   * ソファの上ならソファで受けた数に、市民の上なら市民のけが(物が落ちた)に数える。
+   * 壊れた物のひどい場面(sceneForProp)と、市民に落ちた場面(reportScene('dropped'))は画面が伝える
+   */
+  psyDowned(drop: Pick<PsyDrop, 'on' | 'broken'>): number {
+    this.freeGo(false);
+    this.defeatedByGo++;
+    this.defeatedByPsy++;
+    let cost = 0;
+    for (const kind of drop.broken) cost += this.breakProp(kind);
+    if (drop.on === 'sofa') this.sofaSaves++;
+    if (drop.on === 'citizen') this.hurtCiv('dropped');
+    return cost;
+  }
+
+  /**
+   * 行けを押さないまま、物が市民に落ちた。市民を「市民のけが」(物が落ちた)に、ヴィランを「逃がした」に数える。
+   * 物は市民の上ではずむだけで壊れない(被害額は増えない)
+   */
+  psyEscaped(): void {
+    if (this.free) this.free.escapedScenes++;
+    this.hurtCiv('dropped');
+    this.escapedCount++;
+    this.escapedByPsy++;
+  }
+
+  // ─── ステージ4:エレベーターラッシュ ───
+
+  /** エレベーターラッシュを始める(stage.rush を渡す)。ヴィランと市民の数を覚える。2回呼んだら数え直す */
+  startLift(plan: Pick<LiftPlan, 'villainCount' | 'civCount'>): void {
+    this.lift = { ...emptyRushTally(), aliens: plan.villainCount, civs: plan.civCount };
+  }
+
+  /** エレベーターで待てを押さず、ヒーローが殴った(ヴィランなら「エレベーターで倒した」、市民なら「エレベーターで殴った」) */
+  liftHit(truth: 'bad' | 'civ'): void {
+    const r = this.ensureLift();
+    if (truth === 'bad') r.aliensDefeated++;
+    else r.civsHit++;
+  }
+
+  /** エレベーターで待てを押して止めた(ヴィランなら「エレベーターで逃がした」、市民なら「エレベーターで守った」)。「待ての達人」には入れない */
+  liftStopped(truth: 'bad' | 'civ'): void {
+    const r = this.ensureLift();
+    if (truth === 'bad') r.aliensSpared++;
+    else r.civsSaved++;
+  }
+
+  /** エレベーターラッシュの今の数(始めていなければ null)。aliens はヴィランの数。まとめの文は liftSummary */
+  get liftTally(): RushTally | null {
+    return this.lift ? { ...this.lift } : null;
+  }
+
+  private ensureLift(): RushTally {
+    if (!this.lift) this.lift = emptyRushTally();
+    return this.lift;
   }
 
   /** ボスを倒した。seconds はボス戦にかかった秒数(BossFight.seconds) */
@@ -293,7 +374,7 @@ export class StatsTracker {
   /**
    * 市民がけがをした。
    * cause:'hero' はヒーローが殴った、'collateral' は巻きぞえ、'villain' はワルに襲われた、
-   * 'abducted' はUFOにさらわれた(ふつうは ufoEscaped から呼ぶ)。
+   * 'abducted' はUFOにさらわれた(ふつうは ufoEscaped から呼ぶ)、'dropped' は念力で運ばれた物が落ちてきた(ステージ4)。
    * look はけがをした市民の見た目(おばあさんかどうかを見る)。ヒーローの攻撃(殴った、巻きぞえ)で
    * おばあさんに当たったら「おばあさんを殴った」になる。
    */
@@ -324,8 +405,9 @@ export class StatsTracker {
    */
   mischief(look: Look): number {
     const kind = MISCHIEF_BY_LOOK[look];
-    // ギャングの口笛と宇宙人の空への合図は悪さではない(被害額も市民負傷も増えない)
-    if (kind === 'whistle' || kind === 'signal') return 0;
+    // ギャングの口笛、宇宙人の空への合図、ヴィランの念力は悪さではない(被害額も市民負傷も増えない。
+    // 念力は落ちた先で、壊れた物を breakProp、当たった市民を hurtCiv('dropped') で数える)
+    if (kind === 'whistle' || kind === 'signal' || kind === 'psychic') return 0;
     this.damageByMischief += MISCHIEF_COST;
     if (kind && MISCHIEF_HURTS_CIV[kind]) this.hurtCiv('villain');
     return MISCHIEF_COST;
@@ -478,7 +560,7 @@ export class StatsTracker {
   }
 
   get civHurt(): number {
-    return this.hurt.hero + this.hurt.collateral + this.hurt.villain + this.hurt.abducted;
+    return this.hurt.hero + this.hurt.collateral + this.hurt.villain + this.hurt.abducted + this.hurt.dropped;
   }
 
   /** 今の数字をまとめて返す(あとで変えても、返したものは変わらない) */
@@ -500,12 +582,16 @@ export class StatsTracker {
       groupsEscaped: this.groupsEscaped,
       escapedByVan: this.escapedByVan,
       vansStopped: this.vansStopped,
+      defeatedByPsy: this.defeatedByPsy,
+      escapedByPsy: this.escapedByPsy,
+      sofaSaves: this.sofaSaves,
       bossDefeated: this.bossDefeated,
       civHurt: this.civHurt,
       civHurtByHero: this.hurt.hero,
       civHurtByCollateral: this.hurt.collateral,
       civHurtByVillain: this.hurt.villain,
       civHurtByAbduction: this.hurt.abducted,
+      civHurtByDrop: this.hurt.dropped,
       damage: this.damage,
       damageByProps: this.damageByProps,
       damageByMischief: this.damageByMischief,
@@ -528,6 +614,7 @@ export class StatsTracker {
       sortByHeroCorrect: sum('byHeroCorrect'),
       sortWaves: waves,
       rush: this.rushTally,
+      lift: this.liftTally,
       free: this.freeTally()
     };
   }
@@ -558,6 +645,9 @@ export class StatsTracker {
     };
   }
 }
+
+/** ラッシュの数の空の形 */
+const emptyRushTally = (): RushTally => ({ aliens: 0, aliensDefeated: 0, aliensSpared: 0, civs: 0, civsSaved: 0, civsHit: 0 });
 
 /** 物が壊れた瞬間がひどい場面になるか(車や自販機、ワゴン、柱、噴水、エスカレーターなら 'bigPropBroken') */
 export function sceneForProp(kind: PropKind): WorstScene | null {

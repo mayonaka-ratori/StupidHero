@@ -1,16 +1,18 @@
 // 答え合わせ。波1と波2は Street のあと、波3は Boss のあとに出す。
 // その波の人を1人1行で並べ、顔、名前、自分の仕分けと正体、見分ける決め手、○か×を出す。まちがえた行は赤黒くする。
 // 時間切れでヒーローが決めた人は「あなた」の代わりに「ヒーローの勘」と出す。ボスは化けた姿と偽名で、正体はボス。
-// 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result)。
+// 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result。高層ビルは階の数字の Floor)。
 // 行はタップで一気に出せる。ステージ2の波3(6人と女ボスで7行)も、いちばん低い画面(高さ384)に入る高さにする。
-// タイムセールラッシュのあるステージ(def.hasRush)の波2は、人の行のあとにラッシュのまとめを1行出す
+// タイムセールラッシュのあるステージ(def.rush)の波2は、人の行のあとにラッシュのまとめを1行出す
 // (「セール：撃破3/4・守った2/4」。ラッシュの数は仕分けの正解に入れない)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { RUSH, reasonFor, rushSummary, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice } from '../logic';
+import {
+  reasonFor, rushAfter, rushSummary, saleRushOf, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice
+} from '../logic';
 import { Button, DEPTH, FS, PixelText, goto, preloadFont } from '../ui';
 import { addMute, unlockOnTap } from './sort/common';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
@@ -92,7 +94,7 @@ export class WaveReviewScene extends Phaser.Scene {
     // ─── 行 ───
     // 1人1つの箱。当たりは青、はずれは赤黒。箱の高さは人数で割って、広すぎないようにする
     // ラッシュのまとめを出すときは、その1行ぶんを下にとっておく
-    const rush = wave.no === RUSH.afterWave && run.stage.def.hasRush ? rushTallyFor(run) : null;
+    const rush = rushAfter(run.stage.def, wave.no, 'sale') ? rushTallyFor(run) : null;
     const rushText = rush ? rushSummary(rush) : null;
     dev.rush = rushText;
     const listTop = 42;
@@ -203,7 +205,7 @@ export class WaveReviewScene extends Phaser.Scene {
     const run = getRun(this);
     const to = nextAfterReview(run);
     if (goto(this, to, undefined, { kind: 'wipe' })) this.leaving = true;
-    else if (to === SCENES.sort) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す
+    else if (to !== SCENES.result && to !== SCENES.ending) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す(Sort、Floor、Elevator。最後の波のあとは進めていない)
   }
 }
 
@@ -213,11 +215,12 @@ export class WaveReviewScene extends Phaser.Scene {
  */
 function rushTallyFor(run: GameRun): RushTally | null {
   const t = run.stats.rushTally;
-  if (t || !run.debug || !run.stage.rush) return t;
-  run.stats.startRush(run.stage.rush);
+  const plan = saleRushOf(run.stage);
+  if (t || !run.debug || !plan) return t;
+  run.stats.startRush(plan);
   // 最初の宇宙人は待てで止め(逃がした)、最初の市民は殴った。ほかは正しく押した
-  const firsts = new Set(['bad', 'civ'].map((t) => run.stage.rush!.runners.findIndex((r) => r.truth === t)));
-  run.stage.rush.runners.forEach((r, i) => {
+  const firsts = new Set(['bad', 'civ'].map((t) => plan.runners.findIndex((r) => r.truth === t)));
+  plan.runners.forEach((r, i) => {
     const miss = firsts.has(i);
     if ((r.truth === 'bad') !== miss) run.stats.rushHit(r.truth); else run.stats.rushStopped(r.truth);
   });

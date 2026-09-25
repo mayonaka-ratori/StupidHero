@@ -2,14 +2,19 @@
 // 手がかりの中身は、絵(src/art/world/people.ts、world2/people.ts)の小物と、content.ts / garageContent.ts /
 // mallContent.ts のプロフィールと一言に合わせてある(絵や文を変えたら、ここも合わせる)。
 // ショッピングモールの宇宙人は動きのくずれ、市民はぎこちない動きの理由、親玉は化けた姿のおかしい所を言う。
+// 高層ビルのヴィランはもれの出方、紛らわしい市民はもれに見えたものの理由、ほかの市民は見た目ごとの文、
+// 親玉は化けた姿のおかしい所を言う(docs/STAGE4.md「答え合わせ」)。
 // 1行は全角14文字まで(答え合わせの画面の幅)。半角スペースとエムダッシュは使わない。
 //
 // 使い方:reasonFor(person, wave)   // 地下駐車場は同じ波の組を見て、小物の色の文を作る
 //        rushSummary(stats.rush)   // タイムセールラッシュのまとめ(波2の答え合わせの最後の1行と、結果画面)
+//        liftSummary(stats.lift)   // エレベーターラッシュのまとめ(着いたときと結果画面。答え合わせには出さない)
 // 返す文には {#rrggbb}…{/} の色の書き方が入ることがある(小物の色)。字の数は stripReasonMarkup で数える。
 
 import { ACCESSORY_COLORS } from './rules';
-import type { AlleyDisguise, AlleyLook, GarageDisguise, MallDisguise, MallLook, Person, RushTally, Truth, Wave } from './types';
+import type {
+  AlleyDisguise, AlleyLook, GarageDisguise, MallDisguise, MallLook, Person, RushTally, TowerDecoy, TowerDisguise, TowerLook, Truth, Wave
+} from './types';
 
 /** 1行に入る字の数(全角) */
 export const REASON_MAX = 14;
@@ -55,12 +60,57 @@ const MALL_BOSS_REASONS: Readonly<Record<MallDisguise, string>> = {
   mascot: '着ぐるみから触角'
 };
 
+/** 高層ビルの、もれに見えるものがなかった市民の決め手(見た目ごと。docs/STAGE4_TEXT.md) */
+export const TOWER_CIV_REASONS: Readonly<Record<TowerLook, string>> = {
+  florist: '花を運んでいただけ',
+  courier: '荷物を届けていただけ',
+  newbie: '新人でそわそわしていた',
+  janitor: '掃除をしていただけ',
+  chef: '味見をしていただけ',
+  waiter: '給仕をしていただけ',
+  lady: 'パーティのお客さん',
+  magician: 'ただの手品師'
+};
+
+/** 高層ビルの紛らわしい市民の決め手(もれに見えたものの理由) */
+export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
+  flicker: '蛍光灯が切れかけだった',
+  thread: '手品の糸で吊っていた',
+  balloon: '風船がのっていただけ'
+};
+
+/** 高層ビルのヴィランの決め手(もれの出方) */
+export const TOWER_LEAK_REASONS = {
+  both: '照明も小物も変だった',
+  light: '照明が紫に光っていた',
+  item: '机の小物が浮いていた'
+} as const;
+
+/** 高層ビルの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE4.md) */
+const TOWER_BOSS_REASONS: Readonly<Record<TowerDisguise, string>> = {
+  lady: '羽の飾りが金色だった',
+  magician: 'つえの先がビルの形',
+  waiter: '蝶ネクタイが金色だった'
+};
+
 /** ボスの決め手(全部のステージ。化けた姿の名前はステージの間で重ならない) */
 const BOSS_REASONS: Readonly<Record<string, string>> = {
   ...ALLEY_BOSS_REASONS,
   ...GARAGE_BOSS_REASONS,
-  ...MALL_BOSS_REASONS
+  ...MALL_BOSS_REASONS,
+  ...TOWER_BOSS_REASONS
 };
+
+/** 高層ビルの人の決め手。ヴィランはもれの出方、紛らわしい市民はその理由、ほかの市民は見た目ごと */
+function towerReason(p: Person): string {
+  if (p.truth === 'bad') {
+    const leak = p.leak ?? { light: true, item: true };
+    if (leak.light && leak.item) return TOWER_LEAK_REASONS.both;
+    return leak.light ? TOWER_LEAK_REASONS.light : TOWER_LEAK_REASONS.item;
+  }
+  if (p.decoy) return TOWER_DECOY_REASONS[p.decoy];
+  return TOWER_CIV_REASONS[p.look as TowerLook];
+}
 
 /** 色の書き方。暗い地(はずれの行の赤黒)でも読めるように、小物の色を少し白に寄せる */
 function colorTag(c: number): string {
@@ -94,6 +144,7 @@ export function reasonFor(p: Person, wave?: Pick<Wave, 'groups'>): string {
   if (alley) return alley[p.truth] ?? '';
   const mall = (MALL_REASONS as Record<string, Partial<Record<Truth, string>>>)[p.look];
   if (mall) return mall[p.truth] ?? '';
+  if (p.look in TOWER_CIV_REASONS) return towerReason(p);
   return garageReason(p, wave);
 }
 
@@ -103,6 +154,16 @@ export function reasonFor(p: Person, wave?: Pick<Wave, 'groups'>): string {
  */
 export function rushSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {
   return `セール：撃破${t.aliensDefeated}/${t.aliens}・守った${t.civsSaved}/${t.civs}`;
+}
+
+/**
+ * エレベーターラッシュのまとめの1行。例:'エレベーター：撃破2/3・守った3/3'
+ * (撃破は倒したヴィラン/ヴィランの数、守ったは待てで守った市民/市民の数)。
+ * 数は StatsTracker のラッシュの数を使う(aliens はヴィランの数として数える。stats.startLift({ villainCount, civCount }))。
+ * 答え合わせには出さないので、14文字の決まりの外(着いたときの帯と結果画面の数字の窓に出す)
+ */
+export function liftSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {
+  return `エレベーター：撃破${t.aliensDefeated}/${t.aliens}・守った${t.civsSaved}/${t.civs}`;
 }
 
 /** 色の書き方を取りのぞく(字の数を数えるとき用) */

@@ -27,6 +27,8 @@ export interface BubbleOptions {
   life?: number;
   /** 出るときにぴょんと出る */
   pop?: boolean;
+  /** 画面の左右の端から空けるすきま(画面の端に光る縁があるときに広げる) */
+  margin?: number;
 }
 
 const T = 5; // しっぽの長さ
@@ -42,7 +44,7 @@ export class Bubble extends Phaser.GameObjects.Container {
 
   constructor(scene: Phaser.Scene, x: number, y: number, text: string, opt: BubbleOptions = {}) {
     super(scene, Math.round(x), Math.round(y));
-    this.opt = { tail: 'down-left', size: FS.body, wrap: 0, color: UIX.bubbleText, fill: UIX.bubble, life: 0, pop: true, ...opt };
+    this.opt = { tail: 'down-left', size: FS.body, wrap: 0, color: UIX.bubbleText, fill: UIX.bubble, life: 0, pop: true, margin: MARGIN, ...opt };
     this.g = new Phaser.GameObjects.Graphics(scene);
     this.label = new PixelText(scene, 0, 0, text, { size: this.opt.size, wrap: this.opt.wrap, color: this.opt.color, align: 'center' });
     this.add([this.g, this.label]);
@@ -92,8 +94,8 @@ export class Bubble extends Phaser.GameObjects.Container {
       bx = -Math.floor(w / 2); by = -Math.floor(h / 2);
     }
     // 画面からはみ出さないようにずらす(しっぽの先は動かさない)
-    const minX = MARGIN - this.x;
-    const maxX = layout.W - MARGIN - w - this.x;
+    const minX = this.opt.margin - this.x;
+    const maxX = layout.W - this.opt.margin - w - this.x;
     bx = Math.max(minX, Math.min(maxX, bx));
     by = Math.max(MARGIN - this.y, by);
 

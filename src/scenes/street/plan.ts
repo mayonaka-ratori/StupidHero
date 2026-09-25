@@ -1,11 +1,15 @@
 // 結果発表の通りの並べ方。仕分けた人、通りがかりの市民、壊れる物の位置を決める(画面には頼らない)。
-// ステージごとに planStreet(路地裏)、planGarage(地下駐車場)、planMall(ショッピングモール)。フリープレイは planFree。
+// ステージごとに planStreet(路地裏)、planGarage(地下駐車場)、planMall(ショッピングモール)、planTower(高層ビル)。フリープレイは planFree。
 // x は通りの位置(ドット)、y は足の位置(地面は y=124〜214。歩道は 124〜150、車道は 150〜214)。
 
-import { ACCESSORY_COLORS, GANG_COLOR_IDS, MALL_LOOKS, type GangLook, type Look, type Person, type PropKind, type Rng, type StageId } from '../../logic';
+import {
+  ACCESSORY_COLORS, GANG_COLOR_IDS, MALL_LOOKS, PSY, PSY_LAYOUT, planPsychic, sheetKeyFor,
+  type GangLook, type Look, type Person, type PropKind, type PsyPlan, type Rng, type StageId
+} from '../../logic';
 
 export interface PersonSpot { person: Person; x: number; y: number }
-export interface PropSpot { kind: PropKind; x: number; y: number; wall: boolean }
+/** frame:最初に出すコマ(ステージ4のソファは階ごとの色。なければ0) */
+export interface PropSpot { kind: PropKind; x: number; y: number; wall: boolean; frame?: number }
 /** color:ステージ2の小物の色(なければ塗らない) */
 export interface PasserSpot { key: string; look: Look; x: number; y: number; color?: number }
 /**
@@ -15,9 +19,12 @@ export interface PasserSpot { key: string; look: Look; x: number; y: number; col
 export interface GatherSpot { groupId: string; whistlerId: string; x: number; y: number; vanX: number; vanY: number }
 /**
  * rushX:ステージ3の波2だけ。結果発表のあとタイムセールラッシュでヒーローが立つ位置(後ろにエスカレーターを置く)。
- * ほかは undefined
+ * ほかは undefined。
+ * psy:ステージ4だけ。見逃したヴィランごとの念力の場面(planTower)
  */
-export interface StreetPlan { people: PersonSpot[]; props: PropSpot[]; passers: PasserSpot[]; endX: number; gathers: GatherSpot[]; rushX?: number }
+export interface StreetPlan {
+  people: PersonSpot[]; props: PropSpot[]; passers: PasserSpot[]; endX: number; gathers: GatherSpot[]; rushX?: number; psy?: PsySpot[];
+}
 
 /** ヒーローが立つ位置(始め) */
 export const HERO_START = { x: 40, y: 192 };
@@ -313,6 +320,116 @@ function mallProps(
   if (has('gacha') && clear) out.push({ kind: 'gacha', x: fx, y: 214, wall: false });
 
   return out;
+}
+
+// ─── ステージ4(高層ビル)──────────────────────────────
+
+/** 見逃したヴィランが、ヒーローを追い抜いて出る所(並んでいた所から右へ)。念力はここから使う */
+export const PSY_AHEAD = 40;
+/** 見逃したヴィランのあとに空ける幅(念力の場面の物と、歩いてくる市民の所) */
+export const PSY_ROOM = 96;
+/**
+ * 念力の場面の列(足や物の下の端の y)。PSY_LAYOUT の x の並びで、となりどうしの物が重ならないように、
+ * 奥と手前に交互に置く(持ち上げる物は奥、1つ目の場所は手前、2つ目の場所は奥)。
+ * 市民は2つ目の奥の物と、1つ目の手前の物の間の高さに立つ(頭が高めに来るので、共有カードの写真に物と頭が入る)。
+ * ヴィランはその少し奥。floor は床に落ちたときに物が止まる所。
+ * hover は運ばれている物の下の端(奥の列のいちばん高い物の上の端とそろう高さ)
+ */
+export const PSY_ROWS = { back: 146, front: 208, villain: 182, victim: 186, floor: 152, hover: 96 } as const;
+/** ステージ4の奥の列(物の下の端の y) */
+const TOWER_BACK_Y = 146;
+/** ステージ4の手前の物(下の端の y) */
+const TOWER_FRONT_Y = 214;
+/** ステージ4の物の横の半分の幅 */
+export const TOWER_HALF: Partial<Record<PropKind, number>> = {
+  sofa: 24, plant: 12, flowers: 13, copier: 16, tank: 20, wine: 16, champagne: 20, piano: 31
+};
+
+/** 念力の場面1つ(見逃したヴィラン1人ぶん)。x は PsyPlan、y は PSY_ROWS から */
+export interface PsySpot {
+  villainId: string;
+  /** 念力の並べ方(ヴィランが出る所、持ち上げる物、間の物、市民が止まる所) */
+  plan: PsyPlan;
+  /** 間の物それぞれの y(plan.floor と同じ順) */
+  floorY: number[];
+}
+
+/**
+ * 高層ビルの並べ方。人の並び方は路地裏と同じだが、見逃したヴィランのあとに念力の場面の幅(PSY_ROOM)を空ける。
+ * - 念力の場面:ヴィランは PSY_AHEAD 先に出て、planPsychic の並べ方で物を置く(持ち上げる物と、ソファともう1つ)。
+ *   通りがかりの市民は念力が始まってから画面が歩かせるので、ここでは置かない
+ * - ほかの物は奥の列に、その階の物(ソファも)を重ならないように並べ、手前に1つだけ置く。念力の場面にはかからない
+ * - 通りがかりの市民はときどき置くだけ(見た目はその階の市民)。念力の場面には置かない
+ * floorIndex は階(0〜3)。ソファのコマ(階ごとの色)に使う
+ */
+export function planTower(
+  people: readonly Person[], passBadIds: ReadonlySet<string>, props: readonly PropKind[], looks: readonly Look[], floorIndex: number, rng: Rng
+): StreetPlan {
+  const order = [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+  const lane0 = rng.int(0, LANES.length - 1);
+  const spots: PersonSpot[] = [];
+  const psy: PsySpot[] = [];
+  const out: PropSpot[] = [];
+  const used: [number, number, 'back' | 'front'][] = [];
+  const half = (k: PropKind): number => TOWER_HALF[k] ?? 12;
+  const sofaFrame = Math.max(0, Math.min(3, floorIndex));
+  const add = (kind: PropKind, x: number, y: number, row: 'back' | 'front'): void => {
+    used.push([x - half(kind), x + half(kind), row]);
+    out.push({ kind, x, y, wall: false, ...(kind === PSY.cushionProp ? { frame: sofaFrame } : {}) });
+  };
+  let x = FIRST_X;
+  order.forEach((person, i) => {
+    const s = { person, x: x + rng.int(-6, 6), y: LANES[(lane0 + i) % LANES.length] + rng.int(-2, 2) };
+    spots.push(s);
+    x += GAP;
+    if (person.truth === 'bad' && passBadIds.has(person.id)) {
+      const plan = planPsychic(s.x + PSY_AHEAD, props, rng);
+      add(plan.lift.kind, plan.lift.x, PSY_ROWS.back, 'back');
+      const floorY = plan.floor.map((f) => {
+        const front = f.x - plan.villainX === PSY_LAYOUT.slotDx[0];
+        add(f.kind, f.x, front ? PSY_ROWS.front : PSY_ROWS.back, front ? 'front' : 'back');
+        return front ? PSY_ROWS.front : PSY_ROWS.back;
+      });
+      psy.push({ villainId: person.id, plan, floorY });
+      x += PSY_ROOM;
+    }
+  });
+  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
+  const endX = lastX + 120;
+  // 念力の場面(ヴィランの少し手前から、市民の少し先まで)
+  const zones = psy.map((p) => [p.plan.villainX - 24, p.plan.victimX + 20] as const);
+  const inZone = (px: number, pad: number): boolean => zones.some(([l, r]) => px + pad > l && px - pad < r);
+
+  // 通りがかりの市民(念力の場面には置かない)
+  const passers: PasserSpot[] = [];
+  const passerLooks = looks.length > 0 ? looks : (['florist'] as const);
+  spots.forEach((s) => {
+    if (s.person.truth === 'boss' || passBadIds.has(s.person.id) || !rng.chance(0.3)) return;
+    const px = s.x + 56 + rng.int(-3, 3);
+    if (inZone(px, 14)) return;
+    const look = rng.pick(passerLooks);
+    const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+    passers.push({ key: sheetKeyFor(look, 'civ', 'tower'), look, x: px, y });
+  });
+
+  // 奥の列:その階の物を重ならないように。ソファは2割くらい(念力の場面のソファが目立つように)
+  const free = (px: number, h: number, row: 'back' | 'front'): boolean =>
+    used.every(([l, r, rw]) => rw !== row || px + h + 4 < l || px - h - 4 > r);
+  const kinds = props.length > 0 ? props : [PSY.cushionProp];
+  const breakable = kinds.filter((k) => k !== PSY.cushionProp);
+  for (let px = 110 + rng.int(0, 20); px < endX + 160; px += rng.int(56, 84)) {
+    const kind = breakable.length === 0 || (rng.chance(0.2) && kinds.includes(PSY.cushionProp)) ? PSY.cushionProp : rng.pick(breakable);
+    if (inZone(px, half(kind)) || !free(px, half(kind), 'back')) continue;
+    add(kind, px, TOWER_BACK_Y, 'back');
+  }
+  // 手前に1つ(通りがかりの市民と念力の場面は避ける。ソファは置かない)
+  const small = kinds.filter((k) => k !== PSY.cushionProp && half(k) <= 20);
+  const k = rng.int(0, Math.max(0, spots.length - 2));
+  const fx = (spots[k]?.x ?? FIRST_X) + 30;
+  if (small.length > 0 && !passers.some((p) => Math.abs(p.x - fx) < 24) && !inZone(fx, 20)) {
+    out.push({ kind: rng.pick(small), x: fx, y: TOWER_FRONT_Y, wall: false });
+  }
+  return { people: spots, props: out, passers, endX, gathers: [], psy };
 }
 
 // ─── フリープレイ ─────────────────────────────────

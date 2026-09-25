@@ -7,9 +7,11 @@
 //   await card.unlock()      鍵がこわれて開く演出
 // 上に背景の絵を小さく切り出して、そのステージの人とボスを立たせる。下にステージの名前と記録。
 // 開いていないカードは、絵を暗くして人を黒い影にし、鍵のマークと def.lockedText を出す。
-// 絵が細いとき(ステージが3つで画面が低いとき)は、人の胸から上が見えるように足もとを絵の下の外に出し、
+// 絵が細いとき(絵の高さが60くらいまで)は、人の胸から上が見えるように足もとを絵の下の外に出し、
 // STAGE の札を絵の左下に移す(左上のままだとヒーローの顔が隠れる)。称号の数も「称号2/14」と短くする。
-// 絵を出さないカード(thumbH が0)は、上に STAGE の番号、名前、記録を並べ、鍵は名前の右に出す。
+// 絵を出さないカード(thumbH が0)は、上に STAGE の番号、名前、記録を並べ、鍵は名前の右に出す
+// (いまの画面はカードをずらして見せるので、絵はいつも出る。stageselect/scroll.ts の listLayout)。
+// 画面はカードの root.y を動かしてずらす。box.y はずらしていないときの上の端。
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
@@ -64,6 +66,16 @@ function actorsFor(entry: StageSelectEntry): ActorDef[] {
       { key: 'hero', x: 0.14, anim: 'idle', hero: true },
       { key: 'mascot_bad', x: 0.46, anim: 'sortIdle', flip: true },
       { key: 'dancer_bad', x: 0.62, anim: 'sortIdle', flip: true },
+      { key: entry.def.bossSheet, x: -30, anim: 'idle', flip: true }
+    ];
+  }
+  if (entry.def.mechanic === 'psychic') {
+    // 高層ビル:カードの背景は1階なので、1階の見た目の2人と観葉植物
+    return [
+      { key: 'prop_plant', x: 0.34, anim: '', frame: 0 },
+      { key: 'hero', x: 0.14, anim: 'idle', hero: true },
+      { key: 'tw_courier', x: 0.48, anim: 'sortIdle', flip: true },
+      { key: 'tw_florist', x: 0.62, anim: 'sortIdle', flip: true },
       { key: entry.def.bossSheet, x: -30, anim: 'idle', flip: true }
     ];
   }
@@ -243,10 +255,11 @@ export class StageCard {
     if (this.locked) {
       const g = add(sc.add.graphics());
       drawLock(g, 14, r1 + 6, 1);
-      // 長い名前のステージ(地下駐車場をクリアすると…)は、はみ出さないように小さな字にする
+      // 長い名前のステージ(地下駐車場をクリアすると…)は、はみ出さないように小さな字にする。
+      // 2行目は、鍵の文と同じく短い名前を使う(「ショッピングモールの…」だと小さな字でもはみ出す)
       const fit = (t: PixelText): PixelText => (t.width > w - 8 - t.x ? t.setStyle({ size: FS.small }) : t);
       fit(add(new PixelText(sc, 24, r1, e.def.lockedText ?? '', { size: FS.body, color: UI.text })));
-      fit(add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].name : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim })));
+      fit(add(new PixelText(sc, 24, r2, `${e.def.unlockAfter ? STAGES[e.def.unlockAfter].shortName : ''}のボスを倒せばクリア`, { size: FS.body, color: UI.textDim })));
       return;
     }
     const total = titlesFor(e.id).length;
@@ -364,7 +377,7 @@ export class StageCard {
       if (def.hero || !def.anim || !def.key.includes('_')) continue;
       if (this.scene.anims.exists(animKey(s.texture.key, 'surprised'))) s.play(animKey(s.texture.key, 'surprised'));
     }
-    this.scene.tweens.add({ targets: this.root, y: this.box.y - 3, duration: 60, yoyo: true, ease: 'Stepped' });
+    this.scene.tweens.add({ targets: this.root, y: this.root.y - 3, duration: 60, yoyo: true, ease: 'Stepped' });
   }
 
   /** 開いていないカードをタップしたとき:鍵がガタガタ揺れる */

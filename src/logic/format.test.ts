@@ -70,6 +70,16 @@ describe('format', () => {
     expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 2, civHurtByVillain: 1, civHurtByAbduction: 3 }))
       .toEqual(['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた3']);
     expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 0, civHurtByAbduction: 0 })).toEqual([]);
+    // 物が落ちたは5つ目(高層ビル)
+    expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 1, civHurtByAbduction: 0, civHurtByDrop: 2 }))
+      .toEqual(['ワルにやられた1', '物が落ちた2']);
+  });
+
+  it('高層ビルの被害額のたとえ(¥50万未満は観葉植物、¥2億未満はシャンパンタワー、それより上はピアノ)', () => {
+    expect(damageAnalogy(100_000, 'tower').text).toBe('観葉植物2鉢分');
+    expect(damageAnalogy(25_000_000, 'tower').text).toBe('シャンパンタワー2.5基分');
+    expect(damageAnalogy(300_000_000, 'tower').text).toBe('ピアノ10台分');
+    expect(formatDamage(0, 'tower')).toBe('¥0(被害ゼロ)');
   });
 
   it('秒数は切り上げ', () => {

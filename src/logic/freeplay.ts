@@ -44,10 +44,10 @@ import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { ACCESSORY_COLORS, GANG, MARK, UFO } from './rules';
-import { STAGE_IDS, STAGES } from './stages';
+import { FREE_STAGE_IDS, STAGE_IDS, STAGES } from './stages';
 import type {
-  AccessoryColorId, FreeItem, FreeRule, FreeVillainLook, GangGroup, GangLook, Look, Person, SortChoice, Stage, StageId,
-  Wave, WaveNo
+  AccessoryColorId, FreeItem, FreeRule, FreeStageId, FreeVillainLook, GangGroup, GangLook, Look, Person, SortChoice, Stage, StageId,
+  FreeWaveNo, Wave
 } from './types';
 
 /**
@@ -59,7 +59,7 @@ export type FreeRole = 'stop' | 'go' | 'heroBad' | 'heroCiv';
 
 /** 1つの波の場面の数(docs/FREEPLAY.md「人」の表) */
 export interface FreeWavePlan {
-  no: WaveNo;
+  no: FreeWaveNo;
   /** 場面の数(ギャングの組は1つ) */
   scenes: number;
   stop: number;
@@ -79,11 +79,11 @@ export const FREE = {
   /** 合わせた数(27場面、待て9、行け8、ヒーローが正しい10) */
   total: { scenes: 27, stop: 9, go: 8, heroRight: 10 },
   /** 人と人の間(ドット)。波3は悪さの相手(72ドット先)と重ならないように狭くする */
-  gapPx: { 1: 104, 2: 104, 3: 96 } as Readonly<Record<WaveNo, number>>,
+  gapPx: { 1: 104, 2: 104, 3: 96 } as Readonly<Record<FreeWaveNo, number>>,
   /** ため(殴りかかる前に構える秒数)。波1と波2は今のステージと同じ1.08秒、波3は0.9秒(マークは約1.1秒) */
-  windupSec: { 1: 1.08, 2: 1.08, 3: 0.9 } as Readonly<Record<WaveNo, number>>,
+  windupSec: { 1: 1.08, 2: 1.08, 3: 0.9 } as Readonly<Record<FreeWaveNo, number>>,
   /** マークが出ている間の動きの速さ。波1と波2は今と同じゆっくり(0.6倍)、波3はゆっくりにしない */
-  markSlowmo: { 1: MARK.slowmo, 2: MARK.slowmo, 3: 1 } as Readonly<Record<WaveNo, number>>,
+  markSlowmo: { 1: MARK.slowmo, 2: MARK.slowmo, 3: 1 } as Readonly<Record<FreeWaveNo, number>>,
   /** 波3で、何場面目のあとにルールを言い直すか(前の半分の場面の数) */
   redeclareAfterScenes: 6,
   /** 言い直す瞬間に時計を止める秒数(ゆっくりモードは3秒) */
@@ -110,9 +110,9 @@ export const FREE = {
 
 /** 1つの波の決めつけ */
 export interface FreeWave {
-  no: WaveNo;
-  /** 背景に使うステージ(STAGES[bgStage].bg) */
-  bgStage: StageId;
+  no: FreeWaveNo;
+  /** 背景に使うステージ(STAGES[bgStage].bg)。高層ビルは、はじめは入れない */
+  bgStage: FreeStageId;
   /** 波の始めのルール */
   rule: FreeRule;
   /** 波3だけ:言い直しのあとのルールと、何人目のあとに言い直すか(ふつうは6) */
@@ -124,8 +124,8 @@ export interface FreePlan {
   waves: FreeWave[];
   /** run.stage に入れる。id と def は波1の背景のステージ、name は「フリープレイ」 */
   stage: Stage;
-  /** 開いているステージ(出てくる人と背景はここから) */
-  unlocked: StageId[];
+  /** 開いているステージ(出てくる人と背景はここから。高層ビルは開いていても入れない) */
+  unlocked: FreeStageId[];
   /** チャンスの数(場面で数える。ギャングの組は1つ)。いつも待て9、行け8、ヒーローが正しい10、場面27 */
   chances: { stop: number; go: number; heroRight: number; scenes: number };
 }
@@ -196,7 +196,7 @@ export interface FreeTiming {
   redeclarePauseSec: number;
 }
 
-export function freeTiming(no: WaveNo, slow = false): FreeTiming {
+export function freeTiming(no: FreeWaveNo, slow = false): FreeTiming {
   const k = slow ? FREE.slowScale : 1;
   return {
     gapPx: Math.round(FREE.gapPx[no] * k),
@@ -291,12 +291,12 @@ export class DryPress {
 export const canCarry = (look: Look, item: FreeItem): boolean => !(item === 'bag' && (look === 'shopper' || look === 'uncle'));
 
 /** 見た目がどのステージの人か(フリープレイのワルは、そのワルが出るステージ) */
-const FREE_VILLAIN_STAGE: Readonly<Record<FreeVillainLook, StageId>> = {
+const FREE_VILLAIN_STAGE: Readonly<Record<FreeVillainLook, FreeStageId>> = {
   fp_mohawk: 'alley', fp_gang: 'garage', fp_alien: 'mall'
 };
 
 /** ステージごとの市民の見た目(おばあさんは別に1人だけ入れる) */
-const CIV_LOOKS: Readonly<Record<StageId, readonly Look[]>> = {
+const CIV_LOOKS: Readonly<Record<FreeStageId, readonly Look[]>> = {
   alley: ['hoodie', 'suit', 'shopper'],
   garage: GANG_LOOKS,
   mall: MALL_LOOKS
@@ -328,7 +328,7 @@ interface Draft {
 interface Dealer {
   rng: Rng;
   used: UsedTexts;
-  unlocked: StageId[];
+  unlocked: FreeStageId[];
   civCount: Record<string, number>;
   soloCount: Record<string, number>;
 }
@@ -351,7 +351,7 @@ function pickSolo(d: Dealer): FreeVillainLook {
 }
 
 /** 行けのチャンスのワルの見た目(波2はギャング1組と宇宙人1人を開いていれば入れ、残りはモヒカン) */
-function goVillains(d: Dealer, no: WaveNo, count: number): FreeVillainLook[] {
+function goVillains(d: Dealer, no: FreeWaveNo, count: number): FreeVillainLook[] {
   const special: FreeVillainLook[] = [];
   if (d.unlocked.includes('garage')) special.push('fp_gang');
   if (d.unlocked.includes('mall')) special.push('fp_alien');
@@ -363,7 +363,7 @@ function goVillains(d: Dealer, no: WaveNo, count: number): FreeVillainLook[] {
 }
 
 /** 1人ぶんの下書きを作る */
-function person(d: Dealer, no: WaveNo, look: Look, truth: 'bad' | 'civ'): PersonDraft {
+function person(d: Dealer, no: FreeWaveNo, look: Look, truth: 'bad' | 'civ'): PersonDraft {
   const p = makePerson(d.rng, d.used, stageOfLook(look), no, look, truth);
   // 地下駐車場の市民は小物をつけている。色はオレンジか紫だけ
   if (truth === 'civ' && (GANG_LOOKS as readonly Look[]).includes(look)) {
@@ -373,7 +373,7 @@ function person(d: Dealer, no: WaveNo, look: Look, truth: 'bad' | 'civ'): Person
 }
 
 /** 場面を人にする(ギャングの組は2人) */
-function expand(d: Dealer, no: WaveNo, slots: readonly Slot[]): Draft[][] {
+function expand(d: Dealer, no: FreeWaveNo, slots: readonly Slot[]): Draft[][] {
   return slots.map((slot) => {
     if (slot.villain === 'fp_gang') {
       return Array.from({ length: FREE.gangSize }, (_, member) => ({ slot, member, draft: person(d, no, 'fp_gang', 'bad') }));
@@ -385,7 +385,7 @@ function expand(d: Dealer, no: WaveNo, slots: readonly Slot[]): Draft[][] {
 }
 
 /** 並べた下書きから波を作る(id、何人目か、ギャングの組) */
-function toWave(no: WaveNo, line: readonly Draft[]): Wave {
+function toWave(no: FreeWaveNo, line: readonly Draft[]): Wave {
   const groupId = `w${no}-g1`;
   const people: Person[] = line.map((x, index) => {
     const p: Person = { id: `w${no}-${index + 1}`, index, ...x.draft };
@@ -519,15 +519,15 @@ function buildWave3(d: Dealer, plan: FreeWavePlan, rules: readonly [FreeItem, Fr
 /**
  * フリープレイを1回ぶん作る。
  * @param seed 種。同じ種と同じ開いているステージなら、毎回同じ並び
- * @param unlocked 開いているステージ(records.ts の unlockedStages())。路地裏はいつも入れる
+ * @param unlocked 開いているステージ(records.ts の unlockedStages())。路地裏はいつも入れる。高層ビルは開いていても入れない
  */
 export function createFreePlay(seed: number | string = randomSeed(), unlocked: readonly StageId[] = ['alley']): FreePlan {
   const rng = createRng(seed);
-  const open = STAGE_IDS.filter((id) => id === 'alley' || unlocked.includes(id));
+  const open = FREE_STAGE_IDS.filter((id) => id === 'alley' || unlocked.includes(id));
   const d: Dealer = { rng, used: { names: new Set(), texts: new Set() }, unlocked: open, civCount: {}, soloCount: {} };
 
   // 背景:開いているステージを混ぜて1つずつ。足りなければ、前の波と違うものからもう一度
-  const bgs: StageId[] = rng.shuffle(open);
+  const bgs: FreeStageId[] = rng.shuffle(open);
   while (bgs.length < 3) {
     const prev = bgs[bgs.length - 1];
     const others = open.filter((id) => id !== prev);
@@ -537,7 +537,7 @@ export function createFreePlay(seed: number | string = randomSeed(), unlocked: r
   // ルール:波3は小物を1つ選び、言い直しでは違う小物にする
   const first = rng.pick(FREE_ITEMS);
   const second = rng.pick(FREE_ITEMS.filter((i) => i !== first));
-  const grannyWave: WaveNo = rng.chance(0.5) ? 1 : 3;
+  const grannyWave: FreeWaveNo = rng.chance(0.5) ? 1 : 3;
 
   const [p1, p2, p3] = FREE.waves;
   const line1 = buildWave1(d, p1, grannyWave === 1);

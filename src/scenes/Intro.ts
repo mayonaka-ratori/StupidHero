@@ -12,8 +12,8 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { FREE_INTRO, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
-import { getRun } from '../run';
+import { FREE_INTRO, bgForWave, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
+import { currentWave, getRun } from '../run';
 import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
 import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
@@ -71,7 +71,7 @@ export class IntroScene extends Phaser.Scene {
     audio.playBgm('title');
 
     // 上:ステージの背景とヒーロー
-    drawStageBg(this, run.stage.def.bg);
+    drawStageBg(this, bgForWave(run.stage.def, currentWave(run).no));
     const pool = this.add.graphics().setDepth(Z.ground + 1);
     drawLightPool(pool, HERO_X, FEET_Y + 1, 34, 5);
     const aura = this.add.sprite(HERO_X, FEET_Y - 44, 'fx_aura').setScale(2).setDepth(Z.aura);

@@ -14,7 +14,7 @@ import {
 } from './records';
 import { PROP_COST, resolveEncounter } from './rules';
 import { ABDUCTED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption } from './share';
-import { createStage } from './stage';
+import { createStage, saleRushOf } from './stage';
 import { STAGES } from './stages';
 import { StatsTracker } from './stats';
 import { decideTitle } from './titles';
@@ -72,9 +72,10 @@ function play(stage: Stage, o: PlayOptions): StageStats {
       }
     }
     // 波2の結果発表のあと:タイムセールラッシュ
-    if (w.no === 2 && stage.rush) {
-      stats.startRush(stage.rush);
-      for (const r of stage.rush.runners) {
+    const sale = saleRushOf(stage);
+    if (w.no === 2 && sale) {
+      stats.startRush(sale);
+      for (const r of sale.runners) {
         if (o.rushStop === 'civ' && r.truth === 'civ') stats.rushStopped(r.truth);
         else {
           stats.rushHit(r.truth);
@@ -112,8 +113,8 @@ describe('ステージ3を通しで数える', () => {
       expect(s.propsBroken.fountain).toBe(1);
       // ラッシュで全員殴った:宇宙人は全員倒し、市民も全員殴ったが、ほかの数字は変わらない
       expect(s.rush).toEqual({
-        aliens: stage.rush!.alienCount, aliensDefeated: stage.rush!.alienCount, aliensSpared: 0,
-        civs: stage.rush!.civCount, civsSaved: 0, civsHit: stage.rush!.civCount
+        aliens: saleRushOf(stage)!.alienCount, aliensDefeated: saleRushOf(stage)!.alienCount, aliensSpared: 0,
+        civs: saleRushOf(stage)!.civCount, civsSaved: 0, civsHit: saleRushOf(stage)!.civCount
       });
       expect(s.civSavedByStop).toBe(0);
       expect(s.worstScene).toBe('civHit');
@@ -164,7 +165,7 @@ describe('ステージ3を通しで数える', () => {
   it('ラッシュで市民を殴ったあとに買い物客がさらわれたら、市民を殴った場面のほうが残る', () => {
     const stage = createStage(5, 'mall');
     const stats = new StatsTracker(stage.villainTotal, 'mall');
-    stats.startRush(stage.rush!);
+    stats.startRush(saleRushOf(stage)!);
     stats.rushHit('civ');
     expect(stats.reportScene('civHit', 'punch')).toBe(true);
     stats.ufoEscaped();
@@ -183,7 +184,7 @@ describe('ステージ3を通しで数える', () => {
     }
   });
 
-  it('記録:地下駐車場のボスを倒すとモールが開く。称号は全部で20。ラッシュを見たことを覚える', () => {
+  it('記録:地下駐車場のボスを倒すとモールが開く。称号は全部で24。ラッシュを見たことを覚える', () => {
     const st = new MemStorage();
     const alley = new StatsTracker(9, 'alley');
     alley.defeatBoss(7);
@@ -205,9 +206,10 @@ describe('ステージ3を通しで数える', () => {
     expect(hasSeenRush('alley', loadRecords(st))).toBe(false);
     const saved = saveResult('mall', s, decideTitle(s).id, st);
     expect(saved.firstPlay).toBe(true);
-    expect(saved.titlesTotal).toBe(20);
+    expect(saved.titlesTotal).toBe(24);
     expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
-    expect(saved.unlockedNow).toEqual([]);
+    // モールを初めてクリアすると、高層ビルが開く
+    expect(saved.unlockedNow).toEqual(['tower']);
     expect(needsIntro('mall', loadRecords(st))).toBe(false);
     expect(loadRecords(st).rushSeen).toEqual(['mall']);
     // 大きな物が壊れた場面の見出しは「モールがこわれた!」

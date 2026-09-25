@@ -2,11 +2,12 @@
 //
 // 1ステージの呼ぶ順番の例:
 //   // ステージを選ぶ画面:stageSelectInfo() で開いているか、記録、称号の数。開いていなければ def.lockedText
-//   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)
+//   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)、
+//                                                    // 'tower'(高層ビル)
 //   const rng = createRng(randomSeed());
 //   const stage = createStage(rng.seed, stageId);    // 3つの波。路地裏16人、地下駐車場18人、ショッピングモール18人
 //   const def = stage.def;                           // 背景 def.bg、曲 def.bgm、ボスの絵 def.bossSheet、置く物 def.props
-//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo')、ラッシュは def.hasRush
+//                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo' | 'psychic')、ラッシュは def.rush
 //   const stats = new StatsTracker(stage.villainTotal, stage.id);
 //   // 掛け合い:introFor(stage.id)(そのステージで1回だけ。needsIntro / markIntroSeen)。波の始まり:waveIntroFor(stage.id, wave.no)
 //   // 仕分け:wave.people を順に出す。時間切れの人は decideUnsorted(rng)
@@ -23,12 +24,16 @@
 //   //     見逃したワルと同じ流れ(行けで stats.defeatBad('go')、押さずに逃げたら stats.escaped())
 //   //   ショッピングモールで passBad の宇宙人:空へ合図 → ufos.add(person.id)(new UfoQueue()。ufo.ts)
 //   //     行けで落としたら stats.ufoDowned()、連れ去られたら stats.ufoEscaped() と stats.reportScene('abducted')
-//   //   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
+//   //   高層ビルで passBad のヴィラン:planPsychic で並べ方 → psy.add(person.id)(new PsyQueue()。psychic.ts)
+//     行けで落としたら stats.psyDowned(resolvePsyDrop(plan, psyCarryX(plan, at)))、市民に落ちたら stats.psyEscaped() と
+//     stats.reportScene('dropped')
+//   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
 //   //     (rushIntroFor(hasSeenRush(stage.id))、markRushSeen、stats.startRush、rushHit、rushStopped、rushEndLine)
-//   //   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
+//   //   高層ビルの波3の答え合わせのあと:stage.rush でエレベーターラッシュ(stats.startLift、liftHit、liftStopped。まとめは liftSummary)
+//   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
 //   // ボス戦:const fight = new BossFight(def.bossFight); tap() と update(deltaMs)。boardedCar で女ボスが車に乗る
 //   //   (ショッピングモールは親玉が母艦に乗りこむ)。倒したら def.bossDefeatProp があれば stats.breakProp(def.bossDefeatProp)
-//   // 結果:const s = stats.snapshot(); const title = decideTitle(s);
+//   // 結果:const s = stats.snapshot(); const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });
 //   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   市民のけがの内わけは hurtBreakdown(s)、ラッシュのまとめは s.rush があれば rushSummary(s.rush)
 //   //   const saved = saveResult(stage.id, s, title.id);   // saved.unlockedNow で「次のステージが開いた」
@@ -61,15 +66,20 @@ export * from './rules';
 export * from './content';
 export * from './garageContent';
 export * from './mallContent';
+export * from './towerContent';
 export * from './stages';
 export * from './garage';
 export * from './gang';
 export * from './mall';
+export * from './timedCall';
 export * from './ufo';
+export * from './psychic';
+export * from './tower';
 export * from './stage';
 export * from './stats';
 export * from './titles';
 export * from './boss';
+export * from './bossChoice';
 export * from './format';
 export * from './share';
 export * from './records';

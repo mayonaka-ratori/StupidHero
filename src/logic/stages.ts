@@ -1,8 +1,9 @@
 // ステージごとの定義。画面の担当はここを見て、ステージごとの違い(背景、曲、ボスの絵、置く物)を出す。
+// 背景と置く物は波ごとに変わることがある(ステージ4)ので、bgForWave と propsForWave で読む。
 //
 // 使い方:
 //   const def = STAGES[stage.id];          // または stage.def(同じもの)
-//   this.add.image(0, 0, def.bg.far);       // 背景は def.bg.far / wall / ground
+//   const bg = bgForWave(def, wave.no);     // 背景は bg.far / wall / ground(波ごとに変わることがある)
 //   audio.playBgm(def.bgm.street);          // 結果発表の曲。ボス戦は def.bgm.boss
 //   const boss = this.add.sprite(x, y, def.bossSheet);
 //   const fight = new BossFight(def.bossFight);
@@ -12,32 +13,53 @@ import type { BgmName } from '../audio';
 import type { BossFightOptions } from './boss';
 import { BOSS2_AGES } from './garageContent';
 import {
-  BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, WAVES, type WavePlan
+  BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS4, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, TOWER_RAMPAGE_COST, TOWER_WAVES,
+  WAVES, type WavePlan
 } from './rules';
-import type { DisguiseLook, FreeVillainLook, Look, PropKind, StageId, Truth } from './types';
+import type { DisguiseLook, FreeStageId, FreeVillainLook, Look, PropKind, StageId, TowerLook, Truth, WaveNo } from './types';
 
 /**
  * ステージの仕組み(結果発表で見逃したワルが何をするか)。
  * - none:ステージ1。悪さを始める(行けで追い打ち)
  * - gang:ステージ2。口笛で仲間を呼んで集まり、車で逃げる(gang.ts)
  * - ufo:ステージ3。空へ合図を送り、UFOが通りがかりの買い物客を連れ去る(ufo.ts)
+ * - psychic:ステージ4。念力で物を持ち上げ、通りがかりの市民の上へ運ぶ(STAGE4「念力で運ぶ」。数字は rules.ts の PSY)
  */
-export type StageMechanic = 'none' | 'gang' | 'ufo';
+export type StageMechanic = 'none' | 'gang' | 'ufo' | 'psychic';
+
+/**
+ * 途中のイベント(ラッシュ)。afterWave の波のあとに1回だけ起きる。
+ * - sale:ステージ3のタイムセールラッシュ(波2の結果発表のあと、答え合わせの前)
+ * - elevator:ステージ4のエレベーターラッシュ(波3の答え合わせのあと。STAGE4「エレベーターラッシュ」。並びは tower.ts)
+ */
+export interface StageRush {
+  kind: 'sale' | 'elevator';
+  afterWave: WaveNo;
+}
+
+/** 背景の画像のキー(src/art/sheets.ts の IMAGES) */
+export interface StageBg { far: string; wall: string; ground: string }
+
+/** 波ごとに変わる舞台(ステージ4の階)。背景と、通りに置く壊れる物 */
+export interface StageFloor {
+  bg: StageBg;
+  props: readonly PropKind[];
+}
 
 export interface StageDef {
   id: StageId;
-  /** ステージの番号(1、2、3) */
-  no: 1 | 2 | 3;
+  /** ステージの番号(1〜4) */
+  no: 1 | 2 | 3 | 4;
   /** 表示用の名前(ステージを選ぶ画面、仕分けの画面など) */
   name: string;
   /** 共有カードの「いちばんひどい場面」の右上に出す短い名前(幅が足りないときのため) */
   shortName: string;
   /** 背景の画像のキー(src/art/sheets.ts の IMAGES) */
-  bg: { far: string; wall: string; ground: string };
-  /** 曲の名前(src/audio の BgmName)。street は結果発表、boss はボス戦、rush はタイムセールラッシュ(なければ null) */
+  bg: StageBg;
+  /** 曲の名前(src/audio の BgmName)。street は結果発表、boss はボス戦、rush はラッシュの曲(なければ null) */
   bgm: { street: BgmName; boss: BgmName; rush: BgmName | null };
   /** ボスの正体の絵のキー */
-  bossSheet: 'boss' | 'boss2' | 'boss3';
+  bossSheet: 'boss' | 'boss2' | 'boss3' | 'boss4';
   /** ボスの化けた姿(この中から1つ選ばれる) */
   disguises: readonly DisguiseLook[];
   /** 化けた姿の絵のキー */
@@ -64,10 +86,15 @@ export interface StageDef {
   bossDefeatProp: PropKind | null;
   /** 波の表 */
   waves: readonly WavePlan[];
-  /** 仕組み(none、gang、ufo)。画面は `def.mechanic === 'gang'` のように見て分ける */
+  /** 仕組み(none、gang、ufo、psychic)。画面は `def.mechanic === 'gang'` のように見て分ける */
   mechanic: StageMechanic;
-  /** 波2の結果発表のあとにタイムセールラッシュがあるか */
-  hasRush: boolean;
+  /** 途中のイベント(ラッシュ)。なければ null */
+  rush: StageRush | null;
+  /**
+   * 波ごとに変わる舞台(波1から順に。ステージ4の階)。null なら、どの波も bg と props を使う。
+   * 画面は def.bg と def.props を直接見ずに、bgForWave と propsForWave を使う
+   */
+  floors: readonly StageFloor[] | null;
   /** ボスを市民に仕分けていたとき、正体を現したあとに足す被害額 */
   bossRampageCost: number;
   /** ボス戦の設定。new BossFight(def.bossFight) */
@@ -77,6 +104,17 @@ export interface StageDef {
   /** 開いていないときに出す文(最初から選べるなら null)。セリフではないので12文字の決まりの外 */
   lockedText: string | null;
 }
+
+/**
+ * 高層ビルの4つの階(波1から順に、1階、18階、35階、最上階)。奥の絵は階ごと、壁と床は「ふつうの階」と「パーティ会場」の2組。
+ * 壊れる物は STAGE4「壊れる物」の表の通り。ソファはどの階にも置く(念力で運ばれた物を受け止める。壊れない)
+ */
+const TOWER_FLOORS: readonly StageFloor[] = [
+  { bg: { far: 'bg_tower1_far', wall: 'bg_tower_wall', ground: 'bg_tower_ground' }, props: ['sofa', 'plant', 'flowers'] },
+  { bg: { far: 'bg_tower2_far', wall: 'bg_tower_wall', ground: 'bg_tower_ground' }, props: ['sofa', 'plant', 'copier'] },
+  { bg: { far: 'bg_tower3_far', wall: 'bg_tower_wall', ground: 'bg_tower_ground' }, props: ['sofa', 'tank', 'wine'] },
+  { bg: { far: 'bg_tower4_far', wall: 'bg_party_wall', ground: 'bg_party_ground' }, props: ['sofa', 'champagne', 'piano'] }
+];
 
 export const STAGES: Readonly<Record<StageId, StageDef>> = {
   alley: {
@@ -98,7 +136,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: null,
     waves: WAVES,
     mechanic: 'none',
-    hasRush: false,
+    rush: null,
+    floors: null,
     bossRampageCost: BOSS_RAMPAGE_COST,
     bossFight: {},
     unlockAfter: null,
@@ -123,7 +162,8 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: null,
     waves: GARAGE_WAVES,
     mechanic: 'gang',
-    hasRush: false,
+    rush: null,
+    floors: null,
     bossRampageCost: BOSS2_RAMPAGE_COST,
     bossFight: BOSS2,
     unlockAfter: 'alley',
@@ -148,16 +188,82 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bossDefeatProp: 'fountain',
     waves: MALL_WAVES,
     mechanic: 'ufo',
-    hasRush: true,
+    rush: { kind: 'sale', afterWave: 2 },
+    floors: null,
     bossRampageCost: BOSS3_RAMPAGE_COST,
     bossFight: BOSS3,
     unlockAfter: 'garage',
     lockedText: '地下駐車場をクリアすると遊べる'
+  },
+  // ステージ4(docs/STAGE4.md)
+  tower: {
+    id: 'tower',
+    no: 4,
+    name: '高層ビル',
+    shortName: 'ビル',
+    // bg と props は波1(1階)と同じ。画面は bgForWave と propsForWave で波ごとに読む
+    bg: TOWER_FLOORS[0].bg,
+    bgm: { street: 'street4', boss: 'boss4', rush: 'lift4' },
+    bossSheet: 'boss4',
+    disguises: ['lady', 'magician', 'waiter'],
+    disguiseSheets: {
+      lady: 'tw_boss_lady', magician: 'tw_boss_magician', waiter: 'tw_boss_waiter'
+    },
+    bossAges: null,
+    looks: ['florist', 'courier', 'newbie', 'janitor', 'chef', 'waiter', 'lady', 'magician'],
+    props: TOWER_FLOORS[0].props,
+    bossProp: 'chandelier',
+    bossDefeatProp: 'champagne',
+    waves: TOWER_WAVES,
+    mechanic: 'psychic',
+    rush: { kind: 'elevator', afterWave: 3 },
+    floors: TOWER_FLOORS,
+    bossRampageCost: TOWER_RAMPAGE_COST,
+    // 連打の数字はステージ1と同じ。体力が半分を切ると念力の選択(rules.ts の BOSS4)。
+    // 選択の場面は、女ボスが車に乗るのと同じ仕組み(carAtHpRatio)で知らせる。選択の間は画面が時計を止めるので、
+    // carMinSec が「連打に戻ってから倒れるまでの最短の秒数」になる。手が止まったときの被害額は乗る前と同じ
+    bossFight: { carAtHpRatio: BOSS4.choiceAtHpRatio, carMinSec: BOSS4.afterChoiceMinSec },
+    unlockAfter: 'mall',
+    lockedText: 'モールをクリアすると遊べる'
   }
 };
 
-/** ステージを選ぶ画面の並び */
-export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall'];
+/** その波の背景(波ごとに変わるステージは floors から) */
+export function bgForWave(def: StageDef, no: WaveNo): StageBg {
+  return def.floors?.[no - 1]?.bg ?? def.bg;
+}
+
+/** その波の通りに置く壊れる物(波ごとに変わるステージは floors から) */
+export function propsForWave(def: StageDef, no: WaveNo): readonly PropKind[] {
+  return def.floors?.[no - 1]?.props ?? def.props;
+}
+
+/**
+ * 次のステージが開いたときに結果画面で出す帯の文。短い名前(shortName)を使う
+ * (「地下駐車場が遊べる!」「モールが遊べる!」「ビルが遊べる!」。「!」は半角)
+ */
+export const unlockBannerText = (id: StageId): string => `${STAGES[id].shortName}が遊べる!`;
+
+/** この波のあとにラッシュがあるか(kind を渡すと、その種類のときだけ) */
+export function rushAfter(def: StageDef, no: WaveNo, kind?: StageRush['kind']): boolean {
+  return def.rush !== null && def.rush.afterWave === no && (kind === undefined || def.rush.kind === kind);
+}
+
+/** ステージを選ぶ画面の並び(遊べるステージ) */
+export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
+
+/** 定義のある全部のステージ(まだ遊べない高層ビルも入る)。文や表がそろっているかを確かめるときに使う */
+export const ALL_STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
+
+/** フリープレイの背景に使えるステージ(高層ビルは、はじめは入れない) */
+export const FREE_STAGE_IDS: readonly FreeStageId[] = ['alley', 'garage', 'mall'];
+
+/** フリープレイの背景に使えるステージか */
+export const isFreeStageId = (id: StageId): id is FreeStageId => (FREE_STAGE_IDS as readonly StageId[]).includes(id);
+
+/** 高層ビルの見た目(絵は市民とヴィランで同じ 'tw_<見た目>') */
+export const TOWER_LOOKS: readonly TowerLook[] = ['florist', 'courier', 'newbie', 'janitor', 'chef', 'waiter', 'lady', 'magician'];
+export const isTowerLook = (look: Look): look is TowerLook => (TOWER_LOOKS as readonly Look[]).includes(look);
 
 /**
  * ショッピングモールの仕組み(UFO、母艦、くずれ)で使う絵のキー(src/art/sheets.ts に足す)。
@@ -183,8 +289,9 @@ export const isStageId = (v: unknown): v is StageId => typeof v === 'string' && 
 
 /**
  * 見た目と正体から絵のキーを決める(src/art/sheets.ts のキー)。
- * ボスは化けた姿の絵(路地裏は 'boss_disguise_*'、地下駐車場は 'boss2_disguise_*')。
- * フリープレイのワル('fp_mohawk' など)は見た目の名前そのまま
+ * ボスは化けた姿の絵(路地裏は 'boss_disguise_*'、地下駐車場は 'boss2_disguise_*'、高層ビルは 'tw_boss_*')。
+ * フリープレイのワル('fp_mohawk' など)は見た目の名前そのまま。
+ * 高層ビルの人は、市民とヴィランで同じ絵('tw_florist' など)。正体を見ない(ヴィランの手がかりは画面が重ねるもれ)
  */
 export function sheetKeyFor(look: Look, truth: Truth, stageId: StageId = 'alley'): string {
   if (truth === 'boss') {
@@ -192,6 +299,7 @@ export function sheetKeyFor(look: Look, truth: Truth, stageId: StageId = 'alley'
   }
   // フリープレイのワルは見た目の名前がそのまま絵のキー('fp_mohawk' など)
   if (isFreeVillainLook(look)) return look;
+  if (isTowerLook(look)) return `tw_${look}`;
   if (look === 'mohawk') return 'villain_mohawk';
   if (look === 'granny') return 'granny_civ';
   return `${look}_${truth}`;

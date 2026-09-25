@@ -7,13 +7,15 @@
 // 早送り(▶▶)は、時計、動き(tween)、アニメ、毎フレームの動きをまとめて2倍にする(update の applySpeed)。
 // 待てと行けの合図が出ている間だけは、ふつうの速さに戻す(考える時間を減らさないため)。
 //
-// ステージごとの違いは def.mechanic と def.hasRush で分ける(ステージの名前では比べない)。
+// ステージごとの違いは def.mechanic と def.rush で分ける(ステージの名前では比べない)。
 // - mechanic 'gang'(ステージ2):見逃したギャングが口笛で仲間を呼び、集まった組を行けでまとめて倒す。車で逃げる
 // - mechanic 'ufo'(ステージ3):見逃した宇宙人が空へ合図 → UFOが下りて通りがかりの買い物客を吸い上げる。
 //   行けでUFOを殴り落とす(真下の物が壊れる)。押さなければ連れ去られる。時間は UfoQueue(logic/ufo.ts)が数える
-// - hasRush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
+// - rush(ステージ3の波2):結果発表のあと、答え合わせの前にタイムセールラッシュ。右から8人が走ってきて、
 //   ヒーローは全員に光のパンチ。市民にだけ待てを押す。時間は update から呼ぶ stepRush が数える(一時停止とヒットストップで止まる)
-// 3つの仕組みは部品に分けてある:street/gang.ts(GangPart)、street/ufo.ts(UfoPart)、street/rush.ts(RushPart)。
+// - mechanic 'psychic'(ステージ4):見逃したヴィランが念力で物を持ち上げ、右から来た市民の上へ運ぶ。
+//   行けでヴィランを殴ると物はその場の真下に落ちる(ソファなら壊れない)。押さなければ市民に落ちる。時間は PsyQueue(logic/psychic.ts)
+// 4つの仕組みは部品に分けてある:street/gang.ts(GangPart)、street/ufo.ts(UfoPart)、street/rush.ts(RushPart)、street/psychic.ts(PsyPart)。
 // 部品はこのシーンを受け取り、シーンの道具(fx、heroSay、knock など)を使う。部品から使う道具は private にしていない。
 //
 // フリープレイ(run.mode === 'free'。docs/FREEPLAY.md)は、流れを street/free.ts の FreeStreet が受け持つ(this.free)。
@@ -28,7 +30,7 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { accessorySheet } from '../art/recolor';
 import {
-  MARK, MISCHIEF_BY_LOOK, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
+  FLOOR_LOOKS, MARK, MISCHIEF_BY_LOOK, PSY, bgForWave, propsForWave, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
   mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
   type AnyReactionKey, type AttackKind, type Encounter, type ReactionKey, type Rng, type Speech, type StageDef,
   type StatsTracker, type WorstScene
@@ -43,12 +45,13 @@ import { Actor, HEAD } from './street/actor';
 import { FastButton } from './street/fastButton';
 import { FreeStreet } from './street/free';
 import { Layers } from './street/layers';
-import { HERO_START, planGarage, planMall, planStreet } from './street/plan';
+import { HERO_START, planGarage, planMall, planStreet, planTower } from './street/plan';
 import { snapshotLogical } from '../hires';
 import { type CivHit, type HitMode, type PropObj, type Walker, ATTACK_GAP, JUDGE_RISE, RUN } from './street/common';
 import { GangPart } from './street/gang';
 import { UfoPart } from './street/ufo';
 import { RushPart } from './street/rush';
+import { PsyPart } from './street/psychic';
 
 /** ヒーローの画面の中での位置(左寄り) */
 const HERO_SCREEN_X = 60;
@@ -70,7 +73,7 @@ const EYE_AT = { dx: 6, dy: -48 };
 /** 早送りのオンとオフ。ページを開いている間は、波や回をまたいで覚えておく */
 let fastOn = false;
 /** 待てと行けの使い方をもう言ったか(回ごと。その回で初めて合図が出たときだけ言う) */
-const taught = new WeakMap<GameRun, Set<'stop' | 'go' | 'ufo'>>();
+const taught = new WeakMap<GameRun, Set<'stop' | 'go' | 'ufo' | 'psy'>>();
 
 /**
  * 撮った写真を dy ドット下へずらした、同じ大きさ(撮った高さ + dy)の写真にする。上の空いたところは写真のいちばん上の行
@@ -164,6 +167,8 @@ export class StreetScene extends Phaser.Scene {
   ufoPart!: UfoPart;
   /** ステージ3:タイムセールラッシュ(street/rush.ts) */
   rushPart!: RushPart;
+  /** ステージ4:念力(street/psychic.ts) */
+  psyPart!: PsyPart;
 
   constructor() { super(SCENES.street); }
 
@@ -188,6 +193,7 @@ export class StreetScene extends Phaser.Scene {
     this.gangPart = new GangPart(this);
     this.ufoPart = new UfoPart(this);
     this.rushPart = new RushPart(this);
+    this.psyPart = new PsyPart(this);
     const fa = new URLSearchParams(location.search).get('attack');
     this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
 
@@ -209,7 +215,7 @@ export class StreetScene extends Phaser.Scene {
 
   private buildWorld(): void {
     const { actionH } = layout;
-    this.bg = drawStageBg(this, this.def.bg, 0, { depth: { far: -30, wall: -20, ground: -10 } });
+    this.bg = drawStageBg(this, bgForWave(this.def, currentWave(this.run).no), 0, { depth: { far: -30, wall: -20, ground: -10 } });
     for (const s of Object.values(this.bg)) s.setScrollFactor(0);
 
     const wave = currentWave(this.run);
@@ -219,15 +225,17 @@ export class StreetScene extends Phaser.Scene {
     const plan = this.free
       ? this.free.plan(wave.people)
       : this.def.mechanic === 'gang'
-        ? planGarage(wave.people, passBad, this.def.props, this.rng)
+        ? planGarage(wave.people, passBad, propsForWave(this.def, wave.no), this.rng)
         : this.def.mechanic === 'ufo'
-          ? planMall(wave.people, passBad, this.def.props, this.rng, this.rushPart.rushThisWave())
-          : planStreet(wave.people, passBad, this.rng);
+          ? planMall(wave.people, passBad, propsForWave(this.def, wave.no), this.rng, this.rushPart.rushThisWave())
+          : this.def.mechanic === 'psychic'
+            ? planTower(wave.people, passBad, propsForWave(this.def, wave.no), FLOOR_LOOKS[wave.no - 1] ?? [], wave.no - 1, this.rng)
+            : planStreet(wave.people, passBad, this.rng);
     this.rushPart.rushX = plan.rushX ?? null;
 
     for (const p of plan.props) {
       const key = `prop_${p.kind}`;
-      const sprite = this.add.sprite(p.x, p.y, key, 0);
+      const sprite = this.add.sprite(p.x, p.y, key, p.frame ?? 0);
       const origin = p.wall ? [0.5, 0.5] : [0.5, 1];
       sprite.setOrigin(origin[0], origin[1]).setDepth(p.wall ? -15 : p.y);
       this.props.push({ ...p, sprite, broken: false });
@@ -237,6 +245,8 @@ export class StreetScene extends Phaser.Scene {
     if (rushX !== null) {
       this.rushPart.rushGuard = this.props.find((p) => p.kind === 'escalator' && Math.abs(p.x - rushX) < 24) ?? null;
     }
+    // ステージ4:念力の場面(その場面の物は、場面が終わるまでふつうの攻撃で壊れない)
+    for (const spot of plan.psy ?? []) this.psyPart.addSpot(spot);
     for (const g of plan.gathers) {
       this.gangPart.gathers.set(g.whistlerId, g);
       const van = this.props.find((p) => p.kind === 'van' && p.x === g.vanX && p.y === g.vanY);
@@ -344,6 +354,7 @@ export class StreetScene extends Phaser.Scene {
       const held = this.free?.held ?? false;
       if (this.gangPart.gang && !held) this.gangPart.stepGang(ms);
       if (this.ufoPart.ufo && !held) this.ufoPart.stepUfo(ms);
+      if (this.psyPart.psy) this.psyPart.stepPsy(ms);
       if (this.rushPart.rushRunning) this.rushPart.stepRush(ms);
       // カメラはヒーローについて行く(少し遅れて)
       const target = this.camFocus !== null ? this.camFocus - layout.W / 2 : this.hero.x - HERO_SCREEN_X;
@@ -625,7 +636,8 @@ export class StreetScene extends Phaser.Scene {
     const l = this.L.left - 8;
     const r = this.L.right + 8;
     // ギャングのワゴンはふつうの攻撃では壊れない(組が乗って逃げる車)。ラッシュの前のエスカレーターも壊れない
-    return this.props.filter((p) => !p.broken && p.kind !== 'van' && p !== this.rushPart.rushGuard && p.x >= l && p.x <= r);
+    // ステージ4の念力の場面の物も、場面が終わるまで壊れない
+    return this.props.filter((p) => !p.broken && p.kind !== 'van' && p !== this.rushPart.rushGuard && !this.psyPart.guarded.has(p) && p.x >= l && p.x <= r);
   }
 
   /**
@@ -714,6 +726,10 @@ export class StreetScene extends Phaser.Scene {
       // 宇宙人:目が一瞬光って「ピピッ…」
       this.eyeGlow(a);
       audio.sfx('beep');
+    } else if (bad && this.def.mechanic === 'psychic') {
+      // 超能力のヴィラン:指先に紫の火花がともって「フッ…」(ヒーローの方を向いているので、火花は左の手の先)
+      this.fingerSpark(a);
+      audio.sfx('psy', { volume: 0.4 });
     } else if (bad) {
       // くるっと背を向けて、すぐ戻る(何かを隠す)
       a.faceLeft(false);
@@ -742,8 +758,16 @@ export class StreetScene extends Phaser.Scene {
     this.time.delayedCall(360, () => g.destroy());
   }
 
-  /** 待てや行けの使い方を、その回でまだ言っていなければ true(言ったことにする)。'ufo' はUFOを行けで落とすこと */
-  firstTime(kind: 'stop' | 'go' | 'ufo'): boolean {
+  /** 超能力のヴィランの指先に、紫の火花が一瞬ともる(本性ちらり) */
+  private fingerSpark(a: Actor): void {
+    const dx = a.sprite.flipX ? -13 : 13;
+    // 小さい火花は人の絵にまぎれるので、2倍で出す
+    const s = this.psyPart.spark(a.x + dx, a.y - 29, a.y + 0.6).setScale(2);
+    this.time.delayedCall(PEEK_MS - 150, () => s.destroy());
+  }
+
+  /** 待てや行けの使い方を、その回でまだ言っていなければ true(言ったことにする)。'ufo' はUFOを行けで落とすこと、'psy' は念力の物を行けで落とすこと */
+  firstTime(kind: 'stop' | 'go' | 'ufo' | 'psy'): boolean {
     let set = taught.get(this.run);
     if (!set) { set = new Set(); taught.set(this.run, set); }
     if (set.has(kind)) return false;
@@ -997,9 +1021,12 @@ export class StreetScene extends Phaser.Scene {
     this.report(sceneForCivHit(c.look!, k), k);
   }
 
-  /** 物が壊れる。count=false はボスが暴れたとき(被害額は bossRampage に含まれている) */
+  /**
+   * 物が壊れる。count=false は被害額をここで数えないとき(ボスが暴れたときは bossRampage に、
+   * ステージ4の念力で落ちた物は psyDowned に含まれている)。ソファ(ステージ4)は壊れない
+   */
   breakProp(p: PropObj, count = true): void {
-    if (p.broken || p === this.rushPart.rushGuard) return;
+    if (p.broken || p === this.rushPart.rushGuard || p.kind === PSY.cushionProp) return;
     p.broken = true;
     p.sprite.setFrame(1);
     const cy = p.wall ? p.y : p.y - p.sprite.height / 2;
@@ -1143,6 +1170,8 @@ export class StreetScene extends Phaser.Scene {
       if (this.def.mechanic === 'gang' && a.person?.group) await this.gangPart.gangCall(a);
       // ショッピングモールの宇宙人は、悪さの代わりに空へ合図を送ってUFOを呼ぶ
       else if (this.def.mechanic === 'ufo') await this.ufoPart.ufoCall(a);
+      // 高層ビルのヴィランは、念力で物を持ち上げて通りがかりの市民の上へ運ぶ
+      else if (this.def.mechanic === 'psychic') await this.psyPart.psyCall(a);
       else await this.mischief(a);
       return false;
     }
@@ -1327,6 +1356,8 @@ export class StreetScene extends Phaser.Scene {
     const h = this.hero;
     void this.arc(h, h.x - 26, 20, 300);
     await this.revealBoss(a);
+    // 高層ビル:正体を現すと、会場のグラスや料理が念力でいっせいに浮く(見た目だけ。浮いたままボス戦へ)
+    if (this.def.mechanic === 'psychic') this.psyPart.liftAround(a);
     void banner(this, 'ボス出現!', { hold: 900, y: BANNER_TOP_Y });
     this.opSay(this.line('bossReveal', this.rng), true);
     h.play('idle');
@@ -1354,6 +1385,9 @@ export class StreetScene extends Phaser.Scene {
     if (this.def.mechanic === 'gang') {
       // 地下駐車場:女ボスは手下の車をけしかける。ワゴンが通りを走り抜けて、物を壊していく
       this.gangPart.thugVans();
+    } else if (this.def.mechanic === 'psychic') {
+      // 高層ビル:親玉が会場の家具を念力でいっせいに浮かせて、窓の外へ投げる
+      this.psyPart.flingFurniture(a);
     } else {
       // ショッピングモール:母艦の光線でモールを焼く
       if (this.def.mechanic === 'ufo') audio.sfx('shipBeam');

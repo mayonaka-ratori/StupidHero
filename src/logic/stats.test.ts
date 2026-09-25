@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { liftSummary } from './reasons';
 import { StatsTracker, WORST_SCENE_RANK, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
 
 describe('StatsTracker', () => {
@@ -197,7 +198,7 @@ describe('仕分けの答え合わせ', () => {
 describe('StatsTracker(ステージ3)', () => {
   it('いちばんひどい場面の順:市民を殴った瞬間のすぐあとに「市民がさらわれた」、そのあと大きな物', () => {
     expect(Object.entries(WORST_SCENE_RANK).sort((a, b) => a[1] - b[1]).map(([k]) => k))
-      .toEqual(['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'bigPropBroken', 'bossDefeated']);
+      .toEqual(['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'dropped', 'bigPropBroken', 'bossDefeated']);
     const s = new StatsTracker(8, 'mall');
     expect(s.reportScene('bigPropBroken')).toBe(true);
     expect(s.reportScene('abducted')).toBe(true);
@@ -265,5 +266,101 @@ describe('StatsTracker(ステージ3)', () => {
     const s = new StatsTracker(8, 'mall');
     expect(s.bossRampage()).toBe(20_000_000);
     expect(s.snapshot().bossSortedCiv).toBe(true);
+  });
+
+  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない。親玉を見逃すと¥2,000万', () => {
+    const s = new StatsTracker(9, 'tower');
+    expect(s.mischief('chef')).toBe(0);
+    s.hurtCiv('dropped');
+    const r = s.snapshot();
+    expect(r.civHurt).toBe(1);
+    expect(r.civHurtByDrop).toBe(1);
+    expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain, r.civHurtByAbduction]).toEqual([0, 0, 0, 0]);
+    expect(r.damage).toBe(0);
+    expect(s.heroMistakes).toBe(0);
+    expect(s.breakProp('sofa')).toBe(0);
+    expect(s.breakProp('piano')).toBe(30_000_000);
+    expect(s.bossRampage()).toBe(20_000_000);
+    // ほかのステージでは物が落ちたけがは0
+    expect(new StatsTracker(3, 'mall').snapshot().civHurtByDrop).toBe(0);
+  });
+});
+
+describe('StatsTracker(ステージ4)', () => {
+  it('念力を行けで止めた:ヴィランを撃破と「行けで倒した」に数え、落ちた先で壊れた物を足す', () => {
+    const s = new StatsTracker(5, 'tower');
+    expect(s.psyDowned({ on: 'floor', broken: ['plant'] })).toBe(50_000);
+    expect(s.psyDowned({ on: 'prop', broken: ['wine', 'tank'] })).toBe(8_000_000);
+    expect(s.psyDowned({ on: 'sofa', broken: [] })).toBe(0);
+    expect(s.psyDowned({ on: 'sofa', broken: [] })).toBe(0);
+    // 行けが遅れて市民の上で落ちた:ヴィランは倒れるが、市民はけが(物が落ちた)。物は壊れない
+    expect(s.psyDowned({ on: 'citizen', broken: [] })).toBe(0);
+    const r = s.snapshot();
+    expect(r.defeated).toBe(5);
+    expect(r.allDefeated).toBe(true);
+    expect(r.defeatedByGo).toBe(5);
+    expect(r.defeatedByPsy).toBe(5);
+    expect(r.sofaSaves).toBe(2);
+    expect(r.civHurt).toBe(1);
+    expect(r.civHurtByDrop).toBe(1);
+    expect(r.escaped).toBe(0);
+    expect(r.damage).toBe(8_050_000);
+    expect(r.damageByProps).toBe(8_050_000);
+    expect(r.propsBroken).toMatchObject({ plant: 1, wine: 1, tank: 1, sofa: 0 });
+  });
+
+  it('押さずに物が市民に落ちた:市民のけが(物が落ちた)と逃がしたに数える。被害額は増えない', () => {
+    const s = new StatsTracker(3, 'tower');
+    s.psyEscaped();
+    s.psyEscaped();
+    const r = s.snapshot();
+    expect(r.civHurt).toBe(2);
+    expect(r.civHurtByDrop).toBe(2);
+    expect(r.escaped).toBe(2);
+    expect(r.escapedByPsy).toBe(2);
+    expect(r.defeated).toBe(0);
+    expect(r.damage).toBe(0);
+    expect(s.heroMistakes).toBe(0);
+  });
+
+  it('市民に物が落ちた場面は、市民がさらわれた場面と同じ段(先に起きた1枚を残す)', () => {
+    expect(WORST_SCENE_RANK.dropped).toBe(WORST_SCENE_RANK.abducted);
+    const s = new StatsTracker(8, 'tower');
+    expect(s.reportScene('bigPropBroken')).toBe(true);
+    expect(s.reportScene('dropped')).toBe(true);
+    expect(s.reportScene('dropped')).toBe(false);
+    expect(s.reportScene('abducted')).toBe(false);
+    expect(s.reportScene('civHit', 'punch')).toBe(true);
+    expect(s.reportScene('dropped')).toBe(false);
+    expect(s.snapshot().worstScene).toBe('civHit');
+  });
+
+  it('エレベーターラッシュの数はタイムセールラッシュと同じ形で、ほかの数字に入らない', () => {
+    const s = new StatsTracker(1, 'tower');
+    expect(s.snapshot().lift).toBeNull();
+    s.startLift({ villainCount: 3, civCount: 3 });
+    s.liftHit('bad');
+    s.liftHit('bad');
+    s.liftStopped('bad');
+    s.liftHit('civ');
+    s.liftStopped('civ');
+    s.liftStopped('civ');
+    const r = s.snapshot();
+    expect(r.lift).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs: 3, civsSaved: 2, civsHit: 1 });
+    expect(liftSummary(r.lift!)).toBe('エレベーター：撃破2/3・守った2/3');
+    expect(r.rush).toBeNull();
+    expect([r.defeated, r.civHurt, r.escaped, r.civSavedByStop, r.badSparedByStop]).toEqual([0, 0, 0, 0, 0]);
+    // snapshot は写し
+    s.liftHit('bad');
+    expect(r.lift!.aliensDefeated).toBe(2);
+    // 2回始めたら数え直す
+    s.startLift({ villainCount: 2, civCount: 4 });
+    expect(s.liftTally).toEqual({ aliens: 2, aliensDefeated: 0, aliensSpared: 0, civs: 4, civsSaved: 0, civsHit: 0 });
+  });
+
+  it('ステージ1〜3では念力とエレベーターの数は0のまま', () => {
+    const r = new StatsTracker(3, 'mall').snapshot();
+    expect([r.defeatedByPsy, r.escapedByPsy, r.sofaSaves]).toEqual([0, 0, 0]);
+    expect(r.lift).toBeNull();
   });
 });

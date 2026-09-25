@@ -1,6 +1,6 @@
 // 結果画面の共有ともう一回を、タッチで試す(result 担当)。
 // 使い方: npm run dev を動かしてから
-//   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall。free ならフリープレイの結果画面)]
+//   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall、tower。free ならフリープレイの結果画面)]
 // 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // NG があれば exit code 1。
 import { checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
@@ -126,6 +126,8 @@ async function open(mode, extra = '') {
   await page.waitForTimeout(600);
   await tapBtn('again');
   await page.waitForTimeout(1200);
+  // 端末が重いとワイプが遅れるので、次の場面が動き出すまで少し待つ
+  await page.waitForFunction(() => window.resultDev.scene.game.scene.getScenes(true).some((s) => ['Intro', 'Sort', 'Street'].includes(s.scene.key)), null, { timeout: 10000 }).catch(() => {});
   const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
   const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id, mode: r.mode, clockMs: r.free?.clockMs ?? null }; });
   if (free) {

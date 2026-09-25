@@ -43,7 +43,7 @@ export const MALL_PROFILE_LINES: Readonly<Record<MallLook, { civ: readonly strin
       '着ぐるみの中は\nとても暑い',
       '前がほとんど\n見えない',
       '子どもに\nよく抱きつかれる',
-      '休みの時間は\n水ばかり飲む',
+      '休けい中は\n水ばかり飲む',
       'このクマの名前は\nモルくん',
       '中の人は\nひみつ',
       'バイトは\n閉店まで'
@@ -53,7 +53,7 @@ export const MALL_PROFILE_LINES: Readonly<Record<MallLook, { civ: readonly strin
       '着ぐるみの中は\nとても快適',
       '前が見えなくても\n平気',
       '子どもに\nじっと見られる',
-      '休みの時間は\nとらない',
+      '休けいは\nとらない',
       'このクマの名前は\nまだ覚えていない',
       '中の人は\nひみつ',
       'バイトは\n閉店まで'
@@ -67,7 +67,7 @@ export const MALL_PROFILE_LINES: Readonly<Record<MallLook, { civ: readonly strin
       'レジ打ちは\n目をつぶってもできる',
       'コーヒーを\n一日五杯飲む',
       '売り場の場所なら\n全部言える',
-      '名札の写真は\n入社したとき',
+      '名札の写真は\n入社したときのもの',
       '閉店のあとは\nすぐ寝たい',
       '店長には\nいつも怒られる'
     ],
@@ -266,12 +266,12 @@ export const MALL_INTRO: readonly Speech[] = [
   hero('smug', '次はショッピングモール！\n宇宙人退治だ！'),
   op('normal', '宇宙人は人間に化けてる。\nときどき動きがくずれる'),
   op('deadpan', 'ぎこちない市民もいるよ。\n少し待って、よく見てね'),
-  op('panic', '見逃すとUFOを呼んで、\n人を連れていく'),
+  op('panic', '宇宙人を見逃すと\nUFOが人をさらう！'),
   op('normal', '全員は待てないから、\nほかの手がかりも見てね')
 ];
 
 /** ショッピングモールの波の始まりの一言。上から順に出す */
-export const MALL_WAVE_INTRO: Readonly<Record<WaveNo, readonly Speech[]>> = {
+export const MALL_WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]>>> = {
   1: [
     op('normal', 'まずは練習。\n5人来るよ'),
     op('normal', '少し待つと\n動きがくずれるかも')
@@ -315,12 +315,12 @@ export const MALL_REACTIONS: Readonly<Record<MallReactionKey, readonly Speech[]>
   teachUfo: [op('hype', 'UFOが来た！\n行けで落として！')],
   ufoBeam: [op('panic', '人が吸われてる！\n行けを押して！'), op('panic', '連れていかれる！\n今なら行け！')],
   ufoGo: [hero('smug', 'UFOごと\nぶっ飛ばす！'), hero('smug', '空まで\n届けーっ！')],
-  ufoDowned: [op('deadpan', '落ちた…けど\n床がへこんだ'), op('deadpan', 'ナイス…\nUFOは弁償？')],
+  ufoDowned: [op('deadpan', '落ちた…けど\n床がへこんだ'), op('deadpan', 'ナイス…\n床の修理代は？')],
   ufoAbducted: [op('deadpan', '連れていかれた…'), op('deadpan', 'あーあ、\n空に消えた')],
   rushMark: [hero('smug', 'セールを荒らすなーっ！')],
   rushCivHit: [hero('smile', 'あれ？')],
   rushEndGood: [op('hype', 'セール終了！\nばっちり！')],
-  rushEndBad: [op('deadpan', 'セール終了…\nつかれた')]
+  rushEndBad: [op('deadpan', 'セール終了…\n市民も殴ってた')]
 };
 
 /**
@@ -396,12 +396,12 @@ export const RUSH_BAND = 'タイムセール開始！';
 /** 初めてのラッシュの説明(オペレーター、2つ続けて) */
 export const RUSH_INTRO_FIRST: readonly Speech[] = [
   op('panic', '人がどっと来る！\n全員殴られちゃう！'),
-  op('normal', 'くずれてたら宇宙人！\n市民にだけ待て！')
+  op('normal', 'くずれてたら宇宙人！\n市民だけ待てを押して')
 ];
 
 /** 2回目からのラッシュの説明(オペレーター、1つ) */
 export const RUSH_INTRO_AGAIN: readonly Speech[] = [
-  op('panic', 'タイムセール！\n市民にだけ待て！')
+  op('panic', 'タイムセール！\n市民だけ待てを押して')
 ];
 
 // ─── 称号のひとこと ───────────────────────────────

@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { SCENES } from './config';
 import { createStage } from './logic';
 import {
-  currentFreeWave, currentWave, fillUnsorted, getRun, nextAfterFreeStreet, nextAfterReview, nextAfterStreet, recordAllSorts, setSort,
-  startFreeRun, startRun
+  currentFreeWave, currentWave, fillUnsorted, getRun, nextAfterFreeStreet, nextAfterReview, nextAfterStreet, recordAllSorts, sceneAfterLastReview,
+  setSort, startFreeRun, startRun
 } from './run';
+import { clearRecords, markEndingSeen } from './logic/records';
 import { createFreePlay } from './logic/freeplay';
 import type Phaser from 'phaser';
 
@@ -62,6 +63,42 @@ describe('場面の流れ', () => {
       expect(s.sortWaves.map((w) => w.wave)).toEqual([1, 2, 3]);
       expect(s.sortTotal + s.sortByHero).toBe(run.stage.peopleTotal);
     }
+  });
+
+  it('波が4つのステージ(ステージ4)は、波3のあとも答え合わせを通って波4の Sort へ行き、波4のあとに Boss', () => {
+    const run = startRun(fakeScene(), 7, false, 'mall');
+    // ステージ4はまだないので、ショッピングモールの並びに波4を足して流れだけを確かめる
+    const w3 = run.stage.waves[2];
+    run.stage.waves.push({ ...w3, no: 4, people: w3.people.map((p) => ({ ...p, id: `w4-${p.index}`, wave: 4 })) });
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      expect(currentWave(run).no).toBe(i + 1);
+      fillUnsorted(run);
+      const next = nextAfterStreet(run);
+      seen.push(next);
+      if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
+    }
+    expect(seen).toEqual([
+      SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.boss
+    ]);
+    expect(run.waveIndex).toBe(3);
+    expect(nextAfterReview(run)).toBe(SCENES.result);
+  });
+
+  it('高層ビルは、波1と2、波2と3の間に階の数字の場面(Floor)をはさむ。波3のあとはエレベーターラッシュ(Elevator)を通って波4へ', () => {
+    const run = startRun(fakeScene(), 7, false, 'tower');
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      expect(currentWave(run).no).toBe(i + 1);
+      fillUnsorted(run);
+      const next = nextAfterStreet(run);
+      seen.push(next);
+      if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
+    }
+    expect(seen).toEqual([
+      SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.elevator, SCENES.boss
+    ]);
+    expect(nextAfterReview(run)).toBe(SCENES.result);
   });
 
   it('答え合わせを通らずに結果画面へ来ても、仕分けの済んだ波は recordAllSorts で数える', () => {
@@ -137,5 +174,26 @@ describe('フリープレイ', () => {
     expect(run.waveIndex).toBe(2);
     // ステージの run でフリープレイの波を聞くと投げる
     expect(() => currentFreeWave(startRun(fakeScene(), 1))).toThrow();
+  });
+});
+
+describe('終わりの場面(高層ビルのボスを初めて倒したとき)', () => {
+  it('最後の答え合わせのあと、高層ビルのボスを倒していれば Ending、見たあとと、ほかのステージは Result', () => {
+    clearRecords(null);
+    const tower = startRun(fakeScene(), 9, false, 'tower');
+    tower.waveIndex = tower.stage.waves.length - 1;
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.result);   // ボスを倒していない
+    tower.stats.defeatBoss(8);
+    expect(nextAfterReview(tower)).toBe(SCENES.ending);
+    const mall = startRun(fakeScene(), 9, false, 'mall');
+    mall.waveIndex = mall.stage.waves.length - 1;
+    mall.stats.defeatBoss(8);
+    expect(nextAfterReview(mall)).toBe(SCENES.result);
+    markEndingSeen(null);
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.result);
+    // 開発用に途中から始めたときは、見たことがあっても出す
+    tower.debug = true;
+    expect(sceneAfterLastReview(tower)).toBe(SCENES.ending);
+    clearRecords(null);
   });
 });

@@ -150,6 +150,69 @@ const TOOT: FmPatch = {
   vib: [6, 16, 0.12]
 };
 
+/** エレピ(ステージ4用)。BELL より変調を弱くした丸い音に、たたいた瞬間の小さな「コン」を足す */
+const EPIANO: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.26, env: E(0.003, 1.4, 0.15, 0.3) },
+    { ratio: 1, lvl: 0.55, env: E(0.002, 0.5, 0.1, 0.25) },
+    { ratio: 1, det: 5, lvl: 0.08, env: E(0.003, 0.9, 0.1, 0.25) },
+    { ratio: 7, lvl: 0.35, env: E(0.001, 0.05, 0.0, 0.05) }
+  ],
+  mods: [[1, 0], [3, 2]],
+  out: [0, 2],
+  vib: [4.5, 5, 0.2]
+};
+
+/** ウッドベース(ステージ4用)。はじいた「ボン」がすぐ丸くなる、木の胴っぽい低い音 */
+const UPRIGHT: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.55, env: E(0.004, 0.55, 0.25, 0.06) },
+    { ratio: 1, lvl: 1.3, env: E(0.002, 0.07, 0.15, 0.05) },
+    { ratio: 2, lvl: 0.06, env: E(0.004, 0.3, 0.1, 0.05) }
+  ],
+  mods: [[1, 0]],
+  out: [0, 2]
+};
+
+/** 紫のうなり(ステージ4用のパッド)。ゆっくり立ち上がり、少しずらした音がゆっくりうねる */
+const PSYPAD: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.1, env: E(0.5, 1.0, 0.8, 0.5) },
+    { ratio: 1.5, det: 4, lvl: 0.6, env: E(0.6, 1.0, 0.6, 0.5) },
+    { ratio: 1, det: -12, lvl: 0.07, env: E(0.6, 1.0, 0.8, 0.5) },
+    { ratio: 0.5, lvl: 0.3, env: E(0.6, 1.0, 0.6, 0.5) }
+  ],
+  mods: [[1, 0], [3, 2]],
+  out: [0, 2],
+  vib: [3.2, 26, 0.3]
+};
+
+/** 重いオルガン(ステージ4のボス戦)。倍音を足し重ねた音に、少しの変調でざらつきと、ゆれを足す */
+const ORGAN: FmPatch = {
+  ops: [
+    { ratio: 0.5, lvl: 0.08, env: E(0.004, 0.2, 1, 0.05) },
+    { ratio: 1, lvl: 0.12, env: E(0.004, 0.2, 1, 0.05) },
+    { ratio: 2, lvl: 0.07, env: E(0.004, 0.2, 1, 0.05) },
+    { ratio: 3, lvl: 0.05, env: E(0.002, 0.15, 0.4, 0.05) },
+    { ratio: 1, lvl: 0.7, env: E(0.004, 0.2, 0.8, 0.05) }
+  ],
+  mods: [[4, 1]],
+  out: [0, 1, 2, 3],
+  vib: [6.5, 10, 0]
+};
+
+/** ビブラフォン(ステージ4のエレベーターの曲) */
+const VIBES: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.26, env: E(0.002, 1.1, 0.05, 0.2) },
+    { ratio: 4, lvl: 0.5, env: E(0.001, 0.2, 0, 0.1) },
+    { ratio: 1, det: 6, lvl: 0.08, env: E(0.002, 0.9, 0.05, 0.2) }
+  ],
+  mods: [[1, 0]],
+  out: [0, 2],
+  vib: [5.5, 7, 0]
+};
+
 // ---------------------------------------------------------------- 楽器
 
 export type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
@@ -170,6 +233,14 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   deep: fmInst(DEEP),
   mallet: fmInst(MALLET),
   space: fmInst(SPACE),
+  epiano: fmInst(EPIANO),
+  /** ウッドベース。少し下からすべりこむ */
+  upright: (ctx, out, t, midi, gate, vol) => {
+    fm(ctx, out, t, hz(midi), gate, UPRIGHT, vol, { from: -35, to: 0, time: 0.04 });
+  },
+  psypad: fmInst(PSYPAD),
+  organ: fmInst(ORGAN),
+  vibes: fmInst(VIBES),
   /** PSGの短い矩形波(アルペジオ用) */
   sq: (ctx, out, t, midi, gate, vol) => {
     tone(ctx, out, t, { f: hz(midi), gate: Math.min(gate, 0.09), env: E(0.001, 0.08, 0.4, 0.03), vol: 0.1 * vol });

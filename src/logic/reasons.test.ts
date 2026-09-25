@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MALL_REASONS, REASON_MAX, reasonFor, rushSummary, stripReasonMarkup } from './reasons';
+import {
+  MALL_REASONS, REASON_MAX, TOWER_CIV_REASONS, TOWER_DECOY_REASONS, TOWER_LEAK_REASONS, liftSummary, reasonFor, rushSummary,
+  stripReasonMarkup
+} from './reasons';
 import { createStage } from './stage';
 import type { Person, StageId } from './types';
 
@@ -9,7 +12,7 @@ const widthOf = (s: string): number => Array.from(s).reduce((n, ch) => n + (/[ -
 describe('答え合わせの決め手', () => {
   it('出てくるどの見た目と正体の組み合わせにも、決め手の文がある(1行に入る長さ)', () => {
     const seen = new Map<string, Set<string>>();
-    for (const stageId of ['alley', 'garage', 'mall'] as StageId[]) {
+    for (const stageId of ['alley', 'garage', 'mall', 'tower'] as StageId[]) {
       for (let seed = 1; seed <= 300; seed++) {
         const stage = createStage(seed, stageId);
         for (const w of stage.waves) for (const p of w.people) {
@@ -45,6 +48,35 @@ describe('答え合わせの決め手', () => {
       expect(seen.has(`mall:${k}:civ`), k).toBe(true);
     }
     for (const k of ['clerk', 'uncle', 'mascot']) expect(seen.has(`mall:${k}:boss`), k).toBe(true);
+    // 高層ビル:8つの見た目で市民とヴィラン、親玉は化けた3つ
+    for (const k of Object.keys(TOWER_CIV_REASONS)) {
+      expect(seen.has(`tower:${k}:bad`), k).toBe(true);
+      expect(seen.has(`tower:${k}:civ`), k).toBe(true);
+    }
+    for (const k of ['lady', 'magician', 'waiter']) expect(seen.has(`tower:${k}:boss`), k).toBe(true);
+  });
+
+  it('高層ビル:ヴィランはもれの出方、紛らわしい市民はその理由、ほかの市民は見た目ごと、親玉は化けた姿のおかしい所', () => {
+    const p = (over: Partial<Person>): Person =>
+      ({ id: 'x', wave: 1, index: 0, look: 'chef', truth: 'civ', sheetKey: '', profile: { name: '', age: 0, line: '' }, hint: { text: '', face: 'normal' }, ...over });
+    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: true } }))).toBe('照明も小物も変だった');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: false } }))).toBe('照明が紫に光っていた');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: true } }))).toBe('机の小物が浮いていた');
+    expect(reasonFor(p({ decoy: 'flicker' }))).toBe('蛍光灯が切れかけだった');
+    expect(reasonFor(p({ look: 'magician', decoy: 'thread' }))).toBe('手品の糸で吊っていた');
+    expect(reasonFor(p({ look: 'florist', decoy: 'balloon' }))).toBe('風船がのっていただけ');
+    expect(reasonFor(p({}))).toBe('味見をしていただけ');
+    expect(reasonFor(p({ look: 'newbie' }))).toBe('新人でそわそわしていた');
+    expect(reasonFor(p({ look: 'lady', truth: 'boss', disguise: 'lady' }))).toBe('羽の飾りが金色だった');
+    expect(reasonFor(p({ look: 'magician', truth: 'boss', disguise: 'magician' }))).toBe('つえの先がビルの形');
+    expect(reasonFor(p({ look: 'waiter', truth: 'boss', disguise: 'waiter' }))).toBe('蝶ネクタイが金色だった');
+    const all = [...Object.values(TOWER_CIV_REASONS), ...Object.values(TOWER_DECOY_REASONS), ...Object.values(TOWER_LEAK_REASONS)];
+    for (const t of all) expect(widthOf(t), t).toBeLessThanOrEqual(REASON_MAX);
+  });
+
+  it('エレベーターラッシュのまとめの1行', () => {
+    expect(liftSummary({ aliens: 3, aliensDefeated: 2, civs: 3, civsSaved: 3 })).toBe('エレベーター：撃破2/3・守った3/3');
+    expect(liftSummary({ aliens: 2, aliensDefeated: 0, civs: 4, civsSaved: 1 })).not.toMatch(/[ —]/);
   });
 
   it('ショッピングモール:宇宙人はくずれ、市民はぎこちない動きの理由、親玉は化けた姿のおかしい所', () => {

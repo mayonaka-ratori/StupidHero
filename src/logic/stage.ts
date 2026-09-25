@@ -4,27 +4,29 @@
 //   const stage = createStage(seed);            // 路地裏(ステージ1)
 //   const stage = createStage(seed, 'garage');  // 地下駐車場(ステージ2)
 //   const stage = createStage(seed, 'mall');    // ショッピングモール(ステージ3)。stage.rush にタイムセールラッシュの並び
+//   const stage = createStage(seed, 'tower');   // 高層ビル(ステージ4。波は4つ)。stage.rush にエレベーターラッシュの並び
 //   stage.id、stage.def(STAGES の定義)、stage.waves[i].people、stage.waves[i].groups(ギャングの組)
 //
 // 路地裏の決まり:SPECの波の表の通り。1つの波のワルは2〜3人。波1にはモヒカンを必ず1人。波3にはボスが1人紛れる。
 // 同じ見た目の市民とワルがなるべく同じ波に両方出るようにし、名前と文は同じものを2回出さない。
-// 地下駐車場の決まりは garage.ts、ショッピングモールの決まりは mall.ts。
+// 地下駐車場の決まりは garage.ts、ショッピングモールの決まりは mall.ts、高層ビルの決まりは tower.ts。
 
 import { buildGarageWaves } from './garage';
 import { buildMallWaves, buildRush } from './mall';
+import { buildLift, buildTowerWaves } from './tower';
 import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { BAD_PER_WAVE, WAVES } from './rules';
 import { STAGES } from './stages';
-import type { AlleyDisguise, Look, PairLook, Person, Stage, StageId, Wave, WaveNo } from './types';
+import type { AlleyDisguise, LiftPlan, Look, PairLook, Person, RushPlan, Stage, StageId, Wave, WaveNo } from './types';
 
 const PAIR_LOOKS: readonly PairLook[] = ['hoodie', 'suit', 'shopper'];
 /** 路地裏のボスの化けた姿 */
 const DISGUISE_LOOKS: readonly AlleyDisguise[] = ['suit', 'granny', 'shopper'];
 
 /**
- * 1ステージぶんの3つの波を作る。
+ * 1ステージぶんの波(ステージ1〜3は3つ、ステージ4は4つ)を作る。
  * @param seed 種。省略すると毎回ちがうステージ。数でも文字列でもよい
  * @param stageId どのステージか。省略すると路地裏
  */
@@ -35,8 +37,8 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
   const def = STAGES[stageId];
   const badTotal = waves.reduce((sum, w) => sum + w.badCount, 0);
   const bossTotal = waves.filter((w) => w.hasBoss).length;
-  // タイムセールラッシュの並びは波を作ったあとに決める(ラッシュのないステージの乱数の引き方は変わらない)
-  const rush = def.hasRush ? buildRush(rng) : null;
+  // ラッシュの並びは波を作ったあとに決める(ラッシュのないステージの乱数の引き方は変わらない)
+  const rush = def.rush?.kind === 'sale' ? buildRush(rng) : def.rush?.kind === 'elevator' ? buildLift(rng) : null;
   return {
     id: stageId,
     def,
@@ -53,7 +55,8 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
 const WAVE_BUILDERS: Readonly<Record<StageId, (rng: Rng, used: UsedTexts) => Wave[]>> = {
   alley: (rng, used) => buildAlleyWaves(rng, used),
   garage: (rng, used) => buildGarageWaves(rng, used),
-  mall: (rng, used) => buildMallWaves(rng, used)
+  mall: (rng, used) => buildMallWaves(rng, used),
+  tower: (rng, used) => buildTowerWaves(rng, used)
 };
 
 /** 路地裏の3つの波 */
@@ -100,6 +103,16 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
     }));
     return { no: plan.no, seconds: plan.seconds, people, badCount: waveBad, hasBoss: plan.boss, groups: [] };
   });
+}
+
+/** タイムセールラッシュの並び(ステージ3)。ほかのステージやラッシュのないステージは null */
+export function saleRushOf(stage: Pick<Stage, 'rush'>): RushPlan | null {
+  return stage.rush?.kind === 'sale' ? stage.rush : null;
+}
+
+/** エレベーターラッシュの並び(ステージ4)。ほかのステージは null */
+export function liftRushOf(stage: Pick<Stage, 'rush'>): LiftPlan | null {
+  return stage.rush?.kind === 'elevator' ? stage.rush : null;
 }
 
 /** ステージの中のボス(いなければ null) */

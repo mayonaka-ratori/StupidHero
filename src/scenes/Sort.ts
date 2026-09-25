@@ -10,6 +10,9 @@
 // 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts)。
 // ステージ3の宇宙人(person.glitch がある人)は、その人が出てから進んだ時計の秒数で、ときどき動きがくずれる
 // (glitchShowing。文字送りの間と一時停止の間は時計と一緒に止まる)。「持ち物」の窓も同じコマを映すので、くずれが窓にも出る。
+// ステージ4(def.mechanic が 'psychic')は、人の後ろにその階の壁と、左上の照明、左下の机と小物を置く(sort/towerDesk.ts)。
+// ヴィランのもれと紛らわしい市民の理由(leakSpots(person))は、人が出た瞬間から出して、その人の間は変えない。
+// 「持ち物」の窓は「まわり」の窓にして、机の小物のあたり(src/art/towerSpots.ts)を3倍で映す。中断中は、もれも消す。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -17,8 +20,11 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { settings } from '../settings';
 import { animKey, originFor } from '../art/sheets';
+import { CALM_LOOK, TOWER_DESK, TOWER_LAMP, deskRect, leakLook } from '../art/towerSpots';
 import { accessorySheet } from '../art/recolor';
-import { HURRY_AT_SEC, glitchCount, glitchShowing, say, waveIntroFor, type Person, type SortChoice, type Speech } from '../logic';
+import {
+  HURRY_AT_SEC, bgForWave, glitchCount, glitchShowing, leakSpots, say, waveIntroFor, type Person, type SortChoice, type Speech
+} from '../logic';
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
@@ -32,6 +38,7 @@ import { drawHand } from './sort/introDemo';
 import { RemarkRow, Typer } from './sort/remark';
 import { ClueZoom } from './sort/clueZoom';
 import { SeenStrip } from './sort/seenStrip';
+import { TowerDesk, caneTipOf, type CaneTip } from './sort/towerDesk';
 
 const CX = 108;
 const FEET_Y = 204;
@@ -98,6 +105,8 @@ export class SortScene extends Phaser.Scene {
   private remark!: RemarkRow;
   private zoom!: ClueZoom;
   private strip?: SeenStrip;
+  /** ステージ4の照明と机(ほかのステージでは作らない) */
+  private desk?: TowerDesk;
   private glow!: Phaser.GameObjects.Graphics;
   private glowKey = '';
   private edgeLabels: PixelText[] = [];
@@ -142,6 +151,7 @@ export class SortScene extends Phaser.Scene {
     // シーンは波ごとに作り直すので、前の波の絵を持ち越さない
     this.cards = [];
     this.strip = undefined;
+    this.desk = undefined;
     this.guideHand = undefined;
     this.hintTimer = undefined;
     unlockOnTap(this);
@@ -187,7 +197,8 @@ export class SortScene extends Phaser.Scene {
 
   private buildAction(W: number): void {
     // 暗くしたステージの背景と、真ん中のスポットライト
-    drawStageBg(this, this.run.stage.def.bg);
+    const wave = currentWave(this.run);
+    const bg = drawStageBg(this, bgForWave(this.run.stage.def, wave.no));
     this.add.image(0, 0, spotlightDim(this, CX, FEET_Y)).setOrigin(0).setDepth(Z.dim);
     const pool = this.add.graphics().setDepth(Z.dim + 0.5);
     drawLightPool(pool, CX, FEET_Y + 1, 46, 7);
@@ -199,6 +210,11 @@ export class SortScene extends Phaser.Scene {
 
     // 「持ち物」の窓。人より奥に置く(モヒカンのナイフの先が少しかかっても、人を隠さないように)
     this.zoom = new ClueZoom(this, ZOOM_X, ZOOM_Y, Z.glow + 0.5);
+    // ステージ4:照明と机は暗くする網目より前(明るく見せる)、人より奥。手品の糸は人より前(つえの先から見えるように)
+    if (this.run.stage.def.mechanic === 'psychic') {
+      this.desk = new TowerDesk(this, { floor: wave.no, lamp: TOWER_LAMP, desk: TOWER_DESK, depth: Z.dim + 0.6, threadDepth: Z.actor + 0.5 });
+      this.zoom.setSurround(deskRect(this.desk.spot, TOWER_DESK.x, TOWER_DESK.y), [bg.far, bg.wall, bg.ground, ...this.desk.objects]);
+    }
 
     // 人(2人ぶん用意して、出ていく人と入ってくる人を入れ替えて使う)
     this.shadow = this.add.sprite(CX, FEET_Y, 'fx_shadow').setScale(SCALE).setOrigin(0.5, 0.5).setDepth(Z.shadow);
@@ -220,6 +236,7 @@ export class SortScene extends Phaser.Scene {
     this.secText = new PixelText(this, 4, 44, '', { size: FS.big, outline: true });
     this.stopTag = this.makeStopTag(4, 63);
     // 右上:音、中断(Street と Boss と同じ位置)。中断中は、人とプロフィールとヒントを隠す(止めて考えられないように)
+    this.pausedLook = null;
     this.pause = new PauseControl(this, {
       onPause: () => this.hideForPause(true),
       onResume: () => { this.hideForPause(false); audio.unlock(); }
@@ -274,6 +291,19 @@ export class SortScene extends Phaser.Scene {
   }
 
   private hiddenForPause: { o: Phaser.GameObjects.Components.Visible; v: boolean }[] = [];
+  /** 中断する前に出していたもれ */
+  private pausedLook: ReturnType<typeof leakLook> | null = null;
+
+  /** 中断から戻るときの手品の糸のつえの先(いまの人が手品の糸の市民なら) */
+  private pausedTip(): CaneTip | null {
+    const p = this.people[this.idx];
+    return p?.decoy === 'thread' ? this.caneTip(this.card) : null;
+  }
+
+  /** 手品師のつえの先(画面の座標)。人の絵は2倍 */
+  private caneTip(s: Phaser.GameObjects.Sprite): CaneTip {
+    return caneTipOf(s, SCALE);
+  }
 
   /** 中断中に見せないもの(人、影、ハンコの見本、手、プロフィール、一言、持ち物、見た小物)を隠す/戻す */
   private hideForPause(hide: boolean): void {
@@ -285,8 +315,11 @@ export class SortScene extends Phaser.Scene {
       if (this.guideHand) objs.push(this.guideHand);
       this.hiddenForPause = objs.map((o) => ({ o, v: o.visible }));
       for (const o of objs) o.setVisible(false);
+      // もれも手がかりなので、中断中は消す(戻すときに今の人のもれを出し直す)
+      if (this.desk) { this.pausedLook = this.desk.current; this.desk.setLook(CALM_LOOK); }
       return;
     }
+    if (this.desk && this.pausedLook) { this.desk.setLook(this.pausedLook, this.pausedTip()); this.pausedLook = null; }
     for (const { o, v } of this.hiddenForPause) if ((o as unknown as Phaser.GameObjects.GameObject).active) o.setVisible(v);
     this.hiddenForPause = [];
   }
@@ -383,6 +416,7 @@ export class SortScene extends Phaser.Scene {
     s.play(animKey(key, 'walk'));
     this.shadow.setVisible(true).setX(sx);
     this.zoom.setPerson(key, p.sheetKey);
+    this.desk?.setLook(leakLook(leakSpots(p)), p.decoy === 'thread' ? this.caneTip(s) : null);
     this.strip?.show(this.people, i);
     if (this.state === 'timeup') this.showProfile(p);
     else void this.typeProfile(p);
@@ -498,6 +532,7 @@ export class SortScene extends Phaser.Scene {
     this.idle = false;
     this.glitching = false;
     this.zoom.clear();
+    this.desk?.setLook(CALM_LOOK);
     const stamp = makeStamp(this, choice, FS.big, mark).setDepth(Z.stamp);
     stamp.setPosition(Math.round(s.x), STAMP_Y);
     popStamp(this, stamp);
@@ -522,6 +557,7 @@ export class SortScene extends Phaser.Scene {
   override update(_t: number, dt: number): void {
     this.drawGlow();
     this.zoom.sync(this.card, this.idle);
+    this.desk?.update(this.time.now);
     const stopped = this.clockStopped() && this.idx < this.people.length;
     if (this.stopTag.visible !== stopped) this.stopTag.setVisible(stopped);
     // 全員決めたら時計を止める(次へ行くまでの間に「時間切れ」にならないように)
