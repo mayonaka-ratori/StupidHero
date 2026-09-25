@@ -1,6 +1,7 @@
 // 音を数字で確かめる。先に npm run dev を動かしておくこと。
 // 使い方: node tools/audioCheck.mjs [サーバー]   (省くと http://localhost:5173/。その dev/audio.html を開く)
 // 1) 各曲の数秒と各効果音を OfflineAudioContext で描き出し、最大音量が1.0以下で無音でないことを見る
+//    ステージ4の曲は、平均の大きさがほかの曲とそろっているかも見る
 // 2) unlock 前の呼び出し、画面が隠れたとき/戻ったとき、消音の保存 をブラウザで動かして見る
 import { checker, openBrowser, openPage, serverUrl } from './lib.mjs';
 
@@ -38,6 +39,20 @@ for (const n of ['street2', 'boss2', 'whistle', 'engine', 'skid', 'horn', 'crash
 for (const n of ['street3', 'boss3', 'sale3', 'chime', 'ufoDown', 'tractor', 'ufoFall', 'beep', 'glitch', 'shipBeam', 'tractor×', 'shipBeam×', 'boss3+sfx', 'street3+sfx', 'sale3+sfx']) {
   if (!names.has(n)) ng(`${n} が測れていない`);
 }
+// ステージ4の音がそろっているか
+for (const n of ['street4', 'boss4', 'lift4', 'ding', 'door', 'psy', 'thud', 'buzzer', 'smash', 'ding×', 'door×', 'psy×', 'thud×', 'buzzer×', 'smash×', 'boss4+sfx', 'street4+sfx', 'lift4+sfx']) {
+  if (!names.has(n)) ng(`${n} が測れていない`);
+}
+// ステージ4の曲の大きさが、ほかの曲とそろっているか(ほかの曲の平均dBの幅から2dBまではみ出してよい)
+const others = res.rows.filter((r) => r.kind === 'bgm' && !/4$/.test(r.name)).map((r) => r.final.rmsDb);
+const [lo, hi] = [Math.min(...others) - 2, Math.max(...others) + 2];
+for (const r of res.rows.filter((r) => r.kind === 'bgm' && /4$/.test(r.name))) {
+  if (r.final.rmsDb < lo || r.final.rmsDb > hi) ng(`${r.name}: 平均 ${r.final.rmsDb.toFixed(1)}dB がほかの曲(${(lo + 2).toFixed(1)}〜${(hi - 2).toFixed(1)}dB)とそろっていない`);
+  else ok(`${r.name}: 平均 ${r.final.rmsDb.toFixed(1)}dB(ほかの曲は ${(lo + 2).toFixed(1)}〜${(hi - 2).toFixed(1)}dB)`);
+}
+// エレベーターラッシュの曲は、前奏(速く高くなるところ)が17〜20秒
+if (!(res.lift4Intro >= 17 && res.lift4Intro <= 20)) ng(`lift4 の前奏が ${res.lift4Intro} 秒`);
+else ok(`lift4 の前奏 ${res.lift4Intro} 秒`);
 // フリープレイの音がそろっているか
 for (const n of ['free1', 'free2', 'free3', 'declareBad', 'declarePass', 'dryPress', 'dryPress×', 'free3+sfx']) {
   if (!names.has(n)) ng(`${n} が測れていない`);
@@ -113,6 +128,19 @@ await expect('boss3 に切り替え', (d) => d.playing === 'boss3');
 await page.evaluate(() => { window.__audio.stopBgm(200); });
 await page.waitForTimeout(1000);
 await expect('boss3 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
+// ステージ4の曲の切り替え(結果発表 → エレベーターラッシュ → ボス戦)
+await page.evaluate(() => { window.__audio.playBgm('street4'); window.__audio.sfx('psy'); window.__audio.sfx('smash'); window.__audio.sfx('thud'); });
+await page.waitForTimeout(300);
+await expect('street4 が流れる', (d) => d.playing === 'street4');
+await page.evaluate(() => { window.__audio.sfx('ding'); window.__audio.sfx('door'); window.__audio.sfx('buzzer'); window.__audio.playBgm('lift4'); });
+await page.waitForTimeout(300);
+await expect('lift4 に切り替え', (d) => d.playing === 'lift4');
+await page.evaluate(() => { window.__audio.playBgm('boss4'); });
+await page.waitForTimeout(300);
+await expect('boss4 に切り替え', (d) => d.playing === 'boss4');
+await page.evaluate(() => { window.__audio.stopBgm(200); });
+await page.waitForTimeout(1000);
+await expect('boss4 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
 // フリープレイの曲(波ごとに少しずつ速い曲に切り替える)
 await page.evaluate(() => { window.__audio.playBgm('free1'); window.__audio.sfx('declareBad'); });
 await page.waitForTimeout(300);

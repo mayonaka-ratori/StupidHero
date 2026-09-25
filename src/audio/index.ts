@@ -6,6 +6,8 @@ export type BgmName =
   | 'title' | 'sort' | 'street' | 'boss' | 'result' | 'street2' | 'boss2'
   // ステージ3(sale3 はタイムセールラッシュの曲)
   | 'street3' | 'boss3' | 'sale3'
+  // ステージ4(lift4 はエレベーターラッシュの曲)
+  | 'street4' | 'boss4' | 'lift4'
   // フリープレイ(同じ曲で、波ごとに少しずつ速い)
   | 'free1' | 'free2' | 'free3';
 export type SfxName =
@@ -17,6 +19,8 @@ export type SfxName =
   | 'whistle' | 'engine' | 'skid' | 'horn' | 'crash'
   // ステージ3
   | 'chime' | 'ufoDown' | 'tractor' | 'ufoFall' | 'beep' | 'glitch' | 'shipBeam'
+  // ステージ4(smash はピアノやシャンデリアが落ちて割れる音。crash はステージ2の車の音)
+  | 'ding' | 'door' | 'psy' | 'thud' | 'buzzer' | 'smash'
   // フリープレイ
   | 'declareBad' | 'declarePass' | 'dryPress';
 export interface AudioEngine {

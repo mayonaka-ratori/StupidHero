@@ -110,6 +110,29 @@ const ALIEN: FmPatch = {
   out: [0]
 };
 
+/** エレベーターの「チン」(澄んだベル。整数倍の変調で、長く響く) */
+const DING: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.26, env: E(0.001, 1.0, 0, 0.3) },
+    { ratio: 4, lvl: 0.6, env: E(0.001, 0.25, 0, 0.1) },
+    { ratio: 1, det: 4, lvl: 0.08, env: E(0.001, 0.8, 0, 0.3) }
+  ],
+  mods: [[1, 0]],
+  out: [0, 2]
+};
+
+/** 念力のうなり(整数倍でない変調と深いビブラートで、ゆれるあやしい音) */
+const PSY: FmPatch = {
+  ops: [
+    { ratio: 1, lvl: 0.22, env: E(0.04, 0.3, 0.7, 0.1) },
+    { ratio: 1.5, lvl: 1.2, env: E(0.06, 0.3, 0.6, 0.1) },
+    { ratio: 0.5, det: 8, lvl: 0.1, env: E(0.04, 0.3, 0.7, 0.1) }
+  ],
+  mods: [[1, 0], [1, 2]],
+  out: [0, 2],
+  vib: [9, 45, 0]
+};
+
 export const SFX: Record<SfxName, Sfx> = {
   // ボタン:ピコッ(2音)
   button: (c, o, t, p) => max(blipTone(c, o, t, 1047 * p, 0.035, 0.15), blipTone(c, o, t + 0.035, 1568 * p, 0.05, 0.13)),
@@ -419,6 +442,66 @@ export const SFX: Record<SfxName, Sfx> = {
       noise(c, o, t, { gate: 0.72, env: E(0.05, 0.6, 0.6, 0.1), vol: 0.1, type: 'highpass', f: 2500, rate: 0.8 }),
       drop(c, o, t, 160 * p, 60 * p, 0.1, 0.35, 0.15)
     ),
+
+  // ---------------------------------------------------------------- ステージ4
+
+  // エレベーターの「チン」(澄んだベル1つ。少しずらした高い音を重ねて、金物っぽく響かせる)
+  ding: (c, o, t, p) =>
+    max(
+      fm(c, o, t, hz(88) * p, 0.35, DING, 0.9),
+      fm(c, o, t, hz(88) * 2.76 * p, 0.15, DING, 0.12),
+      tone(c, o, t, { f: hz(76) * p, gate: 0.3, env: E(0.002, 0.6, 0, 0.2), vol: 0.035, wave: 'triangle' })
+    ),
+
+  // エレベーターの扉:シャーッ…トン(すべる音とモーターのうなり。最後に扉が当たる小さな音)
+  door: (c, o, t, p) =>
+    max(
+      noise(c, o, t, { gate: 0.45, env: E(0.06, 0.4, 0.7, 0.08), vol: 0.13, type: 'bandpass', f: 700 * p, f2: 1400 * p, q: 1.5, rate: 0.5 }),
+      tone(c, o, t, { f: 95 * p, f2: 110 * p, gate: 0.45, env: E(0.05, 0.4, 0.7, 0.08), vol: 0.035, wave: 'sawtooth' }),
+      drop(c, o, t + 0.47, 160 * p, 80 * p, 0.05, 0.35, 0.1),
+      noise(c, o, t + 0.47, { gate: 0.03, env: E(0.001, 0.03, 0, 0.01), vol: 0.12, type: 'bandpass', f: 1200, q: 1 })
+    ),
+
+  // 念力のうなり:フワワワン(ふるえながら少し上がる、あやしい音。短く)
+  psy: (c, o, t, p) =>
+    max(
+      fm(c, o, t, 330 * p, 0.35, PSY, 0.8, { from: -300, to: 200, time: 0.4 }),
+      tone(c, o, t, { f: 990 * p, f2: 1320 * p, gate: 0.35, env: E(0.05, 0.3, 0.6, 0.1), vol: 0.03, wave: 'sine', vib: [13, 60] })
+    ),
+
+  // ソファに落ちる:ボフッ(こもった低い音と、布をたたく音。やわらかく)
+  thud: (c, o, t, p) =>
+    max(
+      drop(c, o, t, 120 * p, 50 * p, 0.12, 0.55, 0.16),
+      noise(c, o, t, { gate: 0.14, env: E(0.004, 0.12, 0, 0.04), vol: 0.3, type: 'lowpass', f: 700 * p, f2: 180, rate: 0.5 })
+    ),
+
+  // 定員オーバーのブザー:ブーーッ(少しずれた2つの音でビリビリさせる)
+  buzzer: (c, o, t, p) =>
+    max(
+      tone(c, o, t, { f: 147 * p, gate: 0.6, env: E(0.004, 0.3, 0.9, 0.04), vol: 0.13, wave: 'square' }),
+      tone(c, o, t, { f: 151 * p, gate: 0.6, env: E(0.004, 0.3, 0.9, 0.04), vol: 0.1, wave: 'sawtooth' }),
+      tone(c, o, t, { f: 294 * p, gate: 0.6, env: E(0.004, 0.3, 0.9, 0.04), vol: 0.04, wave: 'square' })
+    ),
+
+  // ピアノやシャンデリアが落ちて割れる:ドガシャーン…(重い音 + ピアノの弦のガーン + たくさんのガラスのかけら)
+  smash: (c, o, t, p) => {
+    let end = max(
+      drop(c, o, t, 110 * p, 28 * p, 0.3, 0.95, 0.45),
+      noise(c, o, t, { gate: 0.5, env: E(0.001, 0.45, 0, 0.1), vol: 0.45, type: 'lowpass', f: 4000 * p, f2: 250, rate: 0.6 }),
+      // ピアノの低い弦がまとめて鳴る(半音でぶつかる音を重ねる)
+      fm(c, o, t, hz(36) * p, 0.5, GAAN, 0.45, { from: 0, to: -150, time: 0.6 }),
+      fm(c, o, t, hz(43) * p, 0.5, GAAN, 0.3, { from: 0, to: -150, time: 0.6 }),
+      fm(c, o, t, hz(44) * p, 0.5, GAAN, 0.25, { from: 0, to: -150, time: 0.6 }),
+      noise(c, o, t + 0.03, { gate: 0.4, env: E(0.001, 0.35, 0, 0.1), vol: 0.2, type: 'highpass', f: 3500 * p })
+    );
+    // シャンデリアのかけら:ばらばらに散る高い音
+    const pings = [3520, 2794, 4186, 3136, 3951, 2637, 3729, 4699];
+    pings.forEach((f, i) => {
+      end = max(end, tone(c, o, t + 0.05 + i * 0.055, { f: f * p, gate: 0.04, env: E(0.001, 0.07, 0, 0.03), vol: 0.045 - i * 0.003, wave: 'triangle' }));
+    });
+    return end;
+  },
 
   // ---------------------------------------------------------------- フリープレイ
 

@@ -203,9 +203,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     shortName: 'ビル',
     // bg と props は波1(1階)と同じ。画面は bgForWave と propsForWave で波ごとに読む
     bg: TOWER_FLOORS[0].bg,
-    // TODO: 高層ビルの曲(street4、boss4、lift4)を src/audio に足したら、ここを差しかえる。
-    // 今は BgmName にない名前を書けないので、ショッピングモールの曲を借りている
-    bgm: { street: 'street3', boss: 'boss3', rush: 'sale3' },
+    bgm: { street: 'street4', boss: 'boss4', rush: 'lift4' },
     bossSheet: 'boss4',
     disguises: ['lady', 'magician', 'waiter'],
     disguiseSheets: {
