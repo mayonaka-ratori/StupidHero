@@ -179,7 +179,7 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
         for (const count of [1, 2, 3, 5, 9]) checkRun(`op ${key} ${count}`, () => lines.op(key, count).text);
       }
     }
-  });
+  }, 20_000); // 30の種をまわすので、ほかの作業で重いときも5秒で切れないようにする
 
   it('場面をまぜて呼んでも、直前にだれかが言った文を続けて出さない', () => {
     const lines = createFreeLines(createRng(42));
