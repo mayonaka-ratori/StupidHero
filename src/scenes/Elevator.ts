@@ -49,6 +49,8 @@ const VIEW_FAST = 90;
 const WALK_BACK = 150;
 /** 扉とボタンの奥行き(人より奥。人の y は床の奥のはし 144 より大きい) */
 const DEPTH_DOOR = 140;
+/** ヒーローの吹き出しを画面の左右の端から空けるすきま。待てを押せる間に光る縁(はば5)に重ねない */
+const EDGE_GAP = 7;
 /** 頭の上に浮かせる小物(fx_psy_items のコマ)。夜景の前でも見える明るいもの:名刺、マグカップ、グラス、キャンドル、ナプキン */
 const LIFT_ITEMS = [2, 3, 1, 5, 4] as const;
 
@@ -298,7 +300,7 @@ export class ElevatorScene extends Phaser.Scene {
     const text = typeof sp === 'string' ? sp : sp.text;
     this.heroBubble?.destroy();
     const [x, y] = this.bubbleAt();
-    this.heroBubble = new Bubble(this, x, y, text, { tail: 'down-right', life: ms });
+    this.heroBubble = new Bubble(this, x, y, text, { tail: 'down-right', life: ms, margin: EDGE_GAP });
     this.heroBubble.setDepth(1100);
   }
 
