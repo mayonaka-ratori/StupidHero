@@ -66,6 +66,7 @@ npm run dev        # 開発用のサーバー。表示されたURLをスマホ�
 | [docs/SPEC.md](docs/SPEC.md) | ゲームの仕様(ステージ1と、全部のステージに共通する決まり) |
 | [docs/STAGE2.md](docs/STAGE2.md) | ステージ2で足したり変えたりしたこと |
 | [docs/STAGE3.md](docs/STAGE3.md)、[docs/STAGE3_TEXT.md](docs/STAGE3_TEXT.md) | ステージ3で足したり変えたりしたことと、ステージ3の文 |
+| [docs/STAGE4.md](docs/STAGE4.md)、[docs/STAGE4_TEXT.md](docs/STAGE4_TEXT.md) | ステージ4(高層ビル、まだ作っていない)の仕様と文。見本の絵は`mocks/stage4/` |
 | [docs/FREEPLAY.md](docs/FREEPLAY.md) | フリープレイ(仕分けのないモード)の仕様 |
 | [docs/ART_SPEC.md](docs/ART_SPEC.md) | 絵の決まり(大きさ、色、並べ方)と、ChatGPTで絵を作る手順 |
 | [CLAUDE.md](CLAUDE.md) | AIが作業を始めるときと終わるときにすること(やることの表を直す、ダッシュボードを公開し直す) |
