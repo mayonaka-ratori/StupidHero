@@ -202,7 +202,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 ## テスト
 
 ```sh
-npm test            # vitest。src/の*.test.tsを全部動かす(いまは35ファイル、479件)
+npm test            # vitest。src/の*.test.tsを全部動かす(いまは36ファイル、491件)
 npm run typecheck   # tsc
 ```
 

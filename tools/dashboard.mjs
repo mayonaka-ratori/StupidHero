@@ -19,6 +19,8 @@ const quick = args.includes('--quick');
 const outArg = args.filter((a) => !a.startsWith('--'))[1];
 const outFile = outArg && outArg !== '-' ? outArg : 'dashboard/index.html';
 
+// Windows では npx が npx.cmd なので、シェルを通して呼ぶ
+const WIN = process.platform === 'win32';
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const lines = (s) => (s ? s.split('\n') : []);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -93,7 +95,7 @@ let types = null;
 if (!quick) {
   const dir = mkdtempSync(join(tmpdir(), 'sh-dash-'));
   const json = join(dir, 'vitest.json');
-  spawnSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${json}`], { encoding: 'utf8' });
+  spawnSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${json}`], { encoding: 'utf8', shell: WIN });
   try {
     const r = JSON.parse(readFileSync(json, 'utf8'));
     tests = { passed: r.numPassedTests, failed: r.numFailedTests, total: r.numTotalTests, files: r.numTotalTestSuites };
@@ -103,7 +105,7 @@ if (!quick) {
     tests = { error: true };
   }
   rmSync(dir, { recursive: true, force: true });
-  const tsc = spawnSync('npx', ['tsc', '--noEmit'], { encoding: 'utf8' });
+  const tsc = spawnSync('npx', ['tsc', '--noEmit'], { encoding: 'utf8', shell: WIN });
   types = { ok: tsc.status === 0, errors: (tsc.stdout.match(/error TS/g) ?? []).length };
 }
 
