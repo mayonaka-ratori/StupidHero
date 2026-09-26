@@ -377,4 +377,58 @@ describe('時間と空押し', () => {
     expect(d.dryCount).toBe(1);
     expect(d.locked(1400)).toBe(true);
   });
+  it('行けの前ぶれの間の押しは、空押しにせず覚えておき、マークが出たら効かせる', () => {
+    const d = new DryPress();
+    // 前ぶれの間(マークなし)に押す:覚える。空押しに数えず、効かない時間も始めない
+    expect(d.tap(0, false, true)).toBe('armed');
+    expect(d.armed).toBe(true);
+    expect(d.dryCount).toBe(0);
+    expect(d.locked(10)).toBe(false);
+    // 押し直しても同じ
+    expect(d.tap(200, false, true)).toBe('armed');
+    expect(d.dryCount).toBe(0);
+    // マークが出るまでは効かせない。マークが出たら1回だけ効かせる
+    expect(d.settle(false, true)).toBe(false);
+    expect(d.settle(true, false)).toBe(true);
+    expect(d.armed).toBe(false);
+    expect(d.settle(true, false)).toBe(false);
+  });
+
+  it('前ぶれがマークを出さずに終わったら、覚えた行けを消す。前ぶれのないところの空押しは今のまま', () => {
+    const d = new DryPress();
+    d.tap(0, false, true);
+    expect(d.settle(false, false)).toBe(false);
+    expect(d.armed).toBe(false);
+    // そのあとマークが出ても効かない
+    expect(d.settle(true, false)).toBe(false);
+    // 前ぶれのないところ:ふつうの空押し
+    expect(d.tap(100, false, false)).toBe('dry');
+    expect(d.dryCount).toBe(1);
+    expect(d.locked(500)).toBe(true);
+  });
+
+  it('効かない間の押しは、前ぶれの間でも覚えず、空押しにも数えない(連打では効かない)', () => {
+    const d = new DryPress();
+    expect(d.tap(0, false)).toBe('dry');
+    expect(d.tap(500, false, true)).toBe('locked');
+    expect(d.armed).toBe(false);
+    expect(d.dryCount).toBe(1);
+    // 効かない時間は数え直す
+    expect(d.locked(1400)).toBe(true);
+    expect(d.tap(1600, false, true)).toBe('armed');
+    // 波が変わったら、覚えも消す
+    d.reset();
+    expect(d.armed).toBe(false);
+  });
+
+  it('マークが出ていれば、前ぶれがあってもそのマークに効く。遅れた押しは late', () => {
+    const d = new DryPress();
+    expect(d.tap(0, true, true)).toBe('hit');
+    expect(d.armed).toBe(false);
+    d.markGone(1000);
+    expect(d.tap(1100, false, true)).toBe('late');
+    expect(d.tap(1100, false)).toBe('late');
+    expect(d.armed).toBe(false);
+    expect(d.dryCount).toBe(0);
+  });
 });

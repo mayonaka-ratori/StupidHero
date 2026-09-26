@@ -13,7 +13,11 @@
 //         (a) 行けのマークが2つあるときに行けを押し、先に出たほうだけに効くか
 //         (b) 待てのマークのため(前半)の最中に行けを押し、その場から光の拳が飛んで、ためが続くか
 //         (c) 言い直しで止めている間に行けのマークがあれば行けを押し、止めが終わってから効くか(空押しに数えないか)
-//   both  good と none を続けて(all は good、none、late、two)
+//   early 行けを、マークが出る前の前ぶれで押す。モヒカンが相手の所へ走り出したら、ギャングの口笛が鳴ったら、
+//         宇宙人がUFOに合図を送り始めたら、すぐ行けを押す(ページの中から、ボタンと同じ pressGo を呼ぶ)。
+//         マークが出てからは行けを押さない。市民への待ては good と同じに押す。
+//         前ぶれの間に押した行けが覚えられ、マークが出た瞬間に全部効き、空押しが0かを見る
+//   both  good と none を続けて(all は good、none、late、two、early)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
@@ -23,8 +27,8 @@ import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from '.
 const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
 const outDir = shotsDir(outArg);
-const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late', 'two'] : [policyArg];
-if (policies.some((p) => !['good', 'none', 'late', 'two'].includes(p))) { console.error(`押し方は good、none、late、two、both、all のどれか(${policyArg})`); process.exit(2); }
+const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late', 'two', 'early'] : [policyArg];
+if (policies.some((p) => !['good', 'none', 'late', 'two', 'early'].includes(p))) { console.error(`押し方は good、none、late、two、early、both、all のどれか(${policyArg})`); process.exit(2); }
 const browser = await openBrowser();
 const { check, done } = checker();
 
@@ -103,6 +107,41 @@ const lateWatcher = () => {
   requestAnimationFrame(tick);
 };
 
+/**
+ * early の行け:ページの中で毎コマ見張り、前ぶれが始まったらすぐ pressGo を呼ぶ。
+ * 前ぶれは、相手の所へ走っているモヒカン(free.runners)、口笛を吹いたギャング(gangPart.whistler か、集まっている途中の組)、
+ * 合図を送り始めた宇宙人(ufoPart の signal)。押したときに行けのマークが出ていないこと、押した結果覚えられたかを数える
+ */
+const earlyWatcher = () => {
+  const r = { presses: 0, armed: 0, markUp: 0, kinds: {} };
+  window.__early = r;
+  const seen = new Set();
+  const tick = () => {
+    const sd = window.streetDev;
+    const f = sd?.free;
+    if (f && sd.sys.isActive() && f.inputOpen) {
+      const starts = [];
+      for (const a of f.runners) if (a.standing) starts.push([a, 'mohawk']);
+      const g = sd.gangPart;
+      if (g.whistler?.standing) starts.push([g.whistler, 'gang']);
+      else if (g.gang?.call.phase === 'gather') starts.push([g.gang.members[0], 'gang']);
+      const u = sd.ufoPart;
+      if (u.ufo && u.ufos.current?.phase === 'signal') starts.push([u.ufo, 'ufo']);
+      for (const [key, kind] of starts) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (f.goTarget() !== null) r.markUp++;
+        f.pressGo();
+        r.presses++;
+        r.kinds[kind] = (r.kinds[kind] ?? 0) + 1;
+        if (f.dryGo.armed) r.armed++;
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
 async function play(policy) {
   const errors = [];
   const page = await openPage(browser, { errors });
@@ -126,6 +165,7 @@ async function play(policy) {
   const pad = await touchPad(page);
   const exp = await page.evaluate(expected);
   if (policy === 'late') await page.evaluate(lateWatcher);
+  if (policy === 'early') await page.evaluate(earlyWatcher);
   console.log(`[${policy}] 待てのチャンス ${exp.stop}、行けの場面 ${exp.goScenes}(ワル ${exp.goPeople}人)、場面 ${exp.chances.scenes}`);
   const shots = new Set();
   const shot = async (name) => {
@@ -164,9 +204,9 @@ async function play(policy) {
       await page.waitForTimeout(30);
       continue;
     }
-    if (policy === 'good' && s.open && !s.leaving) {
-      // 波1の始め、マークのないときに1回だけ空押し
-      if (!dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
+    if ((policy === 'good' || policy === 'early') && s.open && !s.leaving) {
+      // 波1の始め、マークのないときに1回だけ空押し(early はしない)
+      if (policy === 'good' && !dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
         dryDone = true;
         await pad.tap(s.stopBtn.x, s.stopBtn.y);
         await page.waitForTimeout(60);
@@ -179,7 +219,7 @@ async function play(policy) {
         await pad.tap(s.stopBtn.x, s.stopBtn.y);
         continue;
       }
-      if (s.go && !s.goLocked && Date.now() - pressedGoAt > 250) {
+      if (policy === 'good' && s.go && !s.goLocked && Date.now() - pressedGoAt > 250) {
         pressedGoAt = Date.now();
         await pad.tap(s.goBtn.x, s.goBtn.y);
         continue;
@@ -215,6 +255,17 @@ async function play(policy) {
       check('[good] ヒーローが殴った市民はいない', snap.civHurtByHero === 0, String(snap.civHurtByHero));
       check('[good] 逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
       check('[good] 直したあとは全部当たり(巻きぞえのほかは)', f.fixedRight === f.units, `${f.fixedRight}/${f.units}`);
+    } else if (policy === 'early') {
+      const early = await page.evaluate(() => window.__early);
+      console.log(`[early] 前ぶれで押した ${JSON.stringify(early)}`);
+      check('[early] 前ぶれで行けを押した回数は、行けの場面の数と同じ', early.presses === 8, String(early.presses));
+      check('[early] 押したときは、どれも行けのマークがまだ出ていない', early.markUp === 0, String(early.markUp));
+      check('[early] 押した行けは、どれも覚えられた', early.armed === early.presses, `${early.armed}/${early.presses}`);
+      check('[early] 覚えた行けが、マークが出た瞬間に全部効いた', seen?.early === 8, String(seen?.early));
+      check('[early] 行けを全部決めた', f.goScenes === 8, String(f.goScenes));
+      check('[early] 空押しはない', f.dryPresses === 0, String(f.dryPresses));
+      check('[early] 逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
+      check('[early] 待てで市民を全員守った', f.stopSaved === 9, String(f.stopSaved));
     } else if (policy === 'late') {
       check('[late] ワルに待てを押して、取り返しを数えた', f.recovered >= 1 || snap.escaped >= 1, `取り返し ${f.recovered}`);
       check('[late] 空押しはない', f.dryPresses === 0, String(f.dryPresses));

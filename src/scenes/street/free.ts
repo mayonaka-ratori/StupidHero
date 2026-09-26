@@ -84,7 +84,7 @@ const spokenOf = new WeakMap<GameRun, Set<string>>();
 /** その回で行けの使い方をもう言ったか */
 const taughtGo = new WeakSet<GameRun>();
 /** 開発用:その回で場面が何回起きたか(光の拳、走って殴る、ギリギリセーフ、行けのマークが2つ、ワルに待て) */
-interface Seen { fist: number; runHit: number; closeCall: number; twoGo: number; recover: number }
+interface Seen { fist: number; runHit: number; closeCall: number; twoGo: number; recover: number; early: number }
 const seenOf = new WeakMap<GameRun, Seen>();
 
 /** 開いているステージの市民の絵(悪さの相手)。地下駐車場の市民の小物はオレンジか紫 */
@@ -131,6 +131,8 @@ export class FreeStreet {
   private iconBubble: Phaser.GameObjects.Container | null = null;
   /** 始まったが、まだ終わっていないモヒカンの悪さの数(相手の所へ走っている間も数える) */
   private pendingMischief = 0;
+  /** 相手の所へ走っている途中のモヒカン(行けのマークの前ぶれ) */
+  private runners = new Set<Actor>();
   /** 行けで殴りに行っている途中の数(走って殴る、光の拳) */
   private pendingGo = 0;
   /** 一時停止の間は進まない時計(ミリ秒)。空押しの効かない間を数える */
@@ -160,7 +162,7 @@ export class FreeStreet {
     if (!lines) { lines = createFreeLines(run.rng); linesOf.set(run, lines); }
     this.lines = lines;
     let seen = seenOf.get(run);
-    if (!seen) { seen = { fist: 0, runHit: 0, closeCall: 0, twoGo: 0, recover: 0 }; seenOf.set(run, seen); }
+    if (!seen) { seen = { fist: 0, runHit: 0, closeCall: 0, twoGo: 0, recover: 0, early: 0 }; seenOf.set(run, seen); }
     this.seen = seen;
     this.items = new FreeItems(s);
     this.timing = freeTiming(this.fw.no, settings.slowMode);
@@ -271,6 +273,12 @@ export class FreeStreet {
     if (this.hadGo && !goMark) this.dryGo.markGone(this.playMs);
     this.hadStop = stopMark;
     this.hadGo = goMark;
+    // 前ぶれの間に押して覚えている行けは、マークが出た瞬間に効かせる(言い直しで止めている間は、止めが終わってから)
+    if (!this.inputOpen) this.dryGo.disarm();
+    else if (!this.held && this.dryGo.settle(goMark, this.goWarning())) {
+      const t = this.goTarget();
+      if (t) { this.seen.early++; this.fireGo(t); }
+    }
     // 逃がしたワル、市民のけが、ワルへの待ての分(1つ3秒)も足した時間を出す。増えたら「+3」を飛ばす
     if (s.frameN % 10 === 0 || !this.sign) {
       const units = this.penaltyNow();
@@ -306,7 +314,7 @@ export class FreeStreet {
     return true;
   }
 
-  /** ボタンの見た目(押せるか、空押しで効かない間は暗く、マークがあればゆっくり光る) */
+  /** ボタンの見た目(押せるか、空押しで効かない間は暗く、マークがあればゆっくり光る。前ぶれの間に押した行けを覚えていれば、少し明るくする) */
   updateButtons(): void {
     const s = this.s;
     const now = this.playMs;
@@ -319,7 +327,7 @@ export class FreeStreet {
       const alpha = this.inputOpen && dry.locked(now) ? 0.45 : 1;
       if (btn.alpha !== alpha) btn.setAlpha(alpha);
       if (s.frameN % 3 === 0 && this.inputOpen) {
-        const t = mark && alpha === 1 ? buttonPulse(now) : 0;
+        const t = mark && alpha === 1 ? buttonPulse(now) : dry.armed ? 0.5 : 0;
         btn.setColor(lighter(color, t * 0.3));
       }
     }
@@ -333,16 +341,33 @@ export class FreeStreet {
     const has = s.stopHandler !== null;
     // 言い直しの間は、マークが出ていれば覚えておき、止めが終わったら効かせる(空押しには数えない)
     if (this.held) { if (has) this.queued.stop = true; return; }
-    if (!this.dryStop.press(this.playMs, has)) { if (!has) this.dry('stop'); return; }
-    s.stopHandler?.();
+    const r = this.dryStop.tap(this.playMs, has);
+    if (r === 'dry') this.dry('stop');
+    if (r === 'hit') s.stopHandler?.();
   }
 
   pressGo(): void {
     if (!this.inputOpen) return;
     const t = this.goTarget();
-    if (this.held) { if (t) this.queued.go = true; return; }
-    if (!this.dryGo.press(this.playMs, t !== null)) { if (!t) this.dry('go'); return; }
-    if (t) this.fireGo(t);
+    const warning = this.goWarning();
+    // 言い直しの間は、マークが出ていれば覚えておき、止めが終わったら効かせる。前ぶれの間なら、マークが出たら効かせる
+    if (this.held) {
+      if (t) this.queued.go = true;
+      else if (warning) this.dryGo.tap(this.playMs, false, true);
+      return;
+    }
+    // 前ぶれの間にマークなしで押したら 'armed'(空押しにせず覚えておき、update でマークが出たら効かせる)
+    const r = this.dryGo.tap(this.playMs, t !== null, warning);
+    if (r === 'dry') this.dry('go');
+    if (r === 'hit' && t) this.fireGo(t);
+  }
+
+  /**
+   * 行けのマークの前ぶれの間か。モヒカンが相手の所へ走っている間、ギャングが口笛を吹いてから集まるまで、
+   * 宇宙人がUFOに合図を送ってからUFOが下りてくるまで
+   */
+  goWarning(): boolean {
+    return [...this.runners].some((a) => a.standing) || this.s.gangPart.goWarning || this.s.ufoPart.goWarning;
   }
 
   /** ためがどこまで進んだか(0〜1。ためでなければ null。開発用) */
@@ -805,14 +830,17 @@ export class FreeStreet {
         s.safeWalkers.push(victim);
         a.faceLeft(false).play('walk', true, 2.4);
         s.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
+        // 走り出してからマークが出るまでは、行けのマークの前ぶれ(この間に押した行けは覚えておく)
+        this.runners.add(a);
         await s.moveTo(a, Math.max(a.x, meetX - 18), victim.y, 620);
-        if (!a.standing) { resolve(); return; }
+        if (!a.standing) { this.runners.delete(a); resolve(); return; }
         a.faceLeft(false).play('mischief', true);
         audio.sfx('swipeBad');
         s.time.delayedCall(300, () => { if (victim.standing) victim.faceLeft(true).pose('surprised'); });
         if (!recovered) s.heroSay(s.line('mischiefHero', s.rng), 1100);
         const t: Threat = { a, victim, since: s.time.now, recovered, timer: null, resolve };
         this.threats.push(t);
+        this.runners.delete(a);
         a.showMark('go');
         s.goAlarm.start();
         this.goMarkShown();

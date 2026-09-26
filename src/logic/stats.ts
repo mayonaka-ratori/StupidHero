@@ -473,7 +473,7 @@ export class StatsTracker {
     if (this.free && on) this.free.slow = true;
   }
 
-  /** マークがないときに待てか行けを押した */
+  /** マークがないときに待てか行けを押した(マークが消えた直後の押しと、行けのマークの前ぶれの間の押しは数えない) */
   dryPress(): void {
     if (this.free) this.free.dryPresses++;
   }

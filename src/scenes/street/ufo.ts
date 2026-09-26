@@ -71,6 +71,12 @@ export class UfoPart {
 
   ufo: UfoRun | null = null;
 
+  /** 行けのマークの前ぶれの間か(宇宙人が合図を送ってから、UFOが下りてくるまで。フリープレイが見る) */
+  get goWarning(): boolean {
+    const ph = this.ufo ? this.ufos.current?.phase : undefined;
+    return ph === 'signal' || ph === 'descend';
+  }
+
   private newQueue(): UfoQueue {
     return new UfoQueue(this.s.free ? { beamSec: this.s.free.timing.ufoBeamSec } : {});
   }
