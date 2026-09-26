@@ -645,7 +645,7 @@ export class BossScene extends Phaser.Scene {
     this.choiceOpen = true;
     audio.sfx('mark');
     this.drawChoiceBar(1);
-    // 初めてこの場面が出たとき(ボス戦は1回のプレイに1回なので、毎回)のオペレーターの一言。時計は止めたまま
+    // この場面が出るたびに言うオペレーターの一言(docs/BOARD.md の Q10)。時計は止めたまま
     void this.speak(this.line('bossChoice', this.run.rng), true);
   }
 
