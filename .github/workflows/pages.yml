@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1からステージ4とフリープレイ。親玉が正体を現すと会場の料理が浮く演出まで)
-        default: 3c6595b100c95e40a68b7abc59a8c0018a6f5029
+        # いま公開している版(ステージ1からステージ4とフリープレイ。コード全体の見直しと、フリープレイの前ぶれの行けまで)
+        default: 30c871b91c1f44bb6de2bc45e7b304abcc9f0eb7
 
 permissions:
   contents: read
