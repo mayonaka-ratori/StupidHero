@@ -23,7 +23,7 @@ const LOCKED_TEXT = 0x8a84a0;
 export const FREE_BUTTON_TEXTS = ['フリープレイ▶', 'フリープレイ', 'ベスト', 'ゆっくりベスト', 'NEW!', STAGES.garage.lockedText ?? ''];
 
 /** ボタンの下の段に出す、いちばん速い時間(記録がなければ null) */
-export function freeBestText(info: Pick<FreeSelectInfo, 'bestSec' | 'bestSlowSec'>): string | null {
+function freeBestText(info: Pick<FreeSelectInfo, 'bestSec' | 'bestSlowSec'>): string | null {
   if (info.bestSec !== null) return `ベスト ${formatClearTime(info.bestSec)}`;
   if (info.bestSlowSec !== null) return `ゆっくりベスト ${formatClearTime(info.bestSlowSec)}`;
   return null;

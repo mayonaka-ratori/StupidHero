@@ -1,6 +1,10 @@
 // 結果発表(Street)の部品:ステージ2のギャングの組(口笛で仲間を呼び、集まった組を行けでまとめて倒す。ワゴンで逃げる)。
 // Street のシーンを s として受け取り、そのシーンの道具(s.fx、s.heroSay など)を使って動かす。
 // シーンの create のたびに作り直す(回をまたいで状態を持ちこまない)。
+//
+// 流れ:見逃したギャングが口笛 → 同じ組の仲間が走ってきて集まる → 頭の上に大きな行けの合図。
+// 行けでまとめて吹き飛ばす。押さないと3秒でワゴンに乗りこみ、走り出す。走っている間の行けは車ごと止める。
+// 時間は GangCall(logic/gang.ts)が数える。カメラは組とワゴンが画面の中に入るように向ける。
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
@@ -46,6 +50,14 @@ export class GangPart {
   stoppedIds = new Set<string>();
 
   gang: GangRun | null = null;
+
+  /** 口笛を吹いている人(組ができるか、1人のまま行けの合図が終わるまで) */
+  private whistler: Actor | null = null;
+
+  /** 行けのマークの前ぶれの間か(口笛が鳴ってから、組が集まり終わるまで。フリープレイが見る) */
+  get goWarning(): boolean {
+    return (this.whistler?.standing ?? false) || this.gang?.call.phase === 'gather';
+  }
 
   /** 組に呼ばれても来ない人(もう倒した、待てで止めた、もういない) */
   private goneFromGang(id: string): boolean {
@@ -163,18 +175,25 @@ export class GangPart {
     await this.s.moveTo(a, slots[0].x, slots[0].y, 480);
     a.faceLeft(false).play('mischief', true);
     audio.sfx('whistle');
+    this.whistler = a;
     this.whistleNotes(a);
     this.s.opSay(mischiefLine(a.look!, this.s.rng), true);
     h.pose('oops', 1);
     this.s.heroSay(this.s.line('mischiefHero', this.s.rng), 1300);
     await waitMs(this.s, GANG.whistleSec * 1000);
-    if (alone) { await this.s.aloneWhistle(a); return; }
+    if (alone) {
+      // 1人のときは、行けの合図が出て終わるまで前ぶれのまま(合図が出た瞬間に、覚えている行けが効く)
+      await this.s.aloneWhistle(a);
+      this.whistler = null;
+      return;
+    }
 
     // 仲間が通りのどこからでも走ってくる(時間は GangCall が数える)
     const call = new GangCall(members.map((m) => m.person!.id), this.s.free?.gangOpts);
     let done!: () => void;
     const finished = new Promise<void>((r) => { done = r; });
     this.gang = { call, members, spot, slots, van, vanX0: van.x, vanEndX: van.x, done };
+    this.whistler = null;
     a.faceLeft(true).play('idle');
     const runs = mates.map((m, i) => {
       const s = slots[i + 1];

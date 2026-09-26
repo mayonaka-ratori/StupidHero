@@ -1,26 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { titleCommentFor } from './content';
 import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
+import { makeStats } from './testHelpers';
 import type { StageStats } from './types';
 
-const base = (over: Partial<StageStats> = {}): StageStats => ({
-  stageId: 'alley', defeated: 5, defeatedBySort: 5, defeatedByGo: 0, bossDefeated: true,
-  civHurt: 1, civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 0,
-  damage: 8_000_000, damageByProps: 8_000_000, damageByMischief: 0, damageByBoss: 0,
-  propsBroken: {
-    trash: 0, window: 0, sign: 0, vending: 0, car: 0, van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0,
-    gacha: 0, mannequin: 0, showcase: 0, fountain: 0, escalator: 0, ufo: 0, mothership: 0,
-    sofa: 0, plant: 0, flowers: 0, copier: 0, tank: 0, wine: 0, champagne: 0, piano: 0, chandelier: 0
-  },
-  defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
-  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, civHurtByDrop: 0, rush: null, free: null,
-  defeatedByPsy: 0, escapedByPsy: 0, sofaSaves: 0, lift: null,
-  escaped: 1, civSavedByStop: 0, badSparedByStop: 0,
-  grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
-  villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
-  sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [],
-  ...over
-});
+// 市民のけがは1人、被害額は¥800万、逃がしたワルは1人
+const base = (over: Partial<StageStats> = {}): StageStats =>
+  makeStats({ civHurt: 1, civHurtByHero: 1, damage: 8_000_000, damageByProps: 8_000_000, escaped: 1 }, over);
 
 describe('称号', () => {
   it('24個、順番と名前とポーズがSPECとSTAGE2とSTAGE3とSTAGE4とFREEPLAYの通り', () => {
@@ -338,6 +324,5 @@ describe('称号(ステージ4)', () => {
     expect(titleCommentFor('furnitureGuide', 'tower').text).toBe('家具が飛ぶのを\n見てたよね');
     expect(titleCommentFor('liftGuardian', 'tower').text).toBe('満員のエレベーターで\n一人も間違えなかった！');
     expect(titleCommentFor('sofaMaster', 'tower').text).toBe('ソファの上に\nぴったり落とした！');
-    expect(titleCommentFor('demolition', 'tower').text).toBe('ビルの修理代、\n誰が払うの…');
   });
 });

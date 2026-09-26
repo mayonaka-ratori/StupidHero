@@ -5,7 +5,7 @@ import { OUTLINE, PixelGrid, md } from '../lib';
 import { Mask, type Pt, Painter, rotateGrid } from './pix';
 import {
   type ArmDims, type BArm, type BPose, type HeadArt, type Ramp4, type ScrapStyle,
-  alignFeet, armShapes, chevronMask, cloneB, drawNeckAndHead, drawScraps, farRamp, footShape, legShapes, moveUpperB, shade, shadeBall
+  alignFeet, armShapes, chevronMask, drawNeckAndHead, drawScraps, farRamp, footShape, legShapes, moveUpperB, poseMaker, shade, shadeBall
 } from './bossKit';
 
 // ---------- 色(15色) ----------
@@ -258,7 +258,7 @@ const STAND: BPose = {
   lF: { k: [42, 73], a: [39, 86] }
 };
 
-const pose = (edit: (p: BPose) => void, from: BPose = STAND): BPose => { const p = cloneB(from); edit(p); return p; };
+const pose = poseMaker(STAND);
 
 export function buildBoss(): PixelGrid[][] {
   // 0 正体を現す:しゃがんで服を裂き、両腕を広げて立ち、こぶしを鳴らす

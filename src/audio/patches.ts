@@ -1,7 +1,5 @@
 // 曲で使う楽器(FMの音色、PSGの矩形波)とドラム。
-import { type Ctx, type FmPatch, drop, fm, hz, noise, tone } from './synth';
-
-const E = (a: number, d: number, s: number, r: number) => ({ a, d, s, r });
+import { type Ctx, E, type FmPatch, drop, fm, hz, noise, tone } from './synth';
 
 // ---------------------------------------------------------------- FMの音色
 

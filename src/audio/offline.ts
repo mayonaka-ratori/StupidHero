@@ -85,213 +85,196 @@ export async function renderSfxRepeat(name: SfxName, limit = true, seconds = 2):
   return ctx.startRendering();
 }
 
-/** BGMの上に効果音をたくさん重ねた、いちばんうるさい場面(ボス戦の連打+爆発など) */
-export async function renderWorstCase(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss), 'boss', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
-  SFX.bigHit(ctx, mix.sfx, 1.0, 1);
-  SFX.beam(ctx, mix.sfx, 1.2, 1);
-  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
-  SFX.explosion(ctx, mix.sfx, 2.1, 1);
-  SFX.stamp(ctx, mix.sfx, 2.2, 1);
-  return ctx.startRendering();
+/** 効果音 name を t 秒に鳴らす(p は音程の倍率。省くと1) */
+type Play = (name: SfxName, t: number, p?: number) => void;
+
+/** いちばんうるさい場面の組み立て。曲と、その上に重ねる効果音の並び */
+interface WorstCase {
+  song: BgmName;
+  /** 曲を始める時刻(省くと0.01秒) */
+  start?: number;
+  sfx: (play: Play) => void;
 }
 
-/** ステージ2のボス戦でいちばんうるさい場面:連打 + エンジン + きしみ + クラクション + 車がひっくり返って爆発 */
-export async function renderWorstCaseBoss2(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss2), 'boss2', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
-  for (let t = 0.1; t < 2; t += 0.25) SFX.engine(ctx, mix.sfx, t, 1);
-  SFX.skid(ctx, mix.sfx, 0.5, 1);
-  SFX.horn(ctx, mix.sfx, 0.7, 1);
-  SFX.crash(ctx, mix.sfx, 1.0, 1);
-  SFX.bigHit(ctx, mix.sfx, 1.0, 1);
-  SFX.crash(ctx, mix.sfx, 1.6, 1);
-  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
-  SFX.explosion(ctx, mix.sfx, 2.1, 1);
-  SFX.crash(ctx, mix.sfx, 2.1, 1);
-  SFX.stamp(ctx, mix.sfx, 2.2, 1);
-  return ctx.startRendering();
-}
-
-/** ステージ2の結果発表でいちばんうるさい場面:口笛で仲間が集まり、まとめて吹き飛ばす/車が逃げて止められる */
-export async function renderWorstCaseStreet2(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.street2), 'street2', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.whistle(ctx, mix.sfx, 0.2, 1);
-  SFX.whistle(ctx, mix.sfx, 0.5, 1.1);
-  SFX.mark(ctx, mix.sfx, 0.9, 1);
-  SFX.go(ctx, mix.sfx, 1.0, 1);
-  SFX.charge(ctx, mix.sfx, 1.1, 1);
-  SFX.bigHit(ctx, mix.sfx, 1.5, 1);
-  SFX.hit(ctx, mix.sfx, 1.55, 1);
-  SFX.hit(ctx, mix.sfx, 1.6, 1);
-  SFX.break(ctx, mix.sfx, 1.6, 1);
-  SFX.engine(ctx, mix.sfx, 2.0, 1);
-  SFX.skid(ctx, mix.sfx, 2.2, 1);
-  SFX.horn(ctx, mix.sfx, 2.3, 1);
-  SFX.punch(ctx, mix.sfx, 2.6, 1);
-  SFX.crash(ctx, mix.sfx, 2.65, 1);
-  SFX.bigHit(ctx, mix.sfx, 2.65, 1);
-  SFX.break(ctx, mix.sfx, 2.7, 1);
-  return ctx.startRendering();
-}
-
-/**
- * ステージ3の結果発表でいちばんうるさい場面:ピピッ → UFOが下りて吸い上げる → 行けで殴り落として店の物が壊れる。
- * 吸い上げる光はゲームと同じく0.5秒ごとに鳴らす
- */
-export async function renderWorstCaseStreet3(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.street3), 'street3', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.beep(ctx, mix.sfx, 0.1, 1);
-  SFX.ufoDown(ctx, mix.sfx, 0.3, 1);
-  for (let t = 1.2; t < 2.6; t += 0.5) SFX.tractor(ctx, mix.sfx, t, 1);
-  SFX.mark(ctx, mix.sfx, 1.2, 1);
-  SFX.go(ctx, mix.sfx, 2.0, 1);
-  SFX.charge(ctx, mix.sfx, 2.1, 1);
-  SFX.punch(ctx, mix.sfx, 2.5, 1);
-  SFX.ufoFall(ctx, mix.sfx, 2.5, 1);
-  SFX.break(ctx, mix.sfx, 3.0, 1);
-  SFX.bigHit(ctx, mix.sfx, 3.0, 1);
-  return ctx.startRendering();
-}
-
-/** タイムセールラッシュでいちばんうるさい場面:走ってくる宇宙人のくずれ(0.3秒ごと)の中で、パンチと待てが続く */
-export async function renderWorstCaseSale3(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.sale3), 'sale3', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.chime(ctx, mix.sfx, 0.05, 1);
-  for (let t = 0.2; t < 3.5; t += 0.3) SFX.glitch(ctx, mix.sfx, t, 1);
-  for (const t of [0.8, 1.6, 2.4, 3.2]) {
-    SFX.mark(ctx, mix.sfx, t - 0.4, 1);
-    SFX.punch(ctx, mix.sfx, t, 1);
-    SFX.hit(ctx, mix.sfx, t + 0.02, 1);
+/** BGMの上に効果音をたくさん重ねた、いちばんうるさい場面。キーは確かめる表の行の名前 */
+const WORST_CASES: Record<string, WorstCase> = {
+  // ボス戦の連打+爆発など
+  'boss+sfx': {
+    song: 'boss',
+    sfx: (play) => {
+      for (let t = 0.1; t < 3; t += 0.08) play('rush', t);
+      play('bigHit', 1.0);
+      play('beam', 1.2);
+      play('bossDown', 2.0);
+      play('explosion', 2.1);
+      play('stamp', 2.2);
+    }
+  },
+  // ステージ2のボス戦:連打 + エンジン + きしみ + クラクション + 車がひっくり返って爆発
+  'boss2+sfx': {
+    song: 'boss2',
+    sfx: (play) => {
+      for (let t = 0.1; t < 3; t += 0.08) play('rush', t);
+      for (let t = 0.1; t < 2; t += 0.25) play('engine', t);
+      play('skid', 0.5);
+      play('horn', 0.7);
+      play('crash', 1.0);
+      play('bigHit', 1.0);
+      play('crash', 1.6);
+      play('bossDown', 2.0);
+      play('explosion', 2.1);
+      play('crash', 2.1);
+      play('stamp', 2.2);
+    }
+  },
+  // ステージ2の結果発表:口笛で仲間が集まり、まとめて吹き飛ばす/車が逃げて止められる
+  'street2+sfx': {
+    song: 'street2',
+    sfx: (play) => {
+      play('whistle', 0.2);
+      play('whistle', 0.5, 1.1);
+      play('mark', 0.9);
+      play('go', 1.0);
+      play('charge', 1.1);
+      play('bigHit', 1.5);
+      play('hit', 1.55);
+      play('hit', 1.6);
+      play('break', 1.6);
+      play('engine', 2.0);
+      play('skid', 2.2);
+      play('horn', 2.3);
+      play('punch', 2.6);
+      play('crash', 2.65);
+      play('bigHit', 2.65);
+      play('break', 2.7);
+    }
+  },
+  // ステージ3のボス戦:連打 + 母艦の光線 + 母艦が落ちて爆発
+  'boss3+sfx': {
+    song: 'boss3',
+    sfx: (play) => {
+      for (let t = 0.1; t < 3; t += 0.08) play('rush', t);
+      for (let t = 0.1; t < 2; t += 0.6) play('shipBeam', t);
+      play('ufoFall', 1.5);
+      play('bigHit', 1.5);
+      play('bossDown', 2.0);
+      play('explosion', 2.1);
+      play('break', 2.1);
+      play('stamp', 2.2);
+    }
+  },
+  // ステージ3の結果発表:ピピッ → UFOが下りて吸い上げる → 行けで殴り落として店の物が壊れる。
+  // 吸い上げる光はゲームと同じく0.5秒ごとに鳴らす
+  'street3+sfx': {
+    song: 'street3',
+    sfx: (play) => {
+      play('beep', 0.1);
+      play('ufoDown', 0.3);
+      for (let t = 1.2; t < 2.6; t += 0.5) play('tractor', t);
+      play('mark', 1.2);
+      play('go', 2.0);
+      play('charge', 2.1);
+      play('punch', 2.5);
+      play('ufoFall', 2.5);
+      play('break', 3.0);
+      play('bigHit', 3.0);
+    }
+  },
+  // タイムセールラッシュ:走ってくる宇宙人のくずれ(0.3秒ごと)の中で、パンチと待てが続く
+  'sale3+sfx': {
+    song: 'sale3',
+    sfx: (play) => {
+      play('chime', 0.05);
+      for (let t = 0.2; t < 3.5; t += 0.3) play('glitch', t);
+      for (const t of [0.8, 1.6, 2.4, 3.2]) {
+        play('mark', t - 0.4);
+        play('punch', t);
+        play('hit', t + 0.02);
+      }
+      play('stop', 2.0);
+    }
+  },
+  // ステージ4のボス戦:連打 + 念力 + シャンデリアが落ちて割れる + 親玉が倒れて爆発
+  'boss4+sfx': {
+    song: 'boss4',
+    sfx: (play) => {
+      for (let t = 0.1; t < 3; t += 0.08) play('rush', t);
+      for (let t = 0.1; t < 1.5; t += 0.4) play('psy', t);
+      play('smash', 1.2);
+      play('bigHit', 1.5);
+      play('smash', 1.8);
+      play('bossDown', 2.0);
+      play('explosion', 2.1);
+      play('stamp', 2.2);
+    }
+  },
+  // ステージ4の結果発表:本性ちらり → 念力で物が浮いて運ばれる → 行けで殴り、
+  // 浮いていたピアノが落ちて割れる。ソファに落ちる音と、扉とチンも重ねる
+  'street4+sfx': {
+    song: 'street4',
+    sfx: (play) => {
+      play('psy', 0.1);
+      play('psy', 0.6);
+      play('mark', 1.0);
+      play('go', 1.6);
+      play('charge', 1.7);
+      play('punch', 2.1);
+      play('bigHit', 2.1);
+      play('smash', 2.4);
+      play('break', 2.45);
+      play('thud', 2.5);
+      play('door', 2.9);
+      play('ding', 3.0);
+    }
+  },
+  // エレベーターラッシュ(いちばん速いところ):チンと扉のあと、パンチと待てが続き、定員オーバーのブザー
+  'lift4+sfx': {
+    song: 'lift4',
+    // 前奏のぶんだけ前に始めたことにする(pump が遅れたぶんを飛ばすので、いちばん速いくり返しのところから鳴る)
+    start: 0.03 - introSeconds('lift4'),
+    sfx: (play) => {
+      play('ding', 0.05);
+      play('door', 0.2);
+      for (const t of [0.8, 1.5, 2.2, 2.9]) {
+        play('mark', t - 0.3);
+        play('punch', t);
+        play('hit', t + 0.02);
+      }
+      play('stop', 1.9);
+      play('buzzer', 3.2);
+    }
+  },
+  // フリープレイ(波3の速い曲):決めつけのドン → 空押しの連打(何度も振り向く)→
+  // 行けで殴りかかって倒す → 言い直しのポワン。空押しはゲームで鳴らせるいちばん短い間隔で鳴らす
+  'free3+sfx': {
+    song: 'free3',
+    sfx: (play) => {
+      play('declareBad', 0.1);
+      for (let t = 0.6; t < 1.6; t += SFX_GAP.dryPress ?? SFX_GAP_DEFAULT) play('dryPress', t);
+      play('mark', 1.6);
+      play('go', 1.8);
+      play('charge', 1.9);
+      play('punch', 2.3);
+      play('hit', 2.32);
+      play('bigHit', 2.35);
+      play('declarePass', 2.6);
+      play('stop', 3.0);
+    }
   }
-  SFX.stop(ctx, mix.sfx, 2.0, 1);
-  return ctx.startRendering();
-}
+};
 
-/** ステージ3のボス戦でいちばんうるさい場面:連打 + 母艦の光線(1秒ごと)+ 母艦が落ちて爆発 */
-export async function renderWorstCaseBoss3(limit = true): Promise<AudioBuffer> {
+/** いちばんうるさい場面の名前(確かめる表に並べる順) */
+export const WORST_CASE_NAMES = Object.keys(WORST_CASES);
+
+/** いちばんうるさい場面を4秒描き出す。limit=false でコンプレッサーとクリップを通さない */
+export async function renderWorstCase(name: string, limit = true): Promise<AudioBuffer> {
+  const w = WORST_CASES[name];
   const seconds = 4;
   const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
   const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss3), 'boss3', 0.01);
+  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS[w.song]), w.song, w.start ?? 0.01);
   player.pump(seconds, 0, false, 1e6);
-  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
-  for (let t = 0.1; t < 2; t += 0.6) SFX.shipBeam(ctx, mix.sfx, t, 1);
-  SFX.ufoFall(ctx, mix.sfx, 1.5, 1);
-  SFX.bigHit(ctx, mix.sfx, 1.5, 1);
-  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
-  SFX.explosion(ctx, mix.sfx, 2.1, 1);
-  SFX.break(ctx, mix.sfx, 2.1, 1);
-  SFX.stamp(ctx, mix.sfx, 2.2, 1);
-  return ctx.startRendering();
-}
-
-/**
- * フリープレイでいちばんうるさい場面(波3の速い曲):決めつけのドン → 空押しの連打(何度も振り向く)→
- * 行けで殴りかかって倒す → 言い直しのポワン。空押しはゲームで鳴らせるいちばん短い間隔で鳴らす
- */
-export async function renderWorstCaseFree(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.free3), 'free3', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.declareBad(ctx, mix.sfx, 0.1, 1);
-  for (let t = 0.6; t < 1.6; t += SFX_GAP.dryPress ?? SFX_GAP_DEFAULT) SFX.dryPress(ctx, mix.sfx, t, 1);
-  SFX.mark(ctx, mix.sfx, 1.6, 1);
-  SFX.go(ctx, mix.sfx, 1.8, 1);
-  SFX.charge(ctx, mix.sfx, 1.9, 1);
-  SFX.punch(ctx, mix.sfx, 2.3, 1);
-  SFX.hit(ctx, mix.sfx, 2.32, 1);
-  SFX.bigHit(ctx, mix.sfx, 2.35, 1);
-  SFX.declarePass(ctx, mix.sfx, 2.6, 1);
-  SFX.stop(ctx, mix.sfx, 3.0, 1);
-  return ctx.startRendering();
-}
-
-/**
- * ステージ4の結果発表でいちばんうるさい場面:本性ちらり → 念力で物が浮いて運ばれる → 行けで殴り、
- * 浮いていたピアノが落ちて割れる。ソファに落ちる音と、扉とチンも重ねる
- */
-export async function renderWorstCaseStreet4(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.street4), 'street4', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.psy(ctx, mix.sfx, 0.1, 1);
-  SFX.psy(ctx, mix.sfx, 0.6, 1);
-  SFX.mark(ctx, mix.sfx, 1.0, 1);
-  SFX.go(ctx, mix.sfx, 1.6, 1);
-  SFX.charge(ctx, mix.sfx, 1.7, 1);
-  SFX.punch(ctx, mix.sfx, 2.1, 1);
-  SFX.bigHit(ctx, mix.sfx, 2.1, 1);
-  SFX.smash(ctx, mix.sfx, 2.4, 1);
-  SFX.break(ctx, mix.sfx, 2.45, 1);
-  SFX.thud(ctx, mix.sfx, 2.5, 1);
-  SFX.door(ctx, mix.sfx, 2.9, 1);
-  SFX.ding(ctx, mix.sfx, 3.0, 1);
-  return ctx.startRendering();
-}
-
-/** エレベーターラッシュでいちばんうるさい場面(いちばん速いところ):チンと扉のあと、パンチと待てが続き、定員オーバーのブザー */
-export async function renderWorstCaseLift4(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const song = compile(SONGS.lift4);
-  // 前奏のぶんだけ前に始めたことにする(pump が遅れたぶんを飛ばすので、いちばん速いくり返しのところから鳴る)
-  const introSec = (song.intro?.steps ?? 0) * (60 / song.bpm / 4);
-  const player = new BgmPlayer(ctx, mix.bgm, song, 'lift4', 0.03 - introSec);
-  player.pump(seconds, 0, false, 1e6);
-  SFX.ding(ctx, mix.sfx, 0.05, 1);
-  SFX.door(ctx, mix.sfx, 0.2, 1);
-  for (const t of [0.8, 1.5, 2.2, 2.9]) {
-    SFX.mark(ctx, mix.sfx, t - 0.3, 1);
-    SFX.punch(ctx, mix.sfx, t, 1);
-    SFX.hit(ctx, mix.sfx, t + 0.02, 1);
-  }
-  SFX.stop(ctx, mix.sfx, 1.9, 1);
-  SFX.buzzer(ctx, mix.sfx, 3.2, 1);
-  return ctx.startRendering();
-}
-
-/** ステージ4のボス戦でいちばんうるさい場面:連打 + 念力 + シャンデリアが落ちて割れる + 親玉が倒れて爆発 */
-export async function renderWorstCaseBoss4(limit = true): Promise<AudioBuffer> {
-  const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
-  const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS.boss4), 'boss4', 0.01);
-  player.pump(seconds, 0, false, 1e6);
-  for (let t = 0.1; t < 3; t += 0.08) SFX.rush(ctx, mix.sfx, t, 1);
-  for (let t = 0.1; t < 1.5; t += 0.4) SFX.psy(ctx, mix.sfx, t, 1);
-  SFX.smash(ctx, mix.sfx, 1.2, 1);
-  SFX.bigHit(ctx, mix.sfx, 1.5, 1);
-  SFX.smash(ctx, mix.sfx, 1.8, 1);
-  SFX.bossDown(ctx, mix.sfx, 2.0, 1);
-  SFX.explosion(ctx, mix.sfx, 2.1, 1);
-  SFX.stamp(ctx, mix.sfx, 2.2, 1);
+  w.sfx((n, t, p = 1) => { SFX[n](ctx, mix.sfx, t, p); });
   return ctx.startRendering();
 }
 
@@ -305,5 +288,6 @@ export function backlogSteps(): number {
   return player.pump(10.15, 10, true);
 }
 
-export const BGM_NAMES: BgmName[] = ['title', 'sort', 'street', 'boss', 'result', 'street2', 'boss2', 'street3', 'boss3', 'sale3', 'street4', 'boss4', 'lift4', 'free1', 'free2', 'free3'];
+/** 曲の名前(SONGS に書いた順) */
+export const BGM_NAMES = Object.keys(SONGS) as BgmName[];
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];

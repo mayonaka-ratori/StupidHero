@@ -8,7 +8,7 @@
 // ほかに、波3の答え合わせの「次へ」から Elevator へ来ること、2回目の説明が1つになること、一時停止と画面を離れたときに止まることを見る。
 // 撮るもの:乗ってきた人とマーク、ヴィランの光ったボタンと浮いた小物、2列に並んだ奥の人、着いたときの紫の光、定員オーバー、
 // 着いたときのまとめ。NG があれば exit code 1。
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
 
 const [urlArg, outArg] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -18,16 +18,14 @@ const { check, fail, done } = checker();
 const errors = [];
 
 const S = (page, fn, arg) => page.evaluate(fn, arg);
-/** 画面の高さ(論理ドット)から、横390の端末の縦の大きさ */
-const viewport = (h) => ({ width: 390, height: Math.round((390 * h) / 216) });
 
 /** 開発用の入口を開く。ctx を渡すと同じ記録(localStorage)で開く */
 async function open(h, query, ctx = null) {
-  const page = ctx ? await openPage(ctx, { errors }) : await openPage(browser, { ...viewport(h), errors });
+  const page = ctx ? await openPage(ctx, { errors }) : await openPage(browser, { ...viewportFor(h), errors });
   const u = new URL(url);
   for (const [k, v] of Object.entries(query)) u.searchParams.set(k, String(v));
   await page.goto(u.toString());
-  await page.waitForFunction(() => window.__game?.isBooted, null, { timeout: 15000 });
+  await waitForGame(page);
   return { page, pad: await touchPad(page) };
 }
 
@@ -36,7 +34,7 @@ async function seedWith(villains) {
   const page = await openPage(browser, { errors });
   const u = new URL(url);
   await page.goto(u.toString());
-  await page.waitForFunction(() => window.__game?.isBooted, null, { timeout: 15000 });
+  await waitForGame(page);
   let found = null;
   for (let seed = 1; seed < 60 && found === null; seed++) {
     const n = await S(page, async (sd) => {

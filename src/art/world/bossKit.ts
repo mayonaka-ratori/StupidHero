@@ -7,9 +7,6 @@ import { type Look, type Pose, drawPerson, stretchPose } from './figure';
 import { idleFrames, walkFrames } from './poses';
 import { Mask, Painter, type Pt, bbox, rotateGrid, shifted } from './pix';
 
-/** 96×96のコマに人を描く(化けた姿などの、ふつうの人の仕組みで描くとき) */
-export const P96 = (look: Look, p: Pose): PixelGrid => drawPerson(look, p, 96, 96);
-
 /** 足の裏(y=91)にそろえる。centerX で体の真ん中(x=48)にもそろえる */
 export function alignFeet(g: PixelGrid, centerX = false): PixelGrid {
   const b = bbox(g);
@@ -67,6 +64,93 @@ export function moveUpperB(p: BPose, dx: number, dy: number): BPose {
   return q;
 }
 
+/** ポーズを作る関数を返す。作る関数は、from(省くと base)を写して edit で書きかえる */
+export const poseMaker = (base: BPose) => (edit: (p: BPose) => void, from: BPose = base): BPose => {
+  const p = cloneB(from);
+  edit(p);
+  return p;
+};
+
+/** ボス3とボス4の立ち姿(2人は背かっこうが同じ) */
+export const TALL_STAND: BPose = {
+  head: [52, 29], neck: [50, 31], hip: [47, 58],
+  aB: { e: [60, 44], h: [62, 55] },
+  aF: { e: [41, 45], h: [42, 56] },
+  lB: { k: [52, 73], a: [54, 86] },
+  lF: { k: [44, 73], a: [41, 86] }
+};
+
+/**
+ * ボス3とボス4で同じポーズ。r0〜r3 は正体を現す、i0 は待機(腕を組む)、a1 と a3 は暴れる、
+ * h0 と h1 はラッシュを受ける、d0〜d3 はやられる
+ */
+export function tallBossPoses() {
+  const pose = poseMaker(TALL_STAND);
+  // 正体を現す:しゃがむ → 両手を広げて立ち上がる
+  const r0 = pose((p) => {
+    p.hip = [47, 66]; p.neck = [52, 38]; p.head = [54, 36];
+    p.aF = { e: [51, 52], h: [59, 46] }; p.aB = { e: [63, 50], h: [62, 42] };
+    p.lF = { k: [53, 76], a: [42, 86] }; p.lB = { k: [60, 78], a: [58, 86] };
+  });
+  const r1 = pose((p) => {
+    p.hip = [47, 60]; p.neck = [49, 33]; p.head = [51, 31];
+    p.aF = { e: [35, 40], h: [28, 33], hand: 'open' }; p.aB = { e: [65, 38], h: [74, 32], hand: 'open' };
+  });
+  const r2 = pose((p) => {
+    p.aF = { e: [35, 36], h: [30, 26], hand: 'open' }; p.aB = { e: [64, 36], h: [72, 26], hand: 'open' };
+  });
+  const r3 = pose((p) => {
+    p.aF = { e: [39, 46], h: [44, 56] };
+    p.aB = { e: [63, 38], h: [74, 36], hand: 'open' };
+  });
+  // 待機:腕を組む
+  const i0 = pose((p) => {
+    p.aF = { e: [41, 48], h: [55, 46] };
+    p.aB = { e: [61, 46], h: [50, 43] };
+  });
+  // 暴れる:前へ突き出す、ふんぞり返る
+  const a1 = pose((p) => {
+    p.neck = [54, 32]; p.head = [57, 30];
+    p.aF = { e: [62, 41], h: [75, 39], hand: 'open' }; p.aB = { e: [66, 45], h: [78, 47], hand: 'open' };
+    p.lF = { k: [50, 73], a: [53, 86] }; p.lB = { k: [47, 74], a: [39, 86] };
+  });
+  const a3 = pose((p) => {
+    p.aF = { e: [35, 40], h: [30, 32], hand: 'open' }; p.aB = { e: [63, 36], h: [70, 28], hand: 'open' };
+    p.lF = { k: [52, 67], a: [51, 79] };
+  });
+  // ラッシュを受ける
+  const h0 = pose((p) => {
+    p.neck = [45, 31]; p.head = [44, 29]; p.hip = [46, 58]; p.tilt = -0.25;
+    p.aF = { e: [42, 42], h: [50, 36], hand: 'open' }; p.aB = { e: [58, 38], h: [66, 32], hand: 'open' };
+    p.lB = { k: [55, 71], a: [60, 84], toe: 0.3 };
+  });
+  const h1 = pose((p) => {
+    p.neck = [44, 33]; p.head = [44, 31]; p.hip = [45, 59]; p.tilt = -0.15;
+    p.aF = { e: [35, 44], h: [33, 54], hand: 'open' }; p.aB = { e: [60, 40], h: [70, 38], hand: 'open' };
+    p.lF = { k: [41, 73], a: [37, 86] };
+  });
+  // やられる:よろけて、ひざをつき、目を回して倒れる
+  const d0 = pose((p) => {
+    p.neck = [44, 31]; p.head = [43, 29]; p.hip = [46, 58]; p.tilt = -0.3;
+    p.aF = { e: [37, 44], h: [34, 53], hand: 'open' }; p.aB = { e: [58, 40], h: [66, 34], hand: 'open' };
+    p.lB = { k: [55, 71], a: [60, 83], toe: 0.3 };
+  });
+  const d1 = pose((p) => {
+    p.hip = [44, 70]; p.neck = [48, 42]; p.head = [50, 40];
+    p.aF = { e: [43, 57], h: [47, 67], hand: 'open' }; p.aB = { e: [60, 56], h: [64, 66], hand: 'open' };
+    p.lF = { k: [55, 77], a: [52, 86] }; p.lB = { k: [48, 87], a: [36, 87], toe: -0.2 };
+  });
+  const d2 = pose((p) => {
+    p.aF = { e: [43, 40], h: [47, 32], hand: 'open' }; p.aB = { e: [62, 36], h: [70, 32], hand: 'open' };
+    p.lB = { k: [58, 70], a: [66, 80], toe: 0.6 };
+  });
+  const d3 = pose((p) => {
+    p.aF = { e: [43, 38], h: [41, 28], hand: 'open' }; p.aB = { e: [60, 46], h: [62, 57], hand: 'open' };
+    p.lF = { k: [58, 70], a: [50, 84], toe: 0.3 };
+  });
+  return { r0, r1, r2, r3, i0, a1, a3, h0, h1, d0, d1, d2, d3 };
+}
+
 // ---------- 塗り ----------
 
 /** 明るい、ふつう、影、いちばん暗い(省くと影で止める) */
@@ -74,6 +158,12 @@ export type Ramp4 = readonly [string, string, string, string?];
 
 /** 奥の手足の色(1段暗くする) */
 export const farRamp = (r: Ramp4): Ramp4 => [r[1], r[2], r[3] ?? r[2], r[3] ?? r[2]];
+
+/**
+ * 3色の色から、手足を塗る色を選ぶ。手前はそのまま、奥(far)は1段暗くする。
+ * farRamp と違って4つめの色を足さない(いちばん暗い色は使わない)
+ */
+export const limbRamp = (r: readonly [string, string, string], far: boolean): Ramp4 => (far ? [r[1], r[2], r[2]] : [r[0], r[1], r[2]]);
 
 export interface ShadeOpts {
   /** 前に塗った物との境目: ふち色の線、ramp の暗い色の線、線なし */
@@ -98,7 +188,7 @@ function run(m: Mask, x: number, y: number, d: Pt, max = 24): number {
 }
 
 /** 形の中の位置から 0(光の側)〜1(影の側)の値を出す */
-export function lightT(m: Mask, x: number, y: number, light: Pt = [-0.55, -0.84]): number {
+function lightT(m: Mask, x: number, y: number, light: Pt = [-0.55, -0.84]): number {
   const back: Pt = [-light[0], -light[1]];
   const a = run(m, x, y, light), b = run(m, x, y, back);
   // 横の断面も少し混ぜる(細長い形で、縦だけで決まらないように)
@@ -263,20 +353,6 @@ export function footShape(P: Painter, a: Pt, toe: number, len: number, hgt: numb
 }
 
 // ---------- 頭 ----------
-
-/** 文字の絵から格子を作る(keys にない文字は透明) */
-export function gridFromRows(rows: readonly string[], keys: Record<string, string>): PixelGrid {
-  const w = Math.max(...rows.map((r) => r.length));
-  const g = new PixelGrid(w, rows.length);
-  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) { const c = keys[r[x]]; if (c) g.px(x, y, c); } });
-  return g;
-}
-
-/** 文字の絵の一部を書きかえる(r 行目の c 列目から s に) */
-export function patchRows(rows: string[], r: number, c: number, s: string): void {
-  const row = rows[r].padEnd(c + s.length, '.');
-  rows[r] = row.slice(0, c) + s + row.slice(c + s.length);
-}
 
 export interface HeadArt {
   g: PixelGrid;

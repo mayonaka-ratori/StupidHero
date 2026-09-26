@@ -1,8 +1,6 @@
 # 48×48の顔を入れた画面の写真(`mocks/face48.html`の「画面全体で見る」)
 
-`game.patch`は、写真を撮るために手元のゲームを一時的に書きかえた差分です(コミットしていない)。顔のシートを48×48にし(`src/art/sheets.ts`)、会話の窓の顔を48にして(`src/ui/cutin.ts`)、縦長の画面の会話の窓の高さを変えています(`src/scenes/Street.ts`、`src/scenes/Intro.ts`)。`?face48=2`をURLに付けると、セリフを顔の右に出す窓2になります。
-
-撮り直すときは、`git apply mocks/face48_src/game.patch`をしてから、`face_hero.png`と`face_operator.png`を`public/art/`に置きます。撮り終わったら、`git checkout -- src public/art/manifest.json`で元にもどし、置いたPNGを消します。
+48×48の顔はゲームに入ったので、このパッチ(`game.patch`)は消した。写真を撮り直すときは、いまのゲームでそのまま撮れる。
 
 | ファイル | 中身 |
 |---|---|

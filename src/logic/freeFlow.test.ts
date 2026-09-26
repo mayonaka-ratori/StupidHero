@@ -2,19 +2,13 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFreePlay, freeRoleOf, isSceneHead, type FreePlan } from './freeplay';
-import { clearRecords, emptyFreeRecord, freeSelectInfo, isFreeUnlocked, loadRecords, markFreeIntroSeen, needsFreeIntro, saveFreeResult, saveResult, RECORDS_KEY, type RecordStorage } from './records';
+import { clearRecords, emptyFreeRecord, freeSelectInfo, isFreeUnlocked, loadRecords, markFreeIntroSeen, needsFreeIntro, saveFreeResult, saveResult, RECORDS_KEY } from './records';
 import { FREE_WORST_CAPTION, freeShareCaption, freeShareTexts, heroAccuracyText, ruleQuote } from './share';
 import { FREE_WORST_SCENE_RANK, StatsTracker, freeWaveScene, sceneForCivHit } from './stats';
+import { MemStorage } from './testHelpers';
 import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
 import type { Person, StageStats } from './types';
 import { titleCommentFor } from './content';
-
-class MemStorage implements RecordStorage {
-  data = new Map<string, string>();
-  getItem(k: string) { return this.data.get(k) ?? null; }
-  setItem(k: string, v: string) { this.data.set(k, String(v)); }
-  removeItem(k: string) { this.data.delete(k); }
-}
 
 type Style = 'perfect' | 'handsOff' | 'stopAll';
 

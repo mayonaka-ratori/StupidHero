@@ -5,7 +5,7 @@ import { OUTLINE, PixelGrid, md } from '../lib';
 import { Mask, Painter, type Pt, rotateGrid } from '../world/pix';
 import {
   type ArmDims, type BArm, type BLeg, type BPose, type HeadArt, type Ramp4, type ScrapStyle,
-  alignCenter, alignFeet, armShapes, cloneB, drawNeckAndHead, drawScraps, legShapes, moveUpperB, shade, shadeBall
+  alignCenter, alignFeet, armShapes, drawNeckAndHead, drawScraps, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall
 } from '../world/bossKit';
 
 // ---------- 色(15色) ----------
@@ -111,7 +111,7 @@ function furTufts(P: Painter, m: Mask, dark: string, seed = 0): void {
 }
 
 function fillFur(P: Painter, m: Mask, far: boolean, sep: 'outline' | 'dark' | 'none' = 'outline', seed = 0): void {
-  const r: Ramp4 = far ? [FUR[1], FUR[2], FUR[2]] : [FUR[0], FUR[1], FUR[2]];
+  const r = limbRamp(FUR, far);
   shade(P, m, r, { sep, hi: 0.3, lo: 0.62 });
   furTufts(P, m, FUR[2], seed);
 }
@@ -134,7 +134,7 @@ function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
   fillFur(P, upper.clone().union(P.mask().ellipse(s[0], s[1] + 0.5, 4.6, 4.2)), far, 'none', far ? 2 : 0);
   fillFur(P, fore, far, 'dark', far ? 3 : 1);
   // 手(肌)と、金の腕輪
-  const sk: Ramp4 = far ? [SKIN[1], SKIN[2], SKIN[2]] : [SKIN[0], SKIN[1], SKIN[2]];
+  const sk = limbRamp(SKIN, far);
   shadeBall(P, hand, sk, arm.h[0] - 1, arm.h[1] - 1, 3.5, 3.5, { sep: 'outline', cut: [0.5, -0.1, -9] });
   const w = wristOf(arm, 2.6);
   const cuff = furMask(P.mask().ellipse(w[0], w[1], 2.7, 2.7), 0.8);
@@ -147,7 +147,7 @@ function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
 
 /** 赤いハイヒール。つま先立ちで、かかとの細いヒールが地面まで */
 function heelShoe(P: Painter, a: Pt, toe: number, far: boolean): void {
-  const r: Ramp4 = far ? [HAIR[1], HAIR[2], HAIR[2]] : [HAIR[0], HAIR[1], HAIR[2]];
+  const r = limbRamp(HAIR, far);
   const c = Math.cos(toe), s = Math.sin(toe);
   const pts: Pt[] = [[-1.8, -1.8], [1.5, -1.2], [5.6, 1.5], [6.4, 3], [1.5, 2.2], [-1.8, 1.2]];
   const m = P.mask().poly(pts.map(([x, y]) => [a[0] + x * c - y * s, a[1] + x * s + y * c] as Pt));
@@ -160,7 +160,7 @@ function heelShoe(P: Painter, a: Pt, toe: number, far: boolean): void {
 }
 
 function drawLeg(P: Painter, hipJ: Pt, leg: BLeg, far: boolean): void {
-  const sk: Ramp4 = far ? [SKIN[1], SKIN[2], SKIN[2]] : [SKIN[0], SKIN[1], SKIN[2]];
+  const sk = limbRamp(SKIN, far);
   const { thigh, shin } = legShapes(P, hipJ, leg, 3.9, 3.1, 1.7);
   shade(P, thigh.clone().union(shin), sk, { sep: 'outline', hi: 0.3, lo: 0.66 });
   heelShoe(P, leg.a, leg.toe ?? 0.45, far);
@@ -247,7 +247,7 @@ const STAND: BPose = {
 /** 化けていた服の切れはし */
 const SCRAPS: ScrapStyle = { dy: 20, spread: 0.42, xMax: 91, yMin: 1, colors: [FUR[1], DRESS[1], DRESS[2], FUR[2]] };
 
-const pose = (edit: (p: BPose) => void, from: BPose = STAND): BPose => { const p = cloneB(from); edit(p); return p; };
+const pose = poseMaker(STAND);
 
 export function buildBoss2(): PixelGrid[][] {
   // 0 正体を現す:しゃがんで変装を脱ぎすて、立ち上がって決める

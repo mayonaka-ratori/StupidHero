@@ -1,7 +1,6 @@
 // 担当:ステージ4(高層ビル)の人、親玉、物、エフェクト、背景。
 // 人の仕組みや色はステージ1(src/art/world/)のものをそのまま使う。
-import { type ArtContext, type PixelGrid, addGridImages, addGridSheets } from '../lib';
-import { sheetByKey } from '../sheets';
+import { type ArtContext, type PixelGrid, addGridImages, addGridSheets, buildFxSheets } from '../lib';
 import {
   drawLift, drawLiftView, drawPartyGround, drawPartyWall, drawTower1Far, drawTower2Far, drawTower3Far, drawTower4Far,
   drawTowerGround, drawTowerWall
@@ -15,11 +14,7 @@ import { buildProps4 } from './props';
 export function buildWorld4Sheets(skip: Set<string> = new Set()): Record<string, PixelGrid[][]> {
   const sheets: Record<string, PixelGrid[][]> = { ...buildPeople4(skip), ...buildProps4() };
   if (!skip.has('boss4')) sheets.boss4 = buildBoss4();
-  for (const [key, make] of Object.entries(FX4)) {
-    const def = sheetByKey(key);
-    sheets[key] = [make(def.frameW, def.frameH, def.rows[0].frames)];
-  }
-  return sheets;
+  return { ...sheets, ...buildFxSheets(FX4, skip) };
 }
 
 /** 背景の1枚絵(キー → 描く関数) */

@@ -32,8 +32,6 @@ export interface CutInOptions {
   who?: Speaker;
   /** 1秒に出す文字の数 */
   speed?: number;
-  /** 長いセリフのとき、次のページへ進むまでの時間(ミリ秒) */
-  pageMs?: number;
   /** セリフの文字の大きさ */
   size?: number;
   /**
@@ -50,6 +48,8 @@ export const CUT_H = FACE + 12;
 /** 顔を左上に置き、セリフを顔の下に出す窓(faceTop)の高さ。大きな字(16)で2行入る */
 export const CUT_TOP_H = FACE + 48;
 const PAUSE_AFTER = new Set(Array.from('、。…!?!?'));
+/** 長いセリフのとき、次のページへ進むまでの時間(ミリ秒) */
+const PAGE_MS = 900;
 
 export class CutIn extends Phaser.GameObjects.Container {
   override readonly w: number;
@@ -64,7 +64,6 @@ export class CutIn extends Phaser.GameObjects.Container {
   private speed: number;
   /** いま出しているセリフの速さ(say で指定されたもの) */
   private curSpeed = 30;
-  private pageMs: number;
   private timer?: Phaser.Time.TimerEvent;
   private shakeTimer?: Phaser.Time.TimerEvent;
   private shakeBase = 0;
@@ -80,7 +79,6 @@ export class CutIn extends Phaser.GameObjects.Container {
     this.h = h;
     this.who = opt.who ?? 'operator';
     this.speed = opt.speed ?? 30;
-    this.pageMs = opt.pageMs ?? 900;
     this.frameG = new WindowFrame(scene, 0, 0, w, h, 'cut');
     const fx = FRAME_PAD + 2;
     const fy = opt.faceTop ? FRAME_PAD + 2 : Math.max(FRAME_PAD + 2, Math.floor((h - FACE - 2) / 2));
@@ -166,7 +164,7 @@ export class CutIn extends Phaser.GameObjects.Container {
       this.line.setVisibleChars(-1);
       this.typing = false;
       if (!this.pages.length) this.finish();
-      else this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(this.curSpeed));
+      else this.timer = this.scene.time.delayedCall(PAGE_MS, () => this.typePage(this.curSpeed));
       return;
     }
     // ページの待ち時間中なら次のページへ
@@ -227,7 +225,7 @@ export class CutIn extends Phaser.GameObjects.Container {
           this.typing = false;
           if (this.pages.length) {
             this.setExpression(this.expr, false);
-            this.timer = this.scene.time.delayedCall(this.pageMs, () => this.typePage(speed));
+            this.timer = this.scene.time.delayedCall(PAGE_MS, () => this.typePage(speed));
           } else this.finish();
         }
       }

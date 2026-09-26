@@ -15,7 +15,7 @@ import { UI } from '../../config';
 import { layout } from '../../layout';
 import { formatClearTime, formatYen, heroAccuracyText, hurtBreakdown, type StageStats } from '../../logic';
 import { FS, PixelText, WindowFrame } from '../../ui';
-import type { ButtonFit, StatRow, StatsWindow, WindowEnv } from './stats';
+import { THUMB_MIN, type ButtonFit, type StatRow, type StatsWindow, type WindowEnv } from './stats';
 
 /** 路地裏しかクリアしていない人に、結果画面で一度だけ出すオペレーターのひとこと(Result.ts) */
 export const MORE_STAGES_HINT = 'ステージを進めると、\n出てくる人が増えるよ';
@@ -24,12 +24,6 @@ export const MORE_STAGES_HINT = 'ステージを進めると、\n出てくる人
 export const FREE_RESULT_TEXTS = [
   'クリアまでの時間', '待てで守った', '行けで決めた', '市民のけが', '逃がした', '被害額', 'ゆっくり', '人回:', MORE_STAGES_HINT, 'フリープレイだけ'
 ];
-
-/**
- * いちばんひどい場面の写真を出すのに要る高さ。結果画面が写真を出す高さ(Result.ts の THUMB_MIN - 4)と同じにして、
- * 写真が入るならなるべく行をまとめない
- */
-const THUMB_MIN = 54;
 
 interface FreeFit extends ButtonFit {
   rowH: number;
@@ -67,7 +61,7 @@ export interface FreeWindowOptions {
 }
 
 /** いちばん下の小さな1行(「、」で2行に分ける。数字は金色) */
-export const accuracyLine = (s: Pick<StageStats, 'free'>): string =>
+const accuracyLine = (s: Pick<StageStats, 'free'>): string =>
   s.free ? heroAccuracyText(s.free).replace('、', '、\n').replace(/(\d+\/\d+)/g, '{gold}$1{/}') : '';
 
 export function freeWindow(env: WindowEnv, s: StageStats, opt: FreeWindowOptions): StatsWindow {
@@ -90,7 +84,8 @@ export function freeWindow(env: WindowEnv, s: StageStats, opt: FreeWindowOptions
   };
   const shareYOf = (fit: FreeFit): number => bottom - fit.smallH - fit.gap - fit.shareH;
   const roomOf = (fit: FreeFit): number => shareYOf(fit) - 5 - (boxY + boxHOf(fit) + 5);
-  const fit = FITS.find((x) => roomOf(x) >= THUMB_MIN) ?? FITS.find((x) => roomOf(x) >= -6) ?? FITS[FITS.length - 1];
+  // 写真が入る(結果画面が写真を出す THUMB_MIN - 4 だけ空く)なら、なるべく行をまとめない
+  const fit = FITS.find((x) => roomOf(x) >= THUMB_MIN - 4) ?? FITS.find((x) => roomOf(x) >= -6) ?? FITS[FITS.length - 1];
   const boxH = boxHOf(fit);
   new WindowFrame(scene, 4, boxY, W - 8, boxH, 'win');
 

@@ -112,4 +112,3 @@ FACES = [('smug', 'smirk', 'smirkOpen', {}), ('squeeze', 'wavy', 'wail', {'sweat
 if __name__ == '__main__':
     for i, (e, m0, m1, kw) in enumerate(FACES):
         hero48(e, m0, **kw).save(f'f48h{i}a.txt'); hero48(e, m1, **kw).save(f'f48h{i}b.txt')
-    hero48('normal', 'smirk').save('f48h_n.txt')

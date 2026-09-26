@@ -4,7 +4,6 @@ import { AGES, NAMES } from './content';
 import { BOSS2_AGES, ordinalName } from './garageContent';
 import { GANG, GANG_COLOR_IDS } from './rules';
 import { createStage, findBoss } from './stage';
-import { STAGES } from './stages';
 import type { Person, Stage } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 1);
@@ -12,53 +11,42 @@ const stages: Stage[] = SEEDS.map((s) => createStage(s, 'garage'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage(seed, "garage")', () => {
-  it('同じ種なら同じステージ。定義と名前は地下駐車場', () => {
-    expect(createStage(55, 'garage')).toEqual(createStage(55, 'garage'));
-    const s = stages[0];
-    expect(s.id).toBe('garage');
-    expect(s.def).toBe(STAGES.garage);
-    expect(s.name).toBe('地下駐車場');
-  });
-
-  it('波の人数と時間がSTAGE2の表の通り(5人30秒、6人26秒、6人と女ボス28秒。時間ははじめの表より長くした)', () => {
-    const s = stages[0];
-    expect(s.waves.map((w) => w.no)).toEqual([1, 2, 3]);
-    expect(s.waves.map((w) => w.seconds)).toEqual([30, 26, 28]);
-    expect(s.waves.map((w) => w.people.length)).toEqual([5, 6, 7]);
-    expect(s.peopleTotal).toBe(18);
-    expect(s.waves.map((w) => w.hasBoss)).toEqual([false, false, true]);
-  });
+  // id と名前、波の人数と時間、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
 
   it('ワルは全員どこかの組。組は2〜3人、波1は2人の組が1つ、波2と波3は1〜2組', () => {
     const counts = { w2: new Set<number>(), w3: new Set<number>(), sizes: new Set<number>() };
+    // 外れは集めて最後に1回だけ確かめる(1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     for (const s of stages) {
       for (const w of s.waves) {
+        const at = `seed ${s.seed} 波${w.no}`;
         const bads = w.people.filter((p) => p.truth === 'bad');
-        expect(bads.length).toBe(w.badCount);
-        expect(bads.length).toBeLessThanOrEqual(GANG.maxPerWave);
+        if (bads.length !== w.badCount) bad.push(`${at} badCount`);
+        if (bads.length > GANG.maxPerWave) bad.push(`${at} ギャングが多い`);
         for (const b of bads) {
-          expect(b.group).toBeDefined();
-          expect(b.mischief).toBe('whistle');
+          if (b.group === undefined) bad.push(`${at} ${b.id} 組がない`);
+          if (b.mischief !== 'whistle') bad.push(`${at} ${b.id} 悪さ ${b.mischief}`);
         }
-        for (const p of w.people) if (p.truth !== 'bad') expect(p.group).toBeUndefined();
+        for (const p of w.people) if (p.truth !== 'bad' && p.group !== undefined) bad.push(`${at} ${p.id} ギャングでないのに組`);
         const memberTotal = w.groups.reduce((n, g) => n + g.memberIds.length, 0);
-        expect(memberTotal).toBe(bads.length);
+        if (memberTotal !== bads.length) bad.push(`${at} 組の人数の合計`);
         for (const g of w.groups) {
-          expect(g.memberIds.length).toBeGreaterThanOrEqual(2);
-          expect(g.memberIds.length).toBeLessThanOrEqual(3);
+          if (g.memberIds.length < 2 || g.memberIds.length > 3) bad.push(`${at} ${g.id} 人数 ${g.memberIds.length}`);
           counts.sizes.add(g.memberIds.length);
           // 組の人は出てくる順で、全員その組
           const members = g.memberIds.map((id) => w.people.find((p) => p.id === id)!);
-          expect(members.map((m) => m.index)).toEqual([...members.map((m) => m.index)].sort((a, b) => a - b));
-          for (const m of members) expect(m.group).toBe(g.id);
+          const idx = members.map((m) => m.index);
+          if (idx.join() !== [...idx].sort((a, b) => a - b).join()) bad.push(`${at} ${g.id} 順番`);
+          for (const m of members) if (m.group !== g.id) bad.push(`${at} ${m.id} ほかの組`);
         }
         // 市民は2人以上
-        expect(w.people.filter((p) => p.truth === 'civ').length).toBeGreaterThanOrEqual(2);
+        if (w.people.filter((p) => p.truth === 'civ').length < 2) bad.push(`${at} 市民が少ない`);
       }
-      expect(s.waves[0].groups.map((g) => g.memberIds.length)).toEqual([2]);
+      if (s.waves[0].groups.map((g) => g.memberIds.length).join() !== '2') bad.push(`seed ${s.seed} 波1の組`);
       counts.w2.add(s.waves[1].groups.length);
       counts.w3.add(s.waves[2].groups.length);
     }
+    expect(bad).toEqual([]);
     expect([...counts.w2].sort()).toEqual([1, 2]);
     expect([...counts.w3].sort()).toEqual([1, 2]);
     expect([...counts.sizes].sort()).toEqual([2, 3]);
@@ -109,22 +97,13 @@ describe('createStage(seed, "garage")', () => {
     }
   });
 
-  it('女ボスは波3にちょうど1人。化けた姿は警備員、整備士、会社員の女性。小物は金色', () => {
-    const disguises = new Set<string>();
+  it('女ボスの小物は金色。組には入らず、つながりもない', () => {
     for (const s of stages) {
-      const bosses = s.waves.map((w) => w.people.filter((p) => p.truth === 'boss').length);
-      expect(bosses).toEqual([0, 0, 1]);
       const boss = findBoss(s)!;
-      expect(['guard', 'mechanic', 'officelady']).toContain(boss.disguise);
-      expect(boss.look).toBe(boss.disguise);
-      expect(boss.sheetKey).toBe(`boss2_disguise_${boss.disguise}`);
       expect(boss.accessory!.id).toBe('gold');
       expect(boss.group).toBeUndefined();
       expect(boss.link).toBeUndefined();
-      disguises.add(boss.disguise!);
-      expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
     }
-    expect(disguises.size).toBe(3);
   });
 
   it('女ボスの名前は、化けた姿の市民と同じ名前の一覧から(偽名)。年齢も化けた姿の幅に入る', () => {
@@ -162,21 +141,6 @@ describe('createStage(seed, "garage")', () => {
       }
     }
     expect([...looks].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
-  });
-
-  it('ギャングと同じ見た目の市民がなるべく同じ波に出る', () => {
-    let ok = 0;
-    let total = 0;
-    for (const s of stages) {
-      for (const w of s.waves) {
-        const civLooks = new Set(w.people.filter((p) => p.truth === 'civ').map((p) => p.look));
-        for (const b of w.people.filter((p) => p.truth === 'bad')) {
-          total++;
-          if (civLooks.has(b.look)) ok++;
-        }
-      }
-    }
-    expect(ok / total).toBeGreaterThan(0.6);
   });
 
   it('名前は同じものが2回出ない。文と一言もほとんど重ならない', () => {

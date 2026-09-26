@@ -10,6 +10,7 @@
 //   const t = freeTiming(fw.no, slow);                     // 人と人の間、ため、マークのゆっくり、逃げるまでの秒数など
 //   const dry = new DryPress();                            // 空押し。押すたびに dry.press(nowMs, マークがあるか)
 //                                                          // マークが消えたら dry.markGone(nowMs)(直後の押しは空押しにしない)
+//                                                          // 行けは dry.tap(nowMs, マーク, 前ぶれ) で前ぶれの間の押しを覚え、毎コマ dry.settle(マーク, 前ぶれ)
 //   clearTimeSec(rawSec, escaped, civHurt, badSparedByStop) // クリアまでの時間(逃がしたワル、市民のけが、ワルへの待ての分を足す)
 //
 // 配り方(毎回同じ数のチャンスが来るように、山札のように配る):
@@ -37,14 +38,13 @@
 // - 波3の言い直しは「前の半分の人数」のあと(ふつうは6人目のあと。ギャングの組が前の半分にいれば7人目のあと)
 // - ギャングの組の小物の色(GangGroup.accessory)は使わないが、型を満たすために緑を入れておく
 
-import { accessoryFor, GANG_LOOKS } from './garage';
+import { accessoryFor } from './garage';
 import { FREE_ITEMS, FREE_NAME } from './freeNames';
-import { MALL_LOOKS } from './mall';
 import { makePerson, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { ACCESSORY_COLORS, GANG, MARK, UFO } from './rules';
-import { FREE_STAGE_IDS, STAGE_IDS, STAGES } from './stages';
+import { FREE_STAGE_IDS, GANG_LOOKS, MALL_LOOKS, STAGE_IDS, STAGES } from './stages';
 import type {
   AccessoryColorId, FreeItem, FreeRule, FreeStageId, FreeVillainLook, GangGroup, GangLook, Look, Person, SortChoice, Stage, StageId,
   FreeWaveNo, Wave
@@ -76,16 +76,12 @@ export const FREE = {
     { no: 2, scenes: 7, stop: 0, go: 5, heroBad: 0, heroCiv: 2 },
     { no: 3, scenes: 12, stop: 3, go: 3, heroBad: 3, heroCiv: 3 }
   ] as readonly FreeWavePlan[],
-  /** 合わせた数(27場面、待て9、行け8、ヒーローが正しい10) */
-  total: { scenes: 27, stop: 9, go: 8, heroRight: 10 },
   /** 人と人の間(ドット)。波3は悪さの相手(72ドット先)と重ならないように狭くする */
   gapPx: { 1: 104, 2: 104, 3: 96 } as Readonly<Record<FreeWaveNo, number>>,
   /** ため(殴りかかる前に構える秒数)。波1と波2は今のステージと同じ1.08秒、波3は0.9秒(マークは約1.1秒) */
   windupSec: { 1: 1.08, 2: 1.08, 3: 0.9 } as Readonly<Record<FreeWaveNo, number>>,
   /** マークが出ている間の動きの速さ。波1と波2は今と同じゆっくり(0.6倍)、波3はゆっくりにしない */
   markSlowmo: { 1: MARK.slowmo, 2: MARK.slowmo, 3: 1 } as Readonly<Record<FreeWaveNo, number>>,
-  /** 波3で、何場面目のあとにルールを言い直すか(前の半分の場面の数) */
-  redeclareAfterScenes: 6,
   /** 言い直す瞬間に時計を止める秒数(ゆっくりモードは3秒) */
   redeclarePauseSec: 1.5,
   redeclarePauseSlowSec: 3,
@@ -159,7 +155,7 @@ export function isSceneHead(wave: Pick<Wave, 'groups'>, person: Pick<Person, 'id
 }
 
 /** プランのチャンスの数を数える(場面で数える) */
-export function countChances(waves: readonly FreeWave[], stageWaves: readonly Wave[]): FreePlan['chances'] {
+function countChances(waves: readonly FreeWave[], stageWaves: readonly Wave[]): FreePlan['chances'] {
   const c = { stop: 0, go: 0, heroRight: 0, scenes: 0 };
   stageWaves.forEach((w, i) => {
     for (const p of w.people) {
@@ -224,17 +220,24 @@ export function formatClearTime(sec: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** ボタンを押した結果。hit:効いた / dry:空押し / locked:効かない間 / late:マークが消えた直後の遅れた押し / armed:前ぶれの間なので覚えた */
+export type PressResult = 'hit' | 'dry' | 'locked' | 'late' | 'armed';
+
 /**
  * 空押しの判定(待てと行けで1つずつ持つ)。時刻は外から渡す(テストしやすいように)。
  * マークがないときに押すと、1.0秒だけ効かない。効かない間に押し直すと、そこから1.0秒を数え直す
  * (連打すると一度も効かない。見て押す人は困らない)。
  * マークが消えた直後(FREE.lateGraceSec の間)の押しは、遅れて押しただけなので、空押しに数えず、効かない時間も始めない
  * (画面はマークが消えたときに markGone(nowMs) を呼ぶ)。
+ * 行けだけ:マークの前ぶれ(ワルが悪さを始めかけている間)に押したときは、空押しにせず覚えておく(armed)。
+ * 画面は毎コマ settle(マークがあるか, 前ぶれがあるか) を呼び、true ならそのときの行けのマークに効かせる。
+ * 前ぶれがみな終わってもマークが出なければ、覚えを消す。効かない間の押しは、前ぶれの間でも覚えない(連打では効かない)
  */
 export class DryPress {
   private lockUntil = Number.NEGATIVE_INFINITY;
   private goneAt = Number.NEGATIVE_INFINITY;
   private dry = 0;
+  private armedPress = false;
 
   constructor(private readonly lockMs = FREE.dryPressLockSec * 1000, private readonly graceMs = FREE.lateGraceSec * 1000) {}
 
@@ -249,19 +252,52 @@ export class DryPress {
   }
 
   /**
-   * ボタンが押された。hasMark はそのボタンのマークが出ているか。
-   * 効いたら true。マークがない(空押し)か、効かない間なら false で、そこから効かない時間を数え直す。
-   * マークが消えた直後の遅れた押しは、何もせずに false(空押しに数えず、効かない時間も始めない)
+   * ボタンが押された。hasMark はそのボタンのマークが出ているか、warning はマークの前ぶれの間か。
+   * 効いたら 'hit'。マークがない(空押し)なら 'dry'、マークがあっても効かない間なら 'locked' で、
+   * どちらもそこから効かない時間を数え直す(効かない間にマークなしで押したのも 'dry')。
+   * マークが消えた直後の遅れた押しは 'late'(空押しに数えず、効かない時間も始めない)。
+   * マークがなく前ぶれの間なら 'armed'(空押しに数えず、効かない時間も始めず、覚えておく)
    */
-  press(nowMs: number, hasMark = true): boolean {
-    if (this.late(nowMs, hasMark)) return false;
+  tap(nowMs: number, hasMark: boolean, warning = false): PressResult {
+    if (this.late(nowMs, hasMark)) return 'late';
     const locked = nowMs < this.lockUntil;
-    if (!hasMark) this.dry++;
+    if (!hasMark && warning && !locked) {
+      this.armedPress = true;
+      return 'armed';
+    }
+    // 前ぶれの間の押しは、効かない間でも空押しには数えない(効かない時間は数え直す)
+    if (!hasMark && !warning) this.dry++;
     if (locked || !hasMark) {
       this.lockUntil = nowMs + this.lockMs;
-      return false;
+      return !hasMark && !warning ? 'dry' : 'locked';
     }
-    return true;
+    return 'hit';
+  }
+
+  /** tap の短い形(効いたら true。前ぶれは考えない) */
+  press(nowMs: number, hasMark = true): boolean {
+    return this.tap(nowMs, hasMark) === 'hit';
+  }
+
+  /** 前ぶれの間に押して、覚えている行けがあるか */
+  get armed(): boolean {
+    return this.armedPress;
+  }
+
+  /**
+   * 毎コマ呼ぶ。覚えている押しがあり、マークが出たら覚えを消して true(ふつうに押したのと同じに効かせる)。
+   * マークも前ぶれもなくなったら(相手がマークを出す前に倒れたなど)、覚えを消す
+   */
+  settle(hasMark: boolean, warning: boolean): boolean {
+    if (!this.armedPress) return false;
+    if (hasMark) { this.armedPress = false; return true; }
+    if (!warning) this.armedPress = false;
+    return false;
+  }
+
+  /** 覚えている押しを消す */
+  disarm(): void {
+    this.armedPress = false;
   }
 
   /** 今、効かない間か */
@@ -279,9 +315,10 @@ export class DryPress {
     return this.dry;
   }
 
-  /** 効かない間を解く(波が変わったとき) */
+  /** 効かない間を解き、覚えている押しも消す(波が変わったとき) */
   reset(): void {
     this.lockUntil = Number.NEGATIVE_INFINITY;
+    this.armedPress = false;
   }
 }
 

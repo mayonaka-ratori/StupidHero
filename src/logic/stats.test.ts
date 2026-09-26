@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { liftSummary } from './reasons';
+import { STAGES } from './stages';
 import { StatsTracker, WORST_SCENE_RANK, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
 
 describe('StatsTracker', () => {
@@ -153,10 +154,18 @@ describe('StatsTracker(ステージ2)', () => {
     expect(s.snapshot().civHurt).toBe(0);
   });
 
-  it('ボスを市民に仕分けたときの額はステージごと', () => {
-    expect(new StatsTracker(9).bossRampage()).toBe(10_000_000);
-    expect(new StatsTracker(9, 'alley').bossRampage()).toBe(10_000_000);
-    expect(new StatsTracker(9, 'garage').bossRampage()).toBe(15_000_000);
+  it.each([
+    { name: 'ステージを省いたとき(路地裏)', id: undefined, cost: 10_000_000 },
+    { name: '路地裏', id: 'alley', cost: 10_000_000 },
+    { name: '地下駐車場', id: 'garage', cost: 15_000_000 },
+    { name: 'モール', id: 'mall', cost: 20_000_000 },
+    { name: '高層ビル', id: 'tower', cost: 20_000_000 }
+  ] as const)('ボスを市民に仕分けたときの額はステージごと:$name は $cost 円。仕分けた印も残る', ({ id, cost }) => {
+    const s = new StatsTracker(9, id);
+    expect(s.bossRampage()).toBe(cost);
+    expect(s.snapshot().bossSortedCiv).toBe(true);
+    // 額はステージの定義(STAGES[id].bossRampageCost)から読む
+    expect(STAGES[id ?? 'alley'].bossRampageCost).toBe(cost);
   });
 });
 
@@ -262,13 +271,7 @@ describe('StatsTracker(ステージ3)', () => {
     expect(r.rush!.aliensDefeated).toBe(2);
   });
 
-  it('親玉を市民に仕分けたときの額は¥2,000万', () => {
-    const s = new StatsTracker(8, 'mall');
-    expect(s.bossRampage()).toBe(20_000_000);
-    expect(s.snapshot().bossSortedCiv).toBe(true);
-  });
-
-  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない。親玉を見逃すと¥2,000万', () => {
+  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない', () => {
     const s = new StatsTracker(9, 'tower');
     expect(s.mischief('chef')).toBe(0);
     s.hurtCiv('dropped');
@@ -280,7 +283,6 @@ describe('StatsTracker(ステージ3)', () => {
     expect(s.heroMistakes).toBe(0);
     expect(s.breakProp('sofa')).toBe(0);
     expect(s.breakProp('piano')).toBe(30_000_000);
-    expect(s.bossRampage()).toBe(20_000_000);
     // ほかのステージでは物が落ちたけがは0
     expect(new StatsTracker(3, 'mall').snapshot().civHurtByDrop).toBe(0);
   });

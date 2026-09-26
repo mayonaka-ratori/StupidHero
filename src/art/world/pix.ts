@@ -153,7 +153,7 @@ function cleanTones(m: Mask, tone: Map<number, number>): void {
 }
 
 /** 形の中の位置から 0(左上)〜1(右下)の値を出す。細い方向の断面で決める。 */
-export function shadeT(m: Mask, x: number, y: number): number {
+function shadeT(m: Mask, x: number, y: number): number {
   let l = 0, r = 0, u = 0, d = 0;
   while (m.has(x - l - 1, y)) l++;
   while (m.has(x + r + 1, y)) r++;

@@ -16,6 +16,8 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # テストが止まらなくなっても、10分で打ち切る
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

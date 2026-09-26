@@ -5,7 +5,8 @@ import { OUTLINE, PixelGrid, md } from '../lib';
 import { Painter, type Pt, rotateGrid } from '../world/pix';
 import {
   type ArmDims, type BArm, type BLeg, type BPose, type HeadArt, type Ramp4,
-  alignCenter, alignFeet, armShapes, cloneB, drawNeckAndHead, drawScraps, footShape, legShapes, moveUpperB, shade, shadeBall
+  alignCenter, alignFeet, armShapes, drawNeckAndHead, drawScraps, footShape, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall,
+  TALL_STAND, tallBossPoses
 } from '../world/bossKit';
 import { GLITCH } from './palette';
 
@@ -83,9 +84,9 @@ const shoulderB = (p: BPose): Pt => [p.neck[0] + 7, p.neck[1] + 4];
 
 /** 腕(銀のそで、紫の袖口、青緑の長い指の手) */
 function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
-  const su: Ramp4 = far ? [SUIT[1], SUIT[2], SUIT[2]] : [SUIT[0], SUIT[1], SUIT[2]];
-  const cp: Ramp4 = far ? [CAPE[1], CAPE[2], CAPE[2]] : [CAPE[0], CAPE[1], CAPE[2]];
-  const sk: Ramp4 = far ? [ASKIN[1], ASKIN[2], ASKIN[2]] : [ASKIN[0], ASKIN[1], ASKIN[2]];
+  const su = limbRamp(SUIT, far);
+  const cp = limbRamp(CAPE, far);
+  const sk = limbRamp(ASKIN, far);
   const { upper, fore, hand, wrist } = armShapes(P, s, arm, ARM);
   shade(P, upper.clone().union(fore).union(hand), OUTLINE, { sep: 'outline' });
   shade(P, upper, su, { sep: 'none', hi: 0.34, lo: 0.64 });
@@ -109,8 +110,8 @@ function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
 }
 
 function drawLeg(P: Painter, hipJ: Pt, leg: BLeg, far: boolean): void {
-  const su: Ramp4 = far ? [SUIT[1], SUIT[2], SUIT[2]] : [SUIT[0], SUIT[1], SUIT[2]];
-  const cp: Ramp4 = far ? [CAPE[1], CAPE[2], CAPE[2]] : [CAPE[0], CAPE[1], CAPE[2]];
+  const su = limbRamp(SUIT, far);
+  const cp = limbRamp(CAPE, far);
   const { thigh, shin } = legShapes(P, hipJ, leg, 4.4, 3.6, 2.8);
   shade(P, thigh.clone().union(shin), su, { sep: 'outline', hi: 0.3, lo: 0.62 });
   // ひざの線
@@ -176,7 +177,7 @@ function drawBoss(pose: BPose, face: BossFace, o: { scraps?: number; beam?: numb
   // 大きな肩当て
   for (const [s, far] of [[sB, true], [sF, false]] as const) {
     const m = P.mask().ellipse(s[0], s[1] - 1, 5.4, 3.8).union(P.mask().poly([[s[0] - 5, s[1] - 1], [s[0] + (far ? 7 : -8), s[1] - 7], [s[0] + 4, s[1] - 2]]));
-    shade(P, m, far ? [CAPE[1], CAPE[2], CAPE[2]] : [CAPE[0], CAPE[1], CAPE[2]], { sep: 'outline', hi: 0.4, lo: 0.72 });
+    shade(P, m, limbRamp(CAPE, far), { sep: 'outline', hi: 0.4, lo: 0.72 });
   }
   // えり(首の後ろに高く立てる)
   const col = P.mask().poly([[n[0] - 9, n[1] - 9], [n[0] - 2, n[1] + 1], [n[0] - 7, n[1] + 3], [n[0] - 11, n[1] - 1]]);
@@ -189,96 +190,33 @@ function drawBoss(pose: BPose, face: BossFace, o: { scraps?: number; beam?: numb
   return P.g;
 }
 
-const STAND: BPose = {
-  head: [52, 29], neck: [50, 31], hip: [47, 58],
-  aB: { e: [60, 44], h: [62, 55] },
-  aF: { e: [41, 45], h: [42, 56] },
-  lB: { k: [52, 73], a: [54, 86] },
-  lF: { k: [44, 73], a: [41, 86] }
-};
-
-const pose = (edit: (p: BPose) => void, from: BPose = STAND): BPose => { const p = cloneB(from); edit(p); return p; };
+const pose = poseMaker(TALL_STAND);
 
 export function buildBoss3(): PixelGrid[][] {
+  // ボス4と同じポーズは bossKit の tallBossPoses から
+  const { r0, r1, r2, r3, i0, a1, a3, h0, h1, d0, d1, d2, d3 } = tallBossPoses();
   // 0 正体を現す:しゃがんで化けた服を裂き、両手を広げて立ち上がる
-  const r0 = pose((p) => {
-    p.hip = [47, 66]; p.neck = [52, 38]; p.head = [54, 36];
-    p.aF = { e: [51, 52], h: [59, 46] }; p.aB = { e: [63, 50], h: [62, 42] };
-    p.lF = { k: [53, 76], a: [42, 86] }; p.lB = { k: [60, 78], a: [58, 86] };
-  });
-  const r1 = pose((p) => {
-    p.hip = [47, 60]; p.neck = [49, 33]; p.head = [51, 31];
-    p.aF = { e: [35, 40], h: [28, 33], hand: 'open' }; p.aB = { e: [65, 38], h: [74, 32], hand: 'open' };
-  });
-  const r2 = pose((p) => {
-    p.aF = { e: [35, 36], h: [30, 26], hand: 'open' }; p.aB = { e: [64, 36], h: [72, 26], hand: 'open' };
-  });
-  const r3 = pose((p) => {
-    p.aF = { e: [39, 46], h: [44, 56] };
-    p.aB = { e: [63, 38], h: [74, 36], hand: 'open' };
-  });
   const reveal = [
     drawBoss(r0, 'smirk', { scraps: 1 }), drawBoss(r1, 'shout', { scraps: 2 }), drawBoss(r2, 'shout', { scraps: 3 }), drawBoss(r3, 'grin', { scraps: 4 })
   ].map((g) => alignFeet(g));
 
   // 1 待機:腕を組んで、ゆっくり揺れる
-  const i0 = pose((p) => {
-    p.aF = { e: [41, 48], h: [55, 46] };
-    p.aB = { e: [61, 46], h: [50, 43] };
-  });
   const idle = [alignFeet(drawBoss(i0, 'smirk')), alignFeet(drawBoss(moveUpperB(i0, 0, 1), 'smirk'))];
 
   // 2 暴れる:両手を振り上げる、前へ突き出す、目から光を出して振り下ろす、ふんぞり返る
   const a0 = pose((p) => { p.aF = { e: [36, 23], h: [37, 11], hand: 'open' }; p.aB = { e: [63, 21], h: [64, 9], hand: 'open' }; });
-  const a1 = pose((p) => {
-    p.neck = [54, 32]; p.head = [57, 30];
-    p.aF = { e: [62, 41], h: [75, 39], hand: 'open' }; p.aB = { e: [66, 45], h: [78, 47], hand: 'open' };
-    p.lF = { k: [50, 73], a: [53, 86] }; p.lB = { k: [47, 74], a: [39, 86] };
-  });
   const a2 = pose((p) => {
     p.neck = [52, 32]; p.head = [55, 30];
     p.aF = { e: [42, 46], h: [38, 56] }; p.aB = { e: [66, 42], h: [74, 52] };
-  });
-  const a3 = pose((p) => {
-    p.aF = { e: [35, 40], h: [30, 32], hand: 'open' }; p.aB = { e: [63, 36], h: [70, 28], hand: 'open' };
-    p.lF = { k: [52, 67], a: [51, 79] };
   });
   const rampage = [
     alignFeet(drawBoss(a0, 'shout')), alignFeet(drawBoss(a1, 'shout')), alignFeet(drawBoss(a2, 'grin', { beam: 0.45 })), alignFeet(drawBoss(a3, 'shout'))
   ];
 
   // 3 ラッシュを受ける
-  const h0 = pose((p) => {
-    p.neck = [45, 31]; p.head = [44, 29]; p.hip = [46, 58]; p.tilt = -0.25;
-    p.aF = { e: [42, 42], h: [50, 36], hand: 'open' }; p.aB = { e: [58, 38], h: [66, 32], hand: 'open' };
-    p.lB = { k: [55, 71], a: [60, 84], toe: 0.3 };
-  });
-  const h1 = pose((p) => {
-    p.neck = [44, 33]; p.head = [44, 31]; p.hip = [45, 59]; p.tilt = -0.15;
-    p.aF = { e: [35, 44], h: [33, 54], hand: 'open' }; p.aB = { e: [60, 40], h: [70, 38], hand: 'open' };
-    p.lF = { k: [41, 73], a: [37, 86] };
-  });
   const hit = [alignFeet(drawBoss(h0, 'hurt')), alignFeet(drawBoss(h1, 'hurt'))];
 
   // 4 やられる:よろけて、ひざをつき、目を回して倒れる
-  const d0 = pose((p) => {
-    p.neck = [44, 31]; p.head = [43, 29]; p.hip = [46, 58]; p.tilt = -0.3;
-    p.aF = { e: [37, 44], h: [34, 53], hand: 'open' }; p.aB = { e: [58, 40], h: [66, 34], hand: 'open' };
-    p.lB = { k: [55, 71], a: [60, 83], toe: 0.3 };
-  });
-  const d1 = pose((p) => {
-    p.hip = [44, 70]; p.neck = [48, 42]; p.head = [50, 40];
-    p.aF = { e: [43, 57], h: [47, 67], hand: 'open' }; p.aB = { e: [60, 56], h: [64, 66], hand: 'open' };
-    p.lF = { k: [55, 77], a: [52, 86] }; p.lB = { k: [48, 87], a: [36, 87], toe: -0.2 };
-  });
-  const d2 = pose((p) => {
-    p.aF = { e: [43, 40], h: [47, 32], hand: 'open' }; p.aB = { e: [62, 36], h: [70, 32], hand: 'open' };
-    p.lB = { k: [58, 70], a: [66, 80], toe: 0.6 };
-  });
-  const d3 = pose((p) => {
-    p.aF = { e: [43, 38], h: [41, 28], hand: 'open' }; p.aB = { e: [60, 46], h: [62, 57], hand: 'open' };
-    p.lF = { k: [58, 70], a: [50, 84], toe: 0.3 };
-  });
   const defeat = [
     alignFeet(drawBoss(d0, 'hurt')),
     alignFeet(drawBoss(d1, 'hurt')),

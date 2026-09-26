@@ -1,15 +1,13 @@
 // 音の入り口。ゲームからはここの audio だけを使う。
 // Web Audio でメガドライブ風の音(FM音源とPSG)をその場で作って鳴らす。Phaser の音の仕組みは使わない。
 import { Engine } from './engine';
+import type { SONGS } from './songs';
 
-export type BgmName =
-  | 'title' | 'sort' | 'street' | 'boss' | 'result' | 'street2' | 'boss2'
-  // ステージ3(sale3 はタイムセールラッシュの曲)
-  | 'street3' | 'boss3' | 'sale3'
-  // ステージ4(lift4 はエレベーターラッシュの曲)
-  | 'street4' | 'boss4' | 'lift4'
-  // フリープレイ(同じ曲で、波ごとに少しずつ速い)
-  | 'free1' | 'free2' | 'free3';
+/**
+ * 曲の名前(songs.ts の SONGS のキー)。sale3 はタイムセールラッシュ、lift4 はエレベーターラッシュの曲。
+ * free1〜free3 はフリープレイの曲(同じ曲で、波ごとに少しずつ速い)
+ */
+export type BgmName = keyof typeof SONGS;
 export type SfxName =
   | 'button' | 'swipeBad' | 'swipeCiv' | 'tick' | 'timeUp' | 'blip'
   | 'charge' | 'punch' | 'stomp' | 'beam' | 'hit' | 'bigHit' | 'break'

@@ -24,9 +24,12 @@ describe('高層ビルはフリープレイに入れない', () => {
 });
 const SEEDS = Array.from({ length: 150 }, (_, i) => i * 7919 + 3);
 
+/** 開き方と種のすべての組み合わせの並び。最初に1回だけ作り、どのテストでも使い回す(テストは中身を書きかえない) */
+const PLANS = UNLOCKS.flatMap((unlocked) => SEEDS.map((seed) => ({ plan: createFreePlay(seed, unlocked), unlocked })));
+
 /** 開き方と種をすべて回す */
 function eachPlan(fn: (plan: ReturnType<typeof createFreePlay>, unlocked: readonly StageId[]) => void): void {
-  for (const unlocked of UNLOCKS) for (const seed of SEEDS) fn(createFreePlay(seed, unlocked), unlocked);
+  for (const { plan, unlocked } of PLANS) fn(plan, unlocked);
 }
 
 /** 場面の頭の人だけ(ギャングの組の2人目を除く) */
@@ -103,6 +106,8 @@ describe('createFreePlay:山札の数', () => {
   });
 
   it('run.stage に入れる形:id と def は波1の背景、名前はフリープレイ、人数とワルの数', () => {
+    // 外れは集めて最後に1回だけ確かめる(並びが多いので、1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     eachPlan((plan) => {
       const s = plan.stage;
       expect(s.id).toBe(plan.waves[0].bgStage);
@@ -112,35 +117,37 @@ describe('createFreePlay:山札の数', () => {
       expect(s.peopleTotal).toBe(s.waves.reduce((n, w) => n + w.people.length, 0));
       expect(s.villainTotal).toBe(s.waves.flatMap((w) => w.people).filter((p) => p.truth === 'bad').length);
       for (const w of s.waves) {
-        expect(w.hasBoss).toBe(false);
-        expect(w.badCount).toBe(w.people.filter((p) => p.truth === 'bad').length);
+        if (w.hasBoss) bad.push(`seed ${s.seed} 波${w.no} ボスがいる`);
+        if (w.badCount !== w.people.filter((p) => p.truth === 'bad').length) bad.push(`seed ${s.seed} 波${w.no} badCount`);
         w.people.forEach((p, i) => {
-          expect(p.index).toBe(i);
-          expect(p.wave).toBe(w.no);
-          expect(p.truth).not.toBe('boss');
+          if (p.index !== i) bad.push(`${p.id} index`);
+          if (p.wave !== w.no) bad.push(`${p.id} wave`);
+          if (p.truth === 'boss') bad.push(`${p.id} ボス`);
         });
       }
       const ids = s.waves.flatMap((w) => w.people.map((p) => p.id));
       expect(new Set(ids).size).toBe(ids.length);
     });
+    expect(bad).toEqual([]);
   });
 });
 
 describe('createFreePlay:人と背景', () => {
   it('開いているステージの人だけ出す。路地裏だけならワルはモヒカンだけ、市民は路地裏の市民だけ', () => {
     const alleyCiv: Look[] = ['hoodie', 'suit', 'shopper', 'granny'];
+    // 外れは集めて最後に1回だけ確かめる(並びが多いので、1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     eachPlan((plan, unlocked) => {
+      const badLooks: Look[] = [
+        'fp_mohawk', ...(unlocked.includes('garage') ? ['fp_gang' as const] : []), ...(unlocked.includes('mall') ? ['fp_alien' as const] : [])
+      ];
+      const civLooks: Look[] = [...alleyCiv, ...(unlocked.includes('garage') ? GANG_LOOKS : []), ...(unlocked.includes('mall') ? MALL_LOOKS : [])];
       for (const p of plan.stage.waves.flatMap((w) => w.people)) {
-        if (p.truth === 'bad') {
-          expect(['fp_mohawk', 'fp_gang', 'fp_alien']).toContain(p.look);
-          if (!unlocked.includes('garage')) expect(p.look).not.toBe('fp_gang');
-          if (!unlocked.includes('mall')) expect(p.look).not.toBe('fp_alien');
-        } else {
-          const ok = [...alleyCiv, ...(unlocked.includes('garage') ? GANG_LOOKS : []), ...(unlocked.includes('mall') ? MALL_LOOKS : [])];
-          expect(ok).toContain(p.look);
-        }
+        const ok = p.truth === 'bad' ? badLooks : civLooks;
+        if (!ok.includes(p.look)) bad.push(`${unlocked} seed ${plan.stage.seed} ${p.id} ${p.truth} ${p.look}`);
       }
     });
+    expect(bad).toEqual([]);
     // 路地裏だけ:ワルは全員モヒカン
     const plan = createFreePlay(1, ['alley']);
     expect(new Set(plan.stage.waves.flatMap((w) => w.people).filter((p) => p.truth === 'bad').map((p) => p.look))).toEqual(new Set(['fp_mohawk']));
@@ -302,7 +309,9 @@ describe('createFreePlay:波3', () => {
 describe('時間と空押し', () => {
   it('FREE の数字', () => {
     expect(FREE.waves.map((w) => w.scenes)).toEqual([8, 7, 12]);
-    expect(FREE.total).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
+    const sum = (key: 'scenes' | 'stop' | 'go') => FREE.waves.reduce((a, w) => a + w[key], 0);
+    const heroRight = FREE.waves.reduce((a, w) => a + w.heroBad + w.heroCiv, 0);
+    expect({ scenes: sum('scenes'), stop: sum('stop'), go: sum('go'), heroRight }).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
     expect(FREE.gapPx).toEqual({ 1: 104, 2: 104, 3: 96 });
     expect(FREE.windupSec[3]).toBe(0.9);
     expect(FREE.markSlowmo[3]).toBe(1);
@@ -367,5 +376,59 @@ describe('時間と空押し', () => {
     expect(d.press(1151 + 200, false)).toBe(false);
     expect(d.dryCount).toBe(1);
     expect(d.locked(1400)).toBe(true);
+  });
+  it('行けの前ぶれの間の押しは、空押しにせず覚えておき、マークが出たら効かせる', () => {
+    const d = new DryPress();
+    // 前ぶれの間(マークなし)に押す:覚える。空押しに数えず、効かない時間も始めない
+    expect(d.tap(0, false, true)).toBe('armed');
+    expect(d.armed).toBe(true);
+    expect(d.dryCount).toBe(0);
+    expect(d.locked(10)).toBe(false);
+    // 押し直しても同じ
+    expect(d.tap(200, false, true)).toBe('armed');
+    expect(d.dryCount).toBe(0);
+    // マークが出るまでは効かせない。マークが出たら1回だけ効かせる
+    expect(d.settle(false, true)).toBe(false);
+    expect(d.settle(true, false)).toBe(true);
+    expect(d.armed).toBe(false);
+    expect(d.settle(true, false)).toBe(false);
+  });
+
+  it('前ぶれがマークを出さずに終わったら、覚えた行けを消す。前ぶれのないところの空押しは今のまま', () => {
+    const d = new DryPress();
+    d.tap(0, false, true);
+    expect(d.settle(false, false)).toBe(false);
+    expect(d.armed).toBe(false);
+    // そのあとマークが出ても効かない
+    expect(d.settle(true, false)).toBe(false);
+    // 前ぶれのないところ:ふつうの空押し
+    expect(d.tap(100, false, false)).toBe('dry');
+    expect(d.dryCount).toBe(1);
+    expect(d.locked(500)).toBe(true);
+  });
+
+  it('効かない間の押しは、前ぶれの間でも覚えず、空押しにも数えない(連打では効かない)', () => {
+    const d = new DryPress();
+    expect(d.tap(0, false)).toBe('dry');
+    expect(d.tap(500, false, true)).toBe('locked');
+    expect(d.armed).toBe(false);
+    expect(d.dryCount).toBe(1);
+    // 効かない時間は数え直す
+    expect(d.locked(1400)).toBe(true);
+    expect(d.tap(1600, false, true)).toBe('armed');
+    // 波が変わったら、覚えも消す
+    d.reset();
+    expect(d.armed).toBe(false);
+  });
+
+  it('マークが出ていれば、前ぶれがあってもそのマークに効く。遅れた押しは late', () => {
+    const d = new DryPress();
+    expect(d.tap(0, true, true)).toBe('hit');
+    expect(d.armed).toBe(false);
+    d.markGone(1000);
+    expect(d.tap(1100, false, true)).toBe('late');
+    expect(d.tap(1100, false)).toBe('late');
+    expect(d.armed).toBe(false);
+    expect(d.dryCount).toBe(0);
   });
 });

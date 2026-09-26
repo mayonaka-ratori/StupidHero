@@ -4,7 +4,7 @@
 //   *_line:「光と揺れを弱くする」のときの、点滅させないふち取り(1コマ)。形は光と同じ
 // 色だけでなく形で見分けがつくように、殴りかかるほうは外へとがらせ、素通りのほうはなめらかな丸にする。
 // 半透明は使わず、光のほうはゲームの中で1コマおきに点滅させる。左右反転しても変に見えない形にする。
-import { md, OUTLINE, PixelGrid } from '../lib';
+import { gridFrames, md, OUTLINE, PixelGrid } from '../lib';
 
 /** 赤(内側の明るい色、ふつう、とがった先の暗い色) */
 const RED = [md(7, 5, 4), md(7, 1, 1), md(4, 0, 1)] as const;
@@ -17,12 +17,6 @@ const RX = 17, RY = 25;
 /** トゲの数 */
 const SPIKES = 12;
 
-const frames = (n: number, draw: (g: PixelGrid, i: number) => void): PixelGrid[] =>
-  Array.from({ length: n }, (_, i) => {
-    const g = new PixelGrid(64, 64);
-    draw(g, i);
-    return g;
-  });
 
 /** 楕円のものさしで、真ん中からの距離(楕円の上で1) */
 const ell = (x: number, y: number): number => Math.hypot((x + 0.5 - CX) / RX, (y + 0.5 - CY) / RY);
@@ -32,7 +26,7 @@ const angle = (x: number, y: number): number => Math.atan2(y + 0.5 - CY, x + 0.5
  * トゲの外の端(楕円のものさし)。三角の波で、とがった先が SPIKES 本。
  * phase でトゲの場所を回し、long でトゲを1本おきに長くする
  */
-export function spikeEdge(a: number, phase: number, long = 0): number {
+function spikeEdge(a: number, phase: number, long = 0): number {
   const u = ((a / (Math.PI * 2)) * SPIKES + phase + 100) % 1;
   const tri = 1 - Math.abs(u * 2 - 1);
   const k = Math.floor(((a / (Math.PI * 2)) * SPIKES + phase + 100)) % 2;
@@ -40,10 +34,10 @@ export function spikeEdge(a: number, phase: number, long = 0): number {
 }
 
 /** 丸の外の端(楕円のものさし)。ほんの少しだけふくらんだりしぼんだりする */
-export const roundEdge = (i: number): number => 1.06 + (i % 2 ? 0.02 : 0);
+const roundEdge = (i: number): number => 1.06 + (i % 2 ? 0.02 : 0);
 
 /** 殴りかかるときの光:赤いトゲトゲの輪 */
-export const auraAttack = (n: number): PixelGrid[] => frames(n, (g, i) => {
+export const auraAttack = (n: number): PixelGrid[] => gridFrames(64, 64, n, (g, i) => {
   const phase = i * 0.25, long = i % 2 ? 0.06 : 0.02;
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
     const d = ell(x, y), e = spikeEdge(angle(x, y), phase, long);
@@ -55,7 +49,7 @@ export const auraAttack = (n: number): PixelGrid[] => frames(n, (g, i) => {
 });
 
 /** 素通りするときの光:水色の丸い輪と、立ちのぼる泡 */
-export const auraPass = (n: number): PixelGrid[] => frames(n, (g, i) => {
+export const auraPass = (n: number): PixelGrid[] => gridFrames(64, 64, n, (g, i) => {
   const e = roundEdge(i);
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
     const d = ell(x, y) * (1.02 - Math.abs(Math.sin(angle(x, y))) * 0.02);
@@ -94,10 +88,10 @@ function edgeLine(g: PixelGrid, inside: (x: number, y: number) => boolean, col: 
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) if (g.get(x, y) !== col && g.get(x, y) !== OUTLINE) g.px(x, y, null);
 }
 
-export const auraAttackLine = (n: number): PixelGrid[] => frames(n, (g) => {
+export const auraAttackLine = (n: number): PixelGrid[] => gridFrames(64, 64, n, (g) => {
   edgeLine(g, (x, y) => ell(x, y) <= spikeEdge(angle(x, y), 0, 0.02), RED[1]);
 });
 
-export const auraPassLine = (n: number): PixelGrid[] => frames(n, (g) => {
+export const auraPassLine = (n: number): PixelGrid[] => gridFrames(64, 64, n, (g) => {
   edgeLine(g, (x, y) => ell(x, y) * (1.02 - Math.abs(Math.sin(angle(x, y))) * 0.02) <= roundEdge(0), CYAN[1]);
 });

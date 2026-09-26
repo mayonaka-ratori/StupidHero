@@ -6,17 +6,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BossFight } from './boss';
 import { rushEndLine } from './content';
-import { formatDamage } from './format';
+import { damageAnalogy } from './format';
 import { MALL_REACTIONS } from './mallContent';
-import { reasonFor, rushSummary } from './reasons';
-import {
-  clearRecords, hasSeenRush, isStageUnlocked, loadRecords, markRushSeen, needsIntro, saveResult, type RecordStorage
-} from './records';
+import { rushSummary } from './reasons';
+import { clearRecords, saveResult } from './records';
 import { PROP_COST, resolveEncounter } from './rules';
-import { ABDUCTED_CAPTION, STAGE_WORST_CAPTIONS, buildShareText, shareCaption } from './share';
+import { ABDUCTED_CAPTION, buildShareText, shareCaption } from './share';
 import { createStage, saleRushOf } from './stage';
 import { STAGES } from './stages';
 import { StatsTracker } from './stats';
+import { MemStorage } from './testHelpers';
 import { decideTitle } from './titles';
 import { UfoQueue } from './ufo';
 import type { SortChoice, Stage, StageStats } from './types';
@@ -90,12 +89,6 @@ function play(stage: Stage, o: PlayOptions): StageStats {
 
 const aliensOf = (stage: Stage): number => stage.waves.reduce((n, w) => n + w.badCount, 0);
 
-class MemStorage implements RecordStorage {
-  data = new Map<string, string>();
-  getItem(k: string) { return this.data.get(k) ?? null; }
-  setItem(k: string, v: string) { this.data.set(k, String(v)); }
-}
-
 describe('ステージ3を通しで数える', () => {
   beforeEach(() => clearRecords(null));
 
@@ -133,7 +126,7 @@ describe('ステージ3を通しで数える', () => {
     expect(s.ufosDowned).toBe(n);
     expect(s.civHurt).toBe(0);
     expect(s.damage).toBe(n * PROP_COST.ufo + 1_500_000);
-    expect(formatDamage(s.damage, 'mall')).toContain('噴水');
+    expect(damageAnalogy(s.damage, 'mall').text).toContain('噴水');
     // ラッシュは市民を全員守り、宇宙人を全員倒した
     expect(rushSummary(s.rush!)).toBe(`セール：撃破${s.rush!.aliens}/${s.rush!.aliens}・守った${s.rush!.civs}/${s.rush!.civs}`);
     expect(MALL_REACTIONS.rushEndGood).toContain(rushEndLine(s.rush!));
@@ -162,57 +155,12 @@ describe('ステージ3を通しで数える', () => {
     expect(buildShareText({ caption, url: 'u' }).split('\n')).toEqual(['市民がさらわれた!', '#StupidHero', 'u']);
   });
 
-  it('ラッシュで市民を殴ったあとに買い物客がさらわれたら、市民を殴った場面のほうが残る', () => {
-    const stage = createStage(5, 'mall');
-    const stats = new StatsTracker(stage.villainTotal, 'mall');
-    stats.startRush(saleRushOf(stage)!);
-    stats.rushHit('civ');
-    expect(stats.reportScene('civHit', 'punch')).toBe(true);
-    stats.ufoEscaped();
-    expect(stats.reportScene('abducted')).toBe(false);
-    expect(stats.snapshot().worstScene).toBe('civHit');
-  });
-
-  it('答え合わせの決め手はモールの文', () => {
-    const stage = createStage(8, 'mall');
-    for (const w of stage.waves) {
-      for (const p of w.people) {
-        const r = reasonFor(p, w);
-        if (p.truth === 'bad') expect(r).toMatch(/一回転|横に閉じた|のびて戻った|ちらついた/);
-        if (p.truth === 'boss') expect(r).toMatch(/名札|耳|触角/);
-      }
-    }
-  });
-
-  it('記録:地下駐車場のボスを倒すとモールが開く。称号は全部で24。ラッシュを見たことを覚える', () => {
+  it('記録:通しで遊んだ結果を保存すると、いちばん多く倒した数などがそのまま残る', () => {
     const st = new MemStorage();
-    const alley = new StatsTracker(9, 'alley');
-    alley.defeatBoss(7);
-    expect(saveResult('alley', alley.snapshot(), 'soSo', st).unlockedNow).toEqual(['garage']);
-    expect(isStageUnlocked('mall', loadRecords(st))).toBe(false);
-    // 地下駐車場を遊んでもボスを倒していなければ開かない
-    expect(saveResult('garage', new StatsTracker(10, 'garage').snapshot(), 'soSo', st).unlockedNow).toEqual([]);
-    const garage = new StatsTracker(10, 'garage');
-    garage.defeatBoss(6);
-    expect(saveResult('garage', garage.snapshot(), 'soSo', st).unlockedNow).toEqual(['mall']);
-    expect(isStageUnlocked('mall', loadRecords(st))).toBe(true);
-    expect(needsIntro('mall', loadRecords(st))).toBe(true);
-
     const stage = createStage(77, 'mall');
     const s = play(stage, { sortAlien: 'civ', goUfo: true, rushStop: 'civ' });
-    expect(hasSeenRush('mall', loadRecords(st))).toBe(false);
-    markRushSeen('mall', st);
-    expect(hasSeenRush('mall', loadRecords(st))).toBe(true);
-    expect(hasSeenRush('alley', loadRecords(st))).toBe(false);
     const saved = saveResult('mall', s, decideTitle(s).id, st);
     expect(saved.firstPlay).toBe(true);
-    expect(saved.titlesTotal).toBe(24);
     expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
-    // モールを初めてクリアすると、高層ビルが開く
-    expect(saved.unlockedNow).toEqual(['tower']);
-    expect(needsIntro('mall', loadRecords(st))).toBe(false);
-    expect(loadRecords(st).rushSeen).toEqual(['mall']);
-    // 大きな物が壊れた場面の見出しは「モールがこわれた!」
-    expect(STAGE_WORST_CAPTIONS.mall?.bigPropBroken).toBe('モールがこわれた!');
   });
 });

@@ -1,6 +1,10 @@
 // 結果発表(Street)の部品:ステージ3のUFO(見逃した宇宙人が空へ合図し、UFOが買い物客を吸い上げる。行けで殴り落とす)。
 // Street のシーンを s として受け取り、そのシーンの道具(s.fx、s.heroSay など)を使って動かす。
 // シーンの create のたびに作り直す(回をまたいで状態を持ちこまない)。
+//
+// 流れ:見逃した宇宙人が空へ合図 → UFOが下りてくる(通りがかりの買い物客が歩いてくる) → 光で吸い上げる(UFOの上に行けの合図)。
+// 行けでヒーローが跳んでUFOを殴り落とす(真下の物が1つ壊れる。市民は巻きこまない)。押さなければ乗せて去る。
+// 時間は UfoQueue(logic/ufo.ts)が数え、段階が変わるたびに onUfo で画面を動かす。UFOは1機ずつ(流れは終わるまで待つ)。
 
 import Phaser from 'phaser';
 import { layout } from '../../layout';
@@ -66,6 +70,12 @@ export class UfoPart {
   ufos: UfoQueue;
 
   ufo: UfoRun | null = null;
+
+  /** 行けのマークの前ぶれの間か(宇宙人が合図を送ってから、UFOが下りてくるまで。フリープレイが見る) */
+  get goWarning(): boolean {
+    const ph = this.ufo ? this.ufos.current?.phase : undefined;
+    return ph === 'signal' || ph === 'descend';
+  }
 
   private newQueue(): UfoQueue {
     return new UfoQueue(this.s.free ? { beamSec: this.s.free.timing.ufoBeamSec } : {});

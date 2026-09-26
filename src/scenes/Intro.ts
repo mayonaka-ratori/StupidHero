@@ -12,10 +12,11 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { FREE_INTRO, bgForWave, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type Speech, type StageId } from '../logic';
+import { FREE_INTRO, bgForWave, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type StageId } from '../logic';
 import { currentWave, getRun } from '../run';
-import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PauseControl, PixelText, addPanel, panelRect, spawnFx } from '../ui';
-import { Z, addMute, devHook, drawStageBg, gotoSafe, drawLightPool, flicker, unlockOnTap } from './sort/common';
+import { Button, CUT_H, CUT_TOP_H, FS, PauseControl, addPanel, panelRect, spawnFx } from '../ui';
+import { Z, addMute, devHook, drawStageBg, drawLightPool, flicker, unlockOnTap } from './sort/common';
+import { Dialogue } from './dialogue';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
 const HERO_X = 60;
@@ -32,14 +33,9 @@ export function freeEntryScene(): string {
 }
 
 export class IntroScene extends Phaser.Scene {
-  private lines: readonly Speech[] = [];
-  private index = -1;
-  private cut!: CutIn;
+  private talk!: Dialogue;
   private hero!: Phaser.GameObjects.Sprite;
   private demo!: IntroDemo;
-  private nextMark!: PixelText;
-  private counter!: PixelText;
-  private leaving = false;
   /** 見たことがあって、すぐ仕分けへ行ったとき(何も作っていない) */
   private skipped = false;
   /** 掛け合いのあとのシーン(ステージは仕分け、フリープレイは Street) */
@@ -50,19 +46,16 @@ export class IntroScene extends Phaser.Scene {
   create(): void {
     const { W } = layout;
     const run = getRun(this);
-    this.index = -1;
-    this.leaving = false;
     this.skipped = false;
     const free = run.mode === 'free';
     this.nextScene = free ? SCENES.street : SCENES.sort;
     // もう見たステージなら、何も出さずに仕分けへ(ワイプで隠れている間に切り替わる)
     if (!run.debug && !(free ? needsFreeIntro() : needsIntro(run.stage.id))) {
-      this.leaving = true;
       this.skipped = true;
       this.scene.start(this.nextScene);
       return;
     }
-    this.lines = free ? FREE_INTRO : introFor(run.stage.id);
+    const lines = free ? FREE_INTRO : introFor(run.stage.id);
     // 見せ始めたら「見た」にする(途中でとばしても、閉じても、次からは出さない)
     if (free) markFreeIntroSeen();
     else markIntroSeen(run.stage.id);
@@ -102,53 +95,33 @@ export class IntroScene extends Phaser.Scene {
     const cutY = r.y + Math.max(0, Math.floor((btnY - 24 - ch - r.y) / 3));
     // 会話の窓は横いっぱい(顔の右にセリフを出すときも、1行12字が入る)
     const cx = wide.x, cw = wide.w;
-    this.cut = new CutIn(this, cx, cutY, cw, ch, { speed: 32, size: tall ? FS.big : FS.body, faceTop: tall });
-    // カットインをタップしたときも、シーンのタップとして扱う(二重に進まないように)
-    for (const o of this.cut.list) if (o instanceof Phaser.GameObjects.Zone) o.disableInteractive();
-    const markY = cutY + ch - 14;
-    this.nextMark = new PixelText(this, cx + cw - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
-    this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = markY + (this.nextMark.y === markY ? 1 : 0); } });
-    this.counter = new PixelText(this, cx + 2, cutY + ch + 5, '', { size: FS.small, color: UI.textDim });
-    const skip = new Button(this, r.x, btnY, skipW, btnH, 'とばす▶▶', { color: 0x2a2540, size: FS.small, textColor: UI.textDim, onPress: () => this.leave() });
-    const nextBtn = new Button(this, r.x + skipW + 6, btnY, r.w - skipW - 6, btnH, '次へ▶', { color: 0x3a3354, onPress: () => this.advance() });
+    const talk = new Dialogue(this, {
+      x: cx, y: cutY, w: cw, h: ch, tall, lines, to: this.nextScene,
+      onLine: (line) => {
+        this.demo.show(demoKindFor(line.text));
+        if (line.who === 'hero') this.heroReact(line.face);
+      }
+    });
+    this.talk = talk;
+    const skip = new Button(this, r.x, btnY, skipW, btnH, 'とばす▶▶', { color: 0x2a2540, size: FS.small, textColor: UI.textDim, onPress: () => talk.leave() });
+    const nextBtn = new Button(this, r.x + skipW + 6, btnY, r.w - skipW - 6, btnH, '次へ▶', { color: 0x3a3354, onPress: () => talk.advance() });
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.some((o) => o.parentContainer === skip || o.parentContainer === mute || o.parentContainer === nextBtn)) return;
-      this.advance();
+      talk.advance();
     });
-    this.input.keyboard?.on('keydown-SPACE', () => this.advance());
-    this.input.keyboard?.on('keydown-ENTER', () => this.advance());
-    this.input.keyboard?.on('keydown-ESC', () => this.leave());
+    this.input.keyboard?.on('keydown-SPACE', () => talk.advance());
+    this.input.keyboard?.on('keydown-ENTER', () => talk.advance());
+    this.input.keyboard?.on('keydown-ESC', () => talk.leave());
 
-    devHook(this, { advance: () => this.advance(), leave: () => this.leave(), state: () => ({ index: this.index, total: this.lines.length, typing: this.cut.isTyping }) });
-    this.time.delayedCall(260, () => this.next());
+    devHook(this, { advance: () => talk.advance(), leave: () => talk.leave(), state: () => ({ index: talk.index, total: talk.total, typing: talk.cut.isTyping }) });
+    this.time.delayedCall(260, () => talk.next());
   }
 
   override update(_t: number, dt: number): void {
     if (this.skipped) return;
     this.demo.update(dt);
-    this.nextMark.setVisible(!this.cut.isTyping && this.index >= 0);
-  }
-
-  /** タップ:文字送りの途中なら全部出す。出し終わっていれば次のセリフへ */
-  private advance(): void {
-    if (this.leaving || this.index < 0) return;
-    if (this.cut.isTyping) { this.cut.skip(); return; }
-    this.next();
-  }
-
-  private next(): void {
-    this.index++;
-    if (this.index >= this.lines.length) { this.leave(); return; }
-    const line = this.lines[this.index];
-    this.counter.setText(`${this.index + 1}/${this.lines.length}`);
-    let n = 0;
-    void this.cut.say(line.text, line.face, {
-      who: line.who,
-      onChar: () => { if (n++ % 2 === 0) audio.sfx('blip', { volume: 0.4, pitch: line.who === 'hero' ? 1.25 : 1 }); }
-    });
-    this.demo.show(demoKindFor(line.text));
-    if (line.who === 'hero') this.heroReact(line.face);
+    this.talk.update();
   }
 
   /** ヒーローが話すときの動き */
@@ -158,13 +131,5 @@ export class IntroScene extends Phaser.Scene {
     // ドヤ顔:キラーンと光る
     this.hero.play(animKey('hero', 'idle'));
     spawnFx(this, 'fx_kiran', HERO_X + 14, FEET_Y - 94, { scale: 2, depth: Z.actorFront });
-  }
-
-  private leave(): void {
-    if (this.leaving) return;
-    this.leaving = true;
-    audio.sfx('button');
-    // 切り替えの途中で受け付けられなかったら、また入力を受け付ける
-    gotoSafe(this, this.nextScene, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
   }
 }

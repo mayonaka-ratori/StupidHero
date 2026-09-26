@@ -45,7 +45,7 @@ import { makeCanvas } from './result/draw';
 import { MORE_STAGES_HINT, freeWindow } from './result/freeStats';
 import { fillSampleStats, makeSampleShot, memoryFreeStorage, memoryStorage, sampleName } from './result/sample';
 import { ShareFlow } from './result/share';
-import type { StatRow, StatsWindow, WindowEnv } from './result/stats';
+import { THUMB_MIN, type StatRow, type StatsWindow, type WindowEnv } from './result/stats';
 import { Timeline } from './result/timeline';
 import { markJustUnlocked } from './stageselect/state';
 import { openTitleList } from './TitleList';
@@ -81,8 +81,6 @@ const THUMB_KEY = 'result_thumb';
 
 /** 称号の帯の上端 */
 const BAND_Y = 12;
-/** いちばんひどい場面の写真を出すのに要る高さ */
-const THUMB_MIN = 58;
 
 /** ステージの数字の窓とボタンの並べ方 */
 interface Fit {

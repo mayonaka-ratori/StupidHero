@@ -59,8 +59,6 @@ export class ShareFlow {
     this.armedAt = performance.now();
   }
 
-  get isOpen(): boolean { return this.overlay !== null; }
-
   /** 共有を始める。ユーザーの操作(指が離れた、クリック)の中で呼ぶこと */
   start(): void {
     if (this.busy || this.overlay) return;

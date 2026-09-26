@@ -1,24 +1,18 @@
 // ステージ3のエフェクト。半透明は使わず、ゲームの中で1コマおきに点滅させて透けて見せる。
 // どちらも左右反転しても変に見えない形にする。置くときの基準はコマの真ん中。
-import { md, PixelGrid } from '../lib';
+import { gridFrames, md, PixelGrid } from '../lib';
 import { GLITCH } from './palette';
 import { hash } from '../world/wrap';
 
 const W = md(7, 7, 7);
 
-const frames = (w: number, h: number, n: number, draw: (g: PixelGrid, i: number) => void): PixelGrid[] =>
-  Array.from({ length: n }, (_, i) => {
-    const g = new PixelGrid(w, h);
-    draw(g, i);
-    return g;
-  });
 
 /**
  * UFOの吸い上げる光 32×64。上がせまく下が広い光の柱。ふちの線と、上へ流れる輪で描き、
  * 中はほとんど空けておく(中の買い物客が見えるように)。上の端をUFOの口に合わせて置く
  */
 function ufoBeam(w: number, h: number, n: number): PixelGrid[] {
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const half = (y: number) => 6 + (y / (h - 1)) * 9;
     const cx = w / 2;
     for (let y = 0; y < h; y++) {
@@ -43,7 +37,7 @@ function ufoBeam(w: number, h: number, n: number): PixelGrid[] {
  * コマごとに場所を変える
  */
 function glitch(w: number, h: number, n: number): PixelGrid[] {
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const cols = [GLITCH[0], GLITCH[1], GLITCH[2], W];
     for (let k = 0; k < 16; k++) {
       const y = 6 + Math.floor(hash(k, i, 1) * 52);

@@ -1,6 +1,6 @@
 // エフェクト(fx_*)。光は白、薄い黄色、金の3段。半透明は使わない(ゲームで点滅させる)。
 // どれも左右反転しても変に見えない形にする。置くときの基準はコマの真ん中。
-import { md, OUTLINE, PixelGrid } from '../lib';
+import { gridFrames, md, OUTLINE, PixelGrid } from '../lib';
 import { ellipse, fillWhere, line, line1, poly, rng, type Pt } from './shapes';
 import { stamp } from './sprite';
 
@@ -25,12 +25,6 @@ const DU3 = md(3, 2, 2);
 const rad = (d: number): number => (d * Math.PI) / 180;
 const polar = (cx: number, cy: number, r: number, a: number): Pt => [cx + Math.cos(rad(a)) * r, cy + Math.sin(rad(a)) * r];
 
-const frames = (w: number, h: number, n: number, draw: (g: PixelGrid, i: number) => void): PixelGrid[] =>
-  Array.from({ length: n }, (_, i) => {
-    const g = new PixelGrid(w, h);
-    draw(g, i);
-    return g;
-  });
 
 /** 中心から外へとがる光の筋(三角形)。色は内側から外へ */
 function ray(g: PixelGrid, cx: number, cy: number, a: number, r0: number, r1: number, halfW: number, cols: string[]): void {
@@ -67,7 +61,7 @@ function twinkle(g: PixelGrid, cx: number, cy: number, len: number, diag = 0): v
 function hitSpark(size: number, n: number): PixelGrid[] {
   const c = size / 2;
   const s = size / 32;
-  return frames(size, size, n, (g, i) => {
+  return gridFrames(size, size, n, (g, i) => {
     const rot = 12;
     if (i === 0) {
       ellipse(g, c, c, 4 * s, 4 * s, W);
@@ -95,7 +89,7 @@ function hitSpark(size: number, n: number): PixelGrid[] {
 function dust(w: number, h: number, n: number): PixelGrid[] {
   const rnd = rng(7);
   const puffs = Array.from({ length: 9 }, (_, k) => ({ a: k * 40 + rnd() * 20, d: 0.4 + rnd() * 0.6, r: 0.55 + rnd() * 0.45 }));
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const grow = [0.45, 0.75, 0.95, 1.05][i];
     const shrink = [1, 1, 0.8, 0.5][i];
     const c = w / 2;
@@ -121,7 +115,7 @@ function dust(w: number, h: number, n: number): PixelGrid[] {
 // ---------- 目を回した星 ----------
 const STAR5 = ['..y..', '.yyy.', 'yywyy', '.yyy.', '.y.y.'];
 function dizzy(w: number, h: number, n: number): PixelGrid[] {
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     for (let k = 0; k < 3; k++) {
       const a = rad(i * 30 + k * 120);
       const x = w / 2 + Math.cos(a) * 4 - 2.5, y = h / 2 + Math.sin(a) * 2 - 2.5;
@@ -135,7 +129,7 @@ function dizzy(w: number, h: number, n: number): PixelGrid[] {
 // ---------- 破片 ----------
 function debris(w: number, h: number, n: number): PixelGrid[] {
   const B1 = md(6, 3, 2), B2 = md(4, 2, 1), B3 = md(2, 1, 1), GR = md(5, 5, 5), GD = md(3, 3, 4);
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const a = i * 90 + 15;
     const cx = 7, cy = 8;
     const pts: Pt[] = [polar(cx, cy, 4.5, a), polar(cx, cy, 3.5, a + 100), polar(cx, cy, 4.8, a + 190), polar(cx, cy, 3, a + 270)];
@@ -153,7 +147,7 @@ function debris(w: number, h: number, n: number): PixelGrid[] {
 
 // ---------- 「!」の合図 ----------
 function mark(col: [string, string, string]): FxMaker {
-  return (w, h, n) => frames(w, h, n, (g, i) => {
+  return (w, h, n) => gridFrames(w, h, n, (g, i) => {
     const up = i === 1 ? 0 : 1;
     const x = 6;
     // 縦棒(上が太く下が細い)
@@ -164,12 +158,12 @@ function mark(col: [string, string, string]): FxMaker {
 }
 
 // ---------- 足元の影 ----------
-const shadow: FxMaker = (w, h, n) => frames(w, h, n, (g) => {
+const shadow: FxMaker = (w, h, n) => gridFrames(w, h, n, (g) => {
   ellipse(g, w / 2, h / 2, w / 2 - 1, h / 2 - 1, md(1, 1, 2));
 });
 
 // ---------- 勝利ポーズのがれき ----------
-const rubble: FxMaker = (w, h, n) => frames(w, h, n, (g) => {
+const rubble: FxMaker = (w, h, n) => gridFrames(w, h, n, (g) => {
   const C1 = md(5, 5, 5), C2 = md(4, 4, 4), C3 = md(2, 2, 3), CR = md(1, 1, 2);
   const rnd = rng(31);
   const cx = w / 2;
@@ -194,7 +188,7 @@ const rubble: FxMaker = (w, h, n) => frames(w, h, n, (g) => {
 });
 
 // ---------- オーラ ----------
-const aura: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const aura: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cx = w / 2, cy = h / 2 + 2, rx = 17, ry = 28;
   const ph = i * 1.6;
   fillWhere(g, (px, py) => {
@@ -221,7 +215,7 @@ const aura: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 光の尾 ----------
-const trail: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const trail: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const lines: [number, number, number][] = [
     // y, 長さ, ずれ
     [6, 30, 0], [11, 40, 7], [16, 46, 2], [21, 38, 9], [26, 28, 4]
@@ -258,7 +252,7 @@ const FIST = [
   '..GYYYYYYYYG..',
   '...GGGGGGGG...'
 ];
-const punchFx: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const punchFx: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const fx = w - 16, fy = Math.round(h / 2 - 5.5);
   // 後ろの筋
   const ys = [fy + 2, fy + 5, fy + 8];
@@ -270,7 +264,7 @@ const punchFx: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 着地の衝撃波 ----------
-const shockwave: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const shockwave: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cx = w / 2, by = h - 3;
   const rx = [14, 26, 38, 46][i], ry = [8, 12, 15, 16][i], th = [5, 4, 3, 2][i];
   fillWhere(g, (px, py) => {
@@ -298,7 +292,7 @@ const shockwave: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 必殺技の光線(横につなげる) ----------
-const beam: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const beam: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cy = h / 2;
   const ph = (i / n) * Math.PI * 2;
   for (let x = 0; x < w; x++) {
@@ -327,7 +321,7 @@ const beam: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 光線の先 ----------
-const beamHead: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const beamHead: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cy = h / 2;
   const ph = (i / n) * Math.PI * 2;
   // 左端は光線と同じ太さ
@@ -353,7 +347,7 @@ const beamHead: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- キラキラ ----------
-const sparkle: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const sparkle: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const c = w / 2;
   if (i === 0) { g.px(7, 7, W).px(8, 7, Y).px(7, 8, Y).px(8, 8, G); }
   else if (i === 1) twinkle(g, c, c, 4.5);
@@ -362,7 +356,7 @@ const sparkle: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 急ブレーキの火花 ----------
-const brake: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const brake: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const ox = w / 2, oy = h - 2;
   const rnd = rng(55 + i * 3);
   // 焦げあと
@@ -380,7 +374,7 @@ const brake: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 「ガーン」の稲妻 ----------
-const gaan: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const gaan: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const B1 = md(5, 6, 7), B2 = md(2, 3, 7), B3 = md(1, 1, 4);
   // 上から下へ走る太い稲妻。コマごとに位置を入れかえる
   const bolts: [number, number, number][] = i === 0 ? [[10, 1, 50], [30, 0, 58], [52, 2, 46]] : [[6, 0, 46], [24, 2, 54], [46, 0, 58]];
@@ -416,7 +410,7 @@ const gaan: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
 });
 
 // ---------- 「キラーン」の光 ----------
-const kiran: FxMaker = (w, h, n) => frames(w, h, n, (g, i) => {
+const kiran: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const c = w / 2;
   const len = [6, 15, 13, 5][i];
   const diag = [0, 7, 9, 0][i];
@@ -435,7 +429,7 @@ const explosion: FxMaker = (w, h, n) => {
     r: 0.35 + rnd() * 0.3,
     up: rnd()
   }));
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const cx = w / 2, cy = h / 2 + 5;
     const size = [12, 26, 33, 36, 38, 38][i];
     const heat = [1.6, 1.25, 0.95, 0.65, 0.35, 0.12][i];

@@ -1,6 +1,6 @@
 // ステージ4のもれと念力のエフェクト。紫(PSY)は半透明にせず、市松で薄く見せる。
 // どれも左右反転しても変に見えない形にする。置くときの基準はコマの真ん中(照明だけは上の真ん中)。
-import { md, OUTLINE, PixelGrid } from '../lib';
+import { gridFrames, md, OUTLINE, PixelGrid } from '../lib';
 import { Painter } from '../world/pix';
 import { GOLD, WHITE } from '../world/palette';
 import { dith } from '../world/wrap';
@@ -9,17 +9,11 @@ import { PSY, WEAK } from './palette';
 
 const W0 = WHITE[0];
 
-const frames = (w: number, h: number, n: number, draw: (g: PixelGrid, i: number) => void): PixelGrid[] =>
-  Array.from({ length: n }, (_, i) => {
-    const g = new PixelGrid(w, h);
-    draw(g, i);
-    return g;
-  });
 
 /** 紫の火花 9×9(十字)。小さい → 大きい → 細長い → 消えかけ */
 function spark(w: number, h: number, n: number): PixelGrid[] {
   const c = Math.floor(w / 2);
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const r = [1, 2, 3, 1][i % 4];
     for (let k = -r; k <= r; k++) {
       const col = Math.abs(k) === r && r > 1 ? PSY[2] : PSY[1];
@@ -35,7 +29,7 @@ function spark(w: number, h: number, n: number): PixelGrid[] {
 /** 紫のもや 16×14。浮いた小物を包む市松の輪。2コマは市松の向きを入れかえたもの */
 function haze(w: number, h: number, n: number): PixelGrid[] {
   const cx = (w - 1) / 2, cy = (h - 1) / 2, rx = w / 2, ry = h / 2;
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
       if (d >= 1) continue;
@@ -54,7 +48,7 @@ function haze(w: number, h: number, n: number): PixelGrid[] {
  */
 function lamp(w: number, h: number, n: number): PixelGrid[] {
   const METAL = [md(5, 5, 5), md(4, 4, 5), md(3, 3, 4)];
-  return frames(w, h, n, (g, i) => {
+  return gridFrames(w, h, n, (g, i) => {
     const P = new Painter(w, h);
     // 天井から下げる2本のつり線
     P.rect(8, 0, 1, 2, METAL[2]).rect(31, 0, 1, 2, METAL[2]);

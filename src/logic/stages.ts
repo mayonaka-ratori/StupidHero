@@ -16,7 +16,10 @@ import {
   BOSS2, BOSS2_RAMPAGE_COST, BOSS3, BOSS3_RAMPAGE_COST, BOSS4, BOSS_RAMPAGE_COST, GARAGE_WAVES, MALL_WAVES, TOWER_RAMPAGE_COST, TOWER_WAVES,
   WAVES, type WavePlan
 } from './rules';
-import type { DisguiseLook, FreeStageId, FreeVillainLook, Look, PropKind, StageId, TowerLook, Truth, WaveNo } from './types';
+import type {
+  AlleyDisguise, DisguiseLook, FreeStageId, FreeVillainLook, GangLook, GarageDisguise, Look, MallDisguise, MallLook, PropKind, StageId,
+  TowerDisguise, TowerLook, Truth, WaveNo
+} from './types';
 
 /**
  * ステージの仕組み(結果発表で見逃したワルが何をするか)。
@@ -105,6 +108,24 @@ export interface StageDef {
   lockedText: string | null;
 }
 
+// 見た目と、ボスの化けた姿。STAGES の looks と disguises はここを読む(並びも同じ)。
+// garage.ts、mall.ts、tower.ts、stage.ts は、見た目の型のままここから読む
+
+/** 地下駐車場の見た目 */
+export const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
+/** ショッピングモールの見た目 */
+export const MALL_LOOKS: readonly MallLook[] = ['mascot', 'clerk', 'dancer', 'uncle'];
+/** 高層ビルの見た目(絵は市民とヴィランで同じ 'tw_<見た目>') */
+export const TOWER_LOOKS: readonly TowerLook[] = ['florist', 'courier', 'newbie', 'janitor', 'chef', 'waiter', 'lady', 'magician'];
+/** 路地裏のボスの化けた姿 */
+export const BOSS1_DISGUISES: readonly AlleyDisguise[] = ['suit', 'granny', 'shopper'];
+/** 女ボス(地下駐車場)の化けた姿 */
+export const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
+/** 親玉(ショッピングモール)の化けた姿 */
+export const BOSS3_DISGUISES: readonly MallDisguise[] = ['clerk', 'uncle', 'mascot'];
+/** 親玉(高層ビル)の化けた姿 */
+export const BOSS4_DISGUISES: readonly TowerDisguise[] = ['lady', 'magician', 'waiter'];
+
 /**
  * 高層ビルの4つの階(波1から順に、1階、18階、35階、最上階)。奥の絵は階ごと、壁と床は「ふつうの階」と「パーティ会場」の2組。
  * 壊れる物は STAGE4「壊れる物」の表の通り。ソファはどの階にも置く(念力で運ばれた物を受け止める。壊れない)
@@ -125,7 +146,7 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bg: { far: 'bg_alley_far', wall: 'bg_alley_wall', ground: 'bg_alley_ground' },
     bgm: { street: 'street', boss: 'boss', rush: null },
     bossSheet: 'boss',
-    disguises: ['suit', 'granny', 'shopper'],
+    disguises: BOSS1_DISGUISES,
     disguiseSheets: {
       suit: 'boss_disguise_suit', granny: 'boss_disguise_granny', shopper: 'boss_disguise_shopper'
     },
@@ -151,12 +172,12 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bg: { far: 'bg_garage_far', wall: 'bg_garage_wall', ground: 'bg_garage_ground' },
     bgm: { street: 'street2', boss: 'boss2', rush: null },
     bossSheet: 'boss2',
-    disguises: ['guard', 'mechanic', 'officelady'],
+    disguises: BOSS2_DISGUISES,
     disguiseSheets: {
       guard: 'boss2_disguise_guard', mechanic: 'boss2_disguise_mechanic', officelady: 'boss2_disguise_officelady'
     },
     bossAges: BOSS2_AGES,
-    looks: ['guard', 'mechanic', 'clubber', 'officelady'],
+    looks: GANG_LOOKS,
     props: ['cone', 'extinguisher', 'barrier', 'pillar', 'car', 'van'],
     bossProp: 'bosscar',
     bossDefeatProp: null,
@@ -177,12 +198,12 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bg: { far: 'bg_mall_far', wall: 'bg_mall_wall', ground: 'bg_mall_ground' },
     bgm: { street: 'street3', boss: 'boss3', rush: 'sale3' },
     bossSheet: 'boss3',
-    disguises: ['clerk', 'uncle', 'mascot'],
+    disguises: BOSS3_DISGUISES,
     disguiseSheets: {
       clerk: 'boss3_disguise_clerk', uncle: 'boss3_disguise_uncle', mascot: 'boss3_disguise_mascot'
     },
     bossAges: null,
-    looks: ['mascot', 'clerk', 'dancer', 'uncle'],
+    looks: MALL_LOOKS,
     props: ['gacha', 'mannequin', 'showcase', 'fountain', 'escalator'],
     bossProp: 'mothership',
     bossDefeatProp: 'fountain',
@@ -205,12 +226,12 @@ export const STAGES: Readonly<Record<StageId, StageDef>> = {
     bg: TOWER_FLOORS[0].bg,
     bgm: { street: 'street4', boss: 'boss4', rush: 'lift4' },
     bossSheet: 'boss4',
-    disguises: ['lady', 'magician', 'waiter'],
+    disguises: BOSS4_DISGUISES,
     disguiseSheets: {
       lady: 'tw_boss_lady', magician: 'tw_boss_magician', waiter: 'tw_boss_waiter'
     },
     bossAges: null,
-    looks: ['florist', 'courier', 'newbie', 'janitor', 'chef', 'waiter', 'lady', 'magician'],
+    looks: TOWER_LOOKS,
     props: TOWER_FLOORS[0].props,
     bossProp: 'chandelier',
     bossDefeatProp: 'champagne',
@@ -252,37 +273,24 @@ export function rushAfter(def: StageDef, no: WaveNo, kind?: StageRush['kind']): 
 /** ステージを選ぶ画面の並び(遊べるステージ) */
 export const STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
 
-/** 定義のある全部のステージ(まだ遊べない高層ビルも入る)。文や表がそろっているかを確かめるときに使う */
-export const ALL_STAGE_IDS: readonly StageId[] = ['alley', 'garage', 'mall', 'tower'];
-
 /** フリープレイの背景に使えるステージ(高層ビルは、はじめは入れない) */
 export const FREE_STAGE_IDS: readonly FreeStageId[] = ['alley', 'garage', 'mall'];
 
-/** フリープレイの背景に使えるステージか */
-export const isFreeStageId = (id: StageId): id is FreeStageId => (FREE_STAGE_IDS as readonly StageId[]).includes(id);
-
-/** 高層ビルの見た目(絵は市民とヴィランで同じ 'tw_<見た目>') */
-export const TOWER_LOOKS: readonly TowerLook[] = ['florist', 'courier', 'newbie', 'janitor', 'chef', 'waiter', 'lady', 'magician'];
-export const isTowerLook = (look: Look): look is TowerLook => (TOWER_LOOKS as readonly Look[]).includes(look);
+const isTowerLook = (look: Look): look is TowerLook => (TOWER_LOOKS as readonly Look[]).includes(look);
 
 /**
- * ショッピングモールの仕組み(UFO、母艦、くずれ)で使う絵のキー(src/art/sheets.ts に足す)。
+ * ショッピングモールの仕組み(UFOの吸い上げる光)で使う絵のキー(src/art/sheets.ts に足す)。
+ * UFOと母艦とくずれのノイズは画面のコードが 'prop_ufo'、'prop_mothership'、'fx_glitch' を直に使うので、ここには持たない。
  * 人と化けた姿と置く物のキーは STAGES.mall の looks、disguiseSheets、props から決まる
  * (sheetKeyFor と 'prop_' + 物の種類)
  */
 export const MALL_SHEETS = {
-  /** UFO 64×32。飛ぶ2コマ、吸い上げる、落ちた */
-  ufo: 'prop_ufo',
-  /** 母艦 160×64。浮かぶ2コマ、光線、落ちた */
-  mothership: 'prop_mothership',
   /** UFOの吸い上げる光 32×64 */
-  beam: 'fx_ufobeam',
-  /** くずれのノイズ 64×64(タイムセールラッシュで体全体に重ねる) */
-  glitch: 'fx_glitch'
+  beam: 'fx_ufobeam'
 } as const;
 
 /** フリープレイのワルの見た目か('fp_mohawk'、'fp_gang'、'fp_alien') */
-export const isFreeVillainLook = (look: Look): look is FreeVillainLook => look.startsWith('fp_');
+const isFreeVillainLook = (look: Look): look is FreeVillainLook => look.startsWith('fp_');
 
 /** 文字列がステージの id か(URL の ?stage= などを読むとき) */
 export const isStageId = (v: unknown): v is StageId => typeof v === 'string' && v in STAGES;

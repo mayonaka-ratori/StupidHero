@@ -2,7 +2,6 @@
 // 使い方:
 //   const w = new WindowFrame(this, 8, 260, 200, 40, 'win');   // 青いウィンドウ(左上の位置と大きさ)
 //   w.setKind('alarm');                                         // 'win' 青 / 'cut' 赤紫のカットイン / 'alarm' 赤い警告
-//   w.setBox(8, 250, 200, 50);                                  // 位置と大きさを変える
 //   drawFrame(g, 0, 0, 100, 40, 'win');                         // 自分のGraphicsに描くだけのとき
 // 中身を置く位置は FRAME_PAD(ふち3ドット)の内側。文字はさらに2〜4ドットあけると見やすい。
 
@@ -55,13 +54,6 @@ export class WindowFrame extends Phaser.GameObjects.Graphics {
   setKind(kind: FrameKind): this {
     if (kind !== this.kind) { this.kind = kind; this.redraw(); }
     return this;
-  }
-
-  setBox(x: number, y: number, w: number, h: number): this {
-    this.setPosition(Math.round(x), Math.round(y));
-    this.boxW = w;
-    this.boxH = h;
-    return this.redraw();
   }
 
   redraw(): this {

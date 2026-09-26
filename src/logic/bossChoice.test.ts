@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { BossFight } from './boss';
 import { CHOICE_GUARD_SEC, PsyChoice, applyChoice } from './bossChoice';
-import { BOSS4, PROP_COST } from './rules';
+import { BOSS, BOSS4, PROP_COST } from './rules';
 import { STAGES } from './stages';
 import { StatsTracker } from './stats';
 
@@ -86,7 +86,7 @@ describe('高層ビルのボス戦(STAGES.tower.bossFight)', () => {
     expect(fired).toBe(1);
     // 押さずに2秒:¥50万が2回
     const r = f.update(2600);
-    expect(r.damageYen).toBe(2 * BOSS4.idleCostPerSec);
+    expect(r.damageYen).toBe(2 * BOSS.idleCostPerSec);
   });
 
   it('選択の間は時計を止める(update を呼ばない)。戻ってからどんなに連打しても、倒れるまで最短1.5秒', () => {
@@ -115,6 +115,6 @@ describe('高層ビルのボス戦(STAGES.tower.bossFight)', () => {
     while (!f.isOver && ms < 30_000) { f.update(16); ms += 16; }
     expect(f.seconds!).toBeCloseTo(15, 5);
     expect(f.inCar).toBe(true);
-    expect(f.damageYen).toBe(14 * BOSS4.idleCostPerSec);
+    expect(f.damageYen).toBe(14 * BOSS.idleCostPerSec);
   });
 });

@@ -122,11 +122,6 @@ export function damageAnalogy(yen: number, stageId: StageId = 'alley'): DamageAn
   return { unit, count: Number(countText.replace(/,/g, '')), text: `${def.name}${countText}${def.counter}分` };
 }
 
-/** 被害額とたとえをまとめて書く。例:'¥2,400万(自販機30台分)'。stageId は damageAnalogy と同じ */
-export function formatDamage(yen: number, stageId: StageId = 'alley'): string {
-  return `${formatYen(yen)}(${damageAnalogy(yen, stageId).text})`;
-}
-
 /**
  * 秒数を書く(小数1けた、切り上げ)。例:4.23 → '4.3秒'、5 → '5.0秒'。
  * 切り上げにしておくと「5.0秒」と出たときは必ず「5秒以内」の称号の条件に入る

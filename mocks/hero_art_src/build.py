@@ -1,4 +1,4 @@
-import json, re
+import json, os, re
 L=[0,36,73,109,146,182,219,255]
 def hexc(r,g,b): return '#%02x%02x%02x'%(r,g,b)
 def load(path):
@@ -31,5 +31,6 @@ for kind,short in (('hero','fh'),('operator','fo')):
 # 同じ文字の表をまとめて小さくする(ページを軽く)
 js=json.dumps(data,ensure_ascii=False,separators=(',',':'))
 tpl=open('page.html',encoding='utf-8').read()
-open('/home/user/StupidHero/mocks/hero_art.html','w',encoding='utf-8').write(tpl.replace('/*DATA*/null',js))
+OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','hero_art.html')
+open(OUT,'w',encoding='utf-8').write(tpl.replace('/*DATA*/null',js))
 print(len(js))

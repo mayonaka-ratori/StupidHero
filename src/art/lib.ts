@@ -29,7 +29,7 @@ export function createCanvas(w: number, h: number): Canvas2D {
 }
 
 /** シートの大きさの空のキャンバス */
-export function createSheetCanvas(def: SheetDef): Canvas2D {
+function createSheetCanvas(def: SheetDef): Canvas2D {
   const { w, h } = sheetSize(def);
   return createCanvas(w, h);
 }
@@ -107,6 +107,14 @@ export class PixelGrid {
   }
 }
 
+/** 同じ大きさ(w×h)のコマを n 枚作る。i 枚目は draw(格子, i) で描く */
+export const gridFrames = (w: number, h: number, n: number, draw: (g: PixelGrid, i: number) => void): PixelGrid[] =>
+  Array.from({ length: n }, (_, i) => {
+    const g = new PixelGrid(w, h);
+    draw(g, i);
+    return g;
+  });
+
 /** 色の文字列 → [R, G, B, A](0〜255)。同じ色は1回だけ調べる */
 const colorCache = new Map<string, readonly [number, number, number, number]>();
 let colorProbe: CanvasRenderingContext2D | null = null;
@@ -129,7 +137,7 @@ function colorBytes(c: string): readonly [number, number, number, number] {
 }
 
 /** シートの中の、row行目 i番目のコマの左上 */
-export const cellOrigin = (def: SheetDef, row: number, i: number): { x: number; y: number } =>
+const cellOrigin = (def: SheetDef, row: number, i: number): { x: number; y: number } =>
   ({ x: i * def.frameW, y: row * def.frameH });
 
 /** シートの表の通りに、テクスチャにコマ(番号は 行×列の数+列)を切る */
@@ -184,7 +192,7 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
 }
 
 /** rows[行][コマ] の順にコマを並べて、シートのキャンバスにする */
-export function buildSheet(def: SheetDef, rows: PixelGrid[][]): HTMLCanvasElement {
+function buildSheet(def: SheetDef, rows: PixelGrid[][]): HTMLCanvasElement {
   const { canvas, ctx } = createSheetCanvas(def);
   rows.forEach((frames, r) => {
     if (r >= def.rows.length) return;
@@ -203,6 +211,22 @@ export function addGridSheets(ctx: ArtContext, sheets: Record<string, PixelGrid[
     const def = sheetByKey(key);
     ctx.addSheet(def, buildSheet(def, rows));
   }
+}
+
+/**
+ * エフェクトの表(シートのキー → コマを作る関数)から、1行だけのシートを作る。
+ * 関数には、シートの表のコマの大きさと1行目のコマ数を渡す。skip のキーは作らない
+ */
+export function buildFxSheets(
+  fx: Record<string, (w: number, h: number, n: number) => PixelGrid[]>, skip: Set<string>
+): Record<string, PixelGrid[][]> {
+  const sheets: Record<string, PixelGrid[][]> = {};
+  for (const [key, make] of Object.entries(fx)) {
+    if (skip.has(key)) continue;
+    const def = sheetByKey(key);
+    sheets[key] = [make(def.frameW, def.frameH, def.rows[0].frames)];
+  }
+  return sheets;
 }
 
 /** 1枚絵のキー → 描く関数、を描いて登録する(PNGがあるキーは描かない) */

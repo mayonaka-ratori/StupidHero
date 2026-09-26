@@ -68,12 +68,35 @@ function commonRules({ stage, people, plan }: Case): string[] {
   return bad;
 }
 
-describe('planStreet(路地裏)', () => {
-  const all = cases('alley', 60);
+/** ステージごとの並べ方(最初に1回だけ作り、どのテストでも使い回す) */
+const CASES: Readonly<Record<StageId, Case[]>> = {
+  alley: cases('alley', 60),
+  garage: cases('garage', 60),
+  mall: cases('mall', 60),
+  tower: cases('tower', 50)
+};
 
+describe.each([
+  { id: 'alley', name: 'planStreet(路地裏)' },
+  { id: 'garage', name: 'planGarage(地下駐車場)' },
+  { id: 'mall', name: 'planMall(ショッピングモール)' },
+  { id: 'tower', name: 'planTower(高層ビル)' }
+] as const)('$name の共通の決まり', ({ id }) => {
   it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(all.flatMap(commonRules)).toEqual([]);
+    expect(CASES[id].flatMap(commonRules)).toEqual([]);
   });
+
+  it('物はそのステージの物だけ(高層ビルはその階の物だけ)', () => {
+    const bad = CASES[id].flatMap(({ plan, people, stage }) => {
+      const kinds = propsForWave(STAGES[id], people[0].wave);
+      return plan.props.filter((q) => !kinds.includes(q.kind)).map((q) => `seed ${stage.seed} 波${people[0].wave}: ${q.kind}`);
+    });
+    expect(bad).toEqual([]);
+  });
+});
+
+describe('planStreet(路地裏)', () => {
+  const all = CASES.alley;
 
   it('見逃したワルのすぐ先には、悪さの相手の通りがかりの市民がいる', () => {
     for (const { plan, passBad } of all) {
@@ -84,9 +107,7 @@ describe('planStreet(路地裏)', () => {
     }
   });
 
-  it('物は路地裏の物だけ。自販機と車は必ずある。組の集まる場所はない', () => {
-    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
-    expect([...kinds].filter((k) => !STAGES.alley.props.includes(k))).toEqual([]);
+  it('自販機と車は必ずある。組の集まる場所はない', () => {
     expect(all.every(({ plan }) => plan.props.some((p) => p.kind === 'vending'))).toBe(true);
     expect(all.every(({ plan }) => plan.props.filter((p) => p.kind === 'car').length === 1)).toBe(true);
     expect(all.every(({ plan }) => plan.gathers.length === 0)).toBe(true);
@@ -94,11 +115,7 @@ describe('planStreet(路地裏)', () => {
 });
 
 describe('planGarage(地下駐車場)', () => {
-  const all = cases('garage', 60);
-
-  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(all.flatMap(commonRules)).toEqual([]);
-  });
+  const all = CASES.garage;
 
   it('見逃したギャングがいる組ごとに、集まる場所とワゴンが1つ。口笛を吹くのは組で最初に見逃した人', () => {
     let seen = 0;
@@ -142,9 +159,7 @@ describe('planGarage(地下駐車場)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('物は地下駐車場の物だけ。通りがかりの市民は4つの見た目で、小物の色がある', () => {
-    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
-    expect([...kinds].filter((k) => !STAGES.garage.props.includes(k))).toEqual([]);
+  it('通りがかりの市民は4つの見た目で、小物の色がある', () => {
     const passers = all.flatMap(({ plan }) => plan.passers);
     expect(passers.length).toBeGreaterThan(0);
     expect([...new Set(passers.map((p) => p.look))].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
@@ -153,15 +168,9 @@ describe('planGarage(地下駐車場)', () => {
 });
 
 describe('planMall(ショッピングモール)', () => {
-  const all = cases('mall', 60);
+  const all = CASES.mall;
 
-  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(all.flatMap(commonRules)).toEqual([]);
-  });
-
-  it('物はモールの物だけで、奥の列の物は重ならない。エスカレーターは必ずある', () => {
-    const kinds = new Set(all.flatMap(({ plan }) => plan.props.map((p) => p.kind)));
-    expect([...kinds].filter((k) => !STAGES.mall.props.includes(k))).toEqual([]);
+  it('奥の列の物は重ならない。エスカレーターは必ずある', () => {
     const half: Record<string, number> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
     const bad: string[] = [];
     for (const { plan, stage } of all) {
@@ -231,11 +240,7 @@ describe('planMall(ショッピングモール)', () => {
 });
 
 describe('planTower(高層ビル)', () => {
-  const all = cases('tower', 50);
-
-  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(all.flatMap(commonRules)).toEqual([]);
-  });
+  const all = CASES.tower;
 
   it('見逃したヴィランごとに念力の場面が1つ。ヴィランは PSY_AHEAD 先に出て、次の人との間は PSY_ROOM 空ける', () => {
     let seen = 0;
@@ -309,11 +314,9 @@ describe('planTower(高層ビル)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('物はその階の物だけ。ソファは階ごとの色のコマ。通りがかりの市民はその階の市民の絵', () => {
+  it('ソファは階ごとの色のコマ。通りがかりの市民はその階の市民の絵', () => {
     for (const { plan, people } of all) {
       const no = people[0].wave;
-      const kinds = propsForWave(STAGES.tower, no);
-      expect(plan.props.filter((p) => !kinds.includes(p.kind))).toEqual([]);
       expect(plan.props.filter((p) => p.kind === 'sofa' && p.frame !== no - 1)).toEqual([]);
       expect(plan.passers.filter((p) => !FLOOR_LOOKS[no - 1].includes(p.look as never) || p.key !== `tw_${p.look}`)).toEqual([]);
     }

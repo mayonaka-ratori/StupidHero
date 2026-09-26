@@ -30,7 +30,7 @@ import {
 import { currentWave, getRun, type GameRun } from '../run';
 import {
   Button, CurlSmoke, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, PauseControl, PixelText,
-  SMOKE_DARK, SMOKE_LIGHT, addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, whenNoFlash, waitMs
+  addPanel, banner, blink, flash, gotoWhenFree, hitStop, jolt, panelRect, popText, shake, stopJolt, tapSpark, waitMs
 } from '../ui';
 import { addMute, drawStageBg } from './sort/common';
 import { BossCar, MOTHERSHIP_LOOK } from './boss/car';
@@ -41,7 +41,9 @@ import { BossProps } from './boss/props';
 import { breakCeiling, ScorchMarks, skyBeam, splash } from './boss/mothership';
 import { ChoiceStage, WindowCracks, furnitureOut } from './boss/choice';
 import { Sunrise } from './boss/sunrise';
-import { px, snapshotLogical } from '../hires';
+import { smokeColors } from './street/common';
+import { shootAction } from './shot';
+import { px } from '../hires';
 
 /** 足の裏の高さ */
 const FEET_Y = 194;
@@ -377,7 +379,7 @@ export class BossScene extends Phaser.Scene {
     return this.cut.say(s.text, s.face, { who: s.who, alarm });
   }
 
-  /** シーンの時計で待つ(一時停止中は止まる) */
+  /** 連打を始める(行けを押せるようにして、メーターを出す) */
   private startFight(): void {
     if (this.phase !== 'intro') return;
     this.phase = 'fight';
@@ -586,7 +588,7 @@ export class BossScene extends Phaser.Scene {
       // 渦で右へ流れた粒がボスの顔にかからないようにする
       this.hoodSmoke ??= new CurlSmoke(this, {
         x: () => car.frontX + 6, y: () => car.smokeY, depth: DEPTH_OF.bossInCar - 0.1,
-        colors: this.smokeColors(), spread: 4, rate: 35, wind: -16
+        colors: smokeColors(this.stageId), spread: 4, rate: 35, wind: -16
       });
     }
   }
@@ -1178,11 +1180,7 @@ export class BossScene extends Phaser.Scene {
       // ボスが倒れる動きが始まってから撮る(写真と「ボスを倒した!」を合わせる)。
       // 「ボス撃破!」の字が出る前で、画面全体の光(flash)が出ていないコマにする。
       // 車が爆発するステージは、車がひっくり返って宙に浮いたところを撮る
-      const { W, actionH } = layout;
-      this.time.delayedCall(this.car ? 300 : 170, () => whenNoFlash(this, () => {
-        if (!this.sys.isActive()) return;
-        snapshotLogical(this.game, 0, 0, W, actionH, (img) => { run.worstShot = img; });
-      }));
+      this.time.delayedCall(this.car ? 300 : 170, () => shootAction(this, (img) => { run.worstShot = img; }));
     }
   }
 
@@ -1373,11 +1371,6 @@ export class BossScene extends Phaser.Scene {
     this.bossOutOfWreck(s, 640);
   }
 
-  /** 煙の色。モールは背景が明るいので黒い煙、ほかは背景が暗いので灰色の煙 */
-  private smokeColors(): readonly number[] {
-    return this.stageId === 'mall' ? SMOKE_DARK : SMOKE_LIGHT;
-  }
-
   /** 壊れた車(母艦)で爆発を何発も。最後は大きな爆発が3つ重なる。startMs は1発目までの時間 */
   private burnWreck(s: Phaser.GameObjects.Sprite, startMs: number): void {
     for (let i = 0; i < 9; i++) {
@@ -1408,7 +1401,7 @@ export class BossScene extends Phaser.Scene {
       // モールは母艦が落ちる噴水が字のすぐ下にあるので、低くして、字のない右へ流す
       const low = this.stageId === 'mall';
       new CurlSmoke(this, {
-        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car - 0.1, colors: this.smokeColors(),
+        x: () => s.x, y: () => s.y - 18, depth: DEPTH_OF.car - 0.1, colors: smokeColors(this.stageId),
         spread: 12, rate: 90, life: low ? [0.8, 1.3] : [1.0, 1.6], rise: low ? 18 : 30, wind: low ? 14 : 0,
         swirl: 24, embers: 0.15, max: 220
       }).stopAfter(4500);

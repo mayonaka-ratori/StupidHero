@@ -22,7 +22,7 @@ import { spawnFx, throwDebris } from './effects';
  */
 export const CHANDELIER_HANG_Y = 36;
 /** 念力で浮かせたシャンデリアの高さ(絵の上の端。ヒーローの頭の上に下の端が来る) */
-export const CHANDELIER_FLOAT_Y = 58;
+const CHANDELIER_FLOAT_Y = 58;
 /** 鎖をつるす天井の高さ */
 const CEILING_Y = 6;
 /** 鎖の色(明るい金と暗い金) */

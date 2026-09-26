@@ -1,6 +1,6 @@
 // ボス戦を指で試す。npm run dev を動かしてから
-//   node tools/boss_test.mjs [出力フォルダ] [サーバー] [倍率] [mode] [ステージ(alley、garage、mall、tower)] [画面の高さ(CSS)]
-// 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/(tools/lib.mjs の shotsDir と serverUrl)
+//   node tools/boss_test.mjs [サーバー] [出力フォルダ] [倍率] [mode] [ステージ(alley、garage、mall、tower)] [画面の高さ(CSS)]
+// サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(tools/lib.mjs の serverUrl と shotsDir)
 // mode: rush(ふつう。連打→止める→連打で倒す)/ idle(一度も押さずに15秒で終わるか)/ pause(一時停止で時計が止まるか)
 //       civ(ボスを市民に仕分けたあと。流れは rush と同じ)
 //       nochoice(tower だけ。流れは rush と同じで、念力の選択で何も押さない)
@@ -17,8 +17,8 @@
 import { writeFileSync } from 'node:fs';
 import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
-const outDir = shotsDir(process.argv[2]);
-const base = serverUrl(process.argv[3]);
+const base = serverUrl(process.argv[2]);
+const outDir = shotsDir(process.argv[3]);
 const dpr = Number(process.argv[4] ?? '1');
 const mode = process.argv[5] ?? 'rush';
 const stage = process.argv[6] ?? 'alley';

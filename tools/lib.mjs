@@ -44,6 +44,9 @@ export function shotsDir(arg) {
 /** 論理画面の横幅(src/config.ts の GAME_W) */
 export const GAME_W = 216;
 
+/** 論理ドットの高さ h になる、横390の端末のビューポート(縦は h に合わせて計算する) */
+export const viewportFor = (h) => ({ width: 390, height: Math.round((390 * h) / GAME_W) });
+
 export const openBrowser = () => chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
 
 /** スマホの大きさ(タッチあり)の新しい context。addInitScript などを先に仕込みたいときに使う。mobile: false でパソコンの画面 */
@@ -85,6 +88,22 @@ export const logicalHeight = (page) =>
 /** ページのゲームができるまで待つ */
 export const waitForGame = (page, timeout = 15000) =>
   page.waitForFunction(() => (window.__game ?? window.uiDev?.game)?.isBooted, null, { timeout });
+
+/** ステージを1つ倒した記録(src/logic/records.ts の形)。stats を渡すと数字(mostDefeated など)を上書きできる(省くと未設定 null) */
+export function clearedRecord(stats = {}) {
+  return { plays: 1, clears: 1, mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, titles: [], ...stats };
+}
+
+/**
+ * 複数のステージを倒した記録一式(localStorage の stupidhero.records.v2 に入れる形。playthrough.mjs、stageselect_scroll.mjs で使う)。
+ * どのステージも同じ数字(clearedRecord(stats))にする。lastStage を渡すと「最後に遊んだステージ」も入れる
+ */
+export function clearedRecords(stageIds, { stats = {}, lastStage } = {}) {
+  const rec = clearedRecord(stats);
+  const records = { version: 2, stages: Object.fromEntries(stageIds.map((id) => [id, rec])), titles: [], introSeen: [...stageIds], rushSeen: [] };
+  if (lastStage) records.lastStage = lastStage;
+  return records;
+}
 
 /** 指で触る部品。座標はどれも論理ドット */
 export async function touchPad(page) {

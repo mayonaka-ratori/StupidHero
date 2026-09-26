@@ -65,26 +65,6 @@ describe('場面の流れ', () => {
     }
   });
 
-  it('波が4つのステージ(ステージ4)は、波3のあとも答え合わせを通って波4の Sort へ行き、波4のあとに Boss', () => {
-    const run = startRun(fakeScene(), 7, false, 'mall');
-    // ステージ4はまだないので、ショッピングモールの並びに波4を足して流れだけを確かめる
-    const w3 = run.stage.waves[2];
-    run.stage.waves.push({ ...w3, no: 4, people: w3.people.map((p) => ({ ...p, id: `w4-${p.index}`, wave: 4 })) });
-    const seen: string[] = [];
-    for (let i = 0; i < 4; i++) {
-      expect(currentWave(run).no).toBe(i + 1);
-      fillUnsorted(run);
-      const next = nextAfterStreet(run);
-      seen.push(next);
-      if (next === SCENES.waveReview) seen.push(nextAfterReview(run));
-    }
-    expect(seen).toEqual([
-      SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.waveReview, SCENES.sort, SCENES.boss
-    ]);
-    expect(run.waveIndex).toBe(3);
-    expect(nextAfterReview(run)).toBe(SCENES.result);
-  });
-
   it('高層ビルは、波1と2、波2と3の間に階の数字の場面(Floor)をはさむ。波3のあとはエレベーターラッシュ(Elevator)を通って波4へ', () => {
     const run = startRun(fakeScene(), 7, false, 'tower');
     const seen: string[] = [];
@@ -98,6 +78,7 @@ describe('場面の流れ', () => {
     expect(seen).toEqual([
       SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.floor, SCENES.waveReview, SCENES.elevator, SCENES.boss
     ]);
+    expect(run.waveIndex).toBe(3);
     expect(nextAfterReview(run)).toBe(SCENES.result);
   });
 

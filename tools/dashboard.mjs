@@ -12,7 +12,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const args = process.argv.slice(2);
 const quick = args.includes('--quick');
@@ -100,7 +100,7 @@ if (!quick) {
     const r = JSON.parse(readFileSync(json, 'utf8'));
     tests = { passed: r.numPassedTests, failed: r.numFailedTests, total: r.numTotalTests, files: r.numTotalTestSuites };
     tests.failures = r.testResults.flatMap((f) => f.assertionResults.filter((a) => a.status === 'failed')
-      .map((a) => `${f.name.replace(process.cwd() + '/', '')}: ${a.fullName}`));
+      .map((a) => `${relative(process.cwd(), f.name)}: ${a.fullName}`));
   } catch {
     tests = { error: true };
   }

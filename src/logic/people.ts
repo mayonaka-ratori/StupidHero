@@ -15,6 +15,11 @@ export interface UsedTexts {
 
 export type PersonDraft = Omit<Person, 'id' | 'index'>;
 
+/** 1つの波の下書きを混ぜて、並んだ順に id('w<波>-<1からの番号>')と index(0から)を付ける */
+export function shufflePeople(rng: Rng, wave: WaveNo, drafts: readonly PersonDraft[]): Person[] {
+  return rng.shuffle(drafts).map((p, index) => ({ id: `w${wave}-${index + 1}`, index, ...p }));
+}
+
 /** 2つの年齢の幅の重なり(重ならなければ後ろの幅) */
 function ageOverlap(a: readonly [number, number], b: readonly [number, number]): [number, number] {
   const lo = Math.max(a[0], b[0]);

@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { animKey, originFor } from '../../art/sheets';
+import { audio } from '../../audio';
 import type { Look, Person } from '../../logic';
 import { Tag } from '../../ui';
 
@@ -94,6 +95,22 @@ export class Actor {
 
   showTag(show: boolean): void {
     this.tag?.setVisible(show);
+  }
+
+  /** 頭の上に待てか行けのマークを出す(前のマークは消す)。一瞬大きく出して、ぴょんと出たように見せる */
+  showMark(kind: 'stop' | 'go'): void {
+    this.mark?.destroy();
+    const key = kind === 'stop' ? 'fx_mark_stop' : 'fx_mark_go';
+    const m = this.scene.add.sprite(this.x, this.y, key).play(animKey(key, 'play')).setScale(3).setDepth(1200);
+    this.mark = m;
+    this.sync();
+    this.scene.time.delayedCall(50, () => m.active && m.setScale(2));
+    audio.sfx('mark');
+  }
+
+  hideMark(): void {
+    this.mark?.destroy();
+    this.mark = undefined;
   }
 
   sync(): void {
