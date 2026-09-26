@@ -3,27 +3,27 @@
 // ずらす(指を8ドットより動かす)とカードを選ばないか、離したあとすべって止まるか、端で止まるか、
 // 動かさずに離すとカードを選ぶか、開いたばかりのステージ(&justunlocked=tower)まで自動でずれるかを見る。
 // 使い方: npm run dev を動かしてから node tools/stageselect_scroll.mjs [サーバーかURL] [出力フォルダ]
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
+import { checker, clearedRecords, openBrowser, openPage, serverUrl, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
 
 const url = serverUrl(process.argv[2]);
 const outDir = shotsDir(process.argv[3]);
 const { check, done } = checker();
 const browser = await openBrowser();
 
-const rec = (clears) => ({ plays: 1, clears, mostDefeated: 12, fewestHurt: 1, highestDamage: 3_400_000, fastestBossSec: 7.2, titles: [] });
+const STATS = { mostDefeated: 12, fewestHurt: 1, highestDamage: 3_400_000, fastestBossSec: 7.2 };
 /** 路地裏と地下駐車場を倒し、モールはまだ遊んでいない記録(モールに NEW!) */
-const FRESH_MALL = { version: 2, stages: { alley: rec(1), garage: rec(1) }, titles: [], introSeen: ['alley', 'garage'], rushSeen: [], lastStage: 'garage' };
+const FRESH_MALL = clearedRecords(['alley', 'garage'], { stats: STATS, lastStage: 'garage' });
 /** モールまで倒し、高層ビルはまだ遊んでいない記録(高層ビルに NEW!) */
-const FRESH_TOWER = { ...FRESH_MALL, stages: { alley: rec(1), garage: rec(1), mall: rec(1) }, introSeen: ['alley', 'garage', 'mall'], lastStage: 'mall' };
+const FRESH_TOWER = clearedRecords(['alley', 'garage', 'mall'], { stats: STATS, lastStage: 'mall' });
 /** 全部遊んだ記録(最後に遊んだのは路地裏) */
-const ALL_PLAYED = { ...FRESH_MALL, stages: { alley: rec(1), garage: rec(1), mall: rec(1), tower: rec(1) }, introSeen: ['alley', 'garage', 'mall', 'tower'], lastStage: 'alley' };
+const ALL_PLAYED = clearedRecords(['alley', 'garage', 'mall', 'tower'], { stats: STATS, lastStage: 'alley' });
 /** カードの全部が見えているか */
 const inView = (c, s) => c.y - c.h / 2 >= s.viewTop && c.y + c.h / 2 <= s.viewTop + s.viewH;
 
 /** 論理ドットの高さ H になる窓(横390) */
 async function open(H, query, records) {
   const errors = [];
-  const page = await openPage(browser, { width: 390, height: Math.round((390 * H) / 216), errors });
+  const page = await openPage(browser, { ...viewportFor(H), errors });
   await page.addInitScript((r) => localStorage.setItem('stupidhero.records.v2', r), JSON.stringify(records));
   await page.goto(`${url}?scene=StageSelect${query}`);
   await waitForGame(page, 60000);

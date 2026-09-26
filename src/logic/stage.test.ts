@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { sheetByKey } from '../art/sheets';
-import { createStage, findBoss } from './stage';
+import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
+import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { STAGES } from './stages';
-import type { Person, Stage } from './types';
+import type { Person, Stage, StageId } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 1);
 // ステージは最初に1回だけ作り、どのテストでも使い回す
@@ -32,22 +33,6 @@ describe('createStage', () => {
       expect(m.truth).toBe('bad');
       expect(m.sheetKey).toBe('villain_mohawk');
     }
-  });
-
-  it('ボスは波3にちょうど1人。化けた姿は3種類から', () => {
-    const disguises = new Set<string>();
-    for (const s of stages) {
-      const bosses = s.waves.map((w) => w.people.filter((p) => p.truth === 'boss').length);
-      expect(bosses).toEqual([0, 0, 1]);
-      expect(s.waves.map((w) => w.hasBoss)).toEqual([false, false, true]);
-      const boss = findBoss(s)!;
-      expect(['suit', 'granny', 'shopper']).toContain(boss.disguise);
-      expect(boss.look).toBe(boss.disguise);
-      expect(boss.sheetKey).toBe(`boss_disguise_${boss.disguise}`);
-      disguises.add(boss.disguise!);
-      expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
-    }
-    expect(disguises.size).toBe(3);
   });
 
   it('名前もプロフィールの文も一言も、同じものは2回出ない', () => {
@@ -113,5 +98,134 @@ describe('路地裏は今まで通り(ステージ2を足したあと)', () => {
         expect(p.link).toBeUndefined();
       }
     }
+  });
+});
+
+// ─── どのステージにも共通の決まり ───
+// ステージごとにコピーしていた createStage の確かめを、ここに集めた。
+// そのステージだけの決まりは garage.test.ts、mall.test.ts、tower.test.ts に残してある。
+
+/** 400個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
+const seedsFrom = (offset: number): number[] => Array.from({ length: 400 }, (_, i) => i * 7919 + offset);
+const BY_ID: Readonly<Record<StageId, readonly Stage[]>> = {
+  alley: stages,
+  garage: seedsFrom(1).map((s) => createStage(s, 'garage')),
+  mall: seedsFrom(3).map((s) => createStage(s, 'mall')),
+  tower: seedsFrom(5).map((s) => createStage(s, 'tower'))
+};
+
+describe('createStage:どのステージにも共通の決まり', () => {
+  it.each([
+    { id: 'garage', name: '地下駐車場' },
+    { id: 'mall', name: 'ショッピングモール' },
+    { id: 'tower', name: '高層ビル' }
+  ] as const)('$id:id と定義と名前($name)', ({ id, name }) => {
+    const s = BY_ID[id][0];
+    expect(s.id).toBe(id);
+    expect(s.def).toBe(STAGES[id]);
+    expect(s.name).toBe(name);
+  });
+
+  it.each([
+    { id: 'alley', kind: null },
+    { id: 'garage', kind: null },
+    { id: 'mall', kind: 'sale' },
+    { id: 'tower', kind: 'elevator' }
+  ] as const)('$id:ラッシュの並びは、ラッシュのあるステージだけ($kind)', ({ id, kind }) => {
+    const s = createStage(1, id);
+    expect(s.rush?.kind ?? null).toBe(kind);
+    expect(saleRushOf(s) !== null).toBe(kind === 'sale');
+    expect(liftRushOf(s) !== null).toBe(kind === 'elevator');
+  });
+
+  it.each([
+    { id: 'garage', seconds: [30, 26, 28], people: [5, 6, 7], total: 18, noGroups: false },
+    { id: 'mall', seconds: [30, 28, 30], people: [5, 6, 7], total: 18, noGroups: true },
+    { id: 'tower', seconds: [26, 24, 26, 30], people: [4, 5, 6, 7], total: 22, noGroups: true }
+  ] as const)('$id:波の人数と時間が表の通り(人数 $people、秒 $seconds、ボスは最後の波)', ({ id, seconds, people, total, noGroups }) => {
+    const n = seconds.length;
+    const bad: string[] = [];
+    for (const s of BY_ID[id]) {
+      const got = {
+        no: s.waves.map((w) => w.no), seconds: s.waves.map((w) => w.seconds), people: s.waves.map((w) => w.people.length),
+        hasBoss: s.waves.map((w) => w.hasBoss), total: s.peopleTotal
+      };
+      const want = {
+        no: Array.from({ length: n }, (_, i) => i + 1), seconds, people,
+        hasBoss: Array.from({ length: n }, (_, i) => i === n - 1), total
+      };
+      if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`seed ${s.seed} ${JSON.stringify(got)}`);
+      for (const w of s.waves) {
+        if (noGroups && w.groups.length > 0) bad.push(`seed ${s.seed} 波${w.no}に組がある`);
+        for (const p of w.people) if (p.wave !== w.no) bad.push(`seed ${s.seed} ${p.id} の wave`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it.each([
+    // pairedCiv:ボスと同じ見た目の市民が、かならず最後の波にいるステージ
+    { id: 'alley', disguises: ['granny', 'shopper', 'suit'], sheet: 'boss_disguise_', pairedCiv: false },
+    { id: 'garage', disguises: ['guard', 'mechanic', 'officelady'], sheet: 'boss2_disguise_', pairedCiv: false },
+    { id: 'mall', disguises: ['clerk', 'mascot', 'uncle'], sheet: 'boss3_disguise_', pairedCiv: true },
+    { id: 'tower', disguises: ['lady', 'magician', 'waiter'], sheet: 'tw_boss_', pairedCiv: true }
+  ] as const)('$id:ボスは最後の波にちょうど1人。化けた姿は $disguises(どれも出る)。絵のキーと、ワルの合計(ボスを入れる)', ({ id, disguises, sheet, pairedCiv }) => {
+    const seen = new Set<string>();
+    for (const s of BY_ID[id]) {
+      const last = s.waves.length;
+      expect(s.waves.map((w) => w.people.filter((p) => p.truth === 'boss').length)).toEqual(s.waves.map((w) => (w.no === last ? 1 : 0)));
+      const boss = findBoss(s)!;
+      expect(boss.wave).toBe(last);
+      expect(disguises).toContain(boss.disguise);
+      expect(boss.look).toBe(boss.disguise);
+      expect(boss.sheetKey).toBe(`${sheet}${boss.disguise}`);
+      expect(boss.mischief).toBeUndefined();
+      // 文と一言は、その化けた姿のボスの一覧から
+      expect(BOSS_PROFILE_LINES[boss.disguise!]).toContain(boss.profile.line);
+      expect(BOSS_HINTS[boss.disguise!]).toContainEqual(boss.hint);
+      expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
+      if (pairedCiv) expect(s.waves[last - 1].people.some((p) => p.truth === 'civ' && p.look === boss.look)).toBe(true);
+      seen.add(boss.disguise!);
+    }
+    expect([...seen].sort()).toEqual(disguises);
+  });
+
+  it.each([
+    { id: 'garage', ratio: 0.6 },
+    { id: 'mall', ratio: 0.8 },
+    { id: 'tower', ratio: 0.9 }
+  ] as const)('$id:ワルと同じ見た目の市民が、なるべく同じ波にいる(ワルの $ratio より多く)', ({ id, ratio }) => {
+    let bads = 0;
+    let paired = 0;
+    for (const s of BY_ID[id]) {
+      for (const w of s.waves) {
+        for (const b of w.people.filter((p) => p.truth === 'bad')) {
+          bads++;
+          if (w.people.some((p) => p.truth === 'civ' && p.look === b.look)) paired++;
+        }
+      }
+    }
+    expect(paired / bads).toBeGreaterThan(ratio);
+  });
+
+  it.each([
+    { id: 'mall', count: 100 },
+    { id: 'tower', count: 200 }
+  ] as const)('$id:名前、年齢、文、一言はその見た目と正体の一覧から。名前と id はステージの中で重ならない(はじめの $count 個の種)', ({ id, count }) => {
+    const bad: string[] = [];
+    for (const s of BY_ID[id].slice(0, count)) {
+      const people = everyone(s);
+      if (new Set(people.map((p) => p.profile.name)).size !== people.length) bad.push(`seed ${s.seed} 名前が重なる`);
+      if (new Set(people.map((p) => p.id)).size !== people.length) bad.push(`seed ${s.seed} id が重なる`);
+      for (const p of people) {
+        const [lo, hi] = AGES[p.look];
+        if (!NAMES[p.look].includes(p.profile.name)) bad.push(`${p.id} 名前 ${p.profile.name}`);
+        if (p.profile.age < lo || p.profile.age > hi) bad.push(`${p.id} 年齢 ${p.profile.age}`);
+        if (p.truth === 'boss') continue;
+        if (!PROFILE_LINES[p.look][p.truth]!.includes(p.profile.line)) bad.push(`${p.id} 文 ${p.profile.line}`);
+        if (!OPERATOR_HINTS[p.look][p.truth]!.some((h) => h.text === p.hint.text && h.face === p.hint.face)) bad.push(`${p.id} 一言 ${p.hint.text}`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 });

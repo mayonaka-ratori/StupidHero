@@ -16,12 +16,12 @@
 //   仕分け:leakSpots(person)   // 照明と机の小物に、何を出すか('leak' は紫のもれ、ほかは紛らわしい市民の理由)
 //   ラッシュ:stage.rush.riders を順に。1人ぶんの時間は liftTiming(slow)
 
-import { makePerson, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed } from './pick';
+import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
+import { leastUsed, rushLineup } from './pick';
 import type { Rng } from './rng';
 import { DECOY_LOOKS, LEAK, LIFT } from './rules';
-import { STAGES, TOWER_LOOKS, sheetKeyFor } from './stages';
-import type { Leak, LiftPlan, LiftRider, Person, TowerDecoy, TowerDisguise, TowerLook, Wave } from './types';
+import { BOSS4_DISGUISES, STAGES, TOWER_LOOKS, sheetKeyFor } from './stages';
+import type { Leak, LiftPlan, LiftRider, Person, TowerDecoy, TowerLook, Wave } from './types';
 
 /** 波ごと(階ごと)に出る見た目。上の階には下の階の人も上がってくる */
 export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
@@ -32,13 +32,13 @@ export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
 ];
 
 /** 最上階(波4)にかならず入れる見た目 */
-export const TOP_FLOOR_LOOKS: readonly TowerLook[] = ['lady', 'magician'];
+const TOP_FLOOR_LOOKS: readonly TowerLook[] = ['lady', 'magician'];
 
-/** 親玉の化けた姿 */
-export const BOSS4_DISGUISES: readonly TowerDisguise[] = ['lady', 'magician', 'waiter'];
+/** 親玉の化けた姿。定義は stages.ts にあり、ここからも読めるようにしておく */
+export { BOSS4_DISGUISES } from './stages';
 
 /** 紛らわしい市民の種類 */
-export const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'thread', 'balloon'];
+const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'thread', 'balloon'];
 
 // ─── もれと紛らわしい市民 ─────────────────────────
 
@@ -133,9 +133,7 @@ export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
     drafts.push(...civDrafts);
     if (plan.boss) drafts.push(makePerson(rng, used, 'tower', plan.no, bossDisguise, 'boss', bossDisguise));
 
-    const people: Person[] = rng.shuffle(drafts).map((p, index) => ({
-      id: `w${plan.no}-${index + 1}`, index, ...p
-    }));
+    const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: villainTotal, hasBoss: plan.boss, groups: [] };
   });
 }
@@ -180,16 +178,7 @@ export function liftFloor(index: number): number {
 export function buildLift(rng: Rng): LiftPlan {
   const villainCount = rng.chance(0.5) ? LIFT.villains[0] : LIFT.villains[1];
   const civCount = LIFT.people - villainCount;
-  const opening = rng.shuffle<'bad' | 'civ'>(['civ', 'bad']);
-  const rest = rng.shuffle<'bad' | 'civ'>([
-    ...Array.from({ length: villainCount - 1 }, () => 'bad' as const),
-    ...Array.from({ length: civCount - 1 }, () => 'civ' as const)
-  ]);
-  let prev: TowerLook | null = null;
-  const riders: LiftRider[] = [...opening, ...rest].map((truth, index) => {
-    const look = rng.pick(TOWER_LOOKS.filter((l) => l !== prev));
-    prev = look;
-    return { index, look, truth, sheetKey: sheetKeyFor(look, truth, 'tower'), floor: liftFloor(index) };
-  });
+  const riders: LiftRider[] = rushLineup(rng, villainCount, civCount, TOWER_LOOKS).map(({ truth, look }, index) =>
+    ({ index, look, truth, sheetKey: sheetKeyFor(look, truth, 'tower'), floor: liftFloor(index) }));
   return { kind: 'elevator', riders, villainCount, civCount };
 }

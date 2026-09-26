@@ -60,11 +60,6 @@ export class Bubble extends Phaser.GameObjects.Container {
     return this.redraw();
   }
 
-  setTail(tail: TailDir): this {
-    this.opt.tail = tail;
-    return this.redraw();
-  }
-
   /** しっぽの先を動かす */
   pointTo(x: number, y: number): this {
     this.setPosition(Math.round(x), Math.round(y));

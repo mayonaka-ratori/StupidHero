@@ -1,7 +1,7 @@
 // 曲と効果音を1つずつ鳴らすための開発用ページ(/dev/audio.html)。ゲームには入らない。
 // 「数字で確かめる」を押すと、OfflineAudioContext で描き出して最大音量などを表にする。
 // tools/audioCheck.mjs からは window.__audioCheck() を呼ぶ。
-import { type BgmName, type SfxName, audio } from '../audio';
+import { type SfxName, audio } from '../audio';
 import type { Engine } from '../audio/engine';
 import {
   BGM_NAMES,
@@ -13,16 +13,8 @@ import {
   renderSfx,
   renderSfxRepeat,
   renderWorstCase,
-  renderWorstCaseBoss2,
-  renderWorstCaseBoss3,
-  renderWorstCaseBoss4,
-  renderWorstCaseFree,
-  renderWorstCaseLift4,
-  renderWorstCaseSale3,
-  renderWorstCaseStreet2,
-  renderWorstCaseStreet3,
-  renderWorstCaseStreet4,
   SFX_START,
+  WORST_CASE_NAMES,
   introSeconds,
   songSeconds
 } from '../audio/offline';
@@ -58,7 +50,7 @@ document.addEventListener('pointerdown', () => audio.unlock(), { capture: true }
 
 el('h2', 'BGM');
 const bgmRow = el('div');
-for (const n of BGM_NAMES) el('button', n, bgmRow).onclick = () => audio.playBgm(n as BgmName);
+for (const n of BGM_NAMES) el('button', n, bgmRow).onclick = () => audio.playBgm(n);
 el('button', '止める', bgmRow).onclick = () => audio.stopBgm(600);
 const muteBtn = el('button', '', bgmRow);
 const showMute = () => {
@@ -104,21 +96,14 @@ async function check(): Promise<{ rows: Row[]; backlog: number; lift4Intro: numb
     rows.push({ kind: 'bgm', name: n, final: analyze(await renderBgm(n, sec)), raw: analyze(await renderBgm(n, sec, false)) });
   }
   for (const n of SFX_NAMES) {
-    rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n as SfxName), SFX_START), raw: analyze(await renderSfx(n as SfxName, false), SFX_START) });
+    rows.push({ kind: 'sfx', name: n, final: analyze(await renderSfx(n), SFX_START), raw: analyze(await renderSfx(n, false), SFX_START) });
   }
   for (const n of [...STAGE2_SFX, ...STAGE3_SFX, ...STAGE4_SFX, ...FREE_SFX]) {
     rows.push({ kind: 'rep', name: n + '×', final: analyze(await renderSfxRepeat(n), SFX_START), raw: analyze(await renderSfxRepeat(n, false), SFX_START) });
   }
-  rows.push({ kind: 'mix', name: 'boss+sfx', final: analyze(await renderWorstCase()), raw: analyze(await renderWorstCase(false)) });
-  rows.push({ kind: 'mix', name: 'boss2+sfx', final: analyze(await renderWorstCaseBoss2()), raw: analyze(await renderWorstCaseBoss2(false)) });
-  rows.push({ kind: 'mix', name: 'street2+sfx', final: analyze(await renderWorstCaseStreet2()), raw: analyze(await renderWorstCaseStreet2(false)) });
-  rows.push({ kind: 'mix', name: 'boss3+sfx', final: analyze(await renderWorstCaseBoss3()), raw: analyze(await renderWorstCaseBoss3(false)) });
-  rows.push({ kind: 'mix', name: 'street3+sfx', final: analyze(await renderWorstCaseStreet3()), raw: analyze(await renderWorstCaseStreet3(false)) });
-  rows.push({ kind: 'mix', name: 'sale3+sfx', final: analyze(await renderWorstCaseSale3()), raw: analyze(await renderWorstCaseSale3(false)) });
-  rows.push({ kind: 'mix', name: 'boss4+sfx', final: analyze(await renderWorstCaseBoss4()), raw: analyze(await renderWorstCaseBoss4(false)) });
-  rows.push({ kind: 'mix', name: 'street4+sfx', final: analyze(await renderWorstCaseStreet4()), raw: analyze(await renderWorstCaseStreet4(false)) });
-  rows.push({ kind: 'mix', name: 'lift4+sfx', final: analyze(await renderWorstCaseLift4()), raw: analyze(await renderWorstCaseLift4(false)) });
-  rows.push({ kind: 'mix', name: 'free3+sfx', final: analyze(await renderWorstCaseFree()), raw: analyze(await renderWorstCaseFree(false)) });
+  for (const n of WORST_CASE_NAMES) {
+    rows.push({ kind: 'mix', name: n, final: analyze(await renderWorstCase(n)), raw: analyze(await renderWorstCase(n, false)) });
+  }
   return { rows, backlog: backlogSteps(), lift4Intro: Math.round(introSeconds('lift4') * 100) / 100 };
 }
 

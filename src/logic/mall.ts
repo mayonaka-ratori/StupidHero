@@ -14,16 +14,15 @@
 //   ラッシュ:stage.rush.runners を spawnSec の順に出す。ゆっくりモードは rushSpawnSec(i, true)
 //            宇宙人のくずれは rushGlitchShowing(sec)(0.3秒に1回。sec はラッシュが始まってからの秒数でよい)
 
-import { makePerson, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed } from './pick';
+import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
+import { leastUsed, rushLineup } from './pick';
 import type { Rng } from './rng';
 import { GLITCH, RUSH } from './rules';
-import { STAGES, sheetKeyFor } from './stages';
-import type { GlitchTiming, MallDisguise, MallLook, Person, RushPlan, RushRunner, Wave } from './types';
+import { BOSS3_DISGUISES, MALL_LOOKS, STAGES, sheetKeyFor } from './stages';
+import type { GlitchTiming, MallLook, RushPlan, RushRunner, Wave } from './types';
 
-export const MALL_LOOKS: readonly MallLook[] = ['mascot', 'clerk', 'dancer', 'uncle'];
-/** 親玉の化けた姿 */
-export const BOSS3_DISGUISES: readonly MallDisguise[] = ['clerk', 'uncle', 'mascot'];
+/** ショッピングモールの見た目と親玉の化けた姿。定義は stages.ts にあり、ここからも読めるようにしておく */
+export { BOSS3_DISGUISES, MALL_LOOKS } from './stages';
 
 // ─── 動きのくずれ ─────────────────────────────────
 
@@ -91,9 +90,7 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
     for (const look of civLooks) drafts.push(makePerson(rng, used, 'mall', plan.no, look, 'civ'));
     if (plan.boss) drafts.push(makePerson(rng, used, 'mall', plan.no, bossDisguise, 'boss', bossDisguise));
 
-    const people: Person[] = rng.shuffle(drafts).map((p, index) => ({
-      id: `w${plan.no}-${index + 1}`, index, ...p
-    }));
+    const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: alienTotal, hasBoss: plan.boss, groups: [] };
   });
 }
@@ -124,16 +121,7 @@ export function rushGlitchShowing(sec: number): boolean {
 export function buildRush(rng: Rng): RushPlan {
   const alienCount = rng.chance(0.5) ? RUSH.aliens[0] : RUSH.aliens[1];
   const civCount = RUSH.people - alienCount;
-  const opening = rng.shuffle<'bad' | 'civ'>(['civ', 'bad']);
-  const rest = rng.shuffle<'bad' | 'civ'>([
-    ...Array.from({ length: alienCount - 1 }, () => 'bad' as const),
-    ...Array.from({ length: civCount - 1 }, () => 'civ' as const)
-  ]);
-  let prev: MallLook | null = null;
-  const runners: RushRunner[] = [...opening, ...rest].map((truth, index) => {
-    const look = rng.pick(MALL_LOOKS.filter((l) => l !== prev));
-    prev = look;
-    return { index, look, truth, sheetKey: sheetKeyFor(look, truth, 'mall'), spawnSec: rushSpawnSec(index) };
-  });
+  const runners: RushRunner[] = rushLineup(rng, alienCount, civCount, MALL_LOOKS).map(({ truth, look }, index) =>
+    ({ index, look, truth, sheetKey: sheetKeyFor(look, truth, 'mall'), spawnSec: rushSpawnSec(index) }));
   return { kind: 'sale', runners, alienCount, civCount };
 }

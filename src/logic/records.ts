@@ -46,7 +46,7 @@
 //   saved.showMoreStagesHint                                // 「ステージを進めると、出てくる人が増えるよ」を出すか(一度だけ)
 
 import { FREE_STAGE_IDS, STAGE_IDS, STAGES, isStageId } from './stages';
-import { TITLES } from './titles';
+import { TITLE_COUNT, TITLES } from './titles';
 import type { StageDef } from './stages';
 import type { StageId, StageStats, TitleId } from './types';
 
@@ -282,6 +282,17 @@ function writeRecords(records: Records, storage: RecordStorage | null): boolean 
 }
 
 /**
+ * 見たことを残す(掛け合い、ラッシュ、終わりの場面など)。seen が true なら、もう残してあるので書かない。
+ * まだなら mark で書きこんで保存する。書けなくても、その場では覚えている
+ */
+function markSeen(storage: RecordStorage | null, seen: (r: Records) => boolean, mark: (r: Records) => void): void {
+  const records = loadRecords(storage);
+  if (seen(records)) return;
+  mark(records);
+  writeRecords(records, storage);
+}
+
+/**
  * そのステージが開いているか(路地裏はいつも。地下駐車場は路地裏のボスを、
  * ショッピングモールは地下駐車場のボスを一度倒すと開く)
  */
@@ -304,10 +315,7 @@ export function needsIntro(stageId: StageId, records: Records = loadRecords()): 
 
 /** 掛け合いを見たことを残す。書けなくても、その場では覚えている */
 export function markIntroSeen(stageId: StageId, storage: RecordStorage | null = defaultStorage()): void {
-  const records = loadRecords(storage);
-  if (records.introSeen.includes(stageId)) return;
-  records.introSeen.push(stageId);
-  writeRecords(records, storage);
+  markSeen(storage, (r) => r.introSeen.includes(stageId), (r) => r.introSeen.push(stageId));
 }
 
 /** タイムセールラッシュを見たことがあるか(見たことがあれば、始まりの説明を1つにする) */
@@ -317,10 +325,7 @@ export function hasSeenRush(stageId: StageId, records: Records = loadRecords()):
 
 /** タイムセールラッシュを見たことを残す(帯を出したときに呼ぶ)。書けなくても、その場では覚えている */
 export function markRushSeen(stageId: StageId, storage: RecordStorage | null = defaultStorage()): void {
-  const records = loadRecords(storage);
-  if (records.rushSeen.includes(stageId)) return;
-  records.rushSeen.push(stageId);
-  writeRecords(records, storage);
+  markSeen(storage, (r) => r.rushSeen.includes(stageId), (r) => r.rushSeen.push(stageId));
 }
 
 /**
@@ -345,10 +350,7 @@ export function needsEnding(stageId: StageId, stats: Pick<StageStats, 'bossDefea
 
 /** 終わりの場面を見たことを残す(出し始めたときに呼ぶ)。書けなくても、その場では覚えている */
 export function markEndingSeen(storage: RecordStorage | null = defaultStorage()): void {
-  const records = loadRecords(storage);
-  if (records.endingSeen) return;
-  records.endingSeen = true;
-  writeRecords(records, storage);
+  markSeen(storage, (r) => r.endingSeen, (r) => (r.endingSeen = true));
 }
 
 /** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */
@@ -383,6 +385,23 @@ export function stageSelectInfo(records: Records = loadRecords()): StageSelectEn
 }
 
 /**
+ * 新記録かを比べる関数を作る。比べる関数は、値が前の記録より良ければ(wantLarger なら大きい、でなければ小さい)next に書き、
+ * 前の記録があったときだけ新記録の一覧(newRecords)に足す。値が null か undefined なら何もしない
+ */
+function recordComparer<F extends string>(
+  prev: Readonly<Record<F, number | null>>, next: Record<F, number | null>, newRecords: F[]
+): (field: F, value: number | null | undefined, wantLarger: boolean) => void {
+  return (field, value, wantLarger) => {
+    if (value === null || value === undefined) return;
+    const old = prev[field];
+    if (old === null || (wantLarger ? value > old : value < old)) {
+      next[field] = value;
+      if (old !== null) newRecords.push(field);
+    }
+  };
+}
+
+/**
  * 1回遊んだ結果を記録する。結果画面が出たときに1回だけ呼ぶ。
  * @param stageId stage.id
  * @param stats StatsTracker.snapshot()
@@ -404,14 +423,7 @@ export function saveResult(
   };
   const newRecords: RecordField[] = [];
 
-  const better = (field: RecordField, value: number | null, wantLarger: boolean): void => {
-    if (value === null) return;
-    const old = prev[field];
-    if (old === null || (wantLarger ? value > old : value < old)) {
-      next[field] = value;
-      if (old !== null) newRecords.push(field);
-    }
-  };
+  const better = recordComparer(prev, next, newRecords);
   better('mostDefeated', stats.defeated, true);
   better('fewestHurt', stats.civHurt, false);
   better('highestDamage', stats.damage, true);
@@ -432,7 +444,7 @@ export function saveResult(
     firstPlay,
     titleIsNew,
     titlesCollected: records.titles.length,
-    titlesTotal: TITLES.length,
+    titlesTotal: TITLE_COUNT,
     firstClear,
     stageTitlesCollected: next.titles.length,
     unlockedNow,
@@ -454,10 +466,7 @@ export function needsFreeIntro(records: Records = loadRecords()): boolean {
 
 /** フリープレイの掛け合いを見たことを残す */
 export function markFreeIntroSeen(storage: RecordStorage | null = defaultStorage()): void {
-  const records = loadRecords(storage);
-  if (records.freeIntroSeen) return;
-  records.freeIntroSeen = true;
-  writeRecords(records, storage);
+  markSeen(storage, (r) => r.freeIntroSeen, (r) => (r.freeIntroSeen = true));
 }
 
 /** ステージを選ぶ画面の「フリープレイ▶」のボタンに出すもの */
@@ -503,14 +512,7 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   const firstPlay = prev.plays === 0;
   const next: FreeRecord = { ...prev, plays: prev.plays + 1, titles: [...prev.titles] };
   const newRecords: FreeRecordField[] = [];
-  const better = (field: FreeRecordField, value: number | null | undefined, wantLarger: boolean): void => {
-    if (value === null || value === undefined) return;
-    const old = prev[field];
-    if (old === null || (wantLarger ? value > old : value < old)) {
-      next[field] = value;
-      if (old !== null) newRecords.push(field);
-    }
-  };
+  const better = recordComparer(prev, next, newRecords);
   const f = stats.free;
   if (f) {
     better(f.slow ? 'bestSlowSec' : 'bestSec', f.clearSec, false);
@@ -532,7 +534,7 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   const persisted = writeRecords(records, storage);
   return {
     records, free: next, newRecords, firstPlay, titleIsNew,
-    titlesCollected: records.titles.length, titlesTotal: TITLES.length, showMoreStagesHint, persisted
+    titlesCollected: records.titles.length, titlesTotal: TITLE_COUNT, showMoreStagesHint, persisted
   };
 }
 

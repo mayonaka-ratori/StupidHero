@@ -25,7 +25,7 @@ export const SMOKE_DARK = [0x242424, 0x494949, 0x6d6d6d] as const;
 /** 灰色の煙の色(出たばかり → 古い)。暗い背景(地下駐車場)用。黒い煙だと暗い床や壁に溶けて、汚れに見える */
 export const SMOKE_LIGHT = [0x6d6d6d, 0x929292, 0xb6b6b6, 0xdbdbdb] as const;
 /** 燃えているものから飛ぶ火の粉の色(出たばかり → 古い) */
-export const EMBER = [0xffffb6, 0xffdb00, 0xff9200, 0xb62400] as const;
+const EMBER = [0xffffb6, 0xffdb00, 0xff9200, 0xb62400] as const;
 
 /** 1フレームで進める時間(秒)。シーンの時計の速さをかける(ヒットストップの間は0) */
 function stepSec(scene: Phaser.Scene, delta: number): number {
@@ -76,6 +76,9 @@ abstract class FlowEmitter {
 
 interface SmokeDot { x: number; y: number; age: number; life: number; ember: boolean; rise: number }
 
+/** 煙の渦の大きさ(ドット) */
+const SMOKE_CELL = 16;
+
 export interface CurlSmokeOptions {
   /** 煙が出る所(毎フレーム読むので、動くものに合わせられる) */
   x: Num;
@@ -91,8 +94,6 @@ export interface CurlSmokeOptions {
   rise?: number;
   /** 渦に流される強さ(ドット/秒) */
   swirl?: number;
-  /** 渦の大きさ(ドット) */
-  cell?: number;
   /** 出る所の横の幅(左右にこれだけ散らす) */
   spread?: number;
   /** 横に流す風(ドット/秒。マイナスで左) */
@@ -114,7 +115,7 @@ export class CurlSmoke extends FlowEmitter {
     super(scene, opt.depth);
     this.o = {
       colors: opt.colors ?? SMOKE_DARK, rate: opt.rate ?? 40, life: opt.life ?? [0.9, 1.6], rise: opt.rise ?? 18,
-      swirl: opt.swirl ?? 34, cell: opt.cell ?? 16, spread: opt.spread ?? 5, wind: opt.wind ?? 0,
+      swirl: opt.swirl ?? 34, spread: opt.spread ?? 5, wind: opt.wind ?? 0,
       embers: opt.embers ?? 0, max: opt.max ?? 140
     };
   }
@@ -144,7 +145,7 @@ export class CurlSmoke extends FlowEmitter {
       if (p >= 1) continue;
       this.dots[n++] = d;
       // 出たばかりはまっすぐ上り、古くなるほど渦に流される。上る勢いは少しずつ落ちる
-      const v = curl(d.x / o.cell, d.y / o.cell, time * 0.8, this.seed);
+      const v = curl(d.x / SMOKE_CELL, d.y / SMOKE_CELL, time * 0.8, this.seed);
       const sw = o.swirl * (0.25 + 0.75 * p) * (d.ember ? 0.6 : 1);
       d.x += (v.x * sw + o.wind * p) * dt;
       d.y += (v.y * sw - d.rise * (1 - 0.5 * p)) * dt;

@@ -13,7 +13,7 @@ export const FREE_ITEM_NAME: Readonly<Record<FreeItem, string>> = {
 };
 
 /** 小物の名前のひらがな(ルールの札。字が読めない人のために、札には絵もつける) */
-export const FREE_ITEM_KANA: Readonly<Record<FreeItem, string>> = {
+const FREE_ITEM_KANA: Readonly<Record<FreeItem, string>> = {
   balloon: 'ふうせん',
   hat: 'ぼうし',
   bag: 'かみぶくろ'

@@ -24,20 +24,21 @@ export interface SwipeOptions {
   onCancel?: () => void;
   /** これだけ動いたら決まる(ドット) */
   distance?: number;
-  /** はじいたとみなす速さ(ドット/ミリ秒) */
-  flickSpeed?: number;
-  /** はじいたときに最低これだけは動いていること(ドット) */
-  flickMin?: number;
-  /** 画面の端の、無視する幅(CSSピクセル) */
-  edgeCss?: number;
 }
+
+/** はじいたとみなす速さ(ドット/ミリ秒) */
+const FLICK_SPEED = 0.25;
+/** はじいたときに最低これだけは動いていること(ドット) */
+const FLICK_MIN = 10;
+/** 画面の端の、無視する幅(CSSピクセル) */
+const EDGE_CSS = 16;
 
 export class SwipeInput {
   enabled = true;
   /** 最後に指を離したときの速さ(ドット/ミリ秒。調整用) */
   lastSpeed = 0;
   private area: Phaser.Geom.Rectangle;
-  private opt: Required<Omit<SwipeOptions, 'onStart' | 'onMove' | 'onSwipe' | 'onCancel'>> & SwipeOptions;
+  private opt: Required<Pick<SwipeOptions, 'distance'>> & SwipeOptions;
   private pointerId = -1;
   private startX = 0;
   private startY = 0;
@@ -45,7 +46,7 @@ export class SwipeInput {
 
   constructor(private scene: Phaser.Scene, area: Phaser.Geom.Rectangle, opt: SwipeOptions = {}) {
     this.area = area;
-    this.opt = { distance: 40, flickSpeed: 0.25, flickMin: 10, edgeCss: 16, ...opt };
+    this.opt = { distance: 40, ...opt };
     const input = scene.input;
     input.on('pointerdown', this.down, this);
     input.on('pointermove', this.move, this);
@@ -100,7 +101,7 @@ export class SwipeInput {
     const canvas = this.scene.game.canvas;
     const rect = canvas.getBoundingClientRect();
     const cssX = rect.left + (x / layout.W) * rect.width;
-    return cssX < this.opt.edgeCss || cssX > window.innerWidth - this.opt.edgeCss;
+    return cssX < EDGE_CSS || cssX > window.innerWidth - EDGE_CSS;
   }
 
   private down(ptr: Phaser.Input.Pointer): void {
@@ -135,7 +136,7 @@ export class SwipeInput {
     this.samples = [];
     const dir: SwipeDir = dx < 0 ? 'left' : 'right';
     const far = Math.abs(dx) >= this.opt.distance;
-    const flick = Math.abs(v) >= this.opt.flickSpeed && Math.abs(dx) >= this.opt.flickMin && Math.sign(v) === Math.sign(dx);
+    const flick = Math.abs(v) >= FLICK_SPEED && Math.abs(dx) >= FLICK_MIN && Math.sign(v) === Math.sign(dx);
     if (far || flick) this.opt.onSwipe?.(dir, Math.round(dx));
     else this.opt.onCancel?.();
   }

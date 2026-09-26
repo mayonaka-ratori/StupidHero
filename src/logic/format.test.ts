@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { damageAnalogy, formatDamage, formatSeconds, formatYen, hurtBreakdown, withCommas } from './format';
+import { damageAnalogy, formatSeconds, formatYen, hurtBreakdown, withCommas } from './format';
 
 describe('format', () => {
   it('金額', () => {
@@ -44,10 +44,7 @@ describe('format', () => {
       expect(t).not.toMatch(/ゴミ箱|自販機|一軒家|^車/);
       expect(damageAnalogy(yen, 'garage').count).toBeGreaterThan(0);
     }
-    expect(formatDamage(24_000_000, 'garage')).toBe('¥2,400万(ワゴン4.8台分)');
-    // 路地裏(省略したとき)は今まで通り
-    expect(damageAnalogy(24_000_000, 'alley').text).toBe('自販機30台分');
-    expect(formatDamage(24_000_000)).toBe('¥2,400万(自販機30台分)');
+    expect(damageAnalogy(24_000_000, 'garage').text).toBe('ワゴン4.8台分');
   });
 
   it('ショッピングモールのたとえはガチャガチャ、噴水、エスカレーター(ほかのステージの物は出さない)', () => {
@@ -62,7 +59,7 @@ describe('format', () => {
       expect(damageAnalogy(yen, 'mall').text).not.toMatch(/ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車/);
       expect(damageAnalogy(yen, 'mall').count).toBeGreaterThan(0);
     }
-    expect(formatDamage(4_500_000, 'mall')).toBe('¥450万(噴水3基分)');
+    expect(damageAnalogy(4_500_000, 'mall').text).toBe('噴水3基分');
   });
 
   it('市民のけがの内わけ(0は書かない。さらわれたは4つ目)', () => {
@@ -79,7 +76,6 @@ describe('format', () => {
     expect(damageAnalogy(100_000, 'tower').text).toBe('観葉植物2鉢分');
     expect(damageAnalogy(25_000_000, 'tower').text).toBe('シャンパンタワー2.5基分');
     expect(damageAnalogy(300_000_000, 'tower').text).toBe('ピアノ10台分');
-    expect(formatDamage(0, 'tower')).toBe('¥0(被害ゼロ)');
   });
 
   it('秒数は切り上げ', () => {

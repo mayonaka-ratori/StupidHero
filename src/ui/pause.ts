@@ -1,16 +1,16 @@
-// 一時停止。画面が隠れたとき(アプリの切り替えや通知)と、中断ボタンのときに、シーンを止めて
+// 一時停止。画面が隠れたとき(アプリの切り替えや通知)、横向きにしたとき、中断ボタンのときに、シーンを止めて
 // 小さなメニューを重ねて出す。メニューには設定の切りかえ(光と揺れを弱くする、ゆっくりモード、音)と
 // 「つづける」「タイトルへ」がある。設定は settings.set で覚える(src/settings.ts)。
 // 「タイトルへ」はシーンを止めたままワイプでタイトルへ行く(そのプレイは記録しないで終わる)。
 // 使い方(ゲームのシーンの create の中で):
 //   const pause = new PauseControl(this, {
-//     onPause: () => audio.suspend(),      // 止めたとき(なくてもよい)
-//     onResume: () => audio.resume()       // 「つづける」で再開したとき。タップの中で呼ばれるので音の再開にも使える
+//     onPause: (reason) => this.hide(),    // 止めたとき(なくてもよい)。reason は 'button' 'hidden' 'rotate'
+//     onResume: () => audio.unlock()       // 「つづける」で再開したとき(なくてもよい)。タップの中で呼ばれる
 //   });
 //   new IconButton(this, 204, 12, 'pause', () => pause.pause());
 //   pause.enabled = false;                 // 結果画面などで、隠れても止めないとき
 // 止めている間は、そのシーンの時計、動き、アニメがすべて止まる。上に 'UiPause' というシーンが重なる。
-// 音の担当は pauseEvents.on('pause' | 'resume', fn) でも受け取れる。止めている間は曲も止める(下の pauseEvents.on)。
+// 曲は、止めると止まり、再開すると戻る(下の pauseEvents で行う。シーンの側で何もしなくてよい)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -25,6 +25,8 @@ import { DEPTH, FS } from './theme';
 import { goto } from './transition';
 
 const PAUSE_SCENE = 'UiPause';
+/** メニューの見出し */
+const MENU_TITLE = '一時停止';
 
 /** 止めた/再開したを知らせる。('pause', reason) と ('resume') */
 const pauseEvents = new Phaser.Events.EventEmitter();
@@ -43,10 +45,6 @@ const liveControls = new Set<PauseControl>();
 export interface PauseOptions {
   onPause?: (reason: PauseReason) => void;
   onResume?: () => void;
-  /** 画面が隠れたら自動で止める(ふつう true) */
-  auto?: boolean;
-  /** メニューの見出し(ふつう「一時停止」) */
-  title?: string;
 }
 
 export class PauseControl {
@@ -60,10 +58,9 @@ export class PauseControl {
 
   constructor(private scene: Phaser.Scene, opt: PauseOptions = {}) {
     this.opt = opt;
-    if (opt.auto !== false) {
-      document.addEventListener('visibilitychange', this.onVis);
-      window.addEventListener('pagehide', this.onVis);
-    }
+    // 画面が隠れたら止める
+    document.addEventListener('visibilitychange', this.onVis);
+    window.addEventListener('pagehide', this.onVis);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onEnd);
     scene.events.once(Phaser.Scenes.Events.DESTROY, this.onEnd);
     liveControls.add(this);
@@ -81,7 +78,7 @@ export class PauseControl {
     const mgr = this.scene.game.scene;
     if (!mgr.getScene(PAUSE_SCENE)) mgr.add(PAUSE_SCENE, PauseOverlay, false);
     sp.pause();
-    sp.launch(PAUSE_SCENE, { control: this, title: this.opt.title });
+    sp.launch(PAUSE_SCENE, { control: this });
     sp.bringToTop(PAUSE_SCENE);
     this.opt.onPause?.(reason);
     pauseEvents.emit('pause', reason);
@@ -197,7 +194,7 @@ export function ditherTexture(scene: Phaser.Scene, key = '__ui_dither', color = 
   return key;
 }
 
-interface OverlayData { control: PauseControl; title?: string }
+interface OverlayData { control: PauseControl }
 
 /** メニューのウィンドウの幅 */
 const MENU_W = 204;
@@ -235,7 +232,7 @@ export class PauseOverlay extends Phaser.Scene {
     const h = 34 + rows.reduce((n, r) => n + rowH(r.note) + 4, 0) + 6 + btnH + 10;
     const y = Math.max(4, Math.round((H - h) / 2 - 8));
     new WindowFrame(this, x, y, MENU_W, h, 'win');
-    new PixelText(this, W / 2, y + 9, data.title ?? '一時停止', { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0);
+    new PixelText(this, W / 2, y + 9, MENU_TITLE, { size: FS.big, color: UI.gold, outline: true }).setOrigin(0.5, 0);
 
     let ry = y + 32;
     for (const r of rows) {

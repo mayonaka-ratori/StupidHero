@@ -31,11 +31,6 @@ function puff(P: Painter, x: number, y: number, r: number, ramp: Ramp = SMOKE): 
   P.fill(P.mask().ellipse(x, y, r, r * 0.8), ramp, { sep: 'none', hi: 0.4, lo: 0.8 });
 }
 
-/** 格子を傾ける(落ちたUFOと母艦)。(cx, cy) のまわりで回して、(qx, qy) に置く */
-function tilt(g: PixelGrid, angle: number, cx: number, cy: number, qx: number, qy: number): PixelGrid {
-  return rotateGrid(g, angle, cx, cy, qx, qy);
-}
-
 // ---------------------------------------------------------------------
 // UFO 64×32。0〜1:飛ぶ(ふちの灯りが回る)、2:吸い上げる、3:落ちた
 // ---------------------------------------------------------------------
@@ -89,7 +84,7 @@ function ufo(state: 0 | 1 | 2 | 3): PixelGrid {
   }
   // 落ちた:傾いて下に落ち、煙を上げる
   ufoBody(P, 9, 0, false, true);
-  const g = tilt(P.g, 0.2, 32, 20, 32, 19);
+  const g = rotateGrid(P.g, 0.2, 32, 20, 32, 19);
   const Q = new Painter(64, 32);
   Q.blit(g, 0, 0);
   puff(Q, 44, 7, 3); puff(Q, 48, 3, 2.2); puff(Q, 20, 9, 2);
@@ -163,7 +158,7 @@ function mothership(state: 0 | 1 | 2 | 3): PixelGrid {
     return P.g;
   }
   mothershipBody(P, 22, 0, false, true);
-  const g = tilt(P.g, 0.12, 80, 42, 80, 38);
+  const g = rotateGrid(P.g, 0.12, 80, 42, 80, 38);
   const Q = new Painter(160, 64);
   Q.blit(g, 0, 0);
   for (const [x, y, r] of [[56, 18, 4], [60, 12, 3], [64, 7, 2.2], [116, 20, 3.4], [112, 14, 2.4]] as const) puff(Q, x, y, r, HULL);

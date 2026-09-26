@@ -19,27 +19,31 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { LIFT_LAYOUT } from '../art/world4/backgrounds';
 import {
-  LIFT, LIFT_BAND, formatYen, hasSeenRush, liftEndLine, liftIntroFor, liftRushOf, liftSummary, liftTiming, markRushSeen, say,
+  LIFT, LIFT_BAND, hasSeenRush, liftEndLine, liftIntroFor, liftRushOf, liftSummary, liftTiming, markRushSeen, say,
   type AnyReactionKey, type LiftPlan, type LiftRider, type Rng, type Speech, type StageDef, type StatsTracker
 } from '../logic';
 import { getRun, type GameRun } from '../run';
 import { settings } from '../settings';
-import { snapshotLogical } from '../hires';
 import {
-  Bubble, Button, CutIn, CUT_H, CUT_TOP_H, EdgeAlarm, FS, IconButton, PauseControl, PixelText, UIX, WindowFrame, addPanel,
-  gotoWhenFree, hitStop, impact, isFrozen, lighter, panelRect, spawnFx, waitMs, whenNoFlash
+  Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText,
+  gotoWhenFree, hitStop, impact, isFrozen, lighter, spawnFx, waitMs
 } from '../ui';
 import { addMute, unlockOnTap } from './sort/common';
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
+import { shootAction } from './shot';
+import { buildStreetPanel, buttonPulse } from './street/panel';
 import { rushBand, rushTapIntro } from './street/rushIntro';
 import {
   DOOR_MOVE_SEC, LIFT_SPOT, liftDoorOpen, liftFloorAt, liftMoving, liftPhase, liftSchedule, liftSlot, nearestButton,
   type LiftBeat, type LiftSchedule
 } from './elevator/plan';
 
-/** 超能力の紫の3色(docs/STAGE4.md「超能力の色」。明るい、まん中、暗い) */
-const PSY = [0xffdbff, 0xdb6dff, 0x9224db] as const;
+/**
+ * 超能力の紫の3色(docs/STAGE4.md「超能力の色」。明るい、まん中、暗い)。src/art/world4/palette.ts の PSY と同じ色を、
+ * 画面に塗る数(0xRRGGBB)で持つ(logic の PSY とは別のもの)
+ */
+const PSY_RGB = [0xffdbff, 0xdb6dff, 0x9224db] as const;
 /** 扉の向こうのパーティ会場の光 */
 const PARTY = [0xfff2c0, 0xffc860, 0xff8ab0] as const;
 /** 夜景を流す速さ(ドット/秒)。ふだんと、階の数字が進んでいる間 */
@@ -174,30 +178,12 @@ export class ElevatorScene extends Phaser.Scene {
       // 右上には階の数字の枠があるので、中断と音のボタンは左上に置く。早送りはラッシュの間は使えないので、ボタンも出さない
       this.icons.push(new IconButton(this, 12, 12, 'pause', () => pause.pause()));
       this.icons.push(addMute(this, 34, 12));
-      addPanel(this);
-      const tall = panelRect().h >= 200;
-      const r = panelRect(4);
       // 数字の窓は結果発表と同じ(ラッシュの数はここには足さない。着いたときにまとめを出す)
-      const hudH = 40;
-      new WindowFrame(this, r.x, r.y, r.w, hudH, 'win');
-      const lx = r.x + 7;
-      new PixelText(this, lx, r.y + 4, '撃破', { size: FS.big });
-      new PixelText(this, lx + 36, r.y + 4, String(this.stats.defeated), { size: FS.big, color: UI.gold });
-      new PixelText(this, lx + 92, r.y + 4, '負傷', { size: FS.big });
-      new PixelText(this, lx + 128, r.y + 4, String(this.stats.civHurt), { size: FS.big, color: UI.danger });
-      new PixelText(this, lx, r.y + 21, '被害額', { size: FS.big });
-      new PixelText(this, r.right - 7, r.y + 21, formatYen(this.stats.damage), { size: FS.big, color: UI.gold }).setOrigin(1, 0);
-      const cutY = r.y + hudH + 4;
-      const cutH = tall ? CUT_TOP_H : CUT_H;
-      this.cut = new CutIn(this, r.x, cutY, r.w, cutH, tall ? { size: FS.big, faceTop: true } : {});
-      const bh = Math.max(40, Math.min(tall ? 120 : 72, r.bottom - (cutY + cutH + 5)));
-      const by = r.bottom - bh;
-      const bw = Math.floor((r.w - 8) / 2);
-      this.stopBtn = new Button(this, r.x, by, bw, bh, '待て!', { color: 'stop', textColor: UIX.stopText, onPress: () => { audio.unlock(); this.stopHandler?.(); } });
+      const p = buildStreetPanel(this, this.stats, () => { audio.unlock(); this.stopHandler?.(); });
+      this.cut = p.cut;
+      this.stopBtn = p.stopBtn;
       // 行けは使わない。ずっと暗くしておく
-      this.goBtn = new Button(this, r.x + bw + 8, by, bw, bh, '行け!', { color: 'go' });
-      this.stopBtn.setEnabled(false);
-      this.goBtn.setEnabled(false).setAlpha(0.4);
+      this.goBtn = p.goBtn.setAlpha(0.4);
     });
   }
 
@@ -261,10 +247,10 @@ export class ElevatorScene extends Phaser.Scene {
       m.haze?.setPosition(x, y).setDepth(m.a.y + 0.6);
       const b = LIFT_LAYOUT.buttons[m.button];
       // ボタンを紫に塗り、まわりに紫の点(半透明にしない)
-      g.fillStyle(PSY[2], 1).fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
-      g.fillStyle(PSY[1], 1).fillRect(b.x, b.y, b.w, b.h);
-      g.fillStyle(PSY[0], 1).fillRect(b.x, b.y, 2, 1).fillRect(b.x, b.y, 1, 2);
-      g.fillStyle(PSY[1], 1).fillRect(b.x - 3, b.y + 1, 1, 1).fillRect(b.x + b.w + 2, b.y + 2, 1, 1).fillRect(b.x + 1, b.y - 3, 1, 1);
+      g.fillStyle(PSY_RGB[2], 1).fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
+      g.fillStyle(PSY_RGB[1], 1).fillRect(b.x, b.y, b.w, b.h);
+      g.fillStyle(PSY_RGB[0], 1).fillRect(b.x, b.y, 2, 1).fillRect(b.x, b.y, 1, 2);
+      g.fillStyle(PSY_RGB[1], 1).fillRect(b.x - 3, b.y + 1, 1, 1).fillRect(b.x + b.w + 2, b.y + 2, 1, 1).fillRect(b.x + 1, b.y - 3, 1, 1);
     }
   }
 
@@ -279,10 +265,7 @@ export class ElevatorScene extends Phaser.Scene {
   private updateButtons(): void {
     const st = this.stopHandler !== null;
     if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st).setColor(UI.stop);
-    if (st && this.frameN % 3 === 0) {
-      const t = (1 - Math.cos((this.time.now / 1100) * Math.PI * 2)) / 2;
-      this.stopBtn.setColor(lighter(UI.stop, t * 0.3));
-    }
+    if (st && this.frameN % 3 === 0) this.stopBtn.setColor(lighter(UI.stop, buttonPulse(this.time.now) * 0.3));
   }
 
   // ─── 小さな道具 ───────────────────────────────
@@ -329,20 +312,6 @@ export class ElevatorScene extends Phaser.Scene {
         onComplete: () => { if (a.state !== 'gone') { a.x = x; a.y = y; if (opt.lift) a.lift = 0; } resolve(); }
       });
     });
-  }
-
-  private showMark(a: Actor): void {
-    a.mark?.destroy();
-    a.mark = this.add.sprite(a.x, a.y, 'fx_mark_stop').play(animKey('fx_mark_stop', 'play')).setScale(3).setDepth(1200);
-    a.sync();
-    const mk = a.mark;
-    this.time.delayedCall(50, () => mk.active && mk.setScale(2));
-    audio.sfx('mark');
-  }
-
-  private hideMark(a: Actor): void {
-    a.mark?.destroy();
-    a.mark = undefined;
   }
 
   /** 構え(扉の方を向いて、パンチの1コマ目で止める)。ラッシュの間は構えの光を出さない */
@@ -443,7 +412,7 @@ export class ElevatorScene extends Phaser.Scene {
     m.state = 'mark';
     a.x = LIFT_SPOT.stop.x; a.y = LIFT_SPOT.stop.y;
     a.play('sortIdle', true);
-    this.showMark(a);
+    a.showMark('stop');
     this.stopAlarm.start();
     this.heroSay(this.line('liftMark'), 1000);
     this.stopHandler = () => this.pass(m);
@@ -461,7 +430,7 @@ export class ElevatorScene extends Phaser.Scene {
     m.state = 'hit';
     this.stopHandler = null;
     this.stopAlarm.stop();
-    this.hideMark(a);
+    a.hideMark();
     const homeX = LIFT_SPOT.hero.x;
     // 一歩ふみこんで殴る
     h.play('punch', true);
@@ -513,7 +482,7 @@ export class ElevatorScene extends Phaser.Scene {
     m.state = 'pass';
     this.stopHandler = null;
     this.stopAlarm.stop();
-    this.hideMark(a);
+    a.hideMark();
     h.play('stop', true);
     audio.sfx('stop');
     for (let i = 0; i < 3; i++) this.time.delayedCall(i * 60, () => this.fx('fx_brake', h.x + 6, h.y - 6, { depth: h.y + 1 }));
@@ -540,13 +509,8 @@ export class ElevatorScene extends Phaser.Scene {
   /** ラッシュで市民を殴った場面を「いちばんひどい場面」の候補にする(市民を殴った瞬間と同じ段) */
   private report(): void {
     if (!this.stats.reportScene('civHit', 'punch')) return;
-    this.time.delayedCall(90, () => whenNoFlash(this, () => {
-      if (!this.sys.isActive()) return;
-      const hidden = this.icons as unknown as Phaser.GameObjects.Components.Visible[];
-      for (const o of hidden) o.setVisible(false);
-      this.stopAlarm.hideNow();
-      snapshotLogical(this.game, 0, 0, layout.W, layout.actionH, (img) => { this.run.worstShot = img; });
-      this.time.delayedCall(0, () => { for (const o of hidden) if ((o as unknown as Phaser.GameObjects.GameObject).active) o.setVisible(true); });
+    this.time.delayedCall(90, () => shootAction(this, (img) => { this.run.worstShot = img; }, {
+      hide: this.icons as unknown as Phaser.GameObjects.Components.Visible[], alarms: [this.stopAlarm]
     }));
   }
 
@@ -632,14 +596,14 @@ export class ElevatorScene extends Phaser.Scene {
   private psyFlash(): void {
     const { W, actionH } = layout;
     const c = this.ceilingG;
-    c.clear().fillStyle(PSY[1], 1).fillRect(8, 5, 160, 3).fillStyle(PSY[0], 1).fillRect(8, 8, 160, 1);
+    c.clear().fillStyle(PSY_RGB[1], 1).fillRect(8, 5, 160, 3).fillStyle(PSY_RGB[0], 1).fillRect(8, 8, 160, 1);
     this.time.delayedCall(900, () => c.clear());
     if (settings.reduceFx) return;
-    const full = this.add.rectangle(0, 0, W, actionH, PSY[1]).setOrigin(0).setDepth(1300);
+    const full = this.add.rectangle(0, 0, W, actionH, PSY_RGB[1]).setOrigin(0).setDepth(1300);
     // 1コマ目は全体、そのあと少しの間は、ガラスに映る紫(1つおきの点)と、ほかは4つに1つの点だけ(半透明にしない)
     const dots = this.add.graphics().setDepth(1300).setVisible(false);
     const gl = LIFT_LAYOUT.glass;
-    dots.fillStyle(PSY[1], 1);
+    dots.fillStyle(PSY_RGB[1], 1);
     for (let y = 0; y < actionH; y++) {
       const inGlass = y >= gl.y && y < gl.y + gl.h;
       for (let x = 0; x < W; x++) {

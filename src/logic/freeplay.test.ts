@@ -24,9 +24,12 @@ describe('高層ビルはフリープレイに入れない', () => {
 });
 const SEEDS = Array.from({ length: 150 }, (_, i) => i * 7919 + 3);
 
+/** 開き方と種のすべての組み合わせの並び。最初に1回だけ作り、どのテストでも使い回す(テストは中身を書きかえない) */
+const PLANS = UNLOCKS.flatMap((unlocked) => SEEDS.map((seed) => ({ plan: createFreePlay(seed, unlocked), unlocked })));
+
 /** 開き方と種をすべて回す */
 function eachPlan(fn: (plan: ReturnType<typeof createFreePlay>, unlocked: readonly StageId[]) => void): void {
-  for (const unlocked of UNLOCKS) for (const seed of SEEDS) fn(createFreePlay(seed, unlocked), unlocked);
+  for (const { plan, unlocked } of PLANS) fn(plan, unlocked);
 }
 
 /** 場面の頭の人だけ(ギャングの組の2人目を除く) */
@@ -103,6 +106,8 @@ describe('createFreePlay:山札の数', () => {
   });
 
   it('run.stage に入れる形:id と def は波1の背景、名前はフリープレイ、人数とワルの数', () => {
+    // 外れは集めて最後に1回だけ確かめる(並びが多いので、1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     eachPlan((plan) => {
       const s = plan.stage;
       expect(s.id).toBe(plan.waves[0].bgStage);
@@ -112,35 +117,37 @@ describe('createFreePlay:山札の数', () => {
       expect(s.peopleTotal).toBe(s.waves.reduce((n, w) => n + w.people.length, 0));
       expect(s.villainTotal).toBe(s.waves.flatMap((w) => w.people).filter((p) => p.truth === 'bad').length);
       for (const w of s.waves) {
-        expect(w.hasBoss).toBe(false);
-        expect(w.badCount).toBe(w.people.filter((p) => p.truth === 'bad').length);
+        if (w.hasBoss) bad.push(`seed ${s.seed} 波${w.no} ボスがいる`);
+        if (w.badCount !== w.people.filter((p) => p.truth === 'bad').length) bad.push(`seed ${s.seed} 波${w.no} badCount`);
         w.people.forEach((p, i) => {
-          expect(p.index).toBe(i);
-          expect(p.wave).toBe(w.no);
-          expect(p.truth).not.toBe('boss');
+          if (p.index !== i) bad.push(`${p.id} index`);
+          if (p.wave !== w.no) bad.push(`${p.id} wave`);
+          if (p.truth === 'boss') bad.push(`${p.id} ボス`);
         });
       }
       const ids = s.waves.flatMap((w) => w.people.map((p) => p.id));
       expect(new Set(ids).size).toBe(ids.length);
     });
+    expect(bad).toEqual([]);
   });
 });
 
 describe('createFreePlay:人と背景', () => {
   it('開いているステージの人だけ出す。路地裏だけならワルはモヒカンだけ、市民は路地裏の市民だけ', () => {
     const alleyCiv: Look[] = ['hoodie', 'suit', 'shopper', 'granny'];
+    // 外れは集めて最後に1回だけ確かめる(並びが多いので、1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     eachPlan((plan, unlocked) => {
+      const badLooks: Look[] = [
+        'fp_mohawk', ...(unlocked.includes('garage') ? ['fp_gang' as const] : []), ...(unlocked.includes('mall') ? ['fp_alien' as const] : [])
+      ];
+      const civLooks: Look[] = [...alleyCiv, ...(unlocked.includes('garage') ? GANG_LOOKS : []), ...(unlocked.includes('mall') ? MALL_LOOKS : [])];
       for (const p of plan.stage.waves.flatMap((w) => w.people)) {
-        if (p.truth === 'bad') {
-          expect(['fp_mohawk', 'fp_gang', 'fp_alien']).toContain(p.look);
-          if (!unlocked.includes('garage')) expect(p.look).not.toBe('fp_gang');
-          if (!unlocked.includes('mall')) expect(p.look).not.toBe('fp_alien');
-        } else {
-          const ok = [...alleyCiv, ...(unlocked.includes('garage') ? GANG_LOOKS : []), ...(unlocked.includes('mall') ? MALL_LOOKS : [])];
-          expect(ok).toContain(p.look);
-        }
+        const ok = p.truth === 'bad' ? badLooks : civLooks;
+        if (!ok.includes(p.look)) bad.push(`${unlocked} seed ${plan.stage.seed} ${p.id} ${p.truth} ${p.look}`);
       }
     });
+    expect(bad).toEqual([]);
     // 路地裏だけ:ワルは全員モヒカン
     const plan = createFreePlay(1, ['alley']);
     expect(new Set(plan.stage.waves.flatMap((w) => w.people).filter((p) => p.truth === 'bad').map((p) => p.look))).toEqual(new Set(['fp_mohawk']));
@@ -302,7 +309,9 @@ describe('createFreePlay:波3', () => {
 describe('時間と空押し', () => {
   it('FREE の数字', () => {
     expect(FREE.waves.map((w) => w.scenes)).toEqual([8, 7, 12]);
-    expect(FREE.total).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
+    const sum = (key: 'scenes' | 'stop' | 'go') => FREE.waves.reduce((a, w) => a + w[key], 0);
+    const heroRight = FREE.waves.reduce((a, w) => a + w.heroBad + w.heroCiv, 0);
+    expect({ scenes: sum('scenes'), stop: sum('stop'), go: sum('go'), heroRight }).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
     expect(FREE.gapPx).toEqual({ 1: 104, 2: 104, 3: 96 });
     expect(FREE.windupSec[3]).toBe(0.9);
     expect(FREE.markSlowmo[3]).toBe(1);

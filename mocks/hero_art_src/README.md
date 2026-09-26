@@ -6,7 +6,7 @@
 |---|---|
 | `idle.py`、`punch.py` | ヒーローの体の1回目(待機とパンチ)。`python3 idle.py`で`idle.txt`を書き出す |
 | `idle2.py`、`punch2.py` | 2回目(磨いた版)。1回目の`idle.txt`、`punch.txt`を元に描き直して、`idle2.txt`、`punch2.txt`を書き出す |
-| `fh_hand.py`、`fh_hand2.py` | ヒーローの顔(3つの表情、口を閉じた顔と開けた顔)。`fh_hand2.py`が2回目 |
+| `fh_hand2.py` | ヒーローの顔(3つの表情、口を閉じた顔と開けた顔)。1回目の`fh_hand.py`を元に描き直した2回目(1回目は消した) |
 | `op.py` | オペレーターの顔(4つの表情) |
 | `compose.py` | 部品を重ねる道具 |
 | `render.py` | 表を拡大したPNGにして見る(`python3 render.py idle.txt 8`で`view.png`)。Pillowが要る |

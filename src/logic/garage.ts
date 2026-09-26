@@ -9,18 +9,17 @@
 // - 並び順を決めてから、前の人とのつながりの文を決める(ギャングは同じ組の前の仲間、市民はどちらとも取れるつながり)
 
 import { LINK_HINTS, LINK_PROFILES, linkText, type LinkTemplate } from './garageContent';
-import { makePerson, type PersonDraft, type UsedTexts } from './people';
+import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed, pickFresh } from './pick';
 import type { Rng } from './rng';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, BOSS2_COLOR_ID, GANG, GANG_COLOR_IDS } from './rules';
-import { STAGES } from './stages';
+import { BOSS2_DISGUISES, GANG_LOOKS, STAGES } from './stages';
 import type {
-  Accessory, AccessoryColorId, GangGroup, GangLook, GarageDisguise, Person, Wave
+  Accessory, AccessoryColorId, GangGroup, GangLook, Person, Wave
 } from './types';
 
-export const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
-/** 女ボスの化けた姿 */
-const BOSS2_DISGUISES: readonly GarageDisguise[] = ['guard', 'mechanic', 'officelady'];
+/** 地下駐車場の見た目。定義は stages.ts にあり、ここからも読めるようにしておく */
+export { GANG_LOOKS } from './stages';
 
 /** 小物を作る(色と、見た目と正体で決まる小物の名前) */
 export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
@@ -126,9 +125,7 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
       drafts.push(p);
     }
 
-    const people: Person[] = rng.shuffle(drafts).map((p, index) => ({
-      id: `w${plan.no}-${index + 1}`, index, ...p
-    }));
+    const people = shufflePeople(rng, plan.no, drafts);
     for (const g of groups) g.memberIds = people.filter((p) => p.group === g.id).map((p) => p.id);
     addLinks(rng, used, people);
     return { no: plan.no, seconds: plan.seconds, people, badCount: gangTotal, hasBoss: plan.boss, groups };

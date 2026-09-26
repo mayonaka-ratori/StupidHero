@@ -1,7 +1,8 @@
-// 結果発表(Street)とその部品(gang.ts、ufo.ts、rush.ts)、フリープレイの通り(free.ts)で共通の数と形。
+// 結果発表(Street)とその部品(gang.ts、ufo.ts、rush.ts)、フリープレイの通り(free.ts)で共通の数と形。煙の色はボス戦(Boss.ts)でも使う。
 
 import type Phaser from 'phaser';
-import type { Look, PropKind } from '../../logic';
+import type { Look, PropKind, StageId } from '../../logic';
+import { SMOKE_DARK, SMOKE_LIGHT } from '../../ui';
 
 /** ヒーローの走る速さ(ドット/秒) */
 export const RUN = 84;
@@ -15,3 +16,8 @@ export interface Walker { toX: number; fromX: number; fromY: number; toY: number
 export interface CivHit { look: Look; collateral: boolean }
 /** recover はフリープレイだけ:待てで止めたワルを、行けで倒して取り返した */
 export type HitMode = 'bad' | 'civ' | 'go' | 'recover' | 'reveal';
+
+/** 煙の色。モールは背景が明るいので黒い煙、ほかは背景が暗いので灰色の煙(結果発表とボス戦で使う) */
+export function smokeColors(stage: StageId): readonly number[] {
+  return stage === 'mall' ? SMOKE_DARK : SMOKE_LIGHT;
+}

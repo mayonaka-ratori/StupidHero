@@ -35,11 +35,10 @@ describe('ステージ3の絵', () => {
     }
   });
 
-  it('「持ち物」の窓:同じ見た目は同じ四角。ぎこちない動きと、くずれの出はじめが四角に入る', () => {
+  it('「持ち物」の窓:ぎこちない動きと、くずれの出はじめが四角に入る', () => {
     for (const look of LOOKS) {
+      // 市民とワルと親玉で同じ四角かは clueSpots.test.ts で確かめる
       const r = CLUE_SPOTS[`${look}_civ`];
-      expect(CLUE_SPOTS[`${look}_bad`], look).toBe(r);
-      if (CLUE_SPOTS[`boss3_disguise_${look}`]) expect(CLUE_SPOTS[`boss3_disguise_${look}`], look).toBe(r);
       const bad = sheets[`${look}_bad`];
       const sort = bad[2];
       // 仕分けの動きの4コマは、四角の中で動いて見える

@@ -44,11 +44,6 @@ export class FreeItems {
     return Math.round(a.y - a.lift + w.at.dy) - w.s.height;
   }
 
-  /** その人の小物(なければ null) */
-  itemOf(a: Actor): FreeItem | null {
-    return this.worn.find((w) => w.a === a && !w.loose)?.item ?? null;
-  }
-
   sync(): void {
     for (const w of this.worn) {
       if (w.loose) continue;

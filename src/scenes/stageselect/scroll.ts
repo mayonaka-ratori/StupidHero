@@ -13,7 +13,7 @@
 // 入らないときは、カードの高さを絵が入る高さに決め(画面の高さで縮めない)、次のカードの頭が少し見えるようにする。
 
 /** カードとカードの間 */
-export const CARD_GAP = 8;
+const CARD_GAP = 8;
 /** 絵のあるカードの、いちばん低い高さ(絵の高さ58。人の胸から上が見える) */
 export const CARD_MIN = 122;
 /** ずらさないときのカードの高さの上限 */
@@ -84,7 +84,7 @@ export function listLayout(viewH: number, n: number, gap = CARD_GAP): ListLayout
 /** i 番目のカードの上の端(並べる所の上から。ずらしていないとき) */
 export const cardTop = (lay: ListLayout, i: number): number => lay.y0 + i * (lay.cardH + lay.gap);
 
-export const clampScroll = (v: number, max: number): number => Math.min(max, Math.max(0, v));
+const clampScroll = (v: number, max: number): number => Math.min(max, Math.max(0, v));
 
 /**
  * i 番目のカードを全部見えるようにする、ずらす量。もう見えていれば pos のまま。

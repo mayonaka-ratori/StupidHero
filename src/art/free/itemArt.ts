@@ -11,7 +11,7 @@ export const BALLOON: Ramp = [md(7, 7, 4), md(7, 6, 1), md(6, 4, 0)];
 const STRING = md(5, 5, 6);
 const W = md(7, 7, 7);
 /** とんがり帽子の濃い緑(宇宙人の肌の緑より暗くする) */
-export const HAT: Ramp = [md(1, 5, 2), md(0, 3, 1), md(0, 2, 1)];
+const HAT: Ramp = [md(1, 5, 2), md(0, 3, 1), md(0, 2, 1)];
 /** 紙袋の茶色(クラフト紙) */
 export const PAPER: Ramp = [md(6, 5, 3), md(5, 3, 2), md(3, 2, 1)];
 /** ヒーローの手袋の赤(拳の札だけに使う) */

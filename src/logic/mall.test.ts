@@ -1,44 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
+import { OPERATOR_HINTS, PROFILE_LINES } from './content';
 import {
   BOSS3_DISGUISES, MALL_LOOKS, buildRush, glitchCount, glitchShowing, rollGlitch, rushGlitchShowing, rushSpawnSec
 } from './mall';
 import { createRng } from './rng';
 import { GLITCH, RUSH } from './rules';
-import { createStage, findBoss } from './stage';
+import { createStage } from './stage';
 import { STAGES } from './stages';
-import type { GlitchTiming, Person, Stage } from './types';
+import type { GlitchTiming, MallLook, Person, Stage } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 3);
 const stages: Stage[] = SEEDS.map((s) => createStage(s, 'mall'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage(seed, "mall")', () => {
-  it('同じ種なら同じステージ(ラッシュの並びも)。定義と名前はショッピングモール', () => {
-    expect(createStage(55, 'mall')).toEqual(createStage(55, 'mall'));
-    expect(createStage('abc', 'mall').rush).toEqual(createStage('abc', 'mall').rush);
-    const s = stages[0];
-    expect(s.id).toBe('mall');
-    expect(s.def).toBe(STAGES.mall);
-    expect(s.name).toBe('ショッピングモール');
-  });
-
-  it('ラッシュの並びは、ラッシュのあるステージだけ', () => {
-    expect(createStage(1, 'mall').rush).not.toBeNull();
-    expect(createStage(1, 'alley').rush).toBeNull();
-    expect(createStage(1, 'garage').rush).toBeNull();
-  });
-
-  it('波の人数と時間がSTAGE3の表の通り(5人30秒、6人28秒、6人と親玉30秒)', () => {
-    for (const s of stages) {
-      expect(s.waves.map((w) => w.seconds)).toEqual([30, 28, 30]);
-      expect(s.waves.map((w) => w.people.length)).toEqual([5, 6, 7]);
-      expect(s.waves.map((w) => w.hasBoss)).toEqual([false, false, true]);
-      expect(s.peopleTotal).toBe(18);
-      expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
-      for (const w of s.waves) expect(w.groups).toEqual([]);
-    }
-  });
+  // id と名前、波の人数と時間、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
 
   it('1つの波の宇宙人は2〜3人(どちらも出る)。宇宙人の見た目は波の中で重ならない。悪さは空への合図', () => {
     const counts = new Set<number>();
@@ -58,15 +34,19 @@ describe('createStage(seed, "mall")', () => {
 
   it('見た目は4種類。絵のキーは *_civ / *_bad、親玉は boss3_disguise_*', () => {
     const seen = new Set<string>();
+    const bad: string[] = [];
     for (const s of stages) {
       for (const p of everyone(s)) {
-        expect(MALL_LOOKS).toContain(p.look);
+        if (!MALL_LOOKS.includes(p.look as MallLook)) bad.push(`${s.seed} ${p.id} 見た目 ${p.look}`);
         seen.add(p.look);
-        if (p.truth === 'boss') expect(p.sheetKey).toBe(`boss3_disguise_${p.disguise}`);
-        else expect(p.sheetKey).toBe(`${p.look}_${p.truth}`);
+        const key = p.truth === 'boss' ? `boss3_disguise_${p.disguise}` : `${p.look}_${p.truth}`;
+        if (p.sheetKey !== key) bad.push(`${s.seed} ${p.id} 絵のキー ${p.sheetKey}`);
       }
     }
+    expect(bad).toEqual([]);
     expect([...seen].sort()).toEqual([...MALL_LOOKS].sort());
+    // 親玉の化けた姿の一覧(親玉がどれに化けるかは stage.test.ts で確かめる)
+    expect([...BOSS3_DISGUISES].sort()).toEqual(['clerk', 'mascot', 'uncle']);
   });
 
   it('宇宙人にだけくずれの時間がある(市民と親玉はくずれない)。初めては3〜6秒の0.5秒きざみ、そのあと3秒おきに0.2秒', () => {
@@ -103,52 +83,6 @@ describe('createStage(seed, "mall")', () => {
     }
     // 練習用の宇宙人が何番目に出るかは決まっていない
     expect(at.size).toBeGreaterThanOrEqual(3);
-  });
-
-  it('宇宙人と同じ見た目の市民が、なるべく同じ波にいる(ぎこちない動きだけでは分からない)', () => {
-    let aliens = 0;
-    let paired = 0;
-    for (const s of stages) {
-      for (const w of s.waves) {
-        for (const a of w.people.filter((p) => p.truth === 'bad')) {
-          aliens++;
-          if (w.people.some((p) => p.truth === 'civ' && p.look === a.look)) paired++;
-        }
-      }
-    }
-    expect(paired / aliens).toBeGreaterThan(0.8);
-  });
-
-  it('親玉は波3に1人。化けた姿は店員、おじさん、着ぐるみの3つ(どれも出る)。同じ見た目の市民が波3にいる', () => {
-    const seen = new Set<string>();
-    for (const s of stages) {
-      const boss = findBoss(s)!;
-      expect(boss.wave).toBe(3);
-      expect(BOSS3_DISGUISES).toContain(boss.disguise);
-      expect(boss.look).toBe(boss.disguise);
-      expect(boss.mischief).toBeUndefined();
-      expect(BOSS_PROFILE_LINES[boss.disguise!]).toContain(boss.profile.line);
-      expect(BOSS_HINTS[boss.disguise!]).toContainEqual(boss.hint);
-      expect(s.waves[2].people.some((p) => p.truth === 'civ' && p.look === boss.look)).toBe(true);
-      seen.add(boss.disguise!);
-    }
-    expect([...seen].sort()).toEqual(['clerk', 'mascot', 'uncle']);
-  });
-
-  it('名前、年齢、文、一言はその見た目と正体の一覧から。名前はステージの中で重ならない', () => {
-    for (const s of stages.slice(0, 100)) {
-      const names = everyone(s).map((p) => p.profile.name);
-      expect(new Set(names).size).toBe(names.length);
-      for (const p of everyone(s)) {
-        expect(NAMES[p.look]).toContain(p.profile.name);
-        const [lo, hi] = AGES[p.look];
-        expect(p.profile.age).toBeGreaterThanOrEqual(lo);
-        expect(p.profile.age).toBeLessThanOrEqual(hi);
-        if (p.truth === 'boss') continue;
-        expect(PROFILE_LINES[p.look][p.truth]).toContain(p.profile.line);
-        expect(OPERATOR_HINTS[p.look][p.truth]).toContainEqual(p.hint);
-      }
-    }
   });
 
   it('くずれを待たなくても、文か一言で決められる人が1つの波にだいたい2人以上いる', () => {
@@ -215,19 +149,21 @@ describe('タイムセールラッシュの並び', () => {
 
   it('8人。宇宙人は3人か4人(半々くらい)。絵のキーは仕分けと同じ', () => {
     let three = 0;
-    for (const r of plans) {
+    const bad: string[] = [];
+    plans.forEach((r, k) => {
       expect(r.runners).toHaveLength(RUSH.people);
       const aliens = r.runners.filter((x) => x.truth === 'bad').length;
       expect(aliens).toBe(r.alienCount);
       expect(r.civCount).toBe(8 - r.alienCount);
       expect([3, 4]).toContain(aliens);
       if (aliens === 3) three++;
-      for (const x of r.runners) {
-        expect(MALL_LOOKS).toContain(x.look);
-        expect(x.sheetKey).toBe(`${x.look}_${x.truth}`);
-      }
-      r.runners.forEach((x, i) => expect(x.index).toBe(i));
-    }
+      r.runners.forEach((x, i) => {
+        if (!MALL_LOOKS.includes(x.look)) bad.push(`${k}番目の並びの${i}人目 見た目 ${x.look}`);
+        if (x.sheetKey !== `${x.look}_${x.truth}`) bad.push(`${k}番目の並びの${i}人目 絵のキー ${x.sheetKey}`);
+        if (x.index !== i) bad.push(`${k}番目の並びの${i}人目 index`);
+      });
+    });
+    expect(bad).toEqual([]);
     expect(three / plans.length).toBeGreaterThan(0.4);
     expect(three / plans.length).toBeLessThan(0.6);
   });

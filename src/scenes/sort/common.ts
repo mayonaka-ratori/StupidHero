@@ -34,7 +34,7 @@ export interface StageBgLayers {
 }
 
 /** 遠くの背景は、壁と地面の1/4だけ動かす */
-export const FAR_PARALLAX = 0.25;
+const FAR_PARALLAX = 0.25;
 
 /**
  * ステージの背景(遠く、壁、地面)を置く。bg を省くと路地裏。
@@ -141,12 +141,12 @@ export function edgeGlow(g: Phaser.GameObjects.Graphics, side: 'left' | 'right',
 }
 
 /** 1コマおきに見えたり消えたりさせる。止めるときは返り値を呼ぶ */
-export function flicker(scene: Phaser.Scene, obj: { setVisible(v: boolean): unknown; active?: boolean }, every = 1): () => void {
+export function flicker(scene: Phaser.Scene, obj: { setVisible(v: boolean): unknown; active?: boolean }): () => void {
   let n = 0;
   const tick = (): void => {
     if (obj.active === false) { scene.events.off(Phaser.Scenes.Events.UPDATE, tick); return; }
     n++;
-    obj.setVisible(Math.floor(n / every) % 2 === 0);
+    obj.setVisible(n % 2 === 0);
   };
   scene.events.on(Phaser.Scenes.Events.UPDATE, tick);
   const stop = (): void => { scene.events.off(Phaser.Scenes.Events.UPDATE, tick); };

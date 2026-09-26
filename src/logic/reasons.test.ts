@@ -12,6 +12,8 @@ const widthOf = (s: string): number => Array.from(s).reduce((n, ch) => n + (/[ -
 describe('答え合わせの決め手', () => {
   it('出てくるどの見た目と正体の組み合わせにも、決め手の文がある(1行に入る長さ)', () => {
     const seen = new Map<string, Set<string>>();
+    // 外れは集めて最後に1回だけ確かめる(人の数が多いので、1人ずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     for (const stageId of ['alley', 'garage', 'mall', 'tower'] as StageId[]) {
       for (let seed = 1; seed <= 300; seed++) {
         const stage = createStage(seed, stageId);
@@ -19,15 +21,15 @@ describe('答え合わせの決め手', () => {
           const r = reasonFor(p, w);
           const plain = stripReasonMarkup(r);
           const key = `${stageId}:${p.look}:${p.truth}`;
-          expect(plain.length, `${key} ${p.id}`).toBeGreaterThan(0);
-          expect(widthOf(plain), `${key}「${plain}」`).toBeLessThanOrEqual(REASON_MAX);
-          expect(plain, key).not.toMatch(/[ —]/);
-          expect(plain, key).not.toMatch(/[{}]/);
+          if (plain.length === 0) bad.push(`${key} ${p.id} 空`);
+          if (widthOf(plain) > REASON_MAX) bad.push(`${key}「${plain}」長い`);
+          if (/[ —{}]/.test(plain)) bad.push(`${key}「${plain}」使わない字`);
           if (!seen.has(key)) seen.set(key, new Set());
           seen.get(key)!.add(plain);
         }
       }
     }
+    expect(bad).toEqual([]);
     // 路地裏:組の3つは市民とワルの両方、モヒカンはワル、おばあさんは市民、ボスは化けた3つ
     for (const k of ['hoodie', 'suit', 'shopper']) {
       expect(seen.has(`alley:${k}:bad`), k).toBe(true);

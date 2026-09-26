@@ -1,7 +1,6 @@
 // 頭の上に出す小さな札。「ワル」(赤)と「市民」(青)。
 // 使い方:
 //   const tag = new Tag(this, person.x, person.y - 40, 'bad');   // x, y は札の下のとがった先(頭のすぐ上)
-//   tag.setKind('civ');                                           // 市民に替える
 //   tag.follow(person, -40);                                      // 毎フレーム person の頭の上について行く
 //   tag.pop();                                                    // ぴょんと出る
 // 'bad' は「ワル」、'civ' は「市民」。文字を変えたいときは new Tag(this, x, y, 'bad', '?')。
@@ -36,12 +35,6 @@ export class Tag extends Phaser.GameObjects.Container {
     this.setDepth(DEPTH.ui);
     scene.add.existing(this);
     this.redraw();
-  }
-
-  setKind(kind: TagKind, text?: string): this {
-    this.kind = kind;
-    this.custom = text;
-    return this.redraw();
   }
 
   /** 相手について行く(相手の x と、y + offsetY の位置) */

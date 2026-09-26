@@ -14,16 +14,14 @@
 import { buildGarageWaves } from './garage';
 import { buildMallWaves, buildRush } from './mall';
 import { buildLift, buildTowerWaves } from './tower';
-import { makePerson, type PersonDraft, type UsedTexts } from './people';
+import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { BAD_PER_WAVE, WAVES } from './rules';
-import { STAGES } from './stages';
-import type { AlleyDisguise, LiftPlan, Look, PairLook, Person, RushPlan, Stage, StageId, Wave, WaveNo } from './types';
+import { BOSS1_DISGUISES, STAGES } from './stages';
+import type { LiftPlan, Look, PairLook, Person, RushPlan, Stage, StageId, Wave, WaveNo } from './types';
 
 const PAIR_LOOKS: readonly PairLook[] = ['hoodie', 'suit', 'shopper'];
-/** 路地裏のボスの化けた姿 */
-const DISGUISE_LOOKS: readonly AlleyDisguise[] = ['suit', 'granny', 'shopper'];
 
 /**
  * 1ステージぶんの波(ステージ1〜3は3つ、ステージ4は4つ)を作る。
@@ -53,10 +51,10 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
 
 /** ステージごとの波の作り方 */
 const WAVE_BUILDERS: Readonly<Record<StageId, (rng: Rng, used: UsedTexts) => Wave[]>> = {
-  alley: (rng, used) => buildAlleyWaves(rng, used),
-  garage: (rng, used) => buildGarageWaves(rng, used),
-  mall: (rng, used) => buildMallWaves(rng, used),
-  tower: (rng, used) => buildTowerWaves(rng, used)
+  alley: buildAlleyWaves,
+  garage: buildGarageWaves,
+  mall: buildMallWaves,
+  tower: buildTowerWaves
 };
 
 /** 路地裏の3つの波 */
@@ -66,7 +64,7 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
   const civCount: Record<PairLook, number> = { hoodie: 0, suit: 0, shopper: 0 };
   // おばあさんをステージのどこかに必ず1人入れる(「おばあちゃんの敵」を取れるように)
   const grannyWave = rng.int(1, WAVES.length) as WaveNo;
-  const bossDisguise = rng.pick(DISGUISE_LOOKS);
+  const bossDisguise = rng.pick(BOSS1_DISGUISES);
 
   return WAVES.map((plan) => {
     const waveBad = rng.int(BAD_PER_WAVE.min, BAD_PER_WAVE.max);
@@ -98,9 +96,7 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
     ];
     if (plan.boss) drafts.push(makePerson(rng, used, 'alley', plan.no, bossDisguise, 'boss', bossDisguise));
 
-    const people: Person[] = rng.shuffle(drafts).map((p, index) => ({
-      id: `w${plan.no}-${index + 1}`, index, ...p
-    }));
+    const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: waveBad, hasBoss: plan.boss, groups: [] };
   });
 }

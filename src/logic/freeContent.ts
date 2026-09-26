@@ -17,10 +17,8 @@
 
 import { FREE_ITEMS, FREE_ITEM_NAME, FREE_NAME, ruleSignText } from './freeNames';
 import type { Rng } from './rng';
-import type { FreeItem, FreeRule, FreeStageId, FreeVillainLook, HeroFace, Look, OperatorFace, Speech, TowerLook } from './types';
-
-const hero = (face: HeroFace, text: string): Speech => ({ who: 'hero', face, text });
-const op = (face: OperatorFace, text: string): Speech => ({ who: 'operator', face, text });
+import { hero, op } from './speech';
+import type { FreeItem, FreeRule, FreeStageId, FreeVillainLook, Look, OperatorFace, Speech, TowerLook } from './types';
 
 /** フリープレイに出る見た目(今の見た目と、一目で分かるワル) */
 // 高層ビルの見た目はフリープレイに出ないので除く
@@ -574,7 +572,7 @@ export interface FreeOpContext {
 }
 
 /** その人や小物に合った一言をまぜる割合 */
-export const FREE_OP_CTX_CHANCE = 0.5;
+const FREE_OP_CTX_CHANCE = 0.5;
 
 /** ルールに当てはまる市民に殴りかかる:おばあさんのとき */
 export const FREE_OP_GRANNY_RULE: readonly Speech[] = [
@@ -584,7 +582,7 @@ export const FREE_OP_GRANNY_RULE: readonly Speech[] = [
 ];
 
 /** ルールに当てはまる市民に殴りかかる:小物のルールのとき({item} に小物の名前が入る) */
-export const FREE_OP_ITEM_RULE: Readonly<Record<FreeItem, readonly Speech[]>> = {
+const FREE_OP_ITEM_RULE: Readonly<Record<FreeItem, readonly Speech[]>> = {
   balloon: [
     op('panic', '{item}持ってる\nだけ！'),
     op('panic', '{item}は\n悪くないって！'),

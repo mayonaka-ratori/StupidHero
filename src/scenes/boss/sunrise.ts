@@ -11,7 +11,7 @@ import { layout } from '../../layout';
 import { windowSpotOk } from './choice';
 
 /** 奥の絵の地平線(街のいちばん上)。これより上を空として塗りかえる */
-export const HORIZON_Y = 90;
+const HORIZON_Y = 90;
 /** 空の帯の色(上から地平線へ)。夜の紺から、紫、桃色、だいだい、黄色へ */
 const SKY_BANDS = [0x2c3a86, 0x4c4a9e, 0x7a58a6, 0xb46a9c, 0xe4847e, 0xf6a86a, 0xffd48a] as const;
 /** 太陽の色(ふちと真ん中) */

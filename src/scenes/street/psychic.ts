@@ -88,7 +88,7 @@ export interface PsyRun {
 }
 
 /** 物の絵(そのコマ)のまわりに、紫の1ドットのふちを描いた絵を作る(物の絵より1ドットずつ大きい)。キーを返す */
-export function psyOutlineKey(scene: Phaser.Scene, key: string, frame: number): string {
+function psyOutlineKey(scene: Phaser.Scene, key: string, frame: number): string {
   const out = `${key}__psyline${frame}`;
   if (scene.textures.exists(out)) return out;
   const f = scene.textures.getFrame(key, frame);
@@ -377,9 +377,7 @@ export class PsyPart {
     // ヴィランは右へ走って逃げる
     if (a.standing) {
       a.showTag(false);
-      a.faceLeft(false).play('walk', true, 2.8);
-      const escX = this.s.L.right + 60;
-      this.s.tweens.add({ targets: a, x: escX, duration: Math.max(500, (escX - a.x) * 6), onComplete: () => a.destroy() });
+      this.s.runAway(a, 60);
     }
     this.s.hero.play('idle');
     await waitMs(this.s, 1200);

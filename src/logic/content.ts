@@ -659,10 +659,9 @@ export type AnyReactionKey = ReactionKey | GarageReactionKey | MallReactionKey |
 export type { GarageReactionKey, MallReactionKey, TowerReactionKey };
 
 /** ステージごとに、路地裏と違う文(stageTexts で引く) */
-export interface StageTextSet {
+interface StageTextSet {
   /** ステージ前の掛け合い */
   intro: readonly Speech[];
-  /** 波の始まりの一言 */
   /** 波の始まりの一言。波が3つのステージは4がない */
   waveIntro: Readonly<Partial<Record<WaveNo, readonly Speech[]>>>;
   /** そのステージで足したセリフの種類と、言い方を変えた種類(ReactionKey)。ないものは路地裏の文 */

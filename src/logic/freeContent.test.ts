@@ -26,21 +26,12 @@ const RULES: readonly FreeRule[] = [
 describe('フリープレイの文の決まり', () => {
   const texts = allFreeSpeechTexts();
 
-  it('どの文も1行12文字まで、2行まで(空の行もない)', () => {
-    const wrong = allFreeTexts().filter((t) => {
-      const lines = t.split('\n');
-      return lines.length > 2 || lines.some((l) => l.length === 0 || [...l].length > 12);
-    });
-    expect(wrong, `決まりに合わない文:\n${wrong.map((t) => JSON.stringify(t)).join('\n')}`).toEqual([]);
+  it('小物の名前の書き忘れ({item} など)がない', () => {
+    expect(texts.filter((t) => /[{}]/.test(t))).toEqual([]);
   });
 
-  it('半角スペース、エムダッシュ、半角の!?を使わない。小物の名前の書き忘れ({item} など)もない', () => {
-    for (const t of texts) {
-      expect(t).not.toMatch(/[ —―!?]/);
-      expect(t).not.toMatch(/[{}]/);
-    }
-  });
-
+  // 1行12字と2行まで、半角スペースなどを使わない決まりは、content.test.ts が allTexts 全体で確かめる。
+  // そのためにフリープレイの文が allTexts に入っていることを、ここで確かめておく
   it('全部の文が allTexts に入っている(文字数の確かめとフォントの読みこみのため)', () => {
     const all = new Set(allTexts());
     for (const t of allFreeTexts()) expect(all.has(t), t).toBe(true);
@@ -156,13 +147,15 @@ describe('フリープレイの文の数', () => {
 
 describe('createFreeLines は同じ文を続けて出さない', () => {
   it('どの種類も、直前と同じ文を選ばない(いくつもの種で)', () => {
-    for (let seed = 1; seed <= 30; seed++) {
+    // 直前の文を除く仕組みは種によらないので、種は10個で足りる(1つの種でも40回ずつ選ぶ)
+    const bad: string[] = [];
+    for (let seed = 1; seed <= 10; seed++) {
       const lines = createFreeLines(createRng(seed));
       const checkRun = (name: string, f: () => string) => {
         let prev = '';
         for (let i = 0; i < 40; i++) {
           const t = f();
-          expect(t, `${name} seed=${seed}`).not.toBe(prev);
+          if (t === prev) bad.push(`${name} seed=${seed} ${t}`);
           prev = t;
         }
       };
@@ -179,7 +172,8 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
         for (const count of [1, 2, 3, 5, 9]) checkRun(`op ${key} ${count}`, () => lines.op(key, count).text);
       }
     }
-  }, 20_000); // 30の種をまわすので、ほかの作業で重いときも5秒で切れないようにする
+    expect(bad).toEqual([]);
+  });
 
   it('場面をまぜて呼んでも、直前にだれかが言った文を続けて出さない', () => {
     const lines = createFreeLines(createRng(42));

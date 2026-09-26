@@ -5,7 +5,7 @@
 
 import type { Rng } from './rng';
 import type {
-  AccessoryColorId, AttackKind, Encounter, GangLook, Leak, Look, MischiefKind, PropKind, SortChoice, TowerDecoy, TowerLook, Truth,
+  AccessoryColorId, AttackKind, Encounter, GangLook, Look, MischiefKind, PropKind, SortChoice, TowerDecoy, TowerLook, Truth,
   WaveNo
 } from './types';
 
@@ -355,14 +355,12 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
 
 export const ATTACK_KINDS: readonly AttackKind[] = ['charge', 'punch', 'stomp', 'special'];
 
+/** 攻撃の重み。キーは ATTACK_KINDS の順(順番が変わると、同じ種でも選ばれる攻撃が変わる) */
+const ATTACK_WEIGHTS = Object.fromEntries(ATTACK_KINDS.map((k) => [k, ATTACKS[k].weight])) as Readonly<Record<AttackKind, number>>;
+
 /** 殴るたびに攻撃を選ぶ(光の突撃30%、光のパンチ35%、踏みつぶし30%、必殺技5%) */
 export function pickAttack(rng: Rng): AttackKind {
-  return rng.weighted({
-    charge: ATTACKS.charge.weight,
-    punch: ATTACKS.punch.weight,
-    stomp: ATTACKS.stomp.weight,
-    special: ATTACKS.special.weight
-  });
+  return rng.weighted(ATTACK_WEIGHTS);
 }
 
 /** dx が攻撃の届く範囲に入っているか */
@@ -664,13 +662,6 @@ export const DECOY_LOOKS: Readonly<Record<TowerDecoy, readonly TowerLook[] | 'an
   balloon: ['florist', 'courier', 'waiter']
 };
 
-/** 紛らわしい市民の、もれに見えるものが出る場所(蛍光灯は照明、糸と風船は机の小物) */
-export const DECOY_SPOT: Readonly<Record<TowerDecoy, keyof Leak>> = {
-  flicker: 'light',
-  thread: 'item',
-  balloon: 'item'
-};
-
 /**
  * 念力で運ぶ(STAGE4「念力で運ぶ」)。見逃したヴィランが、すぐ前の壊れる物を持ち上げて、通りがかりの市民の上へ運ぶ。
  * 手を前に出す0.6秒 → 浮き上がる0.8秒 → 運ぶ3秒(行けのマーク)→ 行けを押さなければ市民の上に落ちる0.4秒。
@@ -698,21 +689,6 @@ export const PSY = {
   photoAt: 0.95
 } as const;
 
-/** ステージ4の物の大きさ(STAGE4「壊れる物」の表)。シャンデリアは見本の絵(mocks/stage4_src/scenes.ts)と同じ56×34 */
-export const TOWER_PROP_SIZE: Readonly<Record<
-  'sofa' | 'plant' | 'flowers' | 'copier' | 'tank' | 'wine' | 'champagne' | 'piano' | 'chandelier', PropSize
->> = {
-  sofa: { w: 48, h: 24 },
-  plant: { w: 24, h: 44 },
-  flowers: { w: 26, h: 50 },
-  copier: { w: 32, h: 32 },
-  tank: { w: 40, h: 32 },
-  wine: { w: 32, h: 48 },
-  champagne: { w: 40, h: 48 },
-  piano: { w: 62, h: 44 },
-  chandelier: { w: 56, h: 34 }
-};
-
 /**
  * エレベーターラッシュ(STAGE4「エレベーターラッシュ」)。波3の答え合わせのあと、波4の前に1回だけ。
  * - 6人のうちヴィランは2人か3人(半々)。最初の2人は市民1人とヴィラン1人(どちらが先かはランダム)
@@ -726,8 +702,6 @@ export const LIFT = {
   people: 6,
   /** ヴィランの数(半々でどちらか) */
   villains: [2, 3] as const,
-  /** 最初の何人を「市民1人とヴィラン1人」にするか */
-  openingPair: 2,
   /** 扉が開く */
   doorSec: 0.3,
   /** 人が乗ってきて止まる */
@@ -755,10 +729,6 @@ export const LIFT = {
  * 行けを押さなかったらシャンデリアが落ちて¥3,000万。倒すとシャンパンタワーに倒れこむ(STAGES.tower.bossDefeatProp)
  */
 export const BOSS4 = {
-  /** 体力(連打の回数)。ステージ1と同じ */
-  hpTaps: BOSS.hpTaps,
-  /** 手が止まっている間、1秒ごとに増える被害額(ステージ1と同じ) */
-  idleCostPerSec: BOSS.idleCostPerSec,
   /** 体力の割合がこれを下回ると、念力の選択の場面になる */
   choiceAtHpRatio: 0.5,
   /** 念力の選択の時間(秒)。この間は時計が止まる */

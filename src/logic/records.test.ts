@@ -4,37 +4,17 @@ import {
   markIntroSeen, markRushSeen, needsEnding,
   needsIntro, saveResult, stageSelectInfo, type RecordStorage
 } from './records';
+import { MemStorage, makeStats } from './testHelpers';
 import type { StageStats } from './types';
-
-class MemStorage implements RecordStorage {
-  data = new Map<string, string>();
-  getItem(k: string) { return this.data.get(k) ?? null; }
-  setItem(k: string, v: string) { this.data.set(k, String(v)); }
-}
 
 const broken: RecordStorage = {
   getItem() { throw new Error('SecurityError'); },
   setItem() { throw new Error('QuotaExceededError'); }
 };
 
-const stats = (over: Partial<StageStats> = {}): StageStats => ({
-  stageId: 'alley', defeated: 5, defeatedBySort: 5, defeatedByGo: 0, bossDefeated: true,
-  civHurt: 2, civHurtByHero: 2, civHurtByCollateral: 0, civHurtByVillain: 0,
-  damage: 10_000_000, damageByProps: 10_000_000, damageByMischief: 0, damageByBoss: 0,
-  propsBroken: {
-    trash: 0, window: 0, sign: 0, vending: 0, car: 0, van: 0, bosscar: 0, pillar: 0, barrier: 0, cone: 0, extinguisher: 0,
-    gacha: 0, mannequin: 0, showcase: 0, fountain: 0, escalator: 0, ufo: 0, mothership: 0,
-    sofa: 0, plant: 0, flowers: 0, copier: 0, tank: 0, wine: 0, champagne: 0, piano: 0, chandelier: 0
-  },
-  defeatedByWipe: 0, defeatedByVan: 0, groupsWiped: 0, groupsEscaped: 0, escapedByVan: 0, vansStopped: 0,
-  defeatedByUfo: 0, ufosDowned: 0, escapedByUfo: 0, civHurtByAbduction: 0, civHurtByDrop: 0, rush: null, free: null,
-  defeatedByPsy: 0, escapedByPsy: 0, sofaSaves: 0, lift: null,
-  escaped: 0, civSavedByStop: 0, badSparedByStop: 0,
-  grannyHit: false, grannyPunched: false, bossSortedCiv: false, bossFightSec: 8,
-  villainTotal: 9, allDefeated: false, worstScene: null, worstAttack: null,
-  sortCorrect: 0, sortTotal: 0, sortByHero: 0, sortByHeroCorrect: 0, sortWaves: [],
-  ...over
-});
+// 市民のけがは2人、被害額は¥1,000万
+const stats = (over: Partial<StageStats> = {}): StageStats =>
+  makeStats({ civHurt: 2, civHurtByHero: 2, damage: 10_000_000, damageByProps: 10_000_000 }, over);
 
 describe('records', () => {
   beforeEach(() => clearRecords(null));

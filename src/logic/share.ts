@@ -51,10 +51,14 @@ export interface ShareCaptionInput {
   titleName: string;
 }
 
+/** ステージのひどい場面の見出し。強い場面で見出しがあればそれ、なければ空の文字 */
+function strongCaption(i: Pick<ShareCaptionInput, 'worstScene' | 'caption'>): string {
+  return i.worstScene && STRONG_SCENES.includes(i.worstScene) && i.caption ? i.caption : '';
+}
+
 /** 共有文の1行目。ひどい場面があればその見出し、なければ称号 */
 export function shareCaption(i: ShareCaptionInput): string {
-  if (i.worstScene && STRONG_SCENES.includes(i.worstScene) && i.caption) return i.caption;
-  return `称号「${i.titleName}」`;
+  return strongCaption(i) || `称号「${i.titleName}」`;
 }
 
 export interface ShareInput {
@@ -113,9 +117,8 @@ export interface FreeShareCaptionInput {
  * どちらもなければ称号(ルールはつけない)
  */
 export function freeShareCaption(i: FreeShareCaptionInput): string {
-  let scene = '';
-  if (i.worstScene && STRONG_SCENES.includes(i.worstScene) && i.caption) scene = i.caption;
-  else if (i.free.worst) scene = FREE_WORST_CAPTION[i.free.worst];
+  let scene = strongCaption(i);
+  if (!scene && i.free.worst) scene = FREE_WORST_CAPTION[i.free.worst];
   if (!scene) return `称号「${i.titleName}」`;
   return i.free.worstRule ? `『${ruleQuote(i.free.worstRule)}』で${scene}` : scene;
 }

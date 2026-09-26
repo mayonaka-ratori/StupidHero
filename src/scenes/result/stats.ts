@@ -5,6 +5,12 @@
 import type Phaser from 'phaser';
 import type { PixelText } from '../../ui';
 
+/**
+ * いちばんひどい場面の写真を出すのに要る高さ。窓の大きさはこれだけ空くものを選び、写真は THUMB_MIN - 4 あれば出す
+ * (ステージは Result.ts、フリープレイは result/freeStats.ts)
+ */
+export const THUMB_MIN = 58;
+
 export interface StatRow {
   label: string;
   target: number;

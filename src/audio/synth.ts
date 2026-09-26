@@ -9,6 +9,9 @@ export const hz = (midi: number): number => 440 * Math.pow(2, (midi - 69) / 12);
 /** 音の大きさの形。a=立ち上がり d=減衰(時定数の3倍) s=持続の割合(0〜1) r=離してから消えるまで。単位は秒 */
 export interface Env { a: number; d: number; s: number; r: number }
 
+/** 音の大きさの形(Env)を短く書く。E(a, d, s, r) */
+export const E = (a: number, d: number, s: number, r: number): Env => ({ a, d, s, r });
+
 /**
  * AudioParam に ADSR を書きこむ。gate 秒たったら離す。消え終わる時刻を返す。
  * 減衰は setTargetAtTime(指数カーブ)で、離す瞬間の値は計算で出してつなぐ。

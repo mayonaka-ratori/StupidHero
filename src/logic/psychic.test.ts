@@ -1,21 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PSY, PROP_COST } from './rules';
+import { PROP_COST } from './rules';
 import { createRng } from './rng';
 import { PSY_LAYOUT, PsyCall, PsyQueue, planPsychic, psyCarryX, resolvePsyDrop, type PsyPlan } from './psychic';
-import { StatsTracker, WORST_SCENE_RANK } from './stats';
+import { StatsTracker } from './stats';
 import { STAGES, propsForWave } from './stages';
 import { decideTitle } from './titles';
 import type { PropKind, WaveNo } from './types';
-
-describe('念力の数字', () => {
-  it('手を出す0.6秒、浮く0.8秒、運ぶ3秒、落ちる0.4秒。市民は90ドット先、真下は左右20ドット、もう1つの物は7割', () => {
-    expect([PSY.raiseSec, PSY.liftSec, PSY.carrySec, PSY.dropSec]).toEqual([0.6, 0.8, 3, 0.4]);
-    expect(PSY.victimDistance).toBe(90);
-    expect(PSY.dropWindowPx).toBe(20);
-    expect(PSY.extraPropChance).toBe(0.7);
-    expect(PSY.cushionProp).toBe('sofa');
-  });
-});
 
 describe('PsyCall', () => {
   it('手を出す → 浮く → 運ぶ → 落ちる → 市民に当たった、の順に進む。行けのマークは運ぶ間だけ', () => {
@@ -38,25 +28,13 @@ describe('PsyCall', () => {
     expect(c.update(1000)).toEqual([]);
   });
 
-  it('大きく時間が飛んでも、入った段階を順に返す', () => {
-    expect(new PsyCall('x').update(10_000)).toEqual(['lift', 'carry', 'fall', 'hit']);
-  });
-
-  it('行けが効くのは運ぶ間だけ。押したときの進み具合を覚える', () => {
+  it('行けが効いたときの、運ぶ段階の進み具合を覚える(効く段階は timedCall.test.ts で確かめる)', () => {
     const c = new PsyCall('x');
-    expect(c.go()).toBe(false);
-    c.update(600);
-    expect(c.phase).toBe('lift');
-    expect(c.go()).toBe(false);
-    c.update(800 + 750);
+    c.update(600 + 800 + 750);
     expect(c.phase).toBe('carry');
     expect(c.goProgress).toBeNull();
     expect(c.go()).toBe(true);
-    expect(c.phase).toBe('downed');
     expect(c.goProgress).toBeCloseTo(0.25);
-    expect(c.isOver).toBe(true);
-    expect(c.go()).toBe(false);
-    expect(c.update(5000)).toEqual([]);
   });
 
   it('写真は運ぶ時間が95%まで進んだら撮る(落ちている間も)', () => {
@@ -80,39 +58,15 @@ describe('PsyCall', () => {
 });
 
 describe('PsyQueue', () => {
-  it('念力は1回ずつ。前の物が落ちるまで、次のヴィランは待つ', () => {
+  // 1回ずつ順に来ることと、行けのあとに次の番になることは timedCall.test.ts で確かめる
+  it('行けで倒すと、そのヴィランの id と、押したときの運ぶ進み具合が返る', () => {
     const q = new PsyQueue();
     q.add('a');
-    q.add('b');
-    q.add('a'); // 同じ人は1回だけ
-    expect(q.queued).toEqual(['a', 'b']);
-    expect(q.update(0)).toEqual([{ villainId: 'a', phase: 'raise' }]);
-    expect(q.current?.villainId).toBe('a');
-    // a の物が市民に落ちるまで(4.8秒)、b は待つ
-    const ev = q.update(4_700);
-    expect(ev.map((e) => e.phase)).toEqual(['lift', 'carry', 'fall']);
-    expect(ev.every((e) => e.villainId === 'a')).toBe(true);
-    expect(q.update(200)).toEqual([{ villainId: 'a', phase: 'hit' }, { villainId: 'b', phase: 'raise' }]);
-    expect(q.current?.villainId).toBe('b');
-    expect(q.current?.progress).toBeCloseTo(0.1 / 0.6);
-  });
-
-  it('行けで倒すと、そのヴィランの id と押したときの進み具合が返り、次の番になる', () => {
-    const q = new PsyQueue();
-    q.add('a');
-    q.add('b');
     q.update(0);
-    expect(q.go()).toBeNull(); // まだ手を出している途中
     q.update(1_400 + 1_500);
-    expect(q.current?.markOn).toBe(true);
     const hit = q.go();
     expect(hit?.villainId).toBe('a');
     expect(hit?.at).toBeCloseTo(0.5);
-    expect(q.current).toBeNull();
-    expect(q.idle).toBe(false);
-    expect(q.update(16)).toEqual([{ villainId: 'b', phase: 'raise' }]);
-    q.update(100_000);
-    expect(q.idle).toBe(true);
   });
 });
 
@@ -216,7 +170,6 @@ describe('resolvePsyDrop(落ちた所)', () => {
   it('ピアノは念力で落としたらかならず壊れる', () => {
     const r = resolvePsyDrop(plan([{ kind: 'sofa', x: 36 }], 'piano'), 8);
     expect(r.broken).toEqual(['piano']);
-    expect(PROP_COST.piano).toBe(30_000_000);
   });
 });
 
@@ -257,7 +210,6 @@ describe('念力を通しで数える', () => {
     expect(s.propsBroken.copier).toBe(1);
     expect(s.propsBroken.sofa).toBe(0);
     expect(s.worstScene).toBe('dropped');
-    expect(WORST_SCENE_RANK.dropped).toBe(WORST_SCENE_RANK.abducted);
     // 念力のあとに逃げたヴィランは、やさしすぎるヒーローの見のがした数に入れない
     expect(decideTitle({ ...s, escaped: 3, badSparedByStop: 2, civHurt: 0, civHurtByDrop: 0, defeatedByGo: 0 }).id).not.toBe('tooKind');
     expect(decideTitle({ ...s, escaped: 4, badSparedByStop: 3, civHurt: 0, civHurtByDrop: 0, defeatedByGo: 0 }).id).toBe('tooKind');

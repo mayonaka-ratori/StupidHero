@@ -13,7 +13,7 @@
 //   bossciv truth と同じだが、ボスを市民に仕分ける。ufo+bossciv のように + でつなげる
 // エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
 import { writeFileSync } from 'node:fs';
-import { logicalHeight, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
+import { clearedRecords, logicalHeight, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
 const [urlArg, outArg, seed = '', stage = 'alley', policy = 'random'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -30,8 +30,7 @@ const errors = [];
 const page = await openPage(browser, { errors });
 // 前のステージのボスを倒した記録(src/logic/records.ts の形)。開いていないと選べないので先に入れておく
 if (PREV.length) {
-  const rec = { plays: 1, clears: 1, mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, titles: [] };
-  const records = { version: 2, stages: Object.fromEntries(PREV.map((id) => [id, rec])), titles: [], introSeen: PREV, rushSeen: [] };
+  const records = clearedRecords(PREV);
   await page.addInitScript((r) => { if (!sessionStorage.getItem('pt')) { sessionStorage.setItem('pt', '1'); localStorage.setItem('stupidhero.records.v2', r); } }, JSON.stringify(records));
 }
 // 階の数字の場面(Floor)は1秒しかなく、重い端末では外から見のがすので、ページの中で見張って覚えておく

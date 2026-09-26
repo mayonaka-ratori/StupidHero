@@ -88,7 +88,7 @@ if __name__ == '__main__':
     from PIL import Image
     ims = [idle2(n) for n in (54, 90, 108)] + [punch2(n) for n in (54, 90, 108)]
     ims = [Image.fromarray(f.img, 'RGBA') for f in ims]
-    ims.insert(0, Image.open('../px/view.png') if False else Image.open('hi_56.png'))
+    ims.insert(0, Image.open('hi_56.png'))
     sc = [4, 4, 3, 2, 4, 3, 2]
     W = sum(i.width * s for i, s in zip(ims, sc)) + 80; H = max(i.height * s for i, s in zip(ims, sc))
     sh = Image.new('RGBA', (W, H), (42, 38, 60, 255)); x = 0

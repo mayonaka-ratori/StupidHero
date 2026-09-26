@@ -13,9 +13,10 @@ import {
   reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
-import { clearRecords, isStageUnlocked, loadRecords, saveResult, type RecordStorage } from './records';
+import { clearRecords, isStageUnlocked, loadRecords, saveResult } from './records';
 import { createStage } from './stage';
 import { StatsTracker } from './stats';
+import { MemStorage } from './testHelpers';
 import { decideTitle, titlesFor } from './titles';
 import type { Person, Stage, StageStats, TitleId, WaveNo } from './types';
 
@@ -146,12 +147,6 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
     });
   });
 });
-
-class MemStorage implements RecordStorage {
-  data = new Map<string, string>();
-  getItem(k: string) { return this.data.get(k) ?? null; }
-  setItem(k: string, v: string) { this.data.set(k, String(v)); }
-}
 
 describe('公開版が保存した記録を今の版で読める', () => {
   beforeEach(() => clearRecords(null));

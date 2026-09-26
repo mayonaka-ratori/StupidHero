@@ -1,10 +1,9 @@
 // 効果音。どれも短く、FMと矩形波とノイズで作る。p は音程の倍率(1=そのまま)。終わる時刻を返す。
 import type { SfxName } from './index';
-import { type Ctx, type FmPatch, drop, fm, hz, noise, tone } from './synth';
+import { type Ctx, E, type FmPatch, drop, fm, hz, noise, tone } from './synth';
 
 type Sfx = (ctx: Ctx, out: AudioNode, t: number, p: number) => number;
 
-const E = (a: number, d: number, s: number, r: number) => ({ a, d, s, r });
 const max = (...xs: number[]) => Math.max(...xs);
 
 /** 短いピコッという矩形波 */

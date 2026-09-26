@@ -1,6 +1,12 @@
 // 結果発表(Street)の部品:ステージ3の波2のあとのタイムセールラッシュ(右から8人が走ってきて、市民にだけ待てを押す)。
 // Street のシーンを s として受け取り、そのシーンの道具(s.fx、s.heroSay など)を使って動かす。
 // シーンの create のたびに作り直す(回をまたいで状態を持ちこまない)。
+//
+// 流れ:チャイムと「タイムセール開始!」の帯 → ゲームを止めて(曲、動き、ラッシュの時計)オペレーターが説明 → ▼タップで始める。
+// ヒーローはエスカレーターの前で立ち止まり、右から8人が走ってくる。48ドット手前で待てのマーク(約1秒。ゆっくりにしない)。
+// 待てなし=光のパンチで殴る、待て=止まって通す。ちらりと決めつけは出さず、全員に「セールを荒らすなーっ!」。
+// 巻きぞえなし、物は壊れない。数え方は stats.startRush / rushHit / rushStopped(ほかの数字には入れない)。
+// 時計は update の stepRush で進める(一時停止、画面を離れたとき、ヒットストップで止まる)。早送りは切る。
 
 import Phaser from 'phaser';
 import { audio } from '../../audio';
@@ -212,7 +218,7 @@ export class RushPart {
     const a = m.a!;
     m.state = 'mark';
     m.markSec = this.rushSec;
-    this.s.showMark(a, 'stop');
+    a.showMark('stop');
     this.s.stopAlarm.start();
     this.s.heroSay(this.s.line('rushMark', this.s.rng), 1000);
     this.s.hero.pose('punch', 0);
@@ -228,7 +234,7 @@ export class RushPart {
     m.glitchOn = false;
     this.s.stopHandler = null;
     this.s.stopAlarm.stop();
-    this.s.hideMark(a);
+    a.hideMark();
     h.play('punch', true);
     audio.sfx('punch');
     const fist = this.s.fx('fx_punch', h.x + 16, a.y - 30, { loop: true, depth: 900 });
@@ -272,7 +278,7 @@ export class RushPart {
     m.doneSec = this.rushSec;
     this.s.stopHandler = null;
     this.s.stopAlarm.stop();
-    this.s.hideMark(a);
+    a.hideMark();
     this.s.auraOn = false;
     h.play('stop', true);
     audio.sfx('stop');

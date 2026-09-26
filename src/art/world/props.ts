@@ -12,7 +12,7 @@ const WHITE = md(7, 7, 7);
 export type Ramp4 = [string, string, string, string];
 
 /** 形のふちのうち、上と左に面したドットに光の色、右と下に面したドットに影の色を置く */
-export function edgeLight(P: Painter, m: Mask, hi: string | null, lo: string | null, onlyTop = false): void {
+function edgeLight(P: Painter, m: Mask, hi: string | null, lo: string | null, onlyTop = false): void {
   const put: [number, number, string][] = [];
   m.each((x, y) => {
     const top = !m.has(x, y - 1), left = !m.has(x - 1, y);
@@ -27,7 +27,7 @@ export function edgeLight(P: Painter, m: Mask, hi: string | null, lo: string | n
  * 筒の形を、縦の帯で4段に塗る(光は左上から)。
  * 左のはしは少し暗く、左から3割あたりがいちばん明るく、右へ行くほど暗い
  */
-export function cylinder(P: Painter, m: Mask, r: Ramp4, x0: number, x1: number, spec: string | null = null): void {
+function cylinder(P: Painter, m: Mask, r: Ramp4, x0: number, x1: number, spec: string | null = null): void {
   const w = Math.max(1, x1 - x0);
   m.each((x, y) => {
     const t = (x - x0) / w;

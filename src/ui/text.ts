@@ -32,22 +32,16 @@ export interface TextStyle {
   outline?: boolean | number;
   /** 右下に1ドットの影。数字を渡すとその色の影 */
   shadow?: boolean | number;
-  /** これより濃いドットを残す(0〜255) */
-  threshold?: number;
   /** 文字と文字のすきま(ドット) */
   letterSpacing?: number;
-  /** 箱の幅を決めて、その中でそろえる(0なら文字の幅) */
-  fixedWidth?: number;
-  /** とぎれた細い線をつなぐ。ふつうは16の倍数でない大きさのときだけつなぐ */
-  bridge?: boolean;
 }
 
 /** 全部の値が決まった書き方 */
-export type FullTextStyle = Required<Omit<TextStyle, 'bridge'>> & { bridge?: boolean };
+export type FullTextStyle = Required<TextStyle>;
 
 const DEFAULTS: FullTextStyle = {
   size: 12, color: UI.text, wrap: 0, lineSpacing: 2, align: 'left',
-  outline: false, shadow: false, threshold: 128, letterSpacing: 0, fixedWidth: 0
+  outline: false, shadow: false, letterSpacing: 0
 };
 
 // 禁則処理:行の頭に来てはいけない字(閉じかっこ、句読点、!?、ー、…、小さいかな など)と、
@@ -235,7 +229,7 @@ function layoutText(text: string, st: FullTextStyle): Laid {
     }
   }
   const lines = lineW.length;
-  const w = Math.max(st.fixedWidth, ...lineW);
+  const w = Math.max(0, ...lineW);
   const h = lines * st.size + (lines - 1) * st.lineSpacing;
   // そろえる
   for (const g of glyphs) {

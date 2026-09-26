@@ -236,10 +236,6 @@ class TextPage extends Page {
     const s = new PixelText(this, 2, y, '影つき:撃破{gold}1234{/} 負傷{red}0{/} {civ}市民{/}', { size: 12, shadow: true });
     y += s.height + 4;
     new PixelText(this, 108, y, '真ん中寄せ\nふたつめの行は長め', { size: 12, align: 'center' }).setOrigin(0.5, 0);
-    y += 34;
-    const cmp = '了解!まあいいか!いい警告青負傷被害額三川';
-    new PixelText(this, 2, y, 'つなぐ:' + cmp, { size: 12 });
-    new PixelText(this, 2, y + 16, 'そのまま:' + cmp, { size: 12, bridge: false });
     this.chrome();
   }
 }

@@ -1,6 +1,6 @@
 # 開発の手引き
 
-ゲームの中身の決まりは`docs/SPEC.md`(ステージ1と全体)、`docs/STAGE2.md`(ステージ2)、`docs/STAGE3.md`(ステージ3)、`docs/FREEPLAY.md`(フリープレイ)、絵の決まりは`docs/ART_SPEC.md`にあります。手元で動かすコマンド(`npm ci`、`npm run dev`など)は`README.md`の「手元で動かす」にあります。ここには、コードをさわるときに知っておくと早いことを書きます。
+ゲームの中身の決まりは`docs/SPEC.md`(ステージ1と全体)、`docs/STAGE2.md`(ステージ2)、`docs/STAGE3.md`(ステージ3)、`docs/STAGE4.md`(ステージ4)、`docs/FREEPLAY.md`(フリープレイ)、絵の決まりは`docs/ART_SPEC.md`にあります。文はステージ3が`docs/STAGE3_TEXT.md`、ステージ4が`docs/STAGE4_TEXT.md`にまとめてあります。手元で動かすコマンド(`npm ci`、`npm run dev`など)は`README.md`の「手元で動かす」にあります。ここには、コードをさわるときに知っておくと早いことを書きます。
 
 コードの説明は、それぞれのファイルの先頭にくわしく書いてあります。ここはその地図です。
 
@@ -24,6 +24,13 @@
 | `public/` | そのまま公開するファイル。共有用の画像`og.png`と、差し替える絵の置き場`art/` |
 | `mocks/` | 画面の向きを決めたときのモックと、絵の見本(`stage4/`はステージ4の見本) |
 | `.github/workflows/` | pushのたびに動くテスト(`test.yml`)と、公開(`pages.yml`) |
+
+`mocks/`の中の見本は、それぞれ次を決めるときに作りました。
+
+- `hero_art.html`:絵をメガドライブに近い細かさに見直す案(いまの見た目(黒いふち、等身)のまま磨く方向に決めた)
+- `resolution.html`:絵の細かさをA(216のまま描き方を変える)、B(横360)、C(横432)のどれにするか(どれでもなく、いまの見た目のまま`hero_art.html`を磨く方向に決めた)
+- `face48.html`:会話の窓の顔を48×48にするか、窓の形をどうするか(48×48で、窓1(顔の下にセリフ)に決めた)
+- `redraw/`:決まった方向でヒーロー、市民、悪党、ボス、小物、背景の絵を全部描き直したときの見本
 
 フリープレイのために足したファイル:
 
@@ -57,10 +64,21 @@ Boot→Title→StageSelect→Intro
 
 - まだどのステージも遊んでいない人は、`Title`から`StageSelect`をとばして路地裏へ行く
 - そのステージの掛け合いを見たか、一度遊んだことがあれば、`Intro`はとばしてすぐ`Sort`へ行く。`Title`と`StageSelect`は`src/scenes/Intro.ts`の`entrySceneFor`で行き先を決める。`Result`の「もう一回」は`Intro`へ行き、`Intro`が何も出さずに`Sort`へ進む(見たかどうかは記録の`introSeen`)
-- `Street`のあとの行き先は`nextAfterStreet`(波1と波2は`WaveReview`、波3は`Boss`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
+- `Street`のあとの行き先は`nextAfterStreet`(最後の波(高層ビルは波4、ほかは波3)は`Boss`、それ以外は`WaveReview`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
 - ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/street/rush.ts`の`stepRush`など)
 - 高層ビルでは、波3の`WaveReview`のあと`nextAfterReview`が`Elevator`(エレベーターラッシュ)を返し、`Elevator`が終わると波4の`Sort`へ行く。立つ位置と時間の並びは`src/scenes/elevator/plan.ts`、始まりの帯と説明と▼タップはタイムセールラッシュと同じ`src/scenes/street/rushIntro.ts`
 - `Result`から`TitleList`を開くと、`Result`は眠らせておき、もどると元のまま起こす
+
+高層ビル(波が4つで、波ごとに階が変わる。`nextAfterReview`が読む`run.stage.def.floors`)は、波と波の間に階の数字だけの`Floor`をはさみます(波3のあとはラッシュがあるのではさまない)。
+
+```
+Boot→Title→StageSelect→Intro
+  →Sort(波1)→Street(波1)→WaveReview(波1)→Floor(18F)
+  →Sort(波2)→Street(波2)→WaveReview(波2)→Floor(35F)
+  →Sort(波3)→Street(波3)→WaveReview(波3)→Elevator
+  →Sort(波4)→Street(波4)→Boss→WaveReview(波4)
+  →(高層ビルのボスを初めて倒したときだけEnding)→Result→(もう一回ならIntro、タイトルへならTitle)
+```
 
 フリープレイ(`run.mode`が`'free'`)は、`Sort`、`WaveReview`、`Boss`を通りません。
 
@@ -85,6 +103,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | Street | 結果発表(ヒーローが仕分け通りに動く)。モールの波2はタイムセールラッシュも。フリープレイの通りもこのシーン |
 | Boss | ボス戦。高層ビルの念力の選択、窓のひび、朝日は`boss/choice.ts`と`boss/sunrise.ts` |
 | WaveReview | 波ごとの答え合わせ |
+| Floor | 高層ビルの波の間の、階の数字だけの短い場面(波1と2、波2と3の間) |
 | Elevator | エレベーターラッシュ(高層ビルの波3の答え合わせのあと、波4の仕分けの前) |
 | Ending | 終わりの場面。高層ビルのボスを初めて倒したときだけ、最後の答え合わせと結果画面の間に出す(行き先は`run.ts`の`sceneAfterLastReview`) |
 | Result | 結果画面と共有 |
@@ -121,8 +140,8 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | 書き方 | 意味 |
 |---|---|
 | `?scene=Sort` | 始める場面。`Intro`、`Sort`、`Street`、`Boss`、`WaveReview`、`Result`、`TitleList`など。`Intro`は見たことがあっても毎回出る |
-| `&stage=garage` | ステージ2で始める(鍵が開いていなくてもよい)。`&stage=mall`でステージ3。書かなければ路地裏 |
-| `&wave=2` | 始める波(1〜3)。書かなければ1、`Boss`と`Result`のときは3 |
+| `&stage=garage` | ステージ2で始める(鍵が開いていなくてもよい)。`&stage=mall`でステージ3、`&stage=tower`でステージ4(高層ビル)。書かなければ路地裏 |
+| `&wave=2` | 始める波(1〜3、高層ビルは1〜4)。書かなければ1、`Boss`と`Result`のときは最後の波、`Elevator`のときはラッシュの次の波(高層ビルなら4) |
 | `&seed=123` | 人の並びを決める種。同じ種なら毎回同じ並びになる。書かなければ12345 |
 | `&sorts=truth` | 飛ばした波の仕分けの決め方。`truth`全部正しく、`random`でたらめ(書かないときはこれ)、`bad`全員ワル、`civ`全員市民 |
 | `&attack=punch` | 結果発表でヒーローがワルを殴るときの技を決める。`charge`、`punch`、`stomp`、`special` |
@@ -159,9 +178,10 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | `?scene=Result&sample=guide&stage=mall` | 宇宙人の案内係 |
 | `?scene=Result&sample=sale&stage=mall` | タイムセールの守り神 |
 | `?scene=Result&sample=hunter&stage=mall` | UFOハンター |
+| `?scene=Result&sample=top&stage=tower` | 最上階のヒーロー(高層ビルのボスを初めて倒した。記録はまだ倒していないことにする) |
 
-- `&stage=garage`や`&stage=mall`をつけて`sample`を書かないときは、そのステージのふつうの見本になる(モールは買い物客が1人さらわれた数字)
-- 路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。地下駐車場の見本に足すと「モールが開いた」です(例:`?scene=Result&sample=roundup&stage=garage&unlock=1`)
+- `&stage=garage`、`&stage=mall`、`&stage=tower`をつけて`sample`を書かないときは、そのステージのふつうの見本になる(モールは買い物客が1人さらわれた数字、高層ビルは念力で運ばれた物が市民に落ちた数字)
+- 路地裏の見本に`&unlock=1`を足すと、「地下駐車場が開いた」の知らせも出ます。地下駐車場の見本に足すと「モールが開いた」、モールの見本に足すと「高層ビルが開いた」です(例:`?scene=Result&sample=roundup&stage=garage&unlock=1`)
 - 見本は本当の記録を書きかえません(その場かぎりの記録に書く)。前の記録を入れてあるので、NEWの印が出る。`&new=0`で前の記録を入れない
 - `?scene=Result&free=1`でフリープレイの結果画面の見本(`&sample=sitter`、`interp`、`letitbe`でフリープレイだけの3つの称号。`&more=1`で「ステージを進めると、出てくる人が増えるよ」も出る)
 
@@ -173,6 +193,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | `window.__sh` | タイトル、ステージを選ぶ画面、掛け合い、仕分けの中身 |
 | `window.streetDev` | 結果発表のシーン(フリープレイの通りの中身は`streetDev.free`) |
 | `window.bossScene` | ボス戦のシーン(途中の場面から始めたときだけ) |
+| `window.liftDev` | エレベーターラッシュのシーン(`src/scenes/Elevator.ts`) |
 | `window.reviewDev` | 答え合わせ |
 | `window.resultDev` | 結果画面 |
 | `window.titleListDev` | 称号の一覧 |
@@ -233,7 +254,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 |---|---|---|
 | `playthrough.mjs` | `alley`、`garage`、`mall`、`tower` | タイトルから結果画面まで自動で通しで遊び、エラーが出ないか見る。場面ごとに画面を撮る。答え合わせでは次へを押して進み、全部の波の答え合わせを通ったかも見る。高層ビルでは、ステージを選ぶ画面でNEW!のカードが見えているか、階の数字(18Fと35F)、エレベーターラッシュ(市民にだけ待て)、念力の選択(待てと行け)、終わりの場面も見る。仕分けの決め方(`random`、`truth`、宇宙人を見逃してUFOを呼ぶ`ufo`、ボスを市民にする`bossciv`。`ufo+bossciv`のようにつなげられる)を選べる。地下駐車場、モール、高層ビルは、前のステージを倒した記録を入れてからステージを選ぶ画面で選ぶ。結果画面の共有カードと、いちばんひどい場面の写真も書き出す |
 | `sort_drive.mjs` | URLで決める | 手順を並べて指で動かし、撮ったり式を調べたりする |
-| `street_tap.mjs` | `alley`、`garage`、`mall` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て。エスカレーターが壊れないまま始まるか、長さが約16秒か)も試す |
+| `street_tap.mjs` | `alley`、`garage`、`mall`、`tower` | 結果発表で、中断と「つづける」(一時停止のメニュー)、早送り、待て、行けが効くか試す。地下駐車場は仲間が集まったところとワゴンに乗ったところの行け、モールはUFOを行けで落とす、押さずにさらわれる、タイムセールラッシュ(市民にだけ待て。エスカレーターが壊れないまま始まるか、長さが約16秒か)、高層ビルは念力で運ぶ物を早く行けで落とす(ヴィランを倒す)、ソファの上で行けを押す(何も壊れない)、押さずに市民に落ちるところを試す |
 | `lift_test.mjs` | `tower` | エレベーターラッシュを画面の高さ384と468で、市民にだけ待て、何も押さない、全員に待ての3通りで遊ぶ。数、ほかの数字が変わらないか、長さが約17秒か、定員オーバーと見逃したヴィランの紫の光、波4の`Sort`へ続くかを見る。波3の答え合わせから`Elevator`へ来るか、2回目の説明が1つになるか、一時停止と画面を離れたときに止まるかも見る |
 | `boss_test.mjs` | `alley`、`garage`、`mall`、`tower` | ボス戦を連打で試す。放っておいても15秒で終わるか、一時停止で時計が止まるか、倒したあと答え合わせ(WaveReview)へ行くかも見る。地下駐車場とモールは、体力が半分を切ると車(母艦)に乗りこむところと、手が止まったときの被害額(乗る前¥50万、車¥100万、母艦¥150万が1秒ごと)、モールは倒すと噴水の¥150万が足されるかも見る。高層ビルは、念力の選択で時計が止まるか、待てと行けを押すと両方助かるか、押さないと客が落ちてシャンデリアの¥3,000万が足されるか(mode に`nochoice`)、戻ってから倒れるまで1.5秒より早くないか、倒すとシャンパンタワーの¥1,000万が足されるかも見る。端末が重くて確かめたい瞬間に間に合わなかったものは、NG ではなく SKIP と出す(ほかのものを止めて動かし直す) |
 | `free_play.mjs` | 開いているステージを引数で渡す(書かなければ3つとも) | フリープレイの3つの波を通しで遊び、落ちないか、結果画面まで行くか、数が合うかを見る。場面ごとに画面を撮る。押し方を選べる(`good`マークが出たらすぐ押す、`none`何も押さない、`late`待てをギリギリに押してワルにも1回待てを押す、`two`行けのマークが2つ出る場面と光の拳を試す、`both`は`good`と`none`、`all`は4つとも)。環境変数`SLOW=1`でゆっくりモード、`REDUCE=1`で「光と揺れを弱くする」をオンにして始める |

@@ -12,10 +12,11 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
-import { TOWER_ENDING, TOWER_ENDING_SKIP, bgForWave, markEndingSeen, type Speech } from '../logic';
+import { TOWER_ENDING, TOWER_ENDING_SKIP, bgForWave, markEndingSeen } from '../logic';
 import { getRun } from '../run';
-import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PixelText, addPanel, panelRect, spawnFx } from '../ui';
-import { Z, devHook, drawLightPool, drawStageBg, gotoSafe, unlockOnTap } from './sort/common';
+import { Button, CUT_H, CUT_TOP_H, FS, PixelText, addPanel, panelRect, spawnFx } from '../ui';
+import { Z, devHook, drawLightPool, drawStageBg, unlockOnTap } from './sort/common';
+import { Dialogue } from './dialogue';
 import { Sunrise } from './boss/sunrise';
 import { CHANDELIER_HANG_Y, drawChain } from './boss/choice';
 
@@ -23,22 +24,14 @@ const HERO_X = 60;
 const FEET_Y = 204;
 
 export class EndingScene extends Phaser.Scene {
-  private lines: readonly Speech[] = TOWER_ENDING;
-  private index = -1;
-  private cut!: CutIn;
+  private talk!: Dialogue;
   private hero!: Phaser.GameObjects.Sprite;
-  private nextMark!: PixelText;
-  private counter!: PixelText;
-  private leaving = false;
 
   constructor() { super(SCENES.ending); }
 
   create(): void {
     const { W } = layout;
     const run = getRun(this);
-    this.index = -1;
-    this.leaving = false;
-    this.lines = TOWER_ENDING;
     // 見せ始めたら「見た」にする(とばしても、閉じても、次からは出さない)
     if (!run.debug) markEndingSeen();
     unlockOnTap(this);
@@ -67,7 +60,7 @@ export class EndingScene extends Phaser.Scene {
 
     // 右上:とばす(結果画面へ)
     const skip = new Button(this, W - 4 - 64, 6, 64, 22, TOWER_ENDING_SKIP, {
-      color: 0x2a2540, size: FS.body, textColor: UI.textDim, onPress: () => this.leave()
+      color: 0x2a2540, size: FS.body, textColor: UI.textDim, onPress: () => this.talk.leave()
     });
 
     // ─── 下:会話の窓(ステージ前の掛け合いと同じ) ───
@@ -77,61 +70,33 @@ export class EndingScene extends Phaser.Scene {
     const wide = panelRect(4);
     const ch = tall ? CUT_TOP_H : CUT_H;
     const cutY = r.y + Math.max(0, Math.floor((r.h - ch - 20) / 3));
-    this.cut = new CutIn(this, wide.x, cutY, wide.w, ch, { speed: 32, size: tall ? FS.big : FS.body, faceTop: tall });
-    // カットインをタップしたときも、シーンのタップとして扱う(二重に進まないように)
-    for (const o of this.cut.list) if (o instanceof Phaser.GameObjects.Zone) o.disableInteractive();
-    const markY = cutY + ch - 14;
-    this.nextMark = new PixelText(this, wide.x + wide.w - 8, markY, '▼', { size: FS.small, color: UI.gold }).setOrigin(1, 0).setDepth(1200);
-    this.time.addEvent({ delay: 300, loop: true, callback: () => { this.nextMark.y = markY + (this.nextMark.y === markY ? 1 : 0); } });
-    this.counter = new PixelText(this, wide.x + 2, cutY + ch + 5, '', { size: FS.small, color: UI.textDim });
+    const talk = new Dialogue(this, {
+      x: wide.x, y: cutY, w: wide.w, h: ch, tall, lines: TOWER_ENDING, to: SCENES.result,
+      onLine: (line) => {
+        // ヒーローのドヤ顔:決めポーズでキラーン
+        if (line.who !== 'hero') return;
+        this.hero.play(animKey('hero', 'win_fist'));
+        spawnFx(this, 'fx_kiran', HERO_X + 14, FEET_Y - 94, { scale: 2, depth: Z.actorFront });
+      }
+    });
+    this.talk = talk;
     new PixelText(this, wide.x + wide.w - 2, cutY + ch + 5, 'タップで次へ', { size: FS.small, color: UI.textDim }).setOrigin(1, 0);
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.some((o) => o.parentContainer === skip)) return;
-      this.advance();
+      talk.advance();
     });
-    this.input.keyboard?.on('keydown-SPACE', () => this.advance());
-    this.input.keyboard?.on('keydown-ENTER', () => this.advance());
-    this.input.keyboard?.on('keydown-ESC', () => this.leave());
+    this.input.keyboard?.on('keydown-SPACE', () => talk.advance());
+    this.input.keyboard?.on('keydown-ENTER', () => talk.advance());
+    this.input.keyboard?.on('keydown-ESC', () => talk.leave());
 
-    devHook(this, { advance: () => this.advance(), leave: () => this.leave(), state: () => ({ index: this.index, total: this.lines.length, typing: this.cut.isTyping }) });
+    devHook(this, { advance: () => talk.advance(), leave: () => talk.leave(), state: () => ({ index: talk.index, total: talk.total, typing: talk.cut.isTyping }) });
     // 朝日のキラキラ
     for (let i = 0; i < 5; i++) this.time.delayedCall(200 + i * 260, () => spawnFx(this, 'fx_sparkle', Phaser.Math.Between(24, 200), Phaser.Math.Between(20, 80), { depth: Z.wall + 1 }));
-    this.time.delayedCall(400, () => this.next());
+    this.time.delayedCall(400, () => talk.next());
   }
 
   override update(): void {
-    this.nextMark.setVisible(!this.cut.isTyping && this.index >= 0);
-  }
-
-  /** タップ:文字送りの途中なら全部出す。出し終わっていれば次のセリフへ */
-  private advance(): void {
-    if (this.leaving || this.index < 0) return;
-    if (this.cut.isTyping) { this.cut.skip(); return; }
-    this.next();
-  }
-
-  private next(): void {
-    this.index++;
-    if (this.index >= this.lines.length) { this.leave(); return; }
-    const line = this.lines[this.index];
-    this.counter.setText(`${this.index + 1}/${this.lines.length}`);
-    let n = 0;
-    void this.cut.say(line.text, line.face, {
-      who: line.who,
-      onChar: () => { if (n++ % 2 === 0) audio.sfx('blip', { volume: 0.4, pitch: line.who === 'hero' ? 1.25 : 1 }); }
-    });
-    // ヒーローのドヤ顔:決めポーズでキラーン
-    if (line.who === 'hero') {
-      this.hero.play(animKey('hero', 'win_fist'));
-      spawnFx(this, 'fx_kiran', HERO_X + 14, FEET_Y - 94, { scale: 2, depth: Z.actorFront });
-    }
-  }
-
-  private leave(): void {
-    if (this.leaving) return;
-    this.leaving = true;
-    audio.sfx('button');
-    gotoSafe(this, SCENES.result, undefined, undefined, (ok) => { if (!ok) this.leaving = false; });
+    this.talk.update();
   }
 }

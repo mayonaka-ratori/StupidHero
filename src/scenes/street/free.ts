@@ -30,11 +30,12 @@ import {
 } from '../../logic';
 import { currentFreeWave, nextAfterFreeStreet, setSort, type GameRun } from '../../run';
 import { settings } from '../../settings';
-import { banner, gotoWhenFree, impact, lighter, waitMs } from '../../ui';
+import { banner, impact, lighter, waitMs } from '../../ui';
 import type { StreetScene } from '../Street';
 import { Actor, HEAD } from './actor';
 import { ATTACK_GAP, JUDGE_RISE, RUN } from './common';
 import { FreeItems } from './freeItems';
+import { buttonPulse } from './panel';
 import { THREAT_DX, planFree, type PasserLook, type StreetPlan } from './plan';
 import { RuleSign } from './ruleSign';
 
@@ -318,7 +319,7 @@ export class FreeStreet {
       const alpha = this.inputOpen && dry.locked(now) ? 0.45 : 1;
       if (btn.alpha !== alpha) btn.setAlpha(alpha);
       if (s.frameN % 3 === 0 && this.inputOpen) {
-        const t = mark && alpha === 1 ? (1 - Math.cos((now / 1100) * Math.PI * 2)) / 2 : 0;
+        const t = mark && alpha === 1 ? buttonPulse(now) : 0;
         btn.setColor(lighter(color, t * 0.3));
       }
     }
@@ -587,26 +588,18 @@ export class FreeStreet {
   /** 殴りかかる相手:待てのマーク。押さなければ技を出す */
   private async attackOne(a: Actor, rule: FreeRule): Promise<void> {
     const s = this.s;
-    const h = s.hero;
     const look = a.look!;
     this.auraKind = 'attack';
     await this.walkTo(a.x - MARK.showDistance, s.laneFor(a));
     // 歩いている間に、行けの巻きぞえで倒れていたら、とばす
     if (!a.standing) { this.auraKind = null; return; }
-    s.showMark(a, 'stop');
-    s.stopAlarm.start();
-    s.slow = this.timing.markSlowmo;
-    h.sprite.anims.timeScale = this.timing.markSlowmo;
+    s.markStart(a, this.timing.markSlowmo);
     const item = rule.kind === 'item' ? rule.item : undefined;
     this.heroSayItem(this.lines.heroAttack(look, rule), item, a);
     if (a.civ) this.opEvent('hitCivRule', { look, item });
     const k = s.pickAttack();
     const res = await this.markWindow(a, k);
-    s.stopAlarm.stop();
-    s.slow = 1;
-    h.sprite.anims.timeScale = 1;
-    s.hideMark(a);
-    s.auraOn = false;
+    s.markEnd(a);
     this.auraKind = null;
     this.heroMode = 'busy';
     if (res.stop) { await this.stopped(a, res.close); return; }
@@ -748,29 +741,19 @@ export class FreeStreet {
   /** 素通り:笑顔で手を振る。ワルなら、そのあと見た目ごとの悪さ */
   private async passOne(a: Actor): Promise<void> {
     const s = this.s;
-    const h = s.hero;
     const look = a.look!;
     this.auraKind = 'pass';
-    const passY = a.y < 190 ? a.y + 12 : a.y - 12;
-    await this.walkTo(a.x - 22, passY);
+    await this.walkTo(a.x - 22, s.passLane(a));
     if (!a.standing) { this.auraKind = null; return; }
-    h.play('pass', true);
-    audio.sfx('sparkle');
-    s.heroSay(this.lines.heroPass(look), 1000);
-    for (let i = 0; i < 4; i++) {
-      s.time.delayedCall(i * 110, () => s.fx('fx_sparkle', h.x + 12 + s.rng.int(-6, 10), h.y - 48 + s.rng.int(-8, 8), { depth: 960 }));
-    }
-    if (a.civ) {
-      void s.arc(a, a.x, 7, 200).then(() => s.arc(a, a.x, 5, 180));
-      s.time.delayedCall(150, () => s.fx('fx_sparkle', a.x, a.y - HEAD - 6, { depth: 960 }));
-    } else {
+    s.passGreet(a, this.lines.heroPass(look), a.civ);
+    if (!a.civ) {
       this.opEvent('passBadRule', { look });
       // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)
       if (look !== 'fp_gang' && s.stats.reportFreeScene(freeWaveScene(look))) {
         s.time.delayedCall(120, () => s.shoot(0, (img) => { this.run.worstShot = img; }));
       }
     }
-    await s.runTo(a.x + 14, { speed: RUN * 0.55, anim: null });
+    await s.passOn(a);
     this.auraKind = null;
     if (a.civ) return;
     if (look === 'fp_gang' && a.person?.group) {
@@ -830,7 +813,7 @@ export class FreeStreet {
         if (!recovered) s.heroSay(s.line('mischiefHero', s.rng), 1100);
         const t: Threat = { a, victim, since: s.time.now, recovered, timer: null, resolve };
         this.threats.push(t);
-        s.showMark(a, 'go');
+        a.showMark('go');
         s.goAlarm.start();
         this.goMarkShown();
         t.timer = s.time.delayedCall((this.threatSecDebug ?? this.timing.escapeSec) * 1000, () => this.threatEscape(t));
@@ -844,7 +827,7 @@ export class FreeStreet {
     this.threats = this.threats.filter((x) => x !== t);
     t.timer?.remove();
     t.timer = null;
-    this.s.hideMark(t.a);
+    t.a.hideMark();
     if (!this.goTarget()) this.s.goAlarm.stop();
   }
 
@@ -862,9 +845,7 @@ export class FreeStreet {
       s.knock(v, 20, 10, 1);
     }
     s.stats.escaped(robbed);
-    a.faceLeft(false).play('walk', true, 2.8);
-    const escX = s.L.right + 50;
-    s.tweens.add({ targets: a, x: escX, duration: Math.max(500, (escX - a.x) * 6), onComplete: () => a.destroy() });
+    s.runAway(a);
     this.miss('escaped', { look: 'fp_mohawk' });
     s.time.delayedCall(500, () => t.resolve());
   }
@@ -965,14 +946,8 @@ export class FreeStreet {
     this.inputOpen = false;
     const last = s.queue[s.queue.length - 1];
     await s.runTo(Math.max(h.x, (last?.x ?? h.x) + 70), { y: 192 });
-    h.faceLeft(false).play('okay', true);
-    s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
-    audio.sfx('okay');
-    await banner(s, `WAVE${this.fw.no} CLEAR!`, { hold: 700 });
-    if (s.leaving) return;
-    s.leaving = true;
-    s.devLog('free wave clear');
-    s.run.scrollX = s.L.world.scrollX;
-    gotoWhenFree(s, nextAfterFreeStreet(s.run));
+    h.faceLeft(false);
+    await s.clearPose(this.fw.no);
+    s.leave('free wave clear', nextAfterFreeStreet);
   }
 }
