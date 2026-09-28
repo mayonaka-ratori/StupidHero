@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
 /** 32bitのCRC(PNGのチャンクにつける) */
-export function crc32(buf) {
+function crc32(buf) {
   let c = ~0;
   for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); }
   return ~c >>> 0;

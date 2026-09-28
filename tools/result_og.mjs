@@ -2,8 +2,7 @@
 // 使い方: npm run dev を動かしてから
 //   node tools/result_og.mjs [出力PNG(ふつう public/og.png)] [サーバー(ふつう http://localhost:5173/)]
 // 中身は src/scenes/result/og.ts。そのファイルを読みこむだけのページをこのスクリプトの中で作って開く。
-import { openBrowser, openPage, serverUrl } from './lib.mjs';
-import { writeFileSync } from 'node:fs';
+import { openBrowser, openPage, saveDataUrl, serverUrl } from './lib.mjs';
 
 const [out = 'public/og.png', server] = process.argv.slice(2);
 const origin = new URL(serverUrl(server)).origin;
@@ -16,6 +15,6 @@ await page.route(`${origin}/__result_og.html`, (route) => route.fulfill({
 await page.goto(`${origin}/__result_og.html`);
 await page.waitForFunction(() => window.__og, null, { timeout: 20000 });
 const url = await page.evaluate(() => window.__og);
-writeFileSync(out, Buffer.from(url.split(',')[1], 'base64'));
+saveDataUrl(out, url);
 await browser.close();
 console.log('saved', out);

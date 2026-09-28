@@ -2,13 +2,14 @@
 // 使い方: npm run dev を動かしてから
 //   node tools/uitest.mjs [出力フォルダ] [サーバー]   (途中のスクリーンショットを出力フォルダに置く)
 // 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { activeScenes, checker, openBrowser, openPage, resumeGame, serverUrl, setHidden, shotsDir, touchPad } from './lib.mjs';
 
 const outDir = shotsDir(process.argv[2]);
 const BASE = `${serverUrl(process.argv[3])}dev/ui.html`;
 const browser = await openBrowser();
 const page = await openPage(browser);
-const { touch, css, tap } = await touchPad(page);
+const pad = await touchPad(page);
+const { touch, css, tap } = pad;
 const { check, done } = checker();
 const wait = (ms) => page.waitForTimeout(ms);
 const log = () => page.evaluate(() => window.uiDev.log.slice());
@@ -80,11 +81,6 @@ check('最後まで飛ばすと say の Promise が解決する', await page.eva
 await page.screenshot({ path: `${outDir}/test-cut-skip.png` });
 
 // 5. 中断ボタン → 一時停止のメニュー → 「つづける」で再開
-/** 一時停止のメニューのボタン(window.pauseDev の 'resume' か 'title')の真ん中を押す。メニューがなければ何もしない */
-async function tapPauseBtn(name) {
-  const c = await page.evaluate((n) => { const b = window.pauseDev?.[n]; return b && { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }, name);
-  if (c) await tap(c.x, c.y);
-}
 const pauseState = () => page.evaluate(() => ({ paused: window.uiDev.scene.scene.isPaused(), overlay: window.uiDev.game.scene.isActive('UiPause') }));
 await clearLog();
 await page.evaluate(() => { window.pauseDev = undefined; });
@@ -100,29 +96,23 @@ await tap(108, 40);
 await wait(100);
 st = await pauseState();
 check('メニューの外をタップしても止まったまま', !(await log()).includes('resume') && st.paused && st.overlay, JSON.stringify(st));
-await tapPauseBtn('resume');
+await resumeGame(page, pad);
 await wait(100);
 st = await pauseState();
 check('「つづける」で再開', (await log()).includes('resume') && !st.paused && !st.overlay, JSON.stringify(st));
 
 // 6. 画面が隠れたら止まる → 戻るとメニューが出ている → 「つづける」で再開
 await clearLog();
-await page.evaluate(() => {
-  window.pauseDev = undefined;
-  Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
-  document.dispatchEvent(new Event('visibilitychange'));
-});
+await page.evaluate(() => { window.pauseDev = undefined; });
+await setHidden(page, true);
 await wait(100);
 st = await pauseState();
 check('画面が隠れたら止まる', (await log()).includes('pause:hidden') && st.paused, JSON.stringify(st));
-await page.evaluate(() => {
-  Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
-  document.dispatchEvent(new Event('visibilitychange'));
-});
+await setHidden(page, false);
 await wait(400);
 st = await pauseState();
 check('戻っても止まったまま(メニューが出ている)', st.paused && st.overlay && (await page.evaluate(() => !!window.pauseDev)), JSON.stringify(st));
-await tapPauseBtn('resume');
+await resumeGame(page, pad);
 await wait(100);
 st = await pauseState();
 check('「つづける」で再開(隠れたあと)', (await log()).includes('resume') && !st.paused && !st.overlay, JSON.stringify(st));
@@ -193,7 +183,7 @@ await tap(216 - 12, 12);
 await wait(120);
 await page.screenshot({ path: `${outDir}/test-wipe.png` });
 await wait(800);
-const active = await page.evaluate(() => window.uiDev.game.scene.getScenes(true).map((s) => s.scene.key));
+const active = await activeScenes(page);
 check('ワイプで次のシーンへ', active.includes('text') && !active.includes('swipe') && !active.includes('UiWipe'), JSON.stringify(active));
 
 await browser.close();

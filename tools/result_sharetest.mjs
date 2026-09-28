@@ -3,7 +3,7 @@
 //   node tools/result_sharetest.mjs [出力フォルダ] [サーバー] [ステージ(alley、garage、mall、tower。free ならフリープレイの結果画面)]
 // 出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // NG があれば exit code 1。
-import { checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { activeScenes, checker, mobileContext, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
 const outDir = shotsDir(process.argv[2]);
 const server = serverUrl(process.argv[3]);
@@ -116,8 +116,6 @@ async function open(mode, extra = '') {
 // 5. タップで数え上げを飛ばす、もう一回、タイトルへ
 {
   const { ctx, page, tapAt, tapBtn } = await open('none', SKIP_SAMPLE);
-  await page.goto(BASE + SKIP_SAMPLE);
-  await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);
   await tapAt(150, 150);
   const done = await page.evaluate(() => window.resultDev.scene.tl.done);
@@ -128,7 +126,7 @@ async function open(mode, extra = '') {
   await page.waitForTimeout(1200);
   // 端末が重いとワイプが遅れるので、次の場面が動き出すまで少し待つ
   await page.waitForFunction(() => window.resultDev.scene.game.scene.getScenes(true).some((s) => ['Intro', 'Sort', 'Street'].includes(s.scene.key)), null, { timeout: 10000 }).catch(() => {});
-  const active = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
+  const active = await activeScenes(page);
   const run = await page.evaluate(() => { const r = window.resultDev.scene.registry.get('run'); return { debug: r.debug, sorted: Object.keys(r.sorts).length, wave: r.waveIndex, stage: r.stage.id, mode: r.mode, clockMs: r.free?.clockMs ?? null }; });
   if (free) {
     // フリープレイは、掛け合いを出さずに Street(波1)へ
@@ -144,14 +142,14 @@ async function open(mode, extra = '') {
   await page.waitForTimeout(300);
   await tapBtn('title');
   await page.waitForTimeout(1200);
-  const act2 = await page.evaluate(() => window.resultDev.scene.game.scene.getScenes(true).map((s) => s.scene.key));
+  const act2 = await activeScenes(page);
   check('タイトルへで Title へ', act2.includes('Title'), act2.join(','));
   await ctx.close();
 }
 
 // 6. パソコン(指でない、共有メニューなし):保存のしかたは「右クリックか長押しで保存」
 {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await mobileContext(browser, { mobile: false });
   await ctx.addInitScript(() => { try { delete Navigator.prototype.share; delete Navigator.prototype.canShare; } catch { /* */ } });
   const page = await openPage(ctx, { errors });
   await page.goto(BASE);

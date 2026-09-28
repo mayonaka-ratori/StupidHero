@@ -7,7 +7,7 @@
 // コマの境目には細い線を引く(絵の外の色なので、絵とまぎれない)。
 import { mkdirSync } from 'node:fs';
 import { createServer } from 'vite';
-import { parseColor, writePng as writePngShared } from './png.mjs';
+import { parseColor, writePng } from './png.mjs';
 
 const [keysArg = 'all', scaleArg = '4', outDir = 'shots/art'] = process.argv.slice(2);
 const scale = Math.max(1, Number(scaleArg) | 0);
@@ -31,8 +31,8 @@ try {
   const byHead = (k) => { const hit = allKeys.filter((x) => x.startsWith(k)); return hit.length ? hit : [k]; };
   const want = keysArg === 'all' ? allKeys : keysArg.split(',').flatMap((k) => (sheets[k] || images[k] ? [k] : byHead(k)));
   for (const key of want) {
-    if (sheets[key]) writePng(`${outDir}/${key}.png`, sheetPixels(sheets[key]));
-    else if (images[key]) writePng(`${outDir}/${key}.png`, gridPixels(images[key]()));
+    if (sheets[key]) writePng(`${outDir}/${key}.png`, { ...sheetPixels(sheets[key]), scale });
+    else if (images[key]) writePng(`${outDir}/${key}.png`, { ...gridPixels(images[key]()), scale });
     else { console.warn(`ない: ${key}`); continue; }
     console.log(`${outDir}/${key}.png`);
   }
@@ -57,8 +57,4 @@ function sheetPixels(rows) {
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) px[1 + r * (fh + 1) + y][1 + i * (fw + 1) + x] = p[y][x];
   }));
   return { w, h, px };
-}
-
-function writePng(path, { w, h, px }) {
-  writePngShared(path, { w, h, px, scale });
 }

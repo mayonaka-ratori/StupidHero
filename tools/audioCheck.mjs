@@ -105,55 +105,24 @@ await page.evaluate(() => { window.__audio.setMuted(false); });
 await page.mouse.click(200, 700);
 await page.evaluate(() => { window.__audio.playBgm('street'); window.__audio.stopBgm(200); });
 await expect('stopBgm で止まる', (d) => d.playing === null && d.want === null);
-// ステージ2の曲(エコーつき)の切り替えと停止
-await page.evaluate(() => { window.__audio.playBgm('street2'); });
-await page.waitForTimeout(300);
-await expect('street2 が流れる', (d) => d.playing === 'street2');
-await page.evaluate(() => { window.__audio.sfx('whistle'); window.__audio.sfx('engine'); window.__audio.sfx('skid'); window.__audio.sfx('horn'); window.__audio.sfx('crash'); window.__audio.playBgm('boss2'); });
-await page.waitForTimeout(300);
-await expect('boss2 に切り替え', (d) => d.playing === 'boss2');
-await page.evaluate(() => { window.__audio.stopBgm(200); });
-await page.waitForTimeout(1000);
-await expect('boss2 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
-// ステージ3の曲の切り替え(結果発表 → タイムセール → ボス戦)
-await page.evaluate(() => { window.__audio.playBgm('street3'); });
-await page.waitForTimeout(300);
-await expect('street3 が流れる', (d) => d.playing === 'street3');
-await page.evaluate(() => { window.__audio.sfx('chime'); window.__audio.sfx('tractor'); window.__audio.sfx('glitch'); window.__audio.playBgm('sale3'); });
-await page.waitForTimeout(300);
-await expect('sale3 に切り替え', (d) => d.playing === 'sale3');
-await page.evaluate(() => { window.__audio.sfx('shipBeam'); window.__audio.playBgm('boss3'); });
-await page.waitForTimeout(300);
-await expect('boss3 に切り替え', (d) => d.playing === 'boss3');
-await page.evaluate(() => { window.__audio.stopBgm(200); });
-await page.waitForTimeout(1000);
-await expect('boss3 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
-// ステージ4の曲の切り替え(結果発表 → エレベーターラッシュ → ボス戦)
-await page.evaluate(() => { window.__audio.playBgm('street4'); window.__audio.sfx('psy'); window.__audio.sfx('smash'); window.__audio.sfx('thud'); });
-await page.waitForTimeout(300);
-await expect('street4 が流れる', (d) => d.playing === 'street4');
-await page.evaluate(() => { window.__audio.sfx('ding'); window.__audio.sfx('door'); window.__audio.sfx('buzzer'); window.__audio.playBgm('lift4'); });
-await page.waitForTimeout(300);
-await expect('lift4 に切り替え', (d) => d.playing === 'lift4');
-await page.evaluate(() => { window.__audio.playBgm('boss4'); });
-await page.waitForTimeout(300);
-await expect('boss4 に切り替え', (d) => d.playing === 'boss4');
-await page.evaluate(() => { window.__audio.stopBgm(200); });
-await page.waitForTimeout(1000);
-await expect('boss4 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
-// フリープレイの曲(波ごとに少しずつ速い曲に切り替える)
-await page.evaluate(() => { window.__audio.playBgm('free1'); window.__audio.sfx('declareBad'); });
-await page.waitForTimeout(300);
-await expect('free1 が流れる', (d) => d.playing === 'free1');
-await page.evaluate(() => { window.__audio.sfx('dryPress'); window.__audio.sfx('dryPress'); window.__audio.playBgm('free2'); });
-await page.waitForTimeout(300);
-await expect('free2 に切り替え', (d) => d.playing === 'free2');
-await page.evaluate(() => { window.__audio.sfx('declarePass'); window.__audio.playBgm('free3'); });
-await page.waitForTimeout(300);
-await expect('free3 に切り替え', (d) => d.playing === 'free3');
-await page.evaluate(() => { window.__audio.stopBgm(200); });
-await page.waitForTimeout(1000);
-await expect('free3 も stopBgm で止まる', (d) => d.playing === null && d.want === null);
+// ステージ2、3、4、フリープレイの曲の切り替え(結果発表 → 次の場面 → ボス戦、のように何回か替えて、最後は stopBgm で止める)。
+// どれも形は同じなので、曲名と鳴らす効果音の並びだけを表にして、ループで確かめる
+const CHAINS = [
+  [['street2', []], ['boss2', ['whistle', 'engine', 'skid', 'horn', 'crash']]], // ステージ2(エコーつき)
+  [['street3', []], ['sale3', ['chime', 'tractor', 'glitch']], ['boss3', ['shipBeam']]], // ステージ3(結果発表 → タイムセール → ボス戦)
+  [['street4', ['psy', 'smash', 'thud']], ['lift4', ['ding', 'door', 'buzzer']], ['boss4', []]], // ステージ4(結果発表 → エレベーターラッシュ → ボス戦)
+  [['free1', ['declareBad']], ['free2', ['dryPress', 'dryPress']], ['free3', ['declarePass']]] // フリープレイ(波ごとに少しずつ速い曲に切り替える)
+];
+for (const steps of CHAINS) {
+  for (const [i, [bgm, sfx]] of steps.entries()) {
+    await page.evaluate(({ bgm, sfx }) => { for (const s of sfx) window.__audio.sfx(s); window.__audio.playBgm(bgm); }, { bgm, sfx });
+    await page.waitForTimeout(300);
+    await expect(`${bgm} ${i === 0 ? 'が流れる' : 'に切り替え'}`, (d) => d.playing === bgm);
+  }
+  await page.evaluate(() => { window.__audio.stopBgm(200); });
+  await page.waitForTimeout(1000);
+  await expect(`${steps[steps.length - 1][0]} も stopBgm で止まる`, (d) => d.playing === null && d.want === null);
+}
 
 for (const e of errors) ng(e);
 await browser.close();

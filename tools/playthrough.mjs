@@ -12,8 +12,7 @@
 //   ufo     truth と同じだが、波1のワル(宇宙人)を市民に仕分ける。1機目のUFOは行けで落とし、2機目からは押さない(さらわれる)
 //   bossciv truth と同じだが、ボスを市民に仕分ける。ufo+bossciv のように + でつなげる
 // エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
-import { writeFileSync } from 'node:fs';
-import { clearedRecords, logicalHeight, openBrowser, openPage, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
+import { activeScenes, checker, clearedRecords, logicalHeight, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
 const [urlArg, outArg, seed = '', stage = 'alley', policy = 'random'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -49,10 +48,7 @@ await waitForGame(page, 60000);
 await page.waitForFunction(() => window.__game.scene.getScenes(true).length > 0, null, { timeout: 60000 });
 await page.waitForTimeout(1500);
 
-const active = () => page.evaluate(() => {
-  const g = window.__game;
-  return g ? g.scene.getScenes(true).map((s) => s.scene.key).filter((k) => !k.startsWith('Ui')) : [];
-});
+const active = () => activeScenes(page, { filterUi: true });
 // 論理ドットでの画面の高さ。指の位置は lib.mjs で論理ドットから直す
 const H = await logicalHeight(page);
 const pad = await touchPad(page);
@@ -68,7 +64,6 @@ let sortPresses = 0, stopTaps = 0, goTaps = 0, bossTaps = 0, ufoSeen = 0, ufoGo 
 let lastUfo = null;
 const reviews = [];
 // 高層ビル:見た階の数字、エレベーターで待てを押した人、念力の選択、終わりの場面のセリフの数、ステージを選ぶ画面で見えていたか
-const floors = [];
 const liftHandled = new Set();
 // 答え合わせで次へを押した時刻(押したあとは波が1つ進むので、押し直すまでは波を読まない)
 let reviewTapAt = 0;
@@ -82,8 +77,8 @@ while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
     await page.waitForTimeout(7000); await shot('result_end');
     // 共有カードの画像と、結果発表で撮った「いちばんひどい場面」の写真も書き出す
     const img = await page.evaluate(() => ({ card: window.resultDev?.card?.small?.toDataURL('image/png') ?? null, worst: window.__game.registry.get('run')?.worstShot?.src ?? null }));
-    if (img.card) writeFileSync(`${outDir}/${String(n++).padStart(2, '0')}_card.png`, Buffer.from(img.card.split(',')[1], 'base64'));
-    if (img.worst?.startsWith('data:')) writeFileSync(`${outDir}/${String(n++).padStart(2, '0')}_worstshot.png`, Buffer.from(img.worst.split(',')[1], 'base64'));
+    if (img.card) saveDataUrl(`${outDir}/${String(n++).padStart(2, '0')}_card.png`, img.card);
+    if (img.worst?.startsWith('data:')) saveDataUrl(`${outDir}/${String(n++).padStart(2, '0')}_worstshot.png`, img.worst);
     break;
   }
   if (k === 'StageSelect' && stage === 'tower') {
@@ -219,34 +214,31 @@ while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
 }
 const reached = last === 'Result';
 const playedStage = await page.evaluate(() => window.__game.registry.get('run')?.stage.id);
-const finalStats = await page.evaluate(() => window.__game.registry.get('run')?.stats.snapshot() ?? null);
-floors.push(...await page.evaluate(() => window.__floorsSeen ?? []));
+const final = await page.evaluate(() => window.__game.registry.get('run')?.stats.snapshot() ?? null);
+const floors = await page.evaluate(() => window.__floorsSeen ?? []);
 const recordsAfter = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('stupidhero.records.v2')); } catch { return null; } });
-const resultTitle = await page.evaluate(() => window.__game.registry.get('run')?.title ?? window.resultDev?.title ?? null).catch(() => null);
 console.log('taps', { sortPresses, stopTaps, goTaps, bossTaps, ufoSeen, ufoGo, rushStops }, 'total', ((Date.now() - t0) / 1000).toFixed(1) + 's');
 if (stage === 'tower') {
   console.log('tower', JSON.stringify({ cardVisible, floors, liftStops, liftLog, choicePress, endingSeen, endingLines, endingSeenRecord: recordsAfter?.endingSeen, titles: recordsAfter?.titles }));
 }
-console.log(errors.length ? errors.join('\n') : 'no errors');
-await browser.close();
-const ng = [];
-if (errors.length) ng.push(`エラー ${errors.length} 件`);
-if (!reached) ng.push(`結果画面まで行けなかった(最後は ${last || 'なし'})`);
-if (playedStage !== stage) ng.push(`遊んだステージが ${playedStage}`);
-if (reviews.join(',') !== Array.from({ length: WAVES }, (_, i) => i + 1).join(',')) ng.push(`答え合わせが波 ${reviews.join(',') || 'なし'} だけ`);
-if (missWave1 && ufoSeen === 0) ng.push('UFOが来なかった');
-const final = finalStats;
-if (final && !random && stage === 'mall' && !final.rush) ng.push('タイムセールラッシュがなかった');
-if (stage === 'tower') {
-  if (cardVisible !== true) ng.push('ステージを選ぶ画面で NEW! の高層ビルのカードが見えていなかった');
-  if (floors.map((f) => `${f.wave}:${f.to}`).join(',') !== '2:18F,3:35F') ng.push(`階の数字が ${JSON.stringify(floors)}`);
-  if (!liftLog.some((l) => l.startsWith('summary:'))) ng.push('エレベーターラッシュのまとめが出なかった');
-  if (liftHandled.size < 6) ng.push(`エレベーターのマークが ${liftHandled.size} 人`);
-  if (!final?.lift) ng.push('エレベーターの数がない');
-  if (final?.bossDefeated && !bossCiv && choiceSeen === 0) ng.push('念力の選択が出なかった');
-  if (final?.bossDefeated && endingSeen !== 1) ng.push(`終わりの場面が ${endingSeen} 回`);
-  if (final?.bossDefeated && recordsAfter?.endingSeen !== true) ng.push('終わりの場面を見た記録がない');
-}
 console.log('stats', JSON.stringify(final && { stage: final.stageId, defeated: final.defeated, hurt: final.civHurt, damage: final.damage, ufosDowned: final.ufosDowned, abducted: final.civHurtByAbduction, rush: final.rush, bossSortedCiv: final.bossSortedCiv, bossDefeated: final.bossDefeated, worst: final.worstScene, propsBroken: final.propsBroken, lift: final.lift }));
-console.log(ng.length ? `NG ${ng.join('、')}` : `OK ${stage} を結果画面まで遊んだ`);
-process.exit(ng.length ? 1 : 0);
+await browser.close();
+
+const { check, done } = checker();
+check('エラーが出ない', errors.length === 0, errors.join('\n'));
+check('結果画面まで行った', reached, `最後は ${last || 'なし'}`);
+check('遊んだステージ', playedStage === stage, playedStage);
+check('答え合わせを波の数だけ通った', reviews.join(',') === Array.from({ length: WAVES }, (_, i) => i + 1).join(','), reviews.join(',') || 'なし');
+if (missWave1) check('UFOが来た', ufoSeen > 0);
+if (final && !random && stage === 'mall') check('タイムセールラッシュがあった', !!final.rush);
+if (stage === 'tower') {
+  check('ステージを選ぶ画面で NEW! の高層ビルのカードが見えていた', cardVisible === true);
+  check('階の数字が2:18F,3:35F', floors.map((f) => `${f.wave}:${f.to}`).join(',') === '2:18F,3:35F', JSON.stringify(floors));
+  check('エレベーターラッシュのまとめが出た', liftLog.some((l) => l.startsWith('summary:')));
+  check('エレベーターのマークが6人', liftHandled.size >= 6, `${liftHandled.size}人`);
+  check('エレベーターの数がある', !!final?.lift);
+  if (final?.bossDefeated && !bossCiv) check('念力の選択が出た', choiceSeen > 0);
+  if (final?.bossDefeated) check('終わりの場面が1回', endingSeen === 1, `${endingSeen}回`);
+  if (final?.bossDefeated) check('終わりの場面を見た記録がある', recordsAfter?.endingSeen === true);
+}
+done();

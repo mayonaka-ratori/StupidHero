@@ -3,7 +3,7 @@
 // ずらす(指を8ドットより動かす)とカードを選ばないか、離したあとすべって止まるか、端で止まるか、
 // 動かさずに離すとカードを選ぶか、開いたばかりのステージ(&justunlocked=tower)まで自動でずれるかを見る。
 // 使い方: npm run dev を動かしてから node tools/stageselect_scroll.mjs [サーバーかURL] [出力フォルダ]
-import { checker, clearedRecords, openBrowser, openPage, serverUrl, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
+import { activeScenes, checker, clearedRecords, openBrowser, openPage, serverUrl, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
 
 const url = serverUrl(process.argv[2]);
 const outDir = shotsDir(process.argv[3]);
@@ -35,7 +35,7 @@ async function open(H, query, records) {
 const info = (page) => page.evaluate(() => ({ s: window.__sh.scroll(), cards: window.__sh.cards() }));
 /** すべりが止まるまで待つ(コマが遅い環境では時間がかかる) */
 const settle = (page) => page.waitForFunction(() => !window.__sh.scroll().moving, null, { timeout: 20000 }).then(() => page.waitForTimeout(100));
-const scenes = (page) => page.evaluate(() => window.__game.scene.getScenes(true).map((s) => s.scene.key).filter((k) => !k.startsWith('Ui')));
+const scenes = (page) => activeScenes(page, { filterUi: true });
 
 /** 指で (x, y0) から (x, y1) までずらす。stepMs ごとに1回動かす */
 async function drag(page, pad, x, y0, y1, steps = 10, stepMs = 16) {

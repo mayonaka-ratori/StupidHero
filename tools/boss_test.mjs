@@ -14,8 +14,7 @@
 // nochoice では、何も押さずに3秒たつと客が落ちて(ワルにやられた市民+1)、シャンデリアが落ちる(¥3,000万)ところを確かめる。
 // idle では、何も押さずに15秒で終わり、選択でも何も押さなかった分(客とシャンデリア)が数えられるかを見る。NG があれば exit code 1。
 // 端末が重くて確かめたい瞬間に間に合わなかったもの(体力が時間で減りきった、など)は SKIP と出す(NG には数えない)。
-import { writeFileSync } from 'node:fs';
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { activeScenes, checker, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
 const base = serverUrl(process.argv[2]);
 const outDir = shotsDir(process.argv[3]);
@@ -267,12 +266,12 @@ if (mode === 'idle') {
   check('ひどい場面が撮れている(ほかにないとき)', r.worst !== 'bossDefeated' || ws === '216x214', String(ws));
   await page.waitForFunction(() => window.bossScene.scene.isActive() === false, null, { timeout: 12000 }).catch(() => {});
   await wait(600);
-  const active = await S(() => window.bossScene.game.scene.getScenes(true).map((s) => s.scene.key));
+  const active = await activeScenes(page);
   check('3回目の答え合わせへ行く', active.includes('WaveReview'), JSON.stringify(active));
   await shot('11_after');
   if (ws) {
     const data = await S(() => window.bossScene.run.worstShot.src);
-    writeFileSync(`${outDir}/${stage}_12_worstshot.png`, Buffer.from(data.split(',')[1], 'base64'));
+    saveDataUrl(`${outDir}/${stage}_12_worstshot.png`, data);
   }
 }
 await browser.close();

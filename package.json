@@ -12,7 +12,8 @@
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build:page": "tsc --noEmit && EXTERNAL_FONT=1 vite build --outDir dist-page"
+    "build:page": "tsc --noEmit && vite build --mode page --outDir dist-page",
+    "dashboard": "node --experimental-strip-types tools/dashboard.mjs"
   },
   "dependencies": {
     "@fontsource/dotgothic16": "^5.3.0",

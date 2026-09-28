@@ -77,7 +77,6 @@ class Preview extends Phaser.Scene {
       }
     }
     if (showSamples) this.drawSamples(g);
-    (window as unknown as { artReady: boolean }).artReady = true;
   }
 
   /** フリープレイの人(待機の1コマ目)に、波3の小物を itemAnchor の場所で重ねる */
@@ -106,8 +105,7 @@ class Preview extends Phaser.Scene {
   }
 }
 
-// 確かめ用のスクリプトから絵の中身を読めるように、ゲームを window に出す
-(window as unknown as { artGame: Phaser.Game }).artGame = new Phaser.Game({
+new Phaser.Game({
   type: Phaser.CANVAS, width: Math.max(width, 400), height: Math.max(height, 200), pixelArt: true,
   backgroundColor: '#2a2638', scene: [Preview], banner: false, audio: { noAudio: true }
 });
