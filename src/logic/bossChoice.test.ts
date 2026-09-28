@@ -30,8 +30,7 @@ describe('PsyChoice(念力の選択)', () => {
     expect(c.press('go')).toBe(true);
     for (let i = 0; i < 10; i++) expect(c.press('go')).toBe(false);
     expect(c.done).toBe(false);
-    expect(c.pressed('go')).toBe(true);
-    expect(c.pressed('stop')).toBe(false);
+    expect(c.outcome).toEqual({ guestSaved: false, chandelierSaved: true });
   });
 
   it('ボタンが出た直後は押しを数えない(連打の指がそのまま当たらないように)', () => {
@@ -76,7 +75,6 @@ describe('高層ビルのボス戦(STAGES.tower.bossFight)', () => {
   const opts = STAGES.tower.bossFight;
 
   it('体力が半分を切ったときに1回だけ知らせる(念力の選択)。手が止まったときの被害額はずっと¥50万', () => {
-    expect(opts).toEqual({ carAtHpRatio: BOSS4.choiceAtHpRatio, carMinSec: BOSS4.afterChoiceMinSec });
     const f = new BossFight({ ...opts, maxSec: Infinity });
     let fired = 0;
     for (let i = 0; i < 30; i++) {

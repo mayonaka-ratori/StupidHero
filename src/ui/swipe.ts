@@ -6,7 +6,6 @@
 //     onSwipe: (dir) => judge(dir === 'left' ? 'bad' : 'civ'),   // 一定以上動いたか、素早くはじいたとき
 //     onCancel: () => card.x = 108                    // 足りずに指を離したとき
 //   });
-//   swipe.enabled = false;                            // 一時的に止める
 //   swipe.setArea(rect);                              // 受け付ける四角を変える
 // シーンが一時停止したら、動かしている最中の指を放して onCancel を呼ぶ(再開のタップで勝手に決まらないように)。
 // シーンが終わると自動で後始末する。
@@ -15,9 +14,9 @@ import Phaser from 'phaser';
 import { px } from '../hires';
 import { layout } from '../layout';
 
-export type SwipeDir = 'left' | 'right';
+type SwipeDir = 'left' | 'right';
 
-export interface SwipeOptions {
+interface SwipeOptions {
   onStart?: (x: number, y: number) => void;
   onMove?: (dx: number, dy: number) => void;
   onSwipe?: (dir: SwipeDir, dx: number) => void;
@@ -34,7 +33,6 @@ const FLICK_MIN = 10;
 const EDGE_CSS = 16;
 
 export class SwipeInput {
-  enabled = true;
   /** 最後に指を離したときの速さ(ドット/ミリ秒。調整用) */
   lastSpeed = 0;
   private area: Phaser.Geom.Rectangle;
@@ -55,9 +53,6 @@ export class SwipeInput {
     scene.events.on(Phaser.Scenes.Events.PAUSE, this.onPause, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
-
-  /** いま指で動かしている最中か */
-  get active(): boolean { return this.pointerId >= 0; }
 
   setArea(area: Phaser.Geom.Rectangle): this {
     this.area = area;
@@ -105,7 +100,7 @@ export class SwipeInput {
   }
 
   private down(ptr: Phaser.Input.Pointer): void {
-    if (!this.enabled || this.pointerId >= 0) return;
+    if (this.pointerId >= 0) return;
     const p = { id: ptr.id, ...px(ptr) };
     if (!this.area.contains(p.x, p.y) || this.nearEdge(p.x)) return;
     this.pointerId = p.id;
@@ -118,7 +113,6 @@ export class SwipeInput {
   private move(ptr: Phaser.Input.Pointer): void {
     if (ptr.id !== this.pointerId) return;
     const p = px(ptr);
-    if (!this.enabled) { this.reset(); this.opt.onCancel?.(); return; }
     const now = performance.now();
     this.samples.push({ t: now, x: p.x });
     while (this.samples.length > 2 && now - this.samples[0].t > 100) this.samples.shift();
@@ -129,7 +123,6 @@ export class SwipeInput {
     if (ptr.id !== this.pointerId) return;
     const p = px(ptr);
     this.pointerId = -1;
-    if (!this.enabled) { this.opt.onCancel?.(); return; }
     const dx = p.x - this.startX;
     const v = this.speed(performance.now());
     this.lastSpeed = v;

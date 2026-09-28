@@ -144,10 +144,7 @@ describe('BossFight(女ボス:車に乗る)', () => {
     expect(r.boardedCar).toBe(true);
     expect(f.damageYen).toBe(10 * 500_000 + 4 * 1_000_000);
     // 細かく進めても同じ
-    const g = new BossFight(opts);
-    let sum = 0;
-    for (let t = 0; t < 16_000 && !g.isOver; t += 16) sum += g.update(16).damageYen;
-    expect(sum).toBe(9_000_000);
+    expect(run(new BossFight(opts), 16)).toBe(9_000_000);
   });
 
   it('連打し続ければ、車に乗っても被害はゼロ', () => {

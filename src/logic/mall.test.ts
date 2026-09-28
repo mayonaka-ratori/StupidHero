@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { OPERATOR_HINTS, PROFILE_LINES } from './content';
-import {
-  BOSS3_DISGUISES, MALL_LOOKS, buildRush, glitchCount, glitchShowing, rollGlitch, rushGlitchShowing, rushSpawnSec
-} from './mall';
+import { buildRush, glitchCount, glitchShowing, rollGlitch, rushGlitchShowing, rushSpawnSec } from './mall';
 import { createRng } from './rng';
 import { GLITCH, RUSH } from './rules';
 import { createStage } from './stage';
-import { STAGES } from './stages';
+import { MALL_LOOKS, STAGES } from './stages';
 import type { GlitchTiming, MallLook, Person, Stage } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 3);
@@ -14,23 +12,7 @@ const stages: Stage[] = SEEDS.map((s) => createStage(s, 'mall'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage(seed, "mall")', () => {
-  // id と名前、波の人数と時間、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
-
-  it('1つの波の宇宙人は2〜3人(どちらも出る)。宇宙人の見た目は波の中で重ならない。悪さは空への合図', () => {
-    const counts = new Set<number>();
-    for (const s of stages) {
-      for (const w of s.waves) {
-        const aliens = w.people.filter((p) => p.truth === 'bad');
-        expect(aliens.length).toBe(w.badCount);
-        expect(aliens.length).toBeGreaterThanOrEqual(2);
-        expect(aliens.length).toBeLessThanOrEqual(3);
-        counts.add(aliens.length);
-        expect(new Set(aliens.map((a) => a.look)).size).toBe(aliens.length);
-        for (const a of aliens) expect(a.mischief).toBe('signal');
-      }
-    }
-    expect([...counts].sort()).toEqual([2, 3]);
-  });
+  // id と名前、波の人数と時間、波ごとの宇宙人の数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
 
   it('見た目は4種類。絵のキーは *_civ / *_bad、親玉は boss3_disguise_*', () => {
     const seen = new Set<string>();
@@ -45,8 +27,6 @@ describe('createStage(seed, "mall")', () => {
     }
     expect(bad).toEqual([]);
     expect([...seen].sort()).toEqual([...MALL_LOOKS].sort());
-    // 親玉の化けた姿の一覧(親玉がどれに化けるかは stage.test.ts で確かめる)
-    expect([...BOSS3_DISGUISES].sort()).toEqual(['clerk', 'mascot', 'uncle']);
   });
 
   it('宇宙人にだけくずれの時間がある(市民と親玉はくずれない)。初めては3〜6秒の0.5秒きざみ、そのあと3秒おきに0.2秒', () => {

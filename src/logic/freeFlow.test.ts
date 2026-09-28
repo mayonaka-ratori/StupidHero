@@ -6,7 +6,7 @@ import { clearRecords, emptyFreeRecord, freeSelectInfo, isFreeUnlocked, loadReco
 import { FREE_WORST_CAPTION, freeShareCaption, freeShareTexts, heroAccuracyText, ruleQuote } from './share';
 import { FREE_WORST_SCENE_RANK, StatsTracker, freeWaveScene, sceneForCivHit } from './stats';
 import { MemStorage } from './testHelpers';
-import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
+import { TITLES, decideTitle, titlesFor, titlesForFree } from './titles';
 import type { Person, StageStats } from './types';
 import { titleCommentFor } from './content';
 
@@ -184,9 +184,6 @@ describe('フリープレイの称号', () => {
     for (const id of ['alley', 'garage', 'mall'] as const) {
       expect(titlesFor(id).map((t) => t.id)).not.toContain('heroSitter');
     }
-    expect(titleById('heroSitter')).toMatchObject({ name: 'ヒーローのお守り役', pose: 'win_pose' });
-    expect(titleById('heroInterpreter')).toMatchObject({ name: 'ヒーローの通訳', pose: 'win_arms' });
-    expect(titleById('letItBe')).toMatchObject({ name: 'なすがまま', pose: 'win_shy' });
     expect(titleCommentFor('heroInterpreter').who).toBe('hero');
     expect(titleCommentFor('heroSitter').text).toBe('おバカ、全部止めたね！');
     expect(titleCommentFor('letItBe').text).toBe('…もう知らない');

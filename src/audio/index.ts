@@ -1,6 +1,7 @@
 // 音の入り口。ゲームからはここの audio だけを使う。
 // Web Audio でメガドライブ風の音(FM音源とPSG)をその場で作って鳴らす。Phaser の音の仕組みは使わない。
 import { Engine } from './engine';
+import type { SFX } from './sfx';
 import type { SONGS } from './songs';
 
 /**
@@ -8,19 +9,8 @@ import type { SONGS } from './songs';
  * free1〜free3 はフリープレイの曲(同じ曲で、波ごとに少しずつ速い)
  */
 export type BgmName = keyof typeof SONGS;
-export type SfxName =
-  | 'button' | 'swipeBad' | 'swipeCiv' | 'tick' | 'timeUp' | 'blip'
-  | 'charge' | 'punch' | 'stomp' | 'beam' | 'hit' | 'bigHit' | 'break'
-  | 'mark' | 'stop' | 'go' | 'oops' | 'okay' | 'sparkle'
-  | 'reveal' | 'rampage' | 'rush' | 'bossDown' | 'explosion' | 'fanfare' | 'stamp'
-  // ステージ2
-  | 'whistle' | 'engine' | 'skid' | 'horn' | 'crash'
-  // ステージ3
-  | 'chime' | 'ufoDown' | 'tractor' | 'ufoFall' | 'beep' | 'glitch' | 'shipBeam'
-  // ステージ4(smash はピアノやシャンデリアが落ちて割れる音。crash はステージ2の車の音)
-  | 'ding' | 'door' | 'psy' | 'thud' | 'buzzer' | 'smash'
-  // フリープレイ
-  | 'declareBad' | 'declarePass' | 'dryPress';
+/** 効果音の名前(sfx.ts の SFX のキー。ステージごとの分け方は SFX の中に書いてある) */
+export type SfxName = keyof typeof SFX;
 export interface AudioEngine {
   /** 最初のタップの中で呼ぶ。AudioContextを作り、iPhoneでも鳴るようにする。何度呼んでもよい */
   unlock(): void;

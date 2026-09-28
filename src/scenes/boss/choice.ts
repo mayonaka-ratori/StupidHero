@@ -11,8 +11,8 @@
 import Phaser from 'phaser';
 import { animKey, frameIndex, originFor, sheetByKey } from '../../art/sheets';
 import { audio } from '../../audio';
-import { settings } from '../../settings';
 import { waitMs } from '../../ui';
+import { psySpark } from '../street/psychic';
 import { DEPTH_OF } from './depth';
 import { spawnFx, throwDebris } from './effects';
 
@@ -56,14 +56,6 @@ export function drawChain(g: Phaser.GameObjects.Graphics, x: number, bottomY: nu
 export function windowSpotOk(x: number, wallScroll: number): boolean {
   const ix = (((Math.round(x + wallScroll)) % WALL_PERIOD) + WALL_PERIOD) % WALL_PERIOD;
   return ix < CURTAIN_X0 || ix > CURTAIN_X1;
-}
-
-/** 紫の火花を1つ置く(くり返し)。reduceFx なら止めたまま */
-function psySpark(scene: Phaser.Scene, x: number, y: number, depth: number): Phaser.GameObjects.Sprite {
-  const s = scene.add.sprite(Math.round(x), Math.round(y), 'fx_psy_spark', 0).setDepth(depth);
-  const key = animKey('fx_psy_spark', 'play');
-  if (!settings.reduceFx && scene.anims.exists(key)) s.play({ key, startFrame: Phaser.Math.Between(0, 3) });
-  return s;
 }
 
 /** 念力の選択で浮かせる物(客とシャンデリア)と、そのまわりの紫の火花 */

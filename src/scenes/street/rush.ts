@@ -13,7 +13,7 @@ import { audio } from '../../audio';
 import { animKey } from '../../art/sheets';
 import {
   RUSH, RUSH_BAND, hasSeenRush, rushAfter, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, saleRushOf,
-  type Speech, type RushRunner
+  type RushRunner
 } from '../../logic';
 import { currentWave } from '../../run';
 import { hitStop, impact, waitMs } from '../../ui';
@@ -92,10 +92,14 @@ export class RushPart {
     audio.sfx('chime');
     // 先に止めてから帯を出す(帯が入ってくる動きは止めない)
     this.holdWorld(true);
-    const band = this.saleBand();
+    // 「タイムセール開始!」の大きな帯。タップで始めるまで出しておき、out() で左へ去る
+    const band = rushBand(this.s, RUSH_BAND);
     const seen = hasSeenRush(this.s.def.id);
     markRushSeen(this.s.def.id);
-    await this.rushIntro(rushIntroFor(seen), this.s.time.now + RUSH.tapLockSec * 1000);
+    // 説明のカットイン(初めては2つ、見たことがあれば1つ)と、▼タップ(street/rushIntro.ts)
+    await rushTapIntro(
+      { scene: this.s, cut: this.s.cut, icons: this.s.icons }, rushIntroFor(seen), this.s.time.now + RUSH.tapLockSec * 1000, RUSH.tapLockSec
+    );
     // タップで始まる
     band.out();
     this.holdWorld(false);
@@ -110,18 +114,11 @@ export class RushPart {
     this.rushRunning = false;
     await waitMs(this.s, 400);
     this.s.opSay(rushEndLine(this.s.stats.rushTally ?? { civs: 0, civsSaved: 0 }, this.s.rng));
-    h.play('okay', true);
-    audio.sfx('okay');
-    this.s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.s.okayPose();
     await waitMs(this.s, 1700);
     this.rushOn = false;
     this.rushGuard = null;
     this.s.fastBtn.refresh();
-  }
-
-  /** 「タイムセール開始!」の大きな帯。タップで始めるまで出しておき、out() で左へ去る */
-  private saleBand(): { out: () => void } {
-    return rushBand(this.s, RUSH_BAND);
   }
 
   /**
@@ -145,11 +142,6 @@ export class RushPart {
       for (const e of this.rushHeldEvents) e.paused = false;
       this.rushHeld = []; this.rushHeldTweens = []; this.rushHeldEvents = [];
     }
-  }
-
-  /** 説明のカットイン(初めては2つ、見たことがあれば1つ)と、▼タップ(street/rushIntro.ts) */
-  private rushIntro(lines: readonly Speech[], lockUntil: number): Promise<void> {
-    return rushTapIntro({ scene: this.s, cut: this.s.cut, icons: this.s.icons }, lines, lockUntil, RUSH.tapLockSec);
   }
 
   stepRush(ms: number): void {

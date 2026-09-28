@@ -3,17 +3,13 @@
 import { describe, expect, it } from 'vitest';
 import { type PixelGrid } from '../lib';
 import { CLUE_SPOTS, type ClueRect } from '../clueSpots';
+import { colorsOf } from '../testColors';
 import { GLITCH } from './palette';
 import { buildWorld3Sheets } from './index';
 
 const sheets = buildWorld3Sheets();
 const LOOKS = ['mascot', 'clerk', 'dancer', 'uncle'] as const;
 
-const colorsOf = (grids: PixelGrid[]): Set<string> => {
-  const s = new Set<string>();
-  for (const g of grids) for (const row of g.cells) for (const c of row) if (c) s.add(c);
-  return s;
-};
 const same = (a: PixelGrid, b: PixelGrid): boolean => a.cells.every((row, y) => row.every((c, x) => c === b.cells[y][x]));
 /** 四角の中で、2つのコマの違うドットの数 */
 const diffIn = (a: PixelGrid, b: PixelGrid, r: ClueRect): number => {

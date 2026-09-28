@@ -8,7 +8,6 @@
 //     onResume: () => audio.unlock()       // 「つづける」で再開したとき(なくてもよい)。タップの中で呼ばれる
 //   });
 //   new IconButton(this, 204, 12, 'pause', () => pause.pause());
-//   pause.enabled = false;                 // 結果画面などで、隠れても止めないとき
 // 止めている間は、そのシーンの時計、動き、アニメがすべて止まる。上に 'UiPause' というシーンが重なる。
 // 曲は、止めると止まり、再開すると戻る(下の pauseEvents で行う。シーンの側で何もしなくてよい)。
 
@@ -21,6 +20,7 @@ import { Button } from './button';
 import { WindowFrame } from './frame';
 import { MuteButton } from './iconButton';
 import { PixelText } from './text';
+import { ditherTexture } from './fx';
 import { DEPTH, FS } from './theme';
 import { goto } from './transition';
 
@@ -34,7 +34,7 @@ const pauseEvents = new Phaser.Events.EventEmitter();
 pauseEvents.on('pause', () => audio.pauseBgm());
 pauseEvents.on('resume', () => audio.resumeBgm());
 
-export type PauseReason = 'button' | 'hidden' | 'rotate';
+type PauseReason = 'button' | 'hidden' | 'rotate';
 
 /** 横向きの「縦にしてね」を出す条件(index.html の CSS と同じ) */
 const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 540px)';
@@ -42,13 +42,14 @@ const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 540px)';
 /** いま動いているシーンの PauseControl */
 const liveControls = new Set<PauseControl>();
 
-export interface PauseOptions {
+interface PauseOptions {
   onPause?: (reason: PauseReason) => void;
   onResume?: () => void;
 }
 
 export class PauseControl {
-  enabled = true;
+  /** false のあいだは止めない(「タイトルへ」で出ていく途中) */
+  private enabled = true;
   private isPaused = false;
   /** 「タイトルへ」を押して、出ていく途中 */
   private quitting = false;
@@ -67,8 +68,6 @@ export class PauseControl {
     // 横向きのまま始まったシーン(横向きで読みこみ直したときなど)も止める
     if (isLandscape()) scene.events.once(Phaser.Scenes.Events.CREATE, () => { if (isLandscape()) this.pause('rotate'); });
   }
-
-  get paused(): boolean { return this.isPaused; }
 
   pause(reason: PauseReason = 'button'): void {
     if (!this.enabled || this.isPaused) return;
@@ -114,7 +113,7 @@ export class PauseControl {
     const tryGo = (): void => {
       const sys = this.scene.sys;
       if (!sys || (!sys.isActive() && !sys.isPaused())) return;
-      if (!goto(this.scene, to, undefined, { kind: 'wipe' })) window.setTimeout(tryGo, 50);
+      if (!goto(this.scene, to)) window.setTimeout(tryGo, 50);
     };
     window.setTimeout(tryGo, 0);
   }
@@ -181,25 +180,17 @@ export function watchOrientation(game: Phaser.Game): void {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(apply, 0); });
 }
 
-/** 市松もようのテクスチャ(半透明を使わずに暗くするため) */
-export function ditherTexture(scene: Phaser.Scene, key = '__ui_dither', color = '#000000'): string {
-  if (scene.textures.exists(key)) return key;
-  const c = document.createElement('canvas');
-  c.width = 2; c.height = 2;
-  const g = c.getContext('2d')!;
-  g.fillStyle = color;
-  g.fillRect(0, 0, 1, 1);
-  g.fillRect(1, 1, 1, 1);
-  scene.textures.addCanvas(key, c);
-  return key;
-}
-
 interface OverlayData { control: PauseControl }
+
+/** メニューの切りかえの1行 */
+interface ToggleRow { label: string; note?: string; get: () => boolean; set: (on: boolean) => void }
 
 /** メニューのウィンドウの幅 */
 const MENU_W = 204;
 /** 切りかえの行の、左右の字の位置 */
 const ROW_X = 12;
+/** メニューを出してから、押しても効かない間(ミリ秒)。止めたときと同じタップで押さないように */
+const READY_MS = 300;
 
 /** main.ts でゲームの起動時に登録しておく */
 export class PauseOverlay extends Phaser.Scene {
@@ -214,7 +205,7 @@ export class PauseOverlay extends Phaser.Scene {
     this.add.zone(0, 0, W, H).setOrigin(0).setInteractive();
 
     const x = Math.round((W - MENU_W) / 2);
-    const rows: { label: string; note?: string; get: () => boolean; set: (on: boolean) => void }[] = [
+    const rows: ToggleRow[] = [
       {
         label: '光と揺れを弱くする', note: '画面が白く光る、揺れるを\nひかえめに',
         get: () => settings.reduceFx, set: (on) => settings.set('reduceFx', on)
@@ -243,23 +234,22 @@ export class PauseOverlay extends Phaser.Scene {
 
     const by = ry + 6;
     const bw = Math.floor((MENU_W - 12 * 2 - 8) / 2);
-    const ready = (): boolean => performance.now() - this.shownAt >= 300;
     const resumeBtn = new Button(this, x + 12, by, bw, btnH, 'つづける', { color: 'civ', size: FS.body });
     // 「タイトルへ」はそのプレイを記録せずに終わるので、当たり判定を狭くする(ふつうの4ドットだと、
     // 2つのボタンの当たり判定がすき間の真ん中でくっつき、境目を押すと「タイトルへ」になっていた)
     const titleBtn = new Button(this, x + MENU_W - 12 - bw, by, bw, btnH, 'タイトルへ', { color: 0x4a3f78, size: FS.body, pad: 1 });
     // 止めたときと同じタップで押さないように、少し待つ
-    resumeBtn.on('press', () => { if (ready()) { audio.sfx('button'); data.control.resume(); } });
-    titleBtn.on('press', () => { if (ready()) { audio.unlock(); audio.sfx('button'); data.control.quit(SCENES.title); } });
+    resumeBtn.on('press', () => { if (this.menuReady()) { audio.sfx('button'); data.control.resume(); } });
+    titleBtn.on('press', () => { if (this.menuReady()) { audio.unlock(); audio.sfx('button'); data.control.quit(SCENES.title); } });
     // 開発用:テストの道具が「つづける」の場所を知るため
     if (import.meta.env.DEV) (window as unknown as { pauseDev?: unknown }).pauseDev = { resume: resumeBtn, title: titleBtn };
   }
 
+  /** メニューを出してから READY_MS たったか */
+  private menuReady(): boolean { return performance.now() - this.shownAt >= READY_MS; }
+
   /** 1つの切りかえ。行のどこを押しても切りかわる(指が届きやすいように、行全体が当たり判定) */
-  private toggleRow(
-    x: number, y: number, w: number, h: number,
-    r: { label: string; note?: string; get: () => boolean; set: (on: boolean) => void }
-  ): void {
+  private toggleRow(x: number, y: number, w: number, h: number, r: ToggleRow): void {
     // ウィンドウと同じ深さ(あとから置いた方が手前)
     const bg = this.add.graphics().setDepth(DEPTH.ui);
     new PixelText(this, x + ROW_X - 4, y + 4, r.label, { size: FS.body, color: UI.text });
@@ -286,7 +276,7 @@ export class PauseOverlay extends Phaser.Scene {
     draw();
     const hit = this.add.zone(x, y, w, Math.max(24, h)).setOrigin(0).setInteractive();
     hit.on('pointerdown', () => {
-      if (performance.now() - this.shownAt < 300) return;
+      if (!this.menuReady()) return;
       r.set(!r.get());
       audio.sfx('button');
       draw();

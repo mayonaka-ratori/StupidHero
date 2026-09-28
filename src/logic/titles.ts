@@ -109,10 +109,6 @@ const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.esca
 /** ラッシュで、市民を全員守り、悪党を全員倒したか(ラッシュをしていなければ false) */
 const perfect = (r: RushTally | null): boolean =>
   r !== null && r.aliens + r.civs > 0 && r.civsSaved === r.civs && r.aliensDefeated === r.aliens;
-/** タイムセールラッシュで、市民を全員守り、宇宙人を全員倒したか */
-const perfectRush = (s: StageStats): boolean => perfect(s.rush);
-/** エレベーターラッシュで、市民を全員守り、ヴィランを全員倒したか */
-const perfectLift = (s: StageStats): boolean => perfect(s.lift);
 
 /** 称号の一覧(ステージで調べる順。フリープレイだけの3つは最後) */
 export const TITLES: readonly TitleDef[] = [
@@ -203,7 +199,7 @@ export const TITLES: readonly TitleDef[] = [
     hint: 'タイムセールで1人も間違えない',
     stages: ['mall'],
     modes: ['stage'],
-    test: perfectRush
+    test: (s) => perfect(s.rush)
   },
   {
     id: 'liftGuardian', name: 'エレベーターの守り神', pose: 'win_pose',
@@ -211,7 +207,7 @@ export const TITLES: readonly TitleDef[] = [
     hint: 'エレベーターで1人も間違えない',
     stages: ['tower'],
     modes: ['stage'],
-    test: perfectLift
+    test: (s) => perfect(s.lift)
   },
   {
     id: 'tapProdigy', name: '連打の申し子', pose: 'win_fist',
@@ -303,7 +299,6 @@ export const TITLES: readonly TitleDef[] = [
 export const TITLE_COUNT = TITLES.length;
 
 const inMode = (t: TitleDef, mode: 'stage' | 'free'): boolean => !t.modes || t.modes.includes(mode);
-
 
 /** そのステージで取れる称号 */
 export function titlesFor(stageId: StageId): TitleDef[] {

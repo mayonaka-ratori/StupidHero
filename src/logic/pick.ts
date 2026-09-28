@@ -1,4 +1,4 @@
-// ステージを作るときの選び方の小さな道具(stage.ts と garage.ts で使う。index.ts からは書き出さない)。
+// ステージを作るときの選び方の部品(stage.ts、garage.ts、mall.ts、tower.ts、people.ts、freeplay.ts で使う。index.ts からは書き出さない)。
 
 import type { Rng } from './rng';
 
@@ -8,6 +8,23 @@ export function pickFresh<T>(rng: Rng, list: readonly T[], used: Set<string>, ke
   const chosen = rng.pick(fresh.length > 0 ? fresh : list);
   used.add(key(chosen));
   return chosen;
+}
+
+/** 見た目ごとの使った回数の表を、どれも0で作る */
+export function zeroCounts<L extends string>(looks: readonly L[]): Record<L, number> {
+  const count = {} as Record<L, number>;
+  for (const l of looks) count[l] = 0;
+  return count;
+}
+
+/**
+ * ボスの化けた姿と同じ見た目の市民を入れる(乱数は使わない)。まだいなければ、空きがあれば足し、
+ * 空きがなければ最後の1人を入れかえる
+ */
+export function includeLook<L extends string>(civLooks: L[], look: L, civSlots: number): void {
+  if (civLooks.includes(look)) return;
+  if (civLooks.length < civSlots) civLooks.push(look);
+  else if (civLooks.length > 0) civLooks[civLooks.length - 1] = look;
 }
 
 /** 使った回数が少ない順に並べる(同じ回数なら順番はランダム) */

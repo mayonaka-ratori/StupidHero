@@ -1,6 +1,6 @@
 // 答え合わせの画面で出す「決め手」の文。その人がワルか市民かを見分けられた手がかりを、短く1行で言う。
-// 手がかりの中身は、絵(src/art/world/people.ts、world2/people.ts)の小物と、content.ts / garageContent.ts /
-// mallContent.ts のプロフィールと一言に合わせてある(絵や文を変えたら、ここも合わせる)。
+// 手がかりの中身は、絵(src/art/world/people.ts、world2/people.ts、world3/people.ts、world4/people.ts)の小物と、
+// content.ts、garageContent.ts、mallContent.ts、towerContent.ts のプロフィールと一言に合わせてある(絵や文を変えたら、ここも合わせる)。
 // ショッピングモールの宇宙人は動きのくずれ、市民はぎこちない動きの理由、親玉は化けた姿のおかしい所を言う。
 // 高層ビルのヴィランはもれの出方、紛らわしい市民はもれに見えたものの理由、ほかの市民は見た目ごとの文、
 // 親玉は化けた姿のおかしい所を言う(docs/STAGE4.md「答え合わせ」)。
@@ -148,12 +148,17 @@ export function reasonFor(p: Person, wave?: Pick<Wave, 'groups'>): string {
   return garageReason(p, wave);
 }
 
+/** ラッシュのまとめの1行。label は 'セール' か 'エレベーター' */
+function summary(label: string, t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {
+  return `${label}：撃破${t.aliensDefeated}/${t.aliens}・守った${t.civsSaved}/${t.civs}`;
+}
+
 /**
  * タイムセールラッシュのまとめの1行。例:'セール：撃破3/4・守った2/4'
  * (撃破は倒した宇宙人/宇宙人の数、守ったは待てで守った市民/市民の数)
  */
 export function rushSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {
-  return `セール：撃破${t.aliensDefeated}/${t.aliens}・守った${t.civsSaved}/${t.civs}`;
+  return summary('セール', t);
 }
 
 /**
@@ -163,7 +168,7 @@ export function rushSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'ci
  * 答え合わせには出さないので、14文字の決まりの外(着いたときの帯と結果画面の数字の窓に出す)
  */
 export function liftSummary(t: Pick<RushTally, 'aliens' | 'aliensDefeated' | 'civs' | 'civsSaved'>): string {
-  return `エレベーター：撃破${t.aliensDefeated}/${t.aliens}・守った${t.civsSaved}/${t.civs}`;
+  return summary('エレベーター', t);
 }
 
 /** 色の書き方を取りのぞく(字の数を数えるとき用) */

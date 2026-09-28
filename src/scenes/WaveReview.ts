@@ -1,4 +1,4 @@
-// 答え合わせ。波1と波2は Street のあと、波3は Boss のあとに出す。
+// 答え合わせ。ふつうの波は Street のあと、最後の波(高層ビルは波4、ほかは波3)は Boss のあとに出す。
 // その波の人を1人1行で並べ、顔、名前、自分の仕分けと正体、見分ける決め手、○か×を出す。まちがえた行は赤黒くする。
 // 時間切れでヒーローが決めた人は「あなた」の代わりに「ヒーローの勘」と出す。ボスは化けた姿と偽名で、正体はボス。
 // 入口:Street(nextAfterStreet)と Boss から。出口:次へ → nextAfterReview(run)(次の波の Sort か Result。高層ビルは階の数字の Floor)。
@@ -14,7 +14,7 @@ import {
   reasonFor, rushAfter, rushSummary, saleRushOf, sortIsCorrect, stripReasonMarkup, tallySorts, type RushTally, type SortChoice
 } from '../logic';
 import { Button, DEPTH, FS, PixelText, goto, preloadFont } from '../ui';
-import { addMute, unlockOnTap } from './sort/common';
+import { addMute, goldFractions, setAllVisible, unlockOnTap } from './sort/common';
 import { currentWave, getRun, nextAfterReview, recordWaveSorts, type GameRun } from '../run';
 import { Timeline } from './result/timeline';
 import { drawMark, personThumb } from './review/draw';
@@ -145,7 +145,7 @@ export class WaveReviewScene extends Phaser.Scene {
       const mg = this.add.graphics().setDepth(DEPTH.ui + 1).setVisible(false);
       drawMark(mg, MX, ly + 13, ok, 9);
       marks.push({ g: mg, ok });
-      for (const o of parts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
+      setAllVisible(parts, false);
       rowParts.push(parts);
     });
 
@@ -157,17 +157,17 @@ export class WaveReviewScene extends Phaser.Scene {
       g.fillStyle(UI.black, 1).fillRect(3, y - 1, W - 6, RUSH_ROW_H + 2);
       g.fillStyle(ROW_EDGE, 1).fillRect(4, y, W - 8, RUSH_ROW_H);
       g.fillStyle(RUSH_BG, 1).fillRect(5, y + 1, W - 10, RUSH_ROW_H - 2);
-      const txt = new PixelText(this, Math.floor(W / 2), y + 2, rushText.replace(/(\d+\/\d+)/g, '{gold}$1{/}'), { size: FS.body, color: UI.text })
+      const txt = new PixelText(this, Math.floor(W / 2), y + 2, goldFractions(rushText), { size: FS.body, color: UI.text })
         .setOrigin(0.5, 0);
       rushParts = [g, txt];
-      for (const o of rushParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
+      setAllVisible(rushParts, false);
     }
 
     // ─── 流れ:1行ずつ出して、○×を押す ───
     const quiet = { v: false };
     this.tl.wait(250);
     rowParts.forEach((parts, i) => {
-      this.tl.step(0, { end: () => { for (const o of parts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(true); if (!quiet.v) audio.sfx('blip', { volume: 0.5 }); } })
+      this.tl.step(0, { end: () => { setAllVisible(parts, true); if (!quiet.v) audio.sfx('blip', { volume: 0.5 }); } })
         .wait(120)
         .step(0, {
           end: () => {
@@ -178,7 +178,7 @@ export class WaveReviewScene extends Phaser.Scene {
         .wait(160);
     });
     if (rushParts.length) {
-      this.tl.step(0, { end: () => { for (const o of rushParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(true); if (!quiet.v) audio.sfx('blip', { volume: 0.5 }); } })
+      this.tl.step(0, { end: () => { setAllVisible(rushParts, true); if (!quiet.v) audio.sfx('blip', { volume: 0.5 }); } })
         .wait(200);
     }
     this.tl.step(0, { end: () => { count.setVisible(true); if (!quiet.v) audio.sfx('stamp'); } });
@@ -199,12 +199,12 @@ export class WaveReviewScene extends Phaser.Scene {
     void preloadFont([...REVIEW_TEXTS, rushText ?? '', ...people.map((p) => p.profile.name + stripReasonMarkup(reasonFor(p, wave)))], [12, 16]);
   }
 
-  /** 次へ:波1と波2は次の波の仕分け、波3は結果画面 */
+  /** 次へ:最後の波でなければ次の波(仕分け、フロアの札、エレベーター)、最後の波(高層ビルは波4、ほかは波3)のあとは結果画面かエンディング */
   private finish(): void {
     if (this.leaving) return;
     const run = getRun(this);
     const to = nextAfterReview(run);
-    if (goto(this, to, undefined, { kind: 'wipe' })) this.leaving = true;
+    if (goto(this, to)) this.leaving = true;
     else if (to !== SCENES.result && to !== SCENES.ending) run.waveIndex -= 1;   // 受け付けられなかったら、進めた波を戻す(Sort、Floor、Elevator。最後の波のあとは進めていない)
   }
 }

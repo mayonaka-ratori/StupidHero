@@ -18,7 +18,7 @@
 //   const pad = await touchPad(page);                    // pad.tap(108, 300)、pad.touch('touchStart', [...])、pad.css(x, y)
 //   const { check, done } = checker();  check('名前', ok, '補足');  await browser.close(); done();
 
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 // ブラウザの置き場所。環境変数 CHROME で変えられる。置き場所に何もなければ playwright-core が自分で探す
@@ -43,6 +43,15 @@ export function shotsDir(arg) {
 
 /** 論理画面の横幅(src/config.ts の GAME_W) */
 export const GAME_W = 216;
+
+/** base に検索パラメータ params を付けたURL文字列にする(値が undefined のものは付けない)。
+ *  keepQuery が false なら、元にあった検索は捨てる。true なら残して、同じ名前だけ上書きする */
+export function gameUrl(base, params, { keepQuery = false } = {}) {
+  const u = new URL(base);
+  if (!keepQuery) u.search = '';
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) u.searchParams.set(k, String(v));
+  return u.toString();
+}
 
 /** 論理ドットの高さ h になる、横390の端末のビューポート(縦は h に合わせて計算する) */
 export const viewportFor = (h) => ({ width: 390, height: Math.round((390 * h) / GAME_W) });
@@ -90,7 +99,7 @@ export const waitForGame = (page, timeout = 15000) =>
   page.waitForFunction(() => (window.__game ?? window.uiDev?.game)?.isBooted, null, { timeout });
 
 /** ステージを1つ倒した記録(src/logic/records.ts の形)。stats を渡すと数字(mostDefeated など)を上書きできる(省くと未設定 null) */
-export function clearedRecord(stats = {}) {
+function clearedRecord(stats = {}) {
   return { plays: 1, clears: 1, mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, titles: [], ...stats };
 }
 
@@ -119,6 +128,35 @@ export async function touchPad(page) {
     await page.waitForTimeout(40);
   };
   return { cdp, touch, css, tap };
+}
+
+/** 一時停止のメニューの「つづける」を押す(pauseDev がまだなければ何もしない) */
+export async function resumeGame(page, pad) {
+  const b = await page.evaluate(() => { const r = window.pauseDev?.resume; return r && { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });
+  if (b) await pad.tap(b.x, b.y);
+}
+
+/** document.hidden と document.visibilityState を hidden の通りにして、visibilitychange を発火する */
+export function setHidden(page, hidden) {
+  return page.evaluate((h) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, hidden);
+}
+
+/** 動いているシーンのキーの一覧。filterUi: true なら Ui で始まるキーを外す(既定は外さない) */
+export function activeScenes(page, { filterUi = false } = {}) {
+  return page.evaluate((f) => {
+    const g = window.__game ?? window.uiDev?.game;
+    const keys = g ? g.scene.getScenes(true).map((s) => s.scene.key) : [];
+    return f ? keys.filter((k) => !k.startsWith('Ui')) : keys;
+  }, filterUi);
+}
+
+/** data:image/png;base64,... の文字をPNGファイルに書き出す */
+export function saveDataUrl(path, dataUrl) {
+  writeFileSync(path, Buffer.from(dataUrl.split(',')[1], 'base64'));
 }
 
 /** 合否を数える。done() で結果を出し、NG があれば exit code 1 で終わる */

@@ -1,6 +1,6 @@
 // 担当:ステージ2(地下駐車場)の人、女ボス、物、背景。
 // 人の仕組みや色はステージ1(src/art/world/)のものをそのまま使う。
-import { type ArtContext, type PixelGrid, addGridImages, addGridSheets } from '../lib';
+import type { PixelGrid } from '../lib';
 import { drawFar, drawGround, drawWall } from './backgrounds';
 import { buildBoss2 } from './boss2';
 import { buildPeople2 } from './people';
@@ -14,8 +14,3 @@ export function buildWorld2Sheets(skip: Set<string> = new Set()): Record<string,
 }
 
 export const WORLD2_IMAGES: Record<string, () => PixelGrid> = { bg_garage_far: drawFar, bg_garage_wall: drawWall, bg_garage_ground: drawGround };
-
-export function generateWorld2Set(ctx: ArtContext): void {
-  addGridSheets(ctx, buildWorld2Sheets(ctx.skip));
-  addGridImages(ctx, WORLD2_IMAGES);
-}

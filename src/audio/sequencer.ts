@@ -19,7 +19,7 @@ interface Section {
   steps: number;
   at: Ev[][];
 }
-export interface CompiledSong {
+interface CompiledSong {
   bpm: number;
   intro: Section | null;
   loop: Section;

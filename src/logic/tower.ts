@@ -17,7 +17,7 @@
 //   ラッシュ:stage.rush.riders を順に。1人ぶんの時間は liftTiming(slow)
 
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed, rushLineup } from './pick';
+import { leastUsed, rushLineup, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { DECOY_LOOKS, LEAK, LIFT } from './rules';
 import { BOSS4_DISGUISES, STAGES, TOWER_LOOKS, sheetKeyFor } from './stages';
@@ -34,9 +34,6 @@ export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
 /** 最上階(波4)にかならず入れる見た目 */
 const TOP_FLOOR_LOOKS: readonly TowerLook[] = ['lady', 'magician'];
 
-/** 親玉の化けた姿。定義は stages.ts にあり、ここからも読めるようにしておく */
-export { BOSS4_DISGUISES } from './stages';
-
 /** 紛らわしい市民の種類 */
 const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'thread', 'balloon'];
 
@@ -44,7 +41,7 @@ const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'thread', 'balloon'];
 
 /** ヴィラン1人のもれを決める。practice なら練習用(2か所とも) */
 export function rollLeak(rng: Rng, practice = false): Leak {
-  if (practice && LEAK.practiceBoth) return { light: true, item: true };
+  if (practice) return { light: true, item: true };
   if (rng.chance(LEAK.bothChance)) return { light: true, item: true };
   return rng.chance(LEAK.lightOnlyChance) ? { light: true, item: false } : { light: false, item: true };
 }
@@ -84,13 +81,10 @@ function pickDecoy(rng: Rng, civLooks: readonly TowerLook[]): { decoy: TowerDeco
 
 // ─── 4つの波 ──────────────────────────────────────
 
-const zeroCount = (): Record<TowerLook, number> =>
-  ({ florist: 0, courier: 0, newbie: 0, janitor: 0, chef: 0, waiter: 0, lady: 0, magician: 0 });
-
 export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
   const def = STAGES.tower;
-  const badCount = zeroCount();
-  const civCount = zeroCount();
+  const badCount = zeroCounts(TOWER_LOOKS);
+  const civCount = zeroCounts(TOWER_LOOKS);
   const bossDisguise = rng.pick(BOSS4_DISGUISES);
 
   return def.waves.map((plan, wi) => {
@@ -131,7 +125,7 @@ export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
       if (chosen) free[chosen.index].decoy = chosen.decoy;
     }
     drafts.push(...civDrafts);
-    if (plan.boss) drafts.push(makePerson(rng, used, 'tower', plan.no, bossDisguise, 'boss', bossDisguise));
+    if (plan.boss) drafts.push(makePerson(rng, used, 'tower', plan.no, bossDisguise, 'boss'));
 
     const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: villainTotal, hasBoss: plan.boss, groups: [] };

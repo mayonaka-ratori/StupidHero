@@ -12,7 +12,7 @@ import { UI } from '../config';
 import { PixelText } from './text';
 import { DEPTH, FS, UIX, darker, lighter } from './theme';
 
-export interface BarOptions {
+interface BarOptions {
   color?: number;
   /** 危ないときの色 */
   dangerColor?: number;
@@ -108,7 +108,7 @@ class Bar extends Phaser.GameObjects.Container {
 /** 時間のバー(黄色。危ないときは赤く点滅) */
 export class TimeBar extends Bar {
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, h = 5, opt: BarOptions = {}) {
-    super(scene, x, y, w, h, { color: UIX.time, dangerColor: UI.bad, ...opt });
+    super(scene, x, y, w, h, opt);
   }
 }
 

@@ -8,7 +8,7 @@
 //   heroChoice(rule, person)                               // 'bad' なら殴りかかる、'civ' なら素通り
 //   freeRoleOf(fw, person)                                 // 'stop' 待てのチャンス / 'go' 行けのチャンス / 'heroBad' 'heroCiv' ヒーローが正しい
 //   const t = freeTiming(fw.no, slow);                     // 人と人の間、ため、マークのゆっくり、逃げるまでの秒数など
-//   const dry = new DryPress();                            // 空押し。押すたびに dry.press(nowMs, マークがあるか)
+//   const dry = new DryPress();                            // 空押し。押すたびに dry.tap(nowMs, マークがあるか, 前ぶれ)
 //                                                          // マークが消えたら dry.markGone(nowMs)(直後の押しは空押しにしない)
 //                                                          // 行けは dry.tap(nowMs, マーク, 前ぶれ) で前ぶれの間の押しを覚え、毎コマ dry.settle(マーク, 前ぶれ)
 //   clearTimeSec(rawSec, escaped, civHurt, badSparedByStop) // クリアまでの時間(逃がしたワル、市民のけが、ワルへの待ての分を足す)
@@ -236,7 +236,6 @@ export type PressResult = 'hit' | 'dry' | 'locked' | 'late' | 'armed';
 export class DryPress {
   private lockUntil = Number.NEGATIVE_INFINITY;
   private goneAt = Number.NEGATIVE_INFINITY;
-  private dry = 0;
   private armedPress = false;
 
   constructor(private readonly lockMs = FREE.dryPressLockSec * 1000, private readonly graceMs = FREE.lateGraceSec * 1000) {}
@@ -247,7 +246,7 @@ export class DryPress {
   }
 
   /** マークが消えた直後の、遅れた押しか(マークがないときだけ) */
-  late(nowMs: number, hasMark = false): boolean {
+  private late(nowMs: number, hasMark: boolean): boolean {
     return !hasMark && nowMs - this.goneAt <= this.graceMs;
   }
 
@@ -266,17 +265,11 @@ export class DryPress {
       return 'armed';
     }
     // 前ぶれの間の押しは、効かない間でも空押しには数えない(効かない時間は数え直す)
-    if (!hasMark && !warning) this.dry++;
     if (locked || !hasMark) {
       this.lockUntil = nowMs + this.lockMs;
       return !hasMark && !warning ? 'dry' : 'locked';
     }
     return 'hit';
-  }
-
-  /** tap の短い形(効いたら true。前ぶれは考えない) */
-  press(nowMs: number, hasMark = true): boolean {
-    return this.tap(nowMs, hasMark) === 'hit';
   }
 
   /** 前ぶれの間に押して、覚えている行けがあるか */
@@ -303,22 +296,6 @@ export class DryPress {
   /** 今、効かない間か */
   locked(nowMs: number): boolean {
     return nowMs < this.lockUntil;
-  }
-
-  /** 効くようになるまでの残り(ミリ秒。効くなら0) */
-  remainingMs(nowMs: number): number {
-    return Math.max(0, this.lockUntil - nowMs);
-  }
-
-  /** 空押しの回数(マークがないときに押した回数) */
-  get dryCount(): number {
-    return this.dry;
-  }
-
-  /** 効かない間を解き、覚えている押しも消す(波が変わったとき) */
-  reset(): void {
-    this.lockUntil = Number.NEGATIVE_INFINITY;
-    this.armedPress = false;
   }
 }
 

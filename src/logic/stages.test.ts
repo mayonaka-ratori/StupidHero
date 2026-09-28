@@ -59,8 +59,6 @@ describe('ステージの定義', () => {
     expect(BIG_PROPS).toContain('escalator');
     expect(BIG_PROPS).not.toContain('ufo');
     for (const k of ATTACK_KINDS) {
-      expect(ATTACKS[k].propBreakChance.ufo).toBe(0);
-      expect(ATTACKS[k].propBreakChance.mothership).toBe(0);
       for (const p of STAGES.mall.props) expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBeGreaterThan(0);
     }
   });
@@ -88,10 +86,11 @@ describe('ステージの定義', () => {
     expect(sheetKeyFor('suit', 'boss')).toBe('boss_disguise_suit');
   });
 
-  it('ワゴンと高級車はふつうの攻撃では壊れない', () => {
+  it('UFO、母艦、ワゴン、高級車、ソファ、シャンデリアはふつうの攻撃では壊れない', () => {
     for (const k of ATTACK_KINDS) {
-      expect(ATTACKS[k].propBreakChance.van).toBe(0);
-      expect(ATTACKS[k].propBreakChance.bosscar).toBe(0);
+      for (const p of ['ufo', 'mothership', 'van', 'bosscar', 'sofa', 'chandelier'] as const) {
+        expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBe(0);
+      }
     }
   });
 });
@@ -130,17 +129,13 @@ describe('波ごとの舞台とラッシュ', () => {
 describe('ステージ4(高層ビル)の定義', () => {
   const d = STAGES.tower;
 
-  it('番号、名前、仕組み、ラッシュ、開く順。ステージを選ぶ画面には入れ、フリープレイには入れない', () => {
-    expect([d.no, d.name, d.shortName]).toEqual([4, '高層ビル', 'ビル']);
-    expect(d.mechanic).toBe('psychic');
-    expect(d.rush).toEqual({ kind: 'elevator', afterWave: 3 });
+  // 番号、名前、仕組み、ラッシュの種類、ステージを選ぶ画面に入ることは「ステージの定義」で確かめる
+  it('ラッシュの波、開く順、ボスと絵と物。フリープレイには入れない', () => {
     expect(rushAfter(d, 3, 'elevator')).toBe(true);
     expect(rushAfter(d, 2)).toBe(false);
     expect(d.unlockAfter).toBe('mall');
     expect(d.lockedText).toBe('モールをクリアすると遊べる');
-    expect(STAGE_IDS).toContain('tower');
     expect(FREE_STAGE_IDS).not.toContain('tower');
-    expect(STAGE_IDS).toEqual(['alley', 'garage', 'mall', 'tower']);
     expect(isStageId('tower')).toBe(true);
     expect(d.waves).toBe(TOWER_WAVES);
     expect(d.bossSheet).toBe('boss4');
@@ -177,8 +172,6 @@ describe('ステージ4(高層ビル)の定義', () => {
     expect(BIG_PROPS).toContain('piano');
     expect(BIG_PROPS).not.toContain('sofa');
     for (const k of ATTACK_KINDS) {
-      expect(ATTACKS[k].propBreakChance.sofa).toBe(0);
-      expect(ATTACKS[k].propBreakChance.chandelier).toBe(0);
       if (k !== 'special') expect(ATTACKS[k].propBreakChance.piano).toBeLessThanOrEqual(0.1);
       for (const p of ['plant', 'flowers', 'copier', 'tank', 'wine', 'champagne'] as const) {
         expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBeGreaterThan(ATTACKS[k].propBreakChance.piano);

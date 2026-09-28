@@ -1,4 +1,4 @@
-// 夜の高層ビルの背景。見本は mocks/stage4_src/scenes.ts(見本は1枚の絵、ここでは奥、壁、床に分ける)。
+// 夜の高層ビルの背景。見本は mocks/stage4_src/scenes.ts(見本は1枚の絵、ここでは奥、壁、床に分ける。見本は消したが git の 5180bdd にある)。
 //   奥の絵は階ごとに4枚(bg_tower1_far〜bg_tower4_far)。窓の外の街は、上の階ほど小さく遠くなる。
 //   壁と床は「ふつうの階」(bg_tower_wall、bg_tower_ground)と「パーティ会場」(bg_party_wall、bg_party_ground)の2組。
 //   ふつうの階の壁は天井と柱だけで、柱のあいだは透明(お店やオフィスの中は奥の絵で見せる)。

@@ -10,16 +10,13 @@
 
 import { LINK_HINTS, LINK_PROFILES, linkText, type LinkTemplate } from './garageContent';
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed, pickFresh } from './pick';
+import { includeLook, leastUsed, pickFresh, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, BOSS2_COLOR_ID, GANG, GANG_COLOR_IDS } from './rules';
 import { BOSS2_DISGUISES, GANG_LOOKS, STAGES } from './stages';
 import type {
   Accessory, AccessoryColorId, GangGroup, GangLook, Person, Wave
 } from './types';
-
-/** 地下駐車場の見た目。定義は stages.ts にあり、ここからも読めるようにしておく */
-export { GANG_LOOKS } from './stages';
 
 /** 小物を作る(色と、見た目と正体で決まる小物の名前) */
 export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
@@ -45,8 +42,8 @@ function groupSizes(rng: Rng, count: number, pairOnly: boolean): number[] {
 
 export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
   const def = STAGES.garage;
-  const badCount: Record<GangLook, number> = { guard: 0, mechanic: 0, clubber: 0, officelady: 0 };
-  const civCount: Record<GangLook, number> = { guard: 0, mechanic: 0, clubber: 0, officelady: 0 };
+  const badCount = zeroCounts(GANG_LOOKS);
+  const civCount = zeroCounts(GANG_LOOKS);
   // 組の色はこの順に使う(ステージの中で組ごとに違う色。組は多くても5つで、色は6つ)
   const colorOrder = rng.shuffle(GANG_COLOR_IDS);
   let colorNext = 0;
@@ -73,12 +70,8 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
     // 市民の見た目:ギャングと同じ見た目 → (波3)女ボスの化けた姿と同じ見た目 → 残りは偏らないように
     const civLooks: GangLook[] = [];
     for (const l of rng.shuffle(gangLooks)) if (civLooks.length < civSlots && !civLooks.includes(l)) civLooks.push(l);
-    if (plan.boss && civLooks.length < civSlots && !civLooks.includes(bossDisguise)) {
-      // 女ボスと同じ見た目の市民がいないなら、最後の1人を入れかえる
-      civLooks.push(bossDisguise);
-    } else if (plan.boss && !civLooks.includes(bossDisguise) && civLooks.length > 0) {
-      civLooks[civLooks.length - 1] = bossDisguise;
-    }
+    // 女ボスと同じ見た目の市民がいないなら、足すか最後の1人を入れかえる
+    if (plan.boss) includeLook(civLooks, bossDisguise, civSlots);
     while (civLooks.length < civSlots) {
       const fresh = leastUsed(rng, GANG_LOOKS, civCount).filter((l) => !civLooks.includes(l));
       civLooks.push(fresh[0] ?? rng.pick(GANG_LOOKS));
@@ -120,7 +113,7 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
 
     // 女ボス:化けた姿の市民の小物を、金色でつけている
     if (plan.boss) {
-      const p = makePerson(rng, used, 'garage', plan.no, bossDisguise, 'boss', bossDisguise);
+      const p = makePerson(rng, used, 'garage', plan.no, bossDisguise, 'boss');
       p.accessory = accessoryFor(BOSS2_COLOR_ID, bossDisguise, false);
       drafts.push(p);
     }

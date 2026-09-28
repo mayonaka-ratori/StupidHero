@@ -15,7 +15,7 @@
 //                                                // 3つ目は省略できる。渡すと、その人や小物に合った文を半分くらいまぜる
 // 文字の確かめとフォントの読みこみ用に、全部の文を allFreeTexts() で返す(content.ts の allTexts() に入れてある)。
 
-import { FREE_ITEMS, FREE_ITEM_NAME, FREE_NAME, ruleSignText } from './freeNames';
+import { FREE_ITEMS, FREE_ITEM_NAME, FREE_NAME, FREE_RULES, ruleSignText } from './freeNames';
 import type { Rng } from './rng';
 import { hero, op } from './speech';
 import type { FreeItem, FreeRule, FreeStageId, FreeVillainLook, Look, OperatorFace, Speech, TowerLook } from './types';
@@ -27,9 +27,10 @@ type FreeLook = Exclude<Look, TowerLook> | FreeVillainLook;
 /** 文の中の {item}、{from}、{to} を小物の名前に置きかえる */
 function fillItems(text: string, names: { item?: FreeItem; from?: FreeItem; to?: FreeItem }): string {
   let out = text;
-  if (names.item) out = out.split('{item}').join(FREE_ITEM_NAME[names.item]);
-  if (names.from) out = out.split('{from}').join(FREE_ITEM_NAME[names.from]);
-  if (names.to) out = out.split('{to}').join(FREE_ITEM_NAME[names.to]);
+  for (const key of ['item', 'from', 'to'] as const) {
+    const item = names[key];
+    if (item) out = out.split(`{${key}}`).join(FREE_ITEM_NAME[item]);
+  }
   return out;
 }
 
@@ -509,10 +510,6 @@ export type FreeOpKey =
   | 'escaped'      // 逃がした
   | 'recovered';   // ワルに待てを押したあと、行けで倒した
 
-export const FREE_OP_KEYS: readonly FreeOpKey[] = [
-  'hitCivRule', 'passBadRule', 'redeclare', 'saved', 'hitCiv', 'idle', 'goDone', 'escaped', 'recovered'
-];
-
 /**
  * オペレーターの一言。場面ごとに3段:1回目、2回目から、何度も(ふつうは5回目から、idle は4回目から)。
  * 回数が増えるほど、あきれたり慣れたりした言い方にする
@@ -581,23 +578,18 @@ export const FREE_OP_GRANNY_RULE: readonly Speech[] = [
   op('panic', 'おばあちゃんは\nワルじゃない！')
 ];
 
+/** 小物のルールの一言3つ。1つ目だけ、小物の身につけ方(持ってる、かぶってる)で言い方が変わる */
+const itemRuleLines = (wearing: string): readonly Speech[] => [
+  op('panic', `{item}${wearing}\nだけ！`),
+  op('panic', '{item}は\n悪くないって！'),
+  op('deadpan', '{item}だけで\n決めないで！')
+];
+
 /** ルールに当てはまる市民に殴りかかる:小物のルールのとき({item} に小物の名前が入る) */
 const FREE_OP_ITEM_RULE: Readonly<Record<FreeItem, readonly Speech[]>> = {
-  balloon: [
-    op('panic', '{item}持ってる\nだけ！'),
-    op('panic', '{item}は\n悪くないって！'),
-    op('deadpan', '{item}だけで\n決めないで！')
-  ],
-  hat: [
-    op('panic', '{item}かぶってる\nだけ！'),
-    op('panic', '{item}は\n悪くないって！'),
-    op('deadpan', '{item}だけで\n決めないで！')
-  ],
-  bag: [
-    op('panic', '{item}持ってる\nだけ！'),
-    op('panic', '{item}は\n悪くないって！'),
-    op('deadpan', '{item}だけで\n決めないで！')
-  ]
+  balloon: itemRuleLines('持ってる'),
+  hat: itemRuleLines('かぶってる'),
+  bag: itemRuleLines('持ってる')
 };
 
 /** ルールに当てはまらないワルを素通り:一目で分かるワルごと */
@@ -642,22 +634,12 @@ export function freeOpContextLines(key: FreeOpKey, ctx?: FreeOpContext): Speech[
   return out;
 }
 
-/** 何回目から2段目、3段目の言い方にするか */
-const OP_TIER_FROM: Readonly<Record<FreeOpKey, readonly [number, number]>> = {
-  hitCivRule: [2, 5],
-  passBadRule: [2, 5],
-  redeclare: [2, 5],
-  saved: [2, 5],
-  hitCiv: [2, 5],
-  idle: [2, 4],
-  goDone: [2, 5],
-  escaped: [2, 5],
-  recovered: [2, 5]
-};
+/** 何回目から2段目、3段目の言い方にするか(どの場面も2回目から2段目。3段目は idle だけ4回目から、ほかは5回目から) */
+const opTierFrom = (key: FreeOpKey): readonly [number, number] => [2, key === 'idle' ? 4 : 5];
 
 /** その場面の count 回目は何段目か(0、1、2) */
 export function freeOpTier(key: FreeOpKey, count: number): 0 | 1 | 2 {
-  const [second, third] = OP_TIER_FROM[key];
+  const [second, third] = opTierFrom(key);
   if (count >= third) return 2;
   if (count >= second) return 1;
   return 0;
@@ -765,8 +747,7 @@ export function allFreeSpeechTexts(): string[] {
   add(FREE_INTRO);
   const stages = Object.keys(FREE_DECLARES) as FreeStageId[];
   for (const id of stages) {
-    const rules: FreeRule[] = [{ kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item) => ({ kind: 'item', item }) as FreeRule)];
-    for (const rule of rules) for (const d of declareList(id, rule)) out.push(d.hero.text, d.op.text);
+    for (const rule of FREE_RULES) for (const d of declareList(id, rule)) out.push(d.hero.text, d.op.text);
   }
   for (const names of itemPairs()) {
     for (const s of [...FREE_REDECLARE_HERO, ...FREE_REDECLARE_OP]) out.push(fillItems(s.text, names));
@@ -779,7 +760,7 @@ export function allFreeSpeechTexts(): string[] {
   add(FREE_STUBBORN);
   add(FREE_TOLD_YOU);
   add(FREE_DRY_PRESS);
-  for (const key of FREE_OP_KEYS) for (const tier of FREE_OP[key]) add(tier);
+  for (const key of Object.keys(FREE_OP) as FreeOpKey[]) for (const tier of FREE_OP[key]) add(tier);
   add(FREE_OP_GRANNY_RULE);
   for (const item of FREE_ITEMS) for (const s of FREE_OP_ITEM_RULE[item]) out.push(fillItems(s.text, { item }));
   for (const l of Object.values(FREE_OP_PASS_VILLAIN)) add(l);
@@ -791,7 +772,5 @@ export function allFreeSpeechTexts(): string[] {
  * フリープレイの文と、画面に出る名前(フリープレイ、ルールの札)。フォントの読みこみ用
  */
 export function allFreeTexts(): string[] {
-  const signs = [ruleSignText({ kind: 'allBad' }), ruleSignText({ kind: 'allCiv' }),
-    ...FREE_ITEMS.map((item) => ruleSignText({ kind: 'item', item }))];
-  return [...allFreeSpeechTexts(), FREE_NAME, ...signs, ...FREE_ITEMS.map((i) => FREE_ITEM_NAME[i])];
+  return [...allFreeSpeechTexts(), FREE_NAME, ...FREE_RULES.map(ruleSignText), ...FREE_ITEMS.map((i) => FREE_ITEM_NAME[i])];
 }

@@ -5,7 +5,7 @@
 // 行はふつうのワルと同じ7行。武器は顔の向き(右)の側に、波3の小物(風船、帽子)は頭の上と後ろ(左)に来るので、
 // 小物を重ねても目印は隠れない。赤紫(KEY_ACCESSORY)は使わない(塗り替えないため)。
 import { md, OUTLINE, type PixelGrid } from '../lib';
-import { HAND_R, type HairStyle, type Look, type Pose, clonePose, dark, drawPerson, moveUpper } from '../world/figure';
+import { HAIR_MOHAWK, HAND_R, type HairStyle, type Look, type Pose, clonePose, dark, drawPerson, moveUpper } from '../world/figure';
 import { BLADE, SKIN, WHITE } from '../world/palette';
 import { MOHAWK, mohawkLook } from '../world/people';
 import type { Painter, Pt, Ramp } from '../world/pix';
@@ -39,7 +39,7 @@ const keepArm = (base: Pose, p: Pose, weapon: number | null): PW => {
  * 下の7行はふつうのモヒカン(art/world/figure.ts の HAIR_MOHAWK)と同じで、横はそり上げた肌
  */
 const HAIR_MOHAWK_TALL: HairStyle = {
-  top: 6,
+  top: HAIR_MOHAWK.top + 3,
   ear: true,
   rows: [
     '...H..H..H...',
@@ -48,13 +48,7 @@ const HAIR_MOHAWK_TALL: HairStyle = {
     '..hHHHHHHhk..',
     '..hHHHHHhhk..',
     '.hHHHhhhhhk..',
-    '.hHhhhhhhhk..',
-    '.dhhhhhhhhd..',
-    '.ddssss......',
-    '.dsss........',
-    '.dss.........',
-    '.ds..........',
-    '.d...........'
+    ...HAIR_MOHAWK.rows.slice(-7)
   ]
 };
 

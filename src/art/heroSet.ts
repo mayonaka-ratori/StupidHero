@@ -1,6 +1,6 @@
 // 担当:ヒーロー、顔のカットイン、すべてのエフェクト(fx_*)。
 // 絵はすべてコードで作る。部品は src/art/hero/ の下。
-import { addGridSheets, type ArtContext, buildFxSheets, type PixelGrid } from './lib';
+import { buildFxSheets, type PixelGrid } from './lib';
 import { renderPose } from './hero/rig';
 import { HERO_ROWS } from './hero/poses';
 import { drawFaceSheet } from './hero/faces';
@@ -13,8 +13,4 @@ export function buildHeroSheets(skip: Set<string> = new Set()): Record<string, P
   if (!skip.has('face_hero')) sheets.face_hero = drawFaceSheet('hero');
   if (!skip.has('face_operator')) sheets.face_operator = drawFaceSheet('operator');
   return { ...sheets, ...buildFxSheets(FX, skip) };
-}
-
-export function generateHeroSet(ctx: ArtContext): void {
-  addGridSheets(ctx, buildHeroSheets(ctx.skip));
 }

@@ -115,7 +115,7 @@ export class Mask {
   }
 }
 
-export interface FillOpts {
+interface FillOpts {
   /** 前に塗った物との境目: ふち色の線、ramp の暗い色の線、線なし */
   sep?: 'outline' | 'dark' | 'none';
   /** 明るくする割合(左上から)。0で明るい色を使わない */
@@ -167,6 +167,32 @@ function shadeT(m: Mask, x: number, y: number): number {
 
 const NB4: Pt[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+/**
+ * 形 m のすぐ外の、前に塗ってあるドットを色 c で塗る(前に塗った物との境目の線)。
+ * Painter.fill と、ボスの shade と shadeBall(bossKit.ts)で使う
+ */
+export function sepEdge(g: PixelGrid, m: Mask, c: string): void {
+  const edge: Pt[] = [];
+  m.each((x, y) => {
+    for (const [dx, dy] of NB4) {
+      const nx = x + dx, ny = y + dy;
+      if (!m.has(nx, ny) && g.get(nx, ny)) edge.push([nx, ny]);
+    }
+  });
+  for (const [x, y] of edge) g.px(x, y, c);
+}
+
+/**
+ * 塗った物の上に、ふちで囲んだ小さな絵を置く。rows の文字は map で色にする('.' と map にない文字は塗らない)。
+ * 形のまわりには、前に塗った物との境目にふちの線を入れる
+ */
+export function sprite(P: Painter, x: number, y: number, rows: string[], map: Record<string, string>): void {
+  const m = P.mask();
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') m.set(x + i, y + j); });
+  P.fill(m, OUTLINE, { sep: 'outline', flat: true });
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const c = map[r[i]]; if (c) P.px(x + i, y + j, c); } });
+}
+
 /** 塗った順に重ねていく絵。 */
 export class Painter {
   readonly g: PixelGrid;
@@ -181,17 +207,7 @@ export class Painter {
   fill(m: Mask, ramp: Ramp | string, o: FillOpts = {}): this {
     const sep = o.sep ?? 'outline';
     const rp: Ramp = typeof ramp === 'string' ? [ramp, ramp, ramp] : ramp;
-    if (sep !== 'none') {
-      const c = sep === 'outline' ? OUTLINE : rp[2];
-      const edge: Pt[] = [];
-      m.each((x, y) => {
-        for (const [dx, dy] of NB4) {
-          const nx = x + dx, ny = y + dy;
-          if (!m.has(nx, ny) && this.g.get(nx, ny)) edge.push([nx, ny]);
-        }
-      });
-      for (const [x, y] of edge) this.g.px(x, y, c);
-    }
+    if (sep !== 'none') sepEdge(this.g, m, sep === 'outline' ? OUTLINE : rp[2]);
     const hi = o.hi ?? 0.3, lo = o.lo ?? 0.66;
     if (o.flat || typeof ramp === 'string') {
       m.each((x, y) => this.g.px(x, y, rp[1]));

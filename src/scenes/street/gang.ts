@@ -251,8 +251,7 @@ export class GangPart {
       const top = Math.min(...g.slots.map((p) => p.y)) - HEAD - 50;
       g.mark = this.s.bigMark(cx, top, 4);
       // ヒーローの吹き出しが大きな合図と札に重ならないように消す
-      this.s.heroBubble?.destroy();
-      this.s.heroBubble = undefined;
+      this.s.clearHeroBubble();
       this.s.hero.play('idle');
       g.count = new PixelText(this.s, Math.round(cx) + 42, Math.round(top) + 4, String(GANG.escapeSec), { size: FS.big, color: UI.gold, outline: true })
         .setOrigin(0.5, 0.5).setDepth(1200);
@@ -384,9 +383,7 @@ export class GangPart {
     props.forEach((p, i) => this.s.time.delayedCall(80 + i * 90, () => this.s.breakProp(p)));
     await waitMs(this.s, 750);
     this.s.auraOn = false;
-    h.play('okay', true);
-    audio.sfx('okay');
-    this.s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.s.okayPose();
     this.s.opSay(this.s.line('wipeOp', this.s.rng));
     await waitMs(this.s, 1000);
     h.play('idle');
@@ -448,9 +445,7 @@ export class GangPart {
     await waitMs(this.s, 750);
     this.s.auraOn = false;
     this.s.opSay(this.s.line('vanStopOp', this.s.rng));
-    h.play('okay', true);
-    audio.sfx('okay');
-    this.s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.s.okayPose();
     await waitMs(this.s, 1000);
     h.play('idle');
   }

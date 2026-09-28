@@ -78,11 +78,6 @@ export class GangCall {
     return this.members.length;
   }
 
-  /** 1人だけ(仲間が誰も来ない)か。そのときは組ではなく、ステージ1の見逃したワルと同じ流れにする */
-  get alone(): boolean {
-    return this.members.length < GANG.groupSize.min;
-  }
-
   get phase(): GangPhase {
     return this.p;
   }

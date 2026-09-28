@@ -27,7 +27,7 @@ function lattice(ix: number, iy: number, seed: number): number {
   return (h >>> 0) / 0x80000000 - 1;
 }
 
-export interface NoiseSample { v: number; dx: number; dy: number }
+interface NoiseSample { v: number; dx: number; dy: number }
 
 /**
  * なめらかにつながる乱数。格子の点の乱数を、smooth(エルミート曲線)で間をつなぐ。

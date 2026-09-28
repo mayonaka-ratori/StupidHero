@@ -8,12 +8,13 @@
 import '@fontsource/dotgothic16';
 import Phaser from 'phaser';
 import { UI } from '../config';
+import { px } from '../hires';
 import { computeLayout, fitCanvas, layout } from '../layout';
 import { generateArt } from '../art';
 import {
   Bubble, Button, CutIn, CUT_H, EdgeAlarm, FS, HpBar, IconButton, MuteButton, PauseControl, PixelText, SwipeInput, Tag,
-  TimeBar, WindowFrame, addPanel, ditherTexture, banner, blink, enableTapSparks, flash, goto, impact, panelRect, popText,
-  preloadFont, shake, type TailDir
+  TimeBar, WindowFrame, addPanel, ditherTexture, banner, blink, flash, goto, impact, panelRect, popText,
+  preloadFont, shake, tapSpark, type TailDir
 } from '../ui';
 
 const params = new URLSearchParams(location.search);
@@ -24,6 +25,11 @@ interface DevHandle { scene?: Phaser.Scene; log: string[]; [k: string]: unknown 
 const dev: DevHandle = { log: [] };
 (window as unknown as { uiDev: DevHandle }).uiDev = dev;
 const log = (s: string): void => { dev.log.push(s); console.log('[ui]', s); };
+
+/** タップのたびに、その場所に小さな火花を出す */
+function enableTapSparks(scene: Phaser.Scene): void {
+  scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => { const q = px(p); tapSpark(scene, q.x, q.y); });
+}
 
 let muted = false;
 

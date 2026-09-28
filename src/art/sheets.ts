@@ -3,7 +3,7 @@
 // アニメーションのキーは `${シートのキー}.${動きの名前}`(例: 'hero.punch')。
 // コマ番号は行ごとに左から0始まり。シート全体でのコマ番号は row * cols + i。
 
-export interface AnimDef {
+interface AnimDef {
   /** 動きの名前(英数字) */
   name: string;
   /** コマ数 */

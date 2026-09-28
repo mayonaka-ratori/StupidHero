@@ -1,11 +1,11 @@
-// 3つのステージのボスの絵で共通に使う道具(96×96のコマ)。
+// ステージ1〜4のボスの絵で共通に使う道具(96×96のコマ)。
 // ボスの正体は、人の仕組み(figure.ts)を使わず、ここの道具で太い体を組み立てる。
 // 光は左上から。形ごとに「明るい、ふつう、影、いちばん暗い」の段で塗り、1ドットのふちで囲む。
 
 import { OUTLINE, PixelGrid } from '../lib';
 import { type Look, type Pose, drawPerson, stretchPose } from './figure';
 import { idleFrames, walkFrames } from './poses';
-import { Mask, Painter, type Pt, bbox, rotateGrid, shifted } from './pix';
+import { Mask, Painter, type Pt, bbox, rotateGrid, sepEdge, shifted } from './pix';
 
 /** 足の裏(y=91)にそろえる。centerX で体の真ん中(x=48)にもそろえる */
 export function alignFeet(g: PixelGrid, centerX = false): PixelGrid {
@@ -151,6 +151,27 @@ export function tallBossPoses() {
   return { r0, r1, r2, r3, i0, a1, a3, h0, h1, d0, d1, d2, d3 };
 }
 
+/**
+ * ラッシュを受ける2コマ(hit)と、やられる4コマ(defeat:よろける、ひざをつく、倒れかける、あおむけ)を組み立てる。
+ * draw でボスの絵を描く。倒れかけるコマは回して斜めに、あおむけのコマは90度回して足の裏にそろえる。
+ * centerLast=true なら、あおむけのコマを体の真ん中(x=48)にもそろえる
+ */
+export function hitDefeatRows(
+  draw: (p: BPose, face: 'hurt' | 'ko') => PixelGrid,
+  hit: readonly [BPose, BPose], defeat: readonly [BPose, BPose, BPose, BPose], centerLast = true
+): [PixelGrid[], PixelGrid[]] {
+  const [h0, h1] = hit, [d0, d1, d2, d3] = defeat;
+  return [
+    [alignFeet(draw(h0, 'hurt')), alignFeet(draw(h1, 'hurt'))],
+    [
+      alignFeet(draw(d0, 'hurt')),
+      alignFeet(draw(d1, 'hurt')),
+      rotateGrid(draw(d2, 'ko'), -1.0, 48, 52, 48, 58),
+      alignFeet(rotateGrid(draw(d3, 'ko'), -Math.PI / 2, 48, 48, 48, 48), centerLast)
+    ]
+  ];
+}
+
 // ---------- 塗り ----------
 
 /** 明るい、ふつう、影、いちばん暗い(省くと影で止める) */
@@ -165,7 +186,7 @@ export const farRamp = (r: Ramp4): Ramp4 => [r[1], r[2], r[3] ?? r[2], r[3] ?? r
  */
 export const limbRamp = (r: readonly [string, string, string], far: boolean): Ramp4 => (far ? [r[1], r[2], r[2]] : [r[0], r[1], r[2]]);
 
-export interface ShadeOpts {
+interface ShadeOpts {
   /** 前に塗った物との境目: ふち色の線、ramp の暗い色の線、線なし */
   sep?: 'outline' | 'dark' | 'none';
   /** 光の側からの割合がこれより小さいと明るい色 */
@@ -204,14 +225,7 @@ function lightT(m: Mask, x: number, y: number, light: Pt = [-0.55, -0.84]): numb
 export function shade(P: Painter, m: Mask, ramp: Ramp4 | string, o: ShadeOpts = {}): void {
   const rp: Ramp4 = typeof ramp === 'string' ? [ramp, ramp, ramp] : ramp;
   const sep = o.sep ?? 'outline';
-  if (sep !== 'none') {
-    const c = sep === 'outline' ? OUTLINE : (rp[3] ?? rp[2]);
-    const edge: Pt[] = [];
-    m.each((x, y) => {
-      for (const [dx, dy] of NB4) if (!m.has(x + dx, y + dy) && P.g.get(x + dx, y + dy)) edge.push([x + dx, y + dy]);
-    });
-    for (const [x, y] of edge) P.g.px(x, y, c);
-  }
+  if (sep !== 'none') sepEdge(P.g, m, sep === 'outline' ? OUTLINE : (rp[3] ?? rp[2]));
   if (typeof ramp === 'string') { m.each((x, y) => { P.g.px(x, y, ramp); }); return; }
   const hi = o.hi ?? 0.3, lo = o.lo ?? 0.62, deep = o.deep ?? 0.86;
   const tone = new Map<number, number>();
@@ -233,14 +247,7 @@ export function shadeBall(
   o: { sep?: 'outline' | 'dark' | 'none'; cut?: readonly [number, number, number] } = {}
 ): void {
   const sep = o.sep ?? 'outline';
-  if (sep !== 'none') {
-    const c = sep === 'outline' ? OUTLINE : (ramp[3] ?? ramp[2]);
-    const edge: Pt[] = [];
-    m.each((x, y) => {
-      for (const [dx, dy] of NB4) if (!m.has(x + dx, y + dy) && P.g.get(x + dx, y + dy)) edge.push([x + dx, y + dy]);
-    });
-    for (const [x, y] of edge) P.g.px(x, y, c);
-  }
+  if (sep !== 'none') sepEdge(P.g, m, sep === 'outline' ? OUTLINE : (ramp[3] ?? ramp[2]));
   const [c0, c1, c2] = o.cut ?? [0.62, 0.2, -0.25];
   const W = P.w;
   const tone = new Map<number, number>();
@@ -335,6 +342,45 @@ export function chevronMask(P: Painter, a: Pt, b: Pt, t0: number, t1: number, co
     }
   }
   return m;
+}
+
+/** ボス3とボス4の腕の太さ(2人は背かっこうが同じ) */
+const TALL_ARM: ArmDims = { up: 3.4, fore: 3.2, wrist: 2.4, fist: 2.6 };
+/** ボス3とボス4の手前と奥の肩 */
+export const tallShoulderF = (p: BPose): Pt => [p.neck[0] - 7, p.neck[1] + 5];
+export const tallShoulderB = (p: BPose): Pt => [p.neck[0] + 7, p.neck[1] + 4];
+
+/** 開いた手の指の並べ方。指 q は、手首側を q×root、指先を q×tip だけ横へずらす。len は指の長さ */
+interface Fingers { spread: readonly number[]; root: number; tip: number; len: number }
+
+/**
+ * ボス3とボス4の腕:そで(sleeve の色)と手(skin の色)。手は握りこぶし、開いた手(指は fingers)、指さしのどれか。
+ * 袖口はボスごとに描くので、手首の位置と、ひじから手への向き(ux, uy)を返す
+ */
+export function drawTallArm(
+  P: Painter, s: Pt, arm: BArm, far: boolean,
+  sleeve: readonly [string, string, string], skin: readonly [string, string, string], fingers: Fingers
+): { wrist: Pt; ux: number; uy: number } {
+  const su = limbRamp(sleeve, far);
+  const sk = limbRamp(skin, far);
+  const { upper, fore, hand, wrist } = armShapes(P, s, arm, TALL_ARM);
+  shade(P, upper.clone().union(fore).union(hand), OUTLINE, { sep: 'outline' });
+  shade(P, upper, su, { sep: 'none', hi: 0.34, lo: 0.64 });
+  shade(P, fore, su, { sep: 'dark', hi: 0.34, lo: 0.64 });
+  const kind = arm.hand ?? 'fist';
+  const dx = arm.h[0] - arm.e[0], dy = arm.h[1] - arm.e[1], L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L;
+  if (kind === 'fist') shadeBall(P, hand, sk, arm.h[0] - 1, arm.h[1] - 1, 3.4, 3.4, { sep: 'outline', cut: [0.5, -0.1, -9] });
+  else {
+    const m = P.mask().ellipse(arm.h[0] - ux, arm.h[1] - uy, 2.2, 2.2);
+    const f = fingers;
+    for (const q of kind === 'point' ? [0] : f.spread) {
+      const len = kind === 'point' ? 5 : f.len;
+      m.capsule([arm.h[0] - uy * q * f.root, arm.h[1] + ux * q * f.root], [arm.h[0] + ux * len - uy * q * f.tip, arm.h[1] + uy * len + ux * q * f.tip], 0.5);
+    }
+    shade(P, m, sk, { sep: 'outline', hi: 0.4, lo: 0.7 });
+  }
+  return { wrist, ux, uy };
 }
 
 /** 脚の形:太もも、すね */

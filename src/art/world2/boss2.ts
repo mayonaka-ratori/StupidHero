@@ -2,10 +2,10 @@
 // 白い毛皮のコートを肩にはおり、中は紫のドレス。紫のサングラス、赤い大きな髪、赤い口紅、赤いハイヒール、金の耳飾りと腕輪。
 // 体は bossKit の道具で組み立てる(人の仕組み figure.ts は使わない)。
 import { OUTLINE, PixelGrid, md } from '../lib';
-import { Mask, Painter, type Pt, rotateGrid } from '../world/pix';
+import { Mask, Painter, type Pt } from '../world/pix';
 import {
   type ArmDims, type BArm, type BLeg, type BPose, type HeadArt, type Ramp4, type ScrapStyle,
-  alignCenter, alignFeet, armShapes, drawNeckAndHead, drawScraps, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall
+  alignCenter, alignFeet, armShapes, drawNeckAndHead, drawScraps, hitDefeatRows, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall
 } from '../world/bossKit';
 
 // ---------- 色(15色) ----------
@@ -313,8 +313,6 @@ export function buildBoss2(): PixelGrid[][] {
     p.aF = { e: [35, 44], h: [33, 54], hand: 'open' }; p.aB = { e: [60, 40], h: [70, 38], hand: 'open' };
     p.lF = { k: [41, 73], a: [37, 85], toe: 0.45 };
   });
-  const hit = [alignFeet(drawBoss(h0, 'hurt')), alignFeet(drawBoss(h1, 'hurt'))];
-
   // 4 やられる:よろけて、ひざをつき、目を回して倒れる
   const d0 = pose((p) => {
     p.neck = [44, 32]; p.head = [43, 29]; p.hip = [46, 58]; p.tilt = -0.35;
@@ -334,12 +332,8 @@ export function buildBoss2(): PixelGrid[][] {
     p.aF = { e: [43, 38], h: [41, 28], hand: 'open' }; p.aB = { e: [60, 46], h: [62, 57], hand: 'open' };
     p.lF = { k: [58, 70], a: [50, 84], toe: 0.3 };
   });
-  const defeat = [
-    alignFeet(drawBoss(d0, 'hurt')),
-    alignFeet(drawBoss(d1, 'hurt')),
-    rotateGrid(drawBoss(d2, 'ko'), -1.0, 48, 52, 48, 58),
-    alignFeet(rotateGrid(drawBoss(d3, 'ko'), -Math.PI / 2, 48, 48, 48, 48))
-  ];
+  // 最後のコマは足の裏にだけそろえる(ほかのボスと違い、体の真ん中にはそろえない)
+  const [hit, defeat] = hitDefeatRows(drawBoss, [h0, h1], [d0, d1, d2, d3], false);
 
   // 5 車に飛び乗る:しゃがむ → 跳ぶ → 空中で脚をたたむ → 屋根に着地
   const j0 = pose((p) => {

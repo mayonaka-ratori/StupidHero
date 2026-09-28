@@ -1,4 +1,4 @@
-// 背景を描く道具(3つのステージで共通)。横が折り返す格子 Wrap と、決まった乱数 hash、市松模様の dith。
+// 背景とエフェクトを描く道具(ステージ1〜4で共通)。横が折り返す格子 Wrap と、決まった乱数 hash、市松模様の dith。
 
 import { OUTLINE, PixelGrid } from '../lib';
 

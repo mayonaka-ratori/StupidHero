@@ -2,10 +2,10 @@
 // はげ頭の大男。はだけた赤い革のベストから胸板と腹筋、金の鎖。両腕に水色の入れ墨、黒いズボンと長靴。
 // 体は bossKit の道具で組み立てる(人の仕組み figure.ts は使わない)。
 import { OUTLINE, PixelGrid, md } from '../lib';
-import { Mask, type Pt, Painter, rotateGrid } from './pix';
+import { Mask, type Pt, Painter } from './pix';
 import {
   type ArmDims, type BArm, type BPose, type HeadArt, type Ramp4, type ScrapStyle,
-  alignFeet, armShapes, chevronMask, drawNeckAndHead, drawScraps, farRamp, footShape, legShapes, moveUpperB, poseMaker, shade, shadeBall
+  alignFeet, armShapes, chevronMask, drawNeckAndHead, drawScraps, farRamp, footShape, hitDefeatRows, legShapes, moveUpperB, poseMaker, shade, shadeBall
 } from './bossKit';
 
 // ---------- 色(15色) ----------
@@ -321,8 +321,6 @@ export function buildBoss(): PixelGrid[][] {
     p.aF = { e: [34, 43], h: [33, 53] }; p.aB = { e: [60, 38], h: [70, 36] };
     p.lF = { k: [40, 73], a: [37, 86] };
   });
-  const hit = [alignFeet(drawBoss(h0, 'hurt')), alignFeet(drawBoss(h1, 'hurt'))];
-
   // 4 やられる:よろけて、ひざをつき、あおむけに倒れる
   const d0 = pose((p) => {
     p.neck = [44, 27]; p.head = [43, 25]; p.hip = [46, 57]; p.tilt = -0.35;
@@ -342,11 +340,6 @@ export function buildBoss(): PixelGrid[][] {
     p.aF = { e: [42, 36], h: [40, 26] }; p.aB = { e: [60, 45], h: [62, 56] };
     p.lF = { k: [58, 70], a: [50, 85] };
   });
-  const defeat = [
-    alignFeet(drawBoss(d0, 'hurt')),
-    alignFeet(drawBoss(d1, 'hurt')),
-    rotateGrid(drawBoss(d2, 'ko'), -1.0, 48, 52, 48, 58),
-    alignFeet(rotateGrid(drawBoss(d3, 'ko'), -Math.PI / 2, 48, 48, 48, 48), true)
-  ];
+  const [hit, defeat] = hitDefeatRows(drawBoss, [h0, h1], [d0, d1, d2, d3]);
   return [reveal, idle, rampage, hit, defeat];
 }

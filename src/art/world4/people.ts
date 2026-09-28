@@ -1,5 +1,5 @@
 // ステージ4の人8種類(花屋の店員、配達員、新人の会社員、清掃員、シェフ、ウェイター、ドレスの女性、手品師)と、
-// 親玉の化けた姿3つ。見本(mocks/stage4_src/people.ts)をもとにした。
+// 親玉の化けた姿3つ。見本(mocks/stage4_src/people.ts。消したが git の 5180bdd にある)をもとにした。
 // 市民とヴィランは同じシート。もれ(紫の照明、浮いた小物)は人の周りにコードで重ねるので、人の絵には紫を使わない。
 // 行0〜5は市民の形(行2は見た目のくせ)、行6は「念力で物を持ち上げる」(片手を前に出して指を広げる)。
 import { md, PixelGrid } from '../lib';
@@ -7,7 +7,7 @@ import {
   type Build, HAIR_BUN, HAIR_SHORT, HAIR_SLICK, type Look, type Pose, clonePose, drawPerson, moveUpper
 } from '../world/figure';
 import { GOLD, HAIR, OUTLINE, SKIN, WHITE } from '../world/palette';
-import { type Painter, type Pt, type Ramp } from '../world/pix';
+import { type Painter, type Pt, type Ramp, sprite } from '../world/pix';
 import { STAND, civRows, idleFrames, withFace } from '../world/poses';
 import { disguiseRows } from '../world/bossKit';
 
@@ -40,14 +40,6 @@ const tag = (p: Pose, extra: Partial<P4>): P4 => Object.assign(clonePose(p), ext
 /** 手に持った物を描かないコマ(驚く、吹っ飛ぶ、のびている、念力) */
 const handsFree = (pose: Pose): boolean =>
   pose.face === 'surprised' || pose.face === 'hurt' || pose.face === 'ko' || !!P(pose).psy;
-
-/** ふちで囲んだ小さな絵を置く。rows の文字は map で色にする('.' は塗らない) */
-export function sprite(Pn: Painter, x: number, y: number, rows: string[], map: Record<string, string>): void {
-  const m = Pn.mask();
-  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') m.set(x + i, y + j); });
-  Pn.fill(m, OUTLINE, { sep: 'outline', flat: true });
-  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const c = map[r[i]]; if (c) Pn.px(x + i, y + j, c); } });
-}
 
 const lean = (pose: Pose): number => (pose.hip[0] - pose.neck[0]) / Math.max(1, pose.hip[1] - pose.neck[1]);
 

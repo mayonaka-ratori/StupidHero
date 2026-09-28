@@ -4,8 +4,7 @@
 //   出力フォルダとサーバーは、省くか - にすると shots/ と http://localhost:5173/
 // 例: node tools/result_shot.mjs /tmp/out "sample=granny" 390 844 300,1200,4500
 //     node tools/result_shot.mjs - "stage=mall"
-import { openBrowser, openPage, serverUrl, shotsDir } from './lib.mjs';
-import { writeFileSync } from 'node:fs';
+import { openBrowser, openPage, saveDataUrl, serverUrl, shotsDir } from './lib.mjs';
 
 const [outArg, extra = '', w = '390', h = '844', waits = '400,1300,5000', server] = process.argv.slice(2);
 const outDir = shotsDir(outArg);
@@ -23,8 +22,8 @@ for (const ms of waits.split(',').map(Number)) {
 }
 await page.waitForFunction(() => window.resultDev.card, null, { timeout: 8000 });
 const card = await page.evaluate(() => ({ small: window.resultDev.card.small.toDataURL('image/png'), big: window.resultDev.card.dataUrl, log: window.resultDev.log, text: window.resultDev.shareText }));
-writeFileSync(`${outDir}/card_${tag}.png`, Buffer.from(card.small.split(',')[1], 'base64'));
-writeFileSync(`${outDir}/card_${tag}_1080.png`, Buffer.from(card.big.split(',')[1], 'base64'));
+saveDataUrl(`${outDir}/card_${tag}.png`, card.small);
+saveDataUrl(`${outDir}/card_${tag}_1080.png`, card.big);
 console.log(card.log.join(' '));
 console.log(card.text);
 await browser.close();

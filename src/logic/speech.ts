@@ -1,4 +1,4 @@
-// セリフを短く書くための道具(content.ts、garageContent.ts、mallContent.ts で使う)。
+// セリフを短く書くための関数(content.ts、garageContent.ts、mallContent.ts、towerContent.ts、freeContent.ts で使う)。
 
 import type { HeroFace, OperatorFace, OperatorHint, Speech } from './types';
 

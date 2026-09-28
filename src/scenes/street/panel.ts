@@ -1,11 +1,12 @@
 // 結果発表(Street)とエレベーターラッシュ(Elevator)の、下の操作部分。
 //   const p = buildStreetPanel(this, stats, onStop, onGo)   数字の窓、カットイン、待てと行けのボタン(L.inUi の中で呼ぶ)
 //   buttonPulse(ms)                                        押せるボタンをゆっくり光らせるときの明るさ(0〜1)
+//   pulseButton(btn, color, ms)                            押せるボタンをゆっくり光らせる(3コマに1回くらい呼ぶ)
 
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import { formatYen, type StatsTracker } from '../../logic';
-import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PixelText, UIX, WindowFrame, addPanel, panelRect } from '../../ui';
+import { Button, CutIn, CUT_H, CUT_TOP_H, FS, PixelText, UIX, WindowFrame, addPanel, lighter, panelRect } from '../../ui';
 
 export interface StreetPanel {
   /** 撃破、負傷、被害額の数字 */
@@ -59,4 +60,12 @@ export function buildStreetPanel(
  */
 export function buttonPulse(ms: number): number {
   return (1 - Math.cos((ms / 1100) * Math.PI * 2)) / 2;
+}
+
+/**
+ * ボタンの色を、color を level(0〜1。省くと buttonPulse の明るさ)× strength だけ明るくした色にする。
+ * 押せる間に何コマかおきに呼ぶと、ゆっくり明るくなったり戻ったりする
+ */
+export function pulseButton(btn: Button, color: number, ms: number, strength = 0.3, level = buttonPulse(ms)): void {
+  btn.setColor(lighter(color, level * strength));
 }

@@ -1,5 +1,5 @@
 // 結果画面。称号、勝利ポーズ(背中で爆発)、数字の数え上げ、いちばんひどかった場面、共有。
-// 入口:波3の答え合わせ(WaveReview)から。出口:もう一回 → 同じステージで startRun して Intro、タイトルへ → Title。
+// 入口:最後の波の答え合わせ(WaveReview)から。出口:もう一回 → 同じステージで startRun して Intro、タイトルへ → Title。
 // 称号の一覧のボタンで TitleList を開く(この画面は眠らせておき、もどると発表をやり直さずに元のまま)。
 // 背景と共有カードはそのステージの絵(run.stage.def)。このプレイで次のステージが開いたら、
 // 称号のひとことを読んだあと、画面をタップしたときに知らせる(ひとことをすぐに上書きしない)。
@@ -37,7 +37,7 @@ import {
 import {
   Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
 } from '../ui';
-import { addMute, drawStageBg, unlockOnTap } from './sort/common';
+import { addMute, drawStageBg, goldFractions, setAllVisible, unlockOnTap } from './sort/common';
 import { currentWave, getRun, recordAllSorts, startFreeRun, startRun, type GameRun } from '../run';
 import { settings } from '../settings';
 import { buildCard, cardTexts, freeWorstCaption, makeFallbackShot, worstCaption, type Card, type CardStage } from './result/card';
@@ -149,6 +149,8 @@ export class ResultScene extends Phaser.Scene {
     if (!shot && run.debug) shot = makeSampleShot(this, sampleName(), textStage, free);
     const { stats: s, title: t, saved } = rec;
     const def = free ? STAGES[textStage] : run.stage.def;
+    // 遊び終わった波の背景(高層ビルは最上階のパーティ会場)
+    const bg = bgForWave(def, currentWave(run).no);
     const caption = free ? freeWorstCaption(s) : worstCaption(s);
     dev.log.push(`title:${t.id}`);
     if (saved.unlockedNow.length) dev.log.push(`unlocked:${saved.unlockedNow.join(',')}`);
@@ -159,7 +161,7 @@ export class ResultScene extends Phaser.Scene {
     unlockOnTap(this);
 
     // ─── 上:ステージの背景と勝利ポーズ ───
-    drawStageBg(this, bgForWave(def, currentWave(run).no), run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
+    drawStageBg(this, bg, run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
 
     const fist = t.pose === 'win_fist';
     const hx = 108;
@@ -219,7 +221,7 @@ export class ResultScene extends Phaser.Scene {
     // ─── いちばんひどかった場面(小さく)と、称号の一覧のボタン ───
     const thumbTop = boxY + boxH + 5;
     const thumbRoom = shareY - 5 - thumbTop;
-    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX, free ? def : { ...def, bg: bgForWave(def, currentWave(run).no) });
+    const baseShot = shot ? normalizeShot(shot) : makeFallbackShot(this, s, run.scrollX, free ? def : { ...def, bg });
     // Street が撮った画像がまだ読みこみ中なら、読めてから描き直す
     const pending = shot instanceof HTMLImageElement && !shot.complete ? shot : null;
     const shotReady = pending
@@ -276,7 +278,7 @@ export class ResultScene extends Phaser.Scene {
       listBtn = new Button(this, W - 4 - 70, actionH - 4 - 30, 70, 30, listText.replace('(', '\n('), listStyle);
       thumbParts.push(listBtn);
     }
-    for (const o of thumbParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
+    setAllVisible(thumbParts, false);
     listBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       this.skipAll(quiet, cut);
@@ -337,7 +339,7 @@ export class ResultScene extends Phaser.Scene {
       .wait(300)
       .step(0, {
         end: () => {
-          for (const o of thumbParts) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(true);
+          setAllVisible(thumbParts, true);
           if (thumbParts.length > 1) sfx('hit');
         }
       });
@@ -415,7 +417,7 @@ export class ResultScene extends Phaser.Scene {
     // ステージのカードの背景は、遊び終わった波の背景(高層ビルは最上階のパーティ会場)
     const cardStage: CardStage = free
       ? { bg: def.bg, bossSheet: def.bossSheet, name: FREE_NAME, shortName: FREE_NAME }
-      : { ...def, bg: bgForWave(def, currentWave(run).no) };
+      : { ...def, bg };
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: cardStage, textStage };
     const texts = [
       ...cardTexts(cardIn), ...sw.texts, 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, caption,
@@ -427,7 +429,7 @@ export class ResultScene extends Phaser.Scene {
       if (!alive() || shareBtn.isEnabled) return;
       shareBtn.setLabel('共有する').setEnabled(true);
     };
-    Promise.all([preloadFont(texts, [10, 12, 16]), shotReady]).then(() => {
+    Promise.all([preloadFont(texts), shotReady]).then(() => {
       if (!alive()) return;
       this.card = buildCard(this, cardIn);
       dev.card = this.card;
@@ -533,9 +535,9 @@ function stageWindow(env: WindowEnv, s: StageStats, run: GameRun): StatsWindow {
   const hurtParts = hurtBreakdown(s);
   // 窓のいちばん下に足す小さな行:ステージ2は組の行、ステージ3はUFOを落とした数とラッシュのまとめ
   const ufoText = def.mechanic === 'ufo' ? `UFOを落とした{gold}${s.ufosDowned}{/}機` : null;
-  const rushText = def.rush?.kind === 'sale' && s.rush ? rushSummary(s.rush).replace(/(\d+\/\d+)/g, '{gold}$1{/}')
+  const rushText = def.rush?.kind === 'sale' && s.rush ? goldFractions(rushSummary(s.rush))
     // エレベーターラッシュのまとめ(タイムセールのまとめと同じ出し方)
-    : def.rush?.kind === 'elevator' && s.lift ? liftSummary(s.lift).replace(/(\d+\/\d+)/g, '{gold}$1{/}') : null;
+    : def.rush?.kind === 'elevator' && s.lift ? goldFractions(liftSummary(s.lift)) : null;
   const extraRows = (f: Fit): number =>
     (def.mechanic === 'gang' ? 1 : 0) + (f.pack && ufoText && rushText ? 1 : (ufoText ? 1 : 0) + (rushText ? 1 : 0));
   const subRowsOf = (f: Fit): number => (hurtParts.length ? 1 : 0) + 1 + extraRows(f);

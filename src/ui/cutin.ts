@@ -11,13 +11,14 @@
 
 import Phaser from 'phaser';
 import { frameIndex, sheetByKey } from '../art/sheets';
+import { UI } from '../config';
 import { FRAME_PAD, WindowFrame } from './frame';
 import { PixelText, countLines, stripMarkup } from './text';
 import { DEPTH, FS, NAMES, UIX } from './theme';
 
 export type Speaker = 'operator' | 'hero';
 
-export interface SayOptions {
+interface SayOptions {
   /** 赤い警告のカットインにする */
   alarm?: boolean;
   /** 話す人を替える */
@@ -28,7 +29,7 @@ export interface SayOptions {
   onChar?: (ch: string) => void;
 }
 
-export interface CutInOptions {
+interface CutInOptions {
   who?: Speaker;
   /** 1秒に出す文字の数 */
   speed?: number;
@@ -89,13 +90,13 @@ export class CutIn extends Phaser.GameObjects.Container {
     const tx = fx + FACE + 2 + 4;
     if (opt.faceTop) {
       // 名前は顔の右に大きめに。セリフは顔の下に、箱の幅いっぱいで
-      this.nameText = new PixelText(scene, tx, fy + Math.floor((FACE + 2 - FS.body) / 2), NAMES[this.who], { size: FS.body, color: UIX.name });
+      this.nameText = new PixelText(scene, tx, fy + Math.floor((FACE + 2 - FS.body) / 2), NAMES[this.who], { size: FS.body, color: UI.gold });
       const lx = FRAME_PAD + 3;
       this.line = new PixelText(scene, lx, fy + FACE + 2 + 3, '', {
         size: opt.size ?? FS.body, wrap: w - lx * 2, lineSpacing: 2
       });
     } else {
-      this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: FS.small, color: UIX.name });
+      this.nameText = new PixelText(scene, tx, FRAME_PAD + 1, NAMES[this.who], { size: FS.small, color: UI.gold });
       this.line = new PixelText(scene, tx, FRAME_PAD + 1 + FS.small + 2, '', {
         size: opt.size ?? FS.body, wrap: w - tx - FRAME_PAD - 2, lineSpacing: 2
       });
@@ -218,7 +219,7 @@ export class CutIn extends Phaser.GameObjects.Container {
         n++;
         this.line.setVisibleChars(n);
         const ch = plain[n - 1];
-        if (ch && ch !== ' ' && ch !== ' ') this.onChar?.(ch);
+        if (ch && ch !== ' ' && ch !== '　') this.onChar?.(ch);
         if (ch && PAUSE_AFTER.has(ch)) wait = 3;
         if (n >= this.line.length) {
           this.timer?.remove();

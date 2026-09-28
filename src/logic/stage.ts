@@ -1,4 +1,4 @@
-// 1ステージぶん(波3回)の人の並びを、種から作る。同じ種なら毎回同じステージになる。
+// 1ステージぶん(波3回。高層ビルは4回)の人の並びを、種から作る。同じ種なら毎回同じステージになる。
 //
 // 使い方:
 //   const stage = createStage(seed);            // 路地裏(ステージ1)
@@ -15,7 +15,7 @@ import { buildGarageWaves } from './garage';
 import { buildMallWaves, buildRush } from './mall';
 import { buildLift, buildTowerWaves } from './tower';
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed } from './pick';
+import { leastUsed, zeroCounts } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { BAD_PER_WAVE, WAVES } from './rules';
 import { BOSS1_DISGUISES, STAGES } from './stages';
@@ -60,8 +60,8 @@ const WAVE_BUILDERS: Readonly<Record<StageId, (rng: Rng, used: UsedTexts) => Wav
 /** 路地裏の3つの波 */
 function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
   // その見た目をワル/市民として何回使ったか(ステージ全体で偏らないように)
-  const badCount: Record<PairLook, number> = { hoodie: 0, suit: 0, shopper: 0 };
-  const civCount: Record<PairLook, number> = { hoodie: 0, suit: 0, shopper: 0 };
+  const badCount = zeroCounts(PAIR_LOOKS);
+  const civCount = zeroCounts(PAIR_LOOKS);
   // おばあさんをステージのどこかに必ず1人入れる(「おばあちゃんの敵」を取れるように)
   const grannyWave = rng.int(1, WAVES.length) as WaveNo;
   const bossDisguise = rng.pick(BOSS1_DISGUISES);
@@ -94,7 +94,7 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
       ...bads.map((l) => makePerson(rng, used, 'alley', plan.no, l, 'bad')),
       ...civs.map((l) => makePerson(rng, used, 'alley', plan.no, l, 'civ'))
     ];
-    if (plan.boss) drafts.push(makePerson(rng, used, 'alley', plan.no, bossDisguise, 'boss', bossDisguise));
+    if (plan.boss) drafts.push(makePerson(rng, used, 'alley', plan.no, bossDisguise, 'boss'));
 
     const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: waveBad, hasBoss: plan.boss, groups: [] };

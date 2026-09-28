@@ -11,7 +11,7 @@
 //
 // 保存の形:
 //   v2(今):キー 'stupidhero.records.v2'。
-//     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...} }, titles, introSeen, rushSeen }
+//     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...}, tower: {...} }, titles, introSeen, rushSeen }
 //   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
 //   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
 //   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
@@ -294,7 +294,7 @@ function markSeen(storage: RecordStorage | null, seen: (r: Records) => boolean, 
 
 /**
  * そのステージが開いているか(路地裏はいつも。地下駐車場は路地裏のボスを、
- * ショッピングモールは地下駐車場のボスを一度倒すと開く)
+ * ショッピングモールは地下駐車場のボスを、高層ビルはショッピングモールのボスを一度倒すと開く)
  */
 export function isStageUnlocked(stageId: StageId, records: Records = loadRecords()): boolean {
   const need = STAGES[stageId].unlockAfter;

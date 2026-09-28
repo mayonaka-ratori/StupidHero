@@ -233,8 +233,11 @@ export class StageSelectScene extends Phaser.Scene {
         this.scroll.set(this.scroll.pos + dy / 4);
         this.applyScroll();
       });
-      // シーンが止まったら、触れている指を放す(再開したときに勝手にずれたり選んだりしないように)
-      this.events.on(Phaser.Scenes.Events.PAUSE, () => { this.scroll.cancel(); this.downAt = null; });
+      // シーンが止まったら、触れている指を放す(再開したときに勝手にずれたり選んだりしないように)。
+      // シーンは使い回されるので、終わるときに外す(create のたびに増えないように)
+      const release = (): void => { this.scroll.cancel(); this.downAt = null; };
+      this.events.on(Phaser.Scenes.Events.PAUSE, release);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.PAUSE, release));
     }
     this.input.keyboard?.on('keydown-ESC', () => this.back());
     // 数字のキーで、その番号のカードを選ぶ
@@ -324,47 +327,41 @@ export class StageSelectScene extends Phaser.Scene {
   private choose(card: StageCard): void {
     if (this.leaving || this.busy) return;
     audio.unlock();
-    if (card.locked) {
-      audio.sfx('oops', { volume: 0.7 });
-      card.shakeLock();
-      shake(this, 2, 120);
-      return;
-    }
+    if (this.denyLocked(card)) return;
     const id = card.entry.id;
-    this.leaving = true;
-    audio.sfx('button');
-    audio.sfx('go', { volume: 0.8 });
-    flash(this, 0xffffff, 2);
-    card.pressed();
-    this.hand?.setVisible(false);
-    // 新しいプレイは、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
-    this.time.delayedCall(360, () => {
-      gotoSafe(this, entrySceneFor(id), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, id) }, (ok) => {
-        if (!ok) this.leaving = false;
-      });
-    });
+    this.launch(entrySceneFor(id), () => startRun(this, randomSeed(), false, id), 360, () => card.pressed());
   }
 
   /** 「フリープレイ▶」:開いていなければ鍵が揺れて開き方を出す。開いていれば startFreeRun をして掛け合いか Street へ */
   private chooseFree(): void {
     if (this.leaving || this.busy) return;
     audio.unlock();
-    if (this.free.locked) {
-      audio.sfx('oops', { volume: 0.7 });
-      this.free.shakeLock();
-      shake(this, 2, 120);
-      return;
-    }
+    if (this.denyLocked(this.free)) return;
+    this.launch(freeEntryScene(), () => startFreeRun(this, randomSeed(), { slow: settings.slowMode }), 200);
+  }
+
+  /** 開いていないカードやボタンなら、鍵を揺らして画面を少し揺らし、true を返す(選ばない) */
+  private denyLocked(t: { locked: boolean; shakeLock(): void }): boolean {
+    if (!t.locked) return false;
+    audio.sfx('oops', { volume: 0.7 });
+    t.shakeLock();
+    shake(this, 2, 120);
+    return true;
+  }
+
+  /**
+   * 選んだ:音と光を出し(pressed はその直後に呼ぶ、選んだものの演出)、delayMs 待ってから to へ切り替える。
+   * 新しいプレイ(onCovered)は、切り替えを受け付けてから作る(連打や切り替えの途中で2回作らないように)
+   */
+  private launch(to: string, onCovered: () => void, delayMs: number, pressed?: () => void): void {
     this.leaving = true;
     audio.sfx('button');
     audio.sfx('go', { volume: 0.8 });
     flash(this, 0xffffff, 2);
+    pressed?.();
     this.hand?.setVisible(false);
-    // 新しいプレイは、切り替えを受け付けてから作る(ステージのカードと同じ)
-    this.time.delayedCall(200, () => {
-      gotoSafe(this, freeEntryScene(), undefined, {
-        kind: 'wipe', onCovered: () => startFreeRun(this, randomSeed(), { slow: settings.slowMode })
-      }, (ok) => {
+    this.time.delayedCall(delayMs, () => {
+      gotoSafe(this, to, undefined, { onCovered }, (ok) => {
         if (!ok) this.leaving = false;
       });
     });

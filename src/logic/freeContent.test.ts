@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { allTexts } from './content';
 import {
   FREE_ATTACK, FREE_DECLARES, FREE_DRY_PRESS, FREE_INTRO, FREE_ITEM_ATTACK, FREE_OP, FREE_OP_GRANNY_HIT, FREE_OP_GRANNY_RULE,
-  FREE_OP_KEYS, FREE_OP_PASS_VILLAIN, FREE_PASS, freeOpContextLines,
+  FREE_OP_PASS_VILLAIN, FREE_PASS, freeOpContextLines,
   FREE_REDECLARE_HERO, FREE_REDECLARE_OP, FREE_STUBBORN, FREE_TOLD_YOU, allFreeSpeechTexts, allFreeTexts,
-  createFreeLines, declareList, freeOpTier
+  createFreeLines, declareList, freeOpTier, type FreeOpContext, type FreeOpKey
 } from './freeContent';
-import { FREE_ITEMS, FREE_ITEM_NAME } from './freeNames';
+import { FREE_ITEMS, FREE_ITEM_NAME, FREE_RULES } from './freeNames';
 import { createRng } from './rng';
 import { FREE_STAGE_IDS } from './stages';
-import type { FreeRule, FreeVillainLook, Look, TowerLook } from './types';
+import type { FreeVillainLook, Look, TowerLook } from './types';
 
 // 高層ビルの見た目はフリープレイに出ない
 const LOOKS: readonly Exclude<Look, TowerLook>[] = [
@@ -19,9 +19,7 @@ const LOOKS: readonly Exclude<Look, TowerLook>[] = [
 ];
 const FREE_VILLAINS: readonly FreeVillainLook[] = ['fp_mohawk', 'fp_gang', 'fp_alien'];
 const ALL_LOOKS: readonly (Exclude<Look, TowerLook> | FreeVillainLook)[] = [...LOOKS, ...FREE_VILLAINS];
-const RULES: readonly FreeRule[] = [
-  { kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))
-];
+const OP_KEYS = Object.keys(FREE_OP) as FreeOpKey[];
 
 describe('フリープレイの文の決まり', () => {
   const texts = allFreeSpeechTexts();
@@ -52,7 +50,7 @@ describe('フリープレイの文の数', () => {
   it('全部の背景とルールに、決めつけが2〜3通りある', () => {
     for (const id of FREE_STAGE_IDS) {
       expect(FREE_DECLARES[id], id).toBeDefined();
-      for (const rule of RULES) {
+      for (const rule of FREE_RULES) {
         const list = declareList(id, rule);
         expect(list.length, `${id} ${JSON.stringify(rule)}`).toBeGreaterThanOrEqual(2);
         expect(list.length, `${id} ${JSON.stringify(rule)}`).toBeLessThanOrEqual(3);
@@ -114,7 +112,7 @@ describe('フリープレイの文の数', () => {
   });
 
   it('オペレーターの一言は、場面ごとに5通り以上あり、回数で言い方が変わる(どの段も2通り以上)', () => {
-    for (const key of FREE_OP_KEYS) {
+    for (const key of OP_KEYS) {
       const tiers = FREE_OP[key];
       const all = new Set(tiers.flat().map((s) => s.text));
       expect(all.size, key).toBeGreaterThanOrEqual(5);
@@ -128,7 +126,7 @@ describe('フリープレイの文の数', () => {
       expect(freeOpTier(key, 50), key).toBe(2);
     }
     // 仕様の例の文
-    const texts = (key: (typeof FREE_OP_KEYS)[number], tier: 0 | 1 | 2) => FREE_OP[key][tier].map((s) => s.text);
+    const texts = (key: FreeOpKey, tier: 0 | 1 | 2) => FREE_OP[key][tier].map((s) => s.text);
     expect(texts('hitCiv', 2)).toContain('もうわざとでしょ');
     expect(texts('idle', 0)).toContain('…押して？');
     expect(texts('idle', 1)).toContain('ねえ、見てる？');
@@ -160,15 +158,15 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
         }
       };
       for (const look of ALL_LOOKS) {
-        for (const rule of RULES) checkRun(`attack ${look}`, () => lines.heroAttack(look, rule).text);
+        for (const rule of FREE_RULES) checkRun(`attack ${look}`, () => lines.heroAttack(look, rule).text);
         checkRun(`pass ${look}`, () => lines.heroPass(look).text);
       }
       checkRun('stubborn', () => lines.heroStubborn().text);
       checkRun('toldYou', () => lines.heroToldYou().text);
       checkRun('dryPress', () => lines.heroDryPress().text);
-      for (const id of FREE_STAGE_IDS) for (const rule of RULES) checkRun(`declare ${id}`, () => lines.declare(id, rule).hero.text);
+      for (const id of FREE_STAGE_IDS) for (const rule of FREE_RULES) checkRun(`declare ${id}`, () => lines.declare(id, rule).hero.text);
       checkRun('redeclare', () => lines.redeclare('balloon', 'hat').hero.text);
-      for (const key of FREE_OP_KEYS) {
+      for (const key of OP_KEYS) {
         for (const count of [1, 2, 3, 5, 9]) checkRun(`op ${key} ${count}`, () => lines.op(key, count).text);
       }
     }
@@ -182,7 +180,7 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
       const look = ALL_LOOKS[i % ALL_LOOKS.length];
       const s = i % 3 === 0 ? lines.heroAttack(look, { kind: 'allBad' })
         : i % 3 === 1 ? lines.heroPass(look)
-          : lines.op(FREE_OP_KEYS[i % FREE_OP_KEYS.length], 1 + (i % 6));
+          : lines.op(OP_KEYS[i % OP_KEYS.length], 1 + (i % 6));
       expect(s.text).not.toBe(prev);
       prev = s.text;
     }
@@ -197,10 +195,10 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
 });
 
 describe('オペレーターの一言に、その人や小物に合った文をまぜる(op の3つ目)', () => {
-  const tierTexts = (key: (typeof FREE_OP_KEYS)[number]) => new Set(FREE_OP[key].flat().map((s) => s.text));
+  const tierTexts = (key: FreeOpKey) => new Set(FREE_OP[key].flat().map((s) => s.text));
 
   /** 何回も呼んで、合った文とふつうの文の数を数える */
-  function tally(key: (typeof FREE_OP_KEYS)[number], ctx: Parameters<ReturnType<typeof createFreeLines>['op']>[2]) {
+  function tally(key: FreeOpKey, ctx: FreeOpContext) {
     const lines = createFreeLines(createRng(11));
     const special = new Set(freeOpContextLines(key, ctx).map((s) => s.text));
     const normal = tierTexts(key);
@@ -215,41 +213,33 @@ describe('オペレーターの一言に、その人や小物に合った文を�
     return { sp, no };
   }
 
-  it('hitCivRule:おばあさんなら、おばあさんの文を半分くらいまぜる', () => {
-    expect(FREE_OP_GRANNY_RULE.map((s) => s.text)).toContain('おばあちゃんだよ！？');
-    const { sp, no } = tally('hitCivRule', { look: 'granny' });
-    expect(sp).toBeGreaterThan(120);
-    expect(no).toBeGreaterThan(120);
+  it.each([
+    { key: 'hitCivRule', what: 'おばあさんなら、おばあさんの文', ctxs: [{ look: 'granny' }] },
+    { key: 'hitCivRule', what: '小物のルールで当てはまった市民なら、小物の名前が入った文', ctxs: FREE_ITEMS.map((item) => ({ look: 'suit', item })) },
+    { key: 'passBadRule', what: '一目で分かるワルごとの文(ナイフ、バット、触角)', ctxs: FREE_VILLAINS.map((look) => ({ look })) },
+    { key: 'hitCiv', what: 'おばあさんなら、おばあさんの文', ctxs: [{ look: 'granny' }] }
+  ] as { key: FreeOpKey; what: string; ctxs: FreeOpContext[] }[])('$key:$what を半分くらいまぜる', ({ key, ctxs }) => {
+    for (const ctx of ctxs) {
+      const { sp, no } = tally(key, ctx);
+      expect(sp, JSON.stringify(ctx)).toBeGreaterThan(120);
+      expect(no, JSON.stringify(ctx)).toBeGreaterThan(120);
+    }
   });
 
-  it('hitCivRule:小物のルールで当てはまった市民なら、小物の名前が入った文をまぜる', () => {
+  it('合った文の中身:おばあさん、小物の名前、一目で分かるワルの持ち物', () => {
+    expect(FREE_OP_GRANNY_RULE.map((s) => s.text)).toContain('おばあちゃんだよ！？');
+    expect(FREE_OP_GRANNY_HIT.length).toBeGreaterThanOrEqual(3);
     for (const item of FREE_ITEMS) {
       const special = freeOpContextLines('hitCivRule', { look: 'suit', item });
       expect(special.length, item).toBeGreaterThanOrEqual(3);
       for (const s of special) expect(s.text, item).toContain(FREE_ITEM_NAME[item]);
-      const { sp, no } = tally('hitCivRule', { look: 'suit', item });
-      expect(sp, item).toBeGreaterThan(120);
-      expect(no, item).toBeGreaterThan(120);
     }
     expect(freeOpContextLines('hitCivRule', { item: 'balloon' }).map((s) => s.text)).toContain('風船持ってる\nだけ！');
-  });
-
-  it('passBadRule:一目で分かるワルごとの文をまぜる(ナイフ、バット、触角)', () => {
     const words: Record<FreeVillainLook, string> = { fp_mohawk: 'ナイフ', fp_gang: 'バット', fp_alien: '触角' };
     for (const look of FREE_VILLAINS) {
       expect(FREE_OP_PASS_VILLAIN[look].some((s) => s.text.includes(words[look])), look).toBe(true);
-      const { sp, no } = tally('passBadRule', { look });
-      expect(sp, look).toBeGreaterThan(120);
-      expect(no, look).toBeGreaterThan(120);
     }
     expect(FREE_OP_PASS_VILLAIN.fp_mohawk.map((s) => s.text)).toContain('どう見ても\nナイフ持ってる！');
-  });
-
-  it('hitCiv:おばあさんなら、おばあさんの文をまぜる', () => {
-    expect(FREE_OP_GRANNY_HIT.length).toBeGreaterThanOrEqual(3);
-    const { sp, no } = tally('hitCiv', { look: 'granny' });
-    expect(sp).toBeGreaterThan(120);
-    expect(no).toBeGreaterThan(120);
   });
 
   it('合う文がないときと、ctx を渡さないときは、今までの文だけ', () => {
@@ -260,7 +250,7 @@ describe('オペレーターの一言に、その人や小物に合った文を�
     const a = createFreeLines(createRng(5));
     const b = createFreeLines(createRng(5));
     for (let i = 0; i < 50; i++) {
-      const key = FREE_OP_KEYS[i % FREE_OP_KEYS.length];
+      const key = OP_KEYS[i % OP_KEYS.length];
       expect(a.op(key, 1 + (i % 6)).text).toBe(b.op(key, 1 + (i % 6), { look: 'suit' }).text);
     }
   });

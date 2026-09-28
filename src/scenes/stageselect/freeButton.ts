@@ -12,7 +12,7 @@ import Phaser from 'phaser';
 import { UI } from '../../config';
 import { STAGES, formatClearTime, type FreeSelectInfo } from '../../logic';
 import { Bubble, Button, FS, PixelText } from '../../ui';
-import { drawLock } from './card';
+import { drawLock, rattle } from './card';
 
 /** ボタンの色(開いている / 開いていない) */
 const OPEN_COLOR = 0x9a2a6a;
@@ -106,13 +106,7 @@ export class FreeButton {
 
   /** 開いていないときに押した:鍵がガタガタ揺れて、開き方の吹き出しを出す */
   shakeLock(): void {
-    let n = 0;
-    this.scene.time.addEvent({
-      delay: 40, repeat: 7, callback: () => {
-        n++;
-        this.lockG.x = n >= 8 ? 0 : n % 2 === 0 ? -2 : 2;
-      }
-    });
+    rattle(this.scene, this.lockG, 8, 40);
     this.bubble?.destroy();
     this.bubble = new Bubble(this.scene, this.btn.x + Math.floor(this.btn.w / 2), this.btn.y - 3, STAGES.garage.lockedText ?? '', {
       tail: 'down', life: 2000, pop: true
@@ -122,13 +116,8 @@ export class FreeButton {
   /** 鍵がこわれて開く。こわれた瞬間に onBreak(鍵のあった所) を呼ぶ */
   unlock(onBreak: (x: number, y: number) => void): Promise<void> {
     return new Promise((resolve) => {
-      let n = 0;
-      this.scene.time.addEvent({
-        delay: 50, repeat: 11, callback: () => {
-          n++;
-          this.lockG.x = n % 2 === 0 ? -2 : 2;
-          if (n < 12) return;
-          this.lockG.x = 0;
+      rattle(this.scene, this.lockG, 12, 50, {
+        onEnd: () => {
           const lx = this.btn.x + 11, ly = this.btn.y + Math.floor((this.btn.h - 3) / 2);
           this.locked = false;
           this.applyLocked();
@@ -143,10 +132,5 @@ export class FreeButton {
   setLockedLook(on: boolean): void {
     this.locked = on;
     this.applyLocked();
-  }
-
-  contains(x: number, y: number): boolean {
-    const b = this.btn;
-    return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
   }
 }

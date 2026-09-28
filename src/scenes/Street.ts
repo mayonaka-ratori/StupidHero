@@ -1,6 +1,6 @@
 // 結果発表。仕分けが終わった波の人たちが並ぶ路地裏を、ヒーローが右へ進みながら、仕分け通りにハデに動く。
 // 入口:Sort から(run.waveIndex の波)。出口:波の最後まで来たら nextAfterStreet(run)。
-// 波3ではボスの前まで来たら、正体を現す場面を見せて Boss へ(run.scrollX に背景の位置を入れる)。
+// 最後の波ではボスの前まで来たら、正体を現す場面を見せて Boss へ(run.scrollX に背景の位置を入れる)。
 //
 // 画面:上のアクション部分はカメラ world(ヒーローについて動く)、下の操作部分はカメラ ui(street/layers.ts)。
 // 流れは run() の async の中で1人ずつ進める。待つのはシーンの時計(this.time)なので、ヒットストップと一時停止で止まる。
@@ -38,7 +38,7 @@ import {
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, Tag,
-  CurlSmoke, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, lighter, popText, shake, spawnFx, waitMs
+  CurlSmoke, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, popText, shake, spawnFx, waitMs
 } from '../ui';
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
 import { Actor, HEAD } from './street/actor';
@@ -46,13 +46,13 @@ import { FastButton } from './street/fastButton';
 import { FreeStreet } from './street/free';
 import { Layers } from './street/layers';
 import { shootAction } from './shot';
-import { buildStreetPanel, buttonPulse } from './street/panel';
+import { buildStreetPanel, pulseButton } from './street/panel';
 import { HERO_START, planGarage, planMall, planStreet, planTower } from './street/plan';
 import { type CivHit, type HitMode, type PropObj, type Walker, ATTACK_GAP, JUDGE_RISE, RUN, smokeColors } from './street/common';
 import { GangPart } from './street/gang';
 import { UfoPart } from './street/ufo';
 import { RushPart } from './street/rush';
-import { PsyPart } from './street/psychic';
+import { PsyPart, psySpark } from './street/psychic';
 
 /** ヒーローの画面の中での位置(左寄り) */
 const HERO_SCREEN_X = 60;
@@ -428,9 +428,9 @@ export class StreetScene extends Phaser.Scene {
     if (this.goBtn.alpha !== goAlpha) this.goBtn.setAlpha(goAlpha);
     // 押せるときは、ボタンをゆっくり明るくしたり戻したりする
     if (this.frameN % 3 === 0 && (st || go)) {
-      const t = buttonPulse(this.time.now);
-      if (st) this.stopBtn.setColor(lighter(UI.stop, t * 0.3));
-      if (go) this.goBtn.setColor(lighter(UI.go, t * 0.25));
+      const now = this.time.now;
+      if (st) pulseButton(this.stopBtn, UI.stop, now);
+      if (go) pulseButton(this.goBtn, UI.go, now, 0.25);
     }
   }
 
@@ -523,6 +523,26 @@ export class StreetScene extends Phaser.Scene {
     return say(key, rng, this.def.id);
   }
 
+  /** ヒーローの吹き出しを消す(大きな合図や札に重ならないように) */
+  clearHeroBubble(): void {
+    this.heroBubble?.destroy();
+    this.heroBubble = undefined;
+  }
+
+  /** 助かった市民を、立ち去るまで巻きぞえや悪さの相手にしない(passers から safeWalkers へ移す) */
+  makeSafe(a: Actor): void {
+    this.passers = this.passers.filter((p) => p !== a);
+    this.safeWalkers.push(a);
+  }
+
+  /** 決めポーズ:okay の動きで、効果音と大きなキラーン */
+  okayPose(): void {
+    const h = this.hero;
+    h.play('okay', true);
+    audio.sfx('okay');
+    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+  }
+
   /** rise は吹き出しを上げるドット数(合図の相手の札を隠さないとき) */
   heroSay(sp: Speech | string, ms = 1200, rise = 0): void {
     const text = typeof sp === 'string' ? sp : sp.text;
@@ -542,15 +562,18 @@ export class StreetScene extends Phaser.Scene {
     void this.cut.say(sp.text, sp.face, { who: sp.who, alarm });
   }
 
-  /**
-   * いちばんひどい場面なら、アクション部分を撮っておく。attack はその場面を起こした技(説明の文を変えるため)。
-   * shiftY を渡すと、写真を下へずらして撮る(上の端は空の色でうめる)。共有カードは写真の下の方の帯しか使わないので、
-   * 高いところで起きた場面(UFOにさらわれる)を帯に入れるため
-   */
-  report(scene: WorstScene | null, attack: AttackKind | null = null, shiftY = 0): void {
+  /** いちばんひどい場面なら、アクション部分を撮っておく。attack はその場面を起こした技(説明の文を変えるため) */
+  report(scene: WorstScene | null, attack: AttackKind | null = null): void {
     if (!scene || !this.stats.reportScene(scene, attack)) return;
     // 当たった相手が吹っ飛び始めたところを撮る(ヒットストップのあと少しして)
-    this.time.delayedCall(90, () => this.shoot(shiftY, (img) => { this.run.worstShot = img; }));
+    this.shootWorst(90);
+  }
+
+  /** 通りの画面を撮って、いちばんひどい場面の写真にする。delayMs を渡すと、その時間だけ待ってから撮る */
+  shootWorst(delayMs?: number): void {
+    const shoot = (): void => this.shoot(0, (img) => { this.run.worstShot = img; });
+    if (delayMs === undefined) shoot();
+    else this.time.delayedCall(delayMs, shoot);
   }
 
   /**
@@ -708,7 +731,7 @@ export class StreetScene extends Phaser.Scene {
   private fingerSpark(a: Actor): void {
     const dx = a.sprite.flipX ? -13 : 13;
     // 小さい火花は人の絵にまぎれるので、2倍で出す
-    const s = this.psyPart.spark(a.x + dx, a.y - 29, a.y + 0.6).setScale(2);
+    const s = psySpark(this, a.x + dx, a.y - 29, a.y + 0.6).setScale(2);
     this.time.delayedCall(PEEK_MS - 150, () => s.destroy());
   }
 
@@ -1375,10 +1398,7 @@ export class StreetScene extends Phaser.Scene {
 
   /** 波の終わり:決めポーズでキラーン、「WAVE1 CLEAR!」の帯(no は波の番号。フリープレイも使う) */
   async clearPose(no: number): Promise<void> {
-    const h = this.hero;
-    h.play('okay', true);
-    this.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
-    audio.sfx('okay');
+    this.okayPose();
     await banner(this, `WAVE${no} CLEAR!`, { hold: 700 });
   }
 

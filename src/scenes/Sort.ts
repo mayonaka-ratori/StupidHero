@@ -258,8 +258,7 @@ export class SortScene extends Phaser.Scene {
     g.fillStyle(UI.black, 1).fillRect(0, 0, w, h);
     g.fillStyle(UI.gold, 1).fillRect(1, 1, w - 2, h - 2);
     g.fillStyle(0xfff0b0, 1).fillRect(2, 1, w - 4, 1);
-    const box = this.add.container(x, y, [g, t]).setDepth(1000).setVisible(false);
-    return box;
+    return this.add.container(x, y, [g, t]).setDepth(1000).setVisible(false);
   }
 
   private buildPanel(): void {
@@ -276,7 +275,7 @@ export class SortScene extends Phaser.Scene {
     this.profTyper = new Typer(this, this.lineText);
     // プロフィールの下に細い線、その下にオペレーターの小さな顔と一言
     const lineY = r.y + (big ? 66 : 50);
-    this.add.graphics().setDepth(1000).fillStyle(UIX.winInner, 1).fillRect(r.x + 6, lineY, r.w - 12, 1);
+    this.add.graphics().setDepth(1000).fillStyle(UI.winInner, 1).fillRect(r.x + 6, lineY, r.w - 12, 1);
     const rowY = lineY + 4;
     this.remark = new RemarkRow(this, r.x + 6, rowY, r.w - 12);
     // 窓をタップすると文字送りを飛ばす(波の始まりなら掛け合いを飛ばす)
@@ -297,12 +296,7 @@ export class SortScene extends Phaser.Scene {
   /** 中断から戻るときの手品の糸のつえの先(いまの人が手品の糸の市民なら) */
   private pausedTip(): CaneTip | null {
     const p = this.people[this.idx];
-    return p?.decoy === 'thread' ? this.caneTip(this.card) : null;
-  }
-
-  /** 手品師のつえの先(画面の座標)。人の絵は2倍 */
-  private caneTip(s: Phaser.GameObjects.Sprite): CaneTip {
-    return caneTipOf(s, SCALE);
+    return p?.decoy === 'thread' ? caneTipOf(this.card, SCALE) : null;
   }
 
   /** 中断中に見せないもの(人、影、ハンコの見本、手、プロフィール、一言、持ち物、見た小物)を隠す/戻す */
@@ -416,7 +410,7 @@ export class SortScene extends Phaser.Scene {
     s.play(animKey(key, 'walk'));
     this.shadow.setVisible(true).setX(sx);
     this.zoom.setPerson(key, p.sheetKey);
-    this.desk?.setLook(leakLook(leakSpots(p)), p.decoy === 'thread' ? this.caneTip(s) : null);
+    this.desk?.setLook(leakLook(leakSpots(p)), p.decoy === 'thread' ? caneTipOf(s, SCALE) : null);
     this.strip?.show(this.people, i);
     if (this.state === 'timeup') this.showProfile(p);
     else void this.typeProfile(p);
@@ -656,7 +650,7 @@ export class SortScene extends Phaser.Scene {
       const p = filled[k];
       if (k > 0) {
         this.idx = this.people.indexOf(p);
-        this.enter(this.people.indexOf(p), 0, true, this.run.sorts[filled[k - 1].id] === 'bad' ? 'right' : 'left');
+        this.enter(this.idx, 0, true, this.run.sorts[filled[k - 1].id] === 'bad' ? 'right' : 'left');
         await waitMs(this, 110);
       }
       const c = this.run.sorts[p.id];
@@ -689,7 +683,7 @@ export class SortScene extends Phaser.Scene {
 
   private leave(): void {
     this.state = 'done';
-    gotoWhenFree(this, SCENES.street, undefined, { kind: 'wipe' });
+    gotoWhenFree(this, SCENES.street);
   }
 
   // ─── 端の光 ─────────────────────────────────────

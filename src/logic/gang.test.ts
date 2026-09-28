@@ -4,17 +4,10 @@ import { GANG, rollGroupWipeProps } from './rules';
 import { createRng } from './rng';
 
 describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車で逃げる)', () => {
-  it('仲間が誰も来ないときは1人だけ(alone)', () => {
-    const gone = new Set(['b', 'c']);
-    const comers = gatherMembers(['a', 'b', 'c'], (id) => gone.has(id));
-    expect(comers).toEqual(['a']);
-    expect(new GangCall(comers).alone).toBe(true);
-    expect(new GangCall(['a', 'c']).alone).toBe(false);
-  });
-
-  it('集まるのは、まだ倒していない仲間(待てで止めた仲間は来ない)', () => {
-    const gone = new Set(['b']);
-    expect(gatherMembers(['a', 'b', 'c'], (id) => gone.has(id))).toEqual(['a', 'c']);
+  it('集まるのは、まだ倒していない仲間(待てで止めた仲間は来ない。誰も来なければ1人だけ)', () => {
+    const gatherWithout = (...gone: string[]) => gatherMembers(['a', 'b', 'c'], (id) => gone.includes(id));
+    expect(gatherWithout('b')).toEqual(['a', 'c']);
+    expect(gatherWithout('b', 'c')).toEqual(['a']);
   });
 
   it('集まる → 3秒待つ → 乗りこむ → 2秒走る → 逃げきられる', () => {

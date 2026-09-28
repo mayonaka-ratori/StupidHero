@@ -9,13 +9,13 @@ import Phaser from 'phaser';
 import { UI } from '../config';
 import { DEPTH, UIX } from './theme';
 
-export type FrameKind = 'win' | 'cut' | 'alarm';
+type FrameKind = 'win' | 'cut' | 'alarm';
 
 /** ふちの太さ(黒+ふち+内側の線) */
 export const FRAME_PAD = 3;
 
 const FRAME_COLORS: Record<FrameKind, { edge: number; inner: number; fill: number }> = {
-  win: { edge: UI.winEdge, inner: UIX.winInner, fill: UI.winFill },
+  win: { edge: UI.winEdge, inner: UI.winInner, fill: UI.winFill },
   cut: { edge: UI.cutEdge, inner: UIX.cutInner, fill: UI.cutFill },
   alarm: { edge: UIX.alarmEdge, inner: UIX.alarmInner, fill: UI.cutAlarm }
 };

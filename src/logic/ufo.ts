@@ -8,7 +8,7 @@
 //   → 買い物客を光で吸い上げる(UFO.beamSec)。UFOの上に行けのマーク。行けでヒーローが跳んで殴り落とす
 //   → 行けを押さなかったら、買い物客と宇宙人を乗せて去る(UFO.leaveSec)
 //   UFOは1機ずつ来る。前のUFOが終わるまで、次の宇宙人は合図を送らずに待つ(UfoQueue)
-//   段階を進める仕組みと順番待ちは timedCall.ts(ステージ4の念力と共通)。長さは UfoCallOptions で変えられる
+//   段階を進める仕組みと順番待ちは timedCall.ts(ステージ4の念力と共通)。吸い上げの長さは UfoCallOptions で変えられる
 //
 // 使い方(1機ずつ来るように UfoQueue を使う):
 //   const ufos = new UfoQueue();
@@ -40,12 +40,9 @@ import { CallQueue, TimedCall } from './timedCall';
  */
 export type UfoPhase = 'signal' | 'descend' | 'beam' | 'leave' | 'downed' | 'abducted';
 
-/** 時間を変えるとき(フリープレイのゆっくりモード)。省いた段階は UFO の秒数 */
+/** 吸い上げの長さを変えるとき(フリープレイのゆっくりモード)。省くと UFO.beamSec */
 export interface UfoCallOptions {
-  signalSec?: number;
-  descendSec?: number;
   beamSec?: number;
-  leaveSec?: number;
 }
 
 /** UFO1機ぶん(合図を送った宇宙人1人ぶん) */
@@ -53,10 +50,10 @@ export class UfoCall extends TimedCall<UfoPhase> {
   constructor(alienId: string, opts: UfoCallOptions = {}) {
     super(alienId, {
       steps: [
-        { phase: 'signal', sec: opts.signalSec ?? UFO.signalSec },
-        { phase: 'descend', sec: opts.descendSec ?? UFO.descendSec },
+        { phase: 'signal', sec: UFO.signalSec },
+        { phase: 'descend', sec: UFO.descendSec },
         { phase: 'beam', sec: opts.beamSec ?? UFO.beamSec },
-        { phase: 'leave', sec: opts.leaveSec ?? UFO.leaveSec }
+        { phase: 'leave', sec: UFO.leaveSec }
       ],
       goPhase: 'beam',
       goEnd: 'downed',
@@ -95,11 +92,6 @@ export class UfoQueue {
   /** 今来ているUFO(なければ null)。markOn、phase、progress を画面に使う */
   get current(): UfoCall | null {
     return this.q.current;
-  }
-
-  /** まだ合図を送っていない宇宙人の id(並んだ順) */
-  get queued(): readonly string[] {
-    return this.q.queued;
   }
 
   /** 来ているUFOも、待っている宇宙人もいないか(波の結果発表を終えてよいか) */

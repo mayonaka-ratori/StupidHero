@@ -9,7 +9,7 @@ const WHITE = md(7, 7, 7);
 // 物を描くときの小さな道具(ステージ2と3の物でも使う)
 // ---------------------------------------------------------------------
 /** 明るい、ふつう、暗い、いちばん暗い の4段 */
-export type Ramp4 = [string, string, string, string];
+type Ramp4 = [string, string, string, string];
 
 /** 形のふちのうち、上と左に面したドットに光の色、右と下に面したドットに影の色を置く */
 function edgeLight(P: Painter, m: Mask, hi: string | null, lo: string | null, onlyTop = false): void {

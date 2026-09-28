@@ -26,7 +26,6 @@ describe('records', () => {
     expect(a.newRecords).toEqual([]);
     expect(a.persisted).toBe(true);
     expect(a.titlesCollected).toBe(1);
-    expect(a.titlesTotal).toBe(24);
     expect(a.stage).toEqual({
       mostDefeated: 5, fewestHurt: 2, highestDamage: 10_000_000, fastestBossSec: 8, plays: 1, clears: 1, titles: ['soSo']
     });
@@ -146,7 +145,6 @@ describe('records', () => {
     expect(stageSelectInfo(loadRecords(st)).map((i) => i.unlocked)).toEqual([true, true, true, true]);
     expect(m.firstPlay).toBe(true);
     expect(m.titlesCollected).toBe(2);
-    expect(m.titlesTotal).toBe(24);
     expect(loadRecords(st).stages.mall!.titles).toEqual(['ufoHunter']);
   });
 
@@ -242,7 +240,6 @@ describe('ボスを初めて倒したか(最上階のヒーロー)', () => {
     expect(isFirstClear('tower', won, loadRecords(st))).toBe(true);
     const a = saveResult('tower', won, 'topHero', st);
     expect(a.firstClear).toBe(true);
-    expect(a.titlesTotal).toBe(24);
     expect(loadRecords(st).stages.tower!.titles).toEqual(['soSo', 'topHero']);
     expect(isFirstClear('tower', won, loadRecords(st))).toBe(false);
     expect(saveResult('tower', won, 'soSo', st).firstClear).toBe(false);

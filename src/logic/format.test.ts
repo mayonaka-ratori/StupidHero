@@ -39,11 +39,6 @@ describe('format', () => {
     expect(damageAnalogy(199_000_000, 'garage').unit).toBe('van');
     expect(damageAnalogy(200_000_000, 'garage').text).toBe('高級車10台分');
     expect(damageAnalogy(0, 'garage').text).toBe('被害ゼロ');
-    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
-      const t = damageAnalogy(yen, 'garage').text;
-      expect(t).not.toMatch(/ゴミ箱|自販機|一軒家|^車/);
-      expect(damageAnalogy(yen, 'garage').count).toBeGreaterThan(0);
-    }
     expect(damageAnalogy(24_000_000, 'garage').text).toBe('ワゴン4.8台分');
   });
 
@@ -55,20 +50,29 @@ describe('format', () => {
     expect(damageAnalogy(30_000_000, 'mall').text).toBe('噴水20基分');
     expect(damageAnalogy(199_000_000, 'mall').unit).toBe('fountain');
     expect(damageAnalogy(200_000_000, 'mall').text).toBe('エスカレーター25基分');
-    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
-      expect(damageAnalogy(yen, 'mall').text).not.toMatch(/ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車/);
-      expect(damageAnalogy(yen, 'mall').count).toBeGreaterThan(0);
-    }
     expect(damageAnalogy(4_500_000, 'mall').text).toBe('噴水3基分');
   });
 
+  it.each([
+    { stage: 'garage', ng: /ゴミ箱|自販機|一軒家|^車|ガチャガチャ|噴水|エスカレーター|観葉植物|シャンパンタワー|ピアノ/ },
+    { stage: 'mall', ng: /ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車|観葉植物|シャンパンタワー|ピアノ/ },
+    { stage: 'tower', ng: /ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車|ガチャガチャ|噴水|エスカレーター/ }
+  ] as const)('$stage のたとえは、どの額でもほかのステージの物を出さず、数は0より大きい', ({ stage, ng }) => {
+    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
+      const a = damageAnalogy(yen, stage);
+      expect(a.text).not.toMatch(ng);
+      expect(a.count).toBeGreaterThan(0);
+    }
+  });
+
   it('市民のけがの内わけ(0は書かない。さらわれたは4つ目)', () => {
-    expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 0, civHurtByVillain: 2 })).toEqual(['なぐった1', 'ワルにやられた2']);
-    expect(hurtBreakdown({ civHurtByHero: 1, civHurtByCollateral: 2, civHurtByVillain: 1, civHurtByAbduction: 3 }))
+    const none = { civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 0, civHurtByAbduction: 0, civHurtByDrop: 0 };
+    expect(hurtBreakdown({ ...none, civHurtByHero: 1, civHurtByVillain: 2 })).toEqual(['なぐった1', 'ワルにやられた2']);
+    expect(hurtBreakdown({ ...none, civHurtByHero: 1, civHurtByCollateral: 2, civHurtByVillain: 1, civHurtByAbduction: 3 }))
       .toEqual(['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた3']);
-    expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 0, civHurtByAbduction: 0 })).toEqual([]);
+    expect(hurtBreakdown(none)).toEqual([]);
     // 物が落ちたは5つ目(高層ビル)
-    expect(hurtBreakdown({ civHurtByHero: 0, civHurtByCollateral: 0, civHurtByVillain: 1, civHurtByAbduction: 0, civHurtByDrop: 2 }))
+    expect(hurtBreakdown({ ...none, civHurtByVillain: 1, civHurtByDrop: 2 }))
       .toEqual(['ワルにやられた1', '物が落ちた2']);
   });
 

@@ -1,12 +1,19 @@
-// 確かめる用:OfflineAudioContext で曲や効果音を描き出し、音の大きさを数字で見る。ゲームからは使わない。
-import type { BgmName, SfxName } from './index';
-import { SFX_GAP, SFX_GAP_DEFAULT } from './engine';
-import { createMixer } from './mixer';
-import { BgmPlayer, compile } from './sequencer';
-import { SFX } from './sfx';
-import { SONGS } from './songs';
+// 確かめる用:OfflineAudioContext で曲や効果音を描き出し、音の大きさを数字で見る。ゲームからは使わない
+// (開発用のページ /dev/audio.html だけが使う)。
+import type { BgmName, SfxName } from '../audio';
+import { SFX_GAP, SFX_GAP_DEFAULT } from '../audio/engine';
+import { type Mixer, createMixer } from '../audio/mixer';
+import { BgmPlayer, compile } from '../audio/sequencer';
+import { SFX } from '../audio/sfx';
+import { SONGS } from '../audio/songs';
 
 const RATE = 44100;
+
+/** seconds 秒ぶんの2チャンネルの OfflineAudioContext と、それにつないだ出口(mixer.ts)を作る。limit=false でコンプレッサーとクリップを通さない */
+function offlineMix(seconds: number, limit: boolean): { ctx: OfflineAudioContext; mix: Mixer } {
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
+  return { ctx, mix: createMixer(ctx, ctx.destination, limit) };
+}
 
 export interface Level {
   /** 最大の振れ幅(1.0を超えると音割れ) */
@@ -55,8 +62,7 @@ export function introSeconds(name: BgmName): number {
 
 /** 曲を seconds 秒描き出す。limit=false でコンプレッサーとクリップを通さない */
 export async function renderBgm(name: BgmName, seconds: number, limit = true): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
+  const { ctx, mix } = offlineMix(seconds, limit);
   const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS[name]), name, 0.01);
   player.pump(seconds, 0, false, 1e6);
   return ctx.startRendering();
@@ -67,8 +73,7 @@ export const SFX_START = 0.3;
 
 /** 効果音を1つ描き出す */
 export async function renderSfx(name: SfxName, limit = true, seconds = 2): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil((SFX_START + seconds) * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
+  const { ctx, mix } = offlineMix(SFX_START + seconds, limit);
   SFX[name](ctx, mix.sfx, SFX_START, 1);
   return ctx.startRendering();
 }
@@ -78,8 +83,7 @@ export async function renderSfx(name: SfxName, limit = true, seconds = 2): Promi
  * 何度も鳴ったときに重なって大きくなりすぎないかを見る
  */
 export async function renderSfxRepeat(name: SfxName, limit = true, seconds = 2): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil((SFX_START + seconds + 1) * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
+  const { ctx, mix } = offlineMix(SFX_START + seconds + 1, limit);
   const gap = Math.max(SFX_GAP[name] ?? SFX_GAP_DEFAULT, 0.005);
   for (let t = SFX_START; t < SFX_START + seconds; t += gap) SFX[name](ctx, mix.sfx, t, 1);
   return ctx.startRendering();
@@ -270,8 +274,7 @@ export const WORST_CASE_NAMES = Object.keys(WORST_CASES);
 export async function renderWorstCase(name: string, limit = true): Promise<AudioBuffer> {
   const w = WORST_CASES[name];
   const seconds = 4;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * RATE), RATE);
-  const mix = createMixer(ctx, ctx.destination, limit);
+  const { ctx, mix } = offlineMix(seconds, limit);
   const player = new BgmPlayer(ctx, mix.bgm, compile(SONGS[w.song]), w.song, w.start ?? 0.01);
   player.pump(seconds, 0, false, 1e6);
   w.sfx((n, t, p = 1) => { SFX[n](ctx, mix.sfx, t, p); });

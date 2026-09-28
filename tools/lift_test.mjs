@@ -8,13 +8,13 @@
 // ほかに、波3の答え合わせの「次へ」から Elevator へ来ること、2回目の説明が1つになること、一時停止と画面を離れたときに止まることを見る。
 // 撮るもの:乗ってきた人とマーク、ヴィランの光ったボタンと浮いた小物、2列に並んだ奥の人、着いたときの紫の光、定員オーバー、
 // 着いたときのまとめ。NG があれば exit code 1。
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
+import { checker, gameUrl, openBrowser, openPage, resumeGame, serverUrl, setHidden, shotsDir, touchPad, viewportFor, waitForGame } from './lib.mjs';
 
 const [urlArg, outArg] = process.argv.slice(2);
 const url = serverUrl(urlArg);
 const outDir = shotsDir(outArg);
 const browser = await openBrowser();
-const { check, fail, done } = checker();
+const { check, done } = checker();
 const errors = [];
 
 const S = (page, fn, arg) => page.evaluate(fn, arg);
@@ -22,9 +22,7 @@ const S = (page, fn, arg) => page.evaluate(fn, arg);
 /** 開発用の入口を開く。ctx を渡すと同じ記録(localStorage)で開く */
 async function open(h, query, ctx = null) {
   const page = ctx ? await openPage(ctx, { errors }) : await openPage(browser, { ...viewportFor(h), errors });
-  const u = new URL(url);
-  for (const [k, v] of Object.entries(query)) u.searchParams.set(k, String(v));
-  await page.goto(u.toString());
+  await page.goto(gameUrl(url, query, { keepQuery: true }));
   await waitForGame(page);
   return { page, pad: await touchPad(page) };
 }
@@ -32,8 +30,7 @@ async function open(h, query, ctx = null) {
 /** tower のラッシュのヴィランが villains 人になる種を探す */
 async function seedWith(villains) {
   const page = await openPage(browser, { errors });
-  const u = new URL(url);
-  await page.goto(u.toString());
+  await page.goto(url);
   await waitForGame(page);
   let found = null;
   for (let seed = 1; seed < 60 && found === null; seed++) {
@@ -129,9 +126,9 @@ async function playRush(page, pad, tag, h, press, shots = {}) {
   return { lift: after.lift, log: st.log, pressed };
 }
 
+const seed2 = await seedWith(2);
+const seed3 = await seedWith(3);
 for (const h of [384, 468]) {
-  const seed2 = await seedWith(2);
-  const seed3 = await seedWith(3);
   // 1. 市民にだけ待て(ヴィラン3人の並び)
   {
     const { page, pad } = await open(h, { scene: 'Elevator', stage: 'tower', seed: seed3 });
@@ -186,16 +183,12 @@ for (const h of [384, 468]) {
   await page.waitForTimeout(1000);
   const b = await lift(page);
   check('中断ボタンで止まる', await S(page, () => window.liftDev.scene.scene.isPaused()) && a.sec === b.sec, `${a.sec} -> ${b.sec}`);
-  const r = await S(page, () => { const x = window.pauseDev.resume; return { x: x.x + x.w / 2, y: x.y + x.h / 2 }; });
-  await pad.tap(r.x, r.y);
+  await resumeGame(page, pad);
   await page.waitForTimeout(500);
   const c = await lift(page);
   check('「つづける」で再開', c.sec > b.sec);
   // 画面を離れたとき
-  await S(page, () => {
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
+  await setHidden(page, true);
   await page.waitForTimeout(200);
   const d = await lift(page);
   await page.waitForTimeout(800);

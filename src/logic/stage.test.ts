@@ -5,26 +5,13 @@ import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { STAGES } from './stages';
 import type { Person, Stage, StageId } from './types';
 
-const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 1);
+/** 400個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
+const seedsFrom = (offset: number): number[] => Array.from({ length: 400 }, (_, i) => i * 7919 + offset);
 // ステージは最初に1回だけ作り、どのテストでも使い回す
-const stages: Stage[] = SEEDS.map((s) => createStage(s));
+const stages: Stage[] = seedsFrom(1).map((s) => createStage(s));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage', () => {
-  it('1つの波のワルは2〜3人(ボスは別)で、どちらも出る', () => {
-    const counts = new Set<number>();
-    for (const s of stages) {
-      for (const w of s.waves) {
-        const bad = w.people.filter((p) => p.truth === 'bad').length;
-        expect(bad).toBe(w.badCount);
-        expect(bad).toBeGreaterThanOrEqual(2);
-        expect(bad).toBeLessThanOrEqual(3);
-        counts.add(bad);
-      }
-    }
-    expect([...counts].sort()).toEqual([2, 3]);
-  });
-
   it('モヒカンは波1にちょうど1人、ほかの波にはいない', () => {
     for (const s of stages) {
       const mohawks = s.waves.map((w) => w.people.filter((p) => p.look === 'mohawk').length);
@@ -105,8 +92,6 @@ describe('路地裏は今まで通り(ステージ2を足したあと)', () => {
 // ステージごとにコピーしていた createStage の確かめを、ここに集めた。
 // そのステージだけの決まりは garage.test.ts、mall.test.ts、tower.test.ts に残してある。
 
-/** 400個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
-const seedsFrom = (offset: number): number[] => Array.from({ length: 400 }, (_, i) => i * 7919 + offset);
 const BY_ID: Readonly<Record<StageId, readonly Stage[]>> = {
   alley: stages,
   garage: seedsFrom(1).map((s) => createStage(s, 'garage')),
@@ -188,6 +173,29 @@ describe('createStage:どのステージにも共通の決まり', () => {
       seen.add(boss.disguise!);
     }
     expect([...seen].sort()).toEqual(disguises);
+  });
+
+  it.each([
+    // 悪さ:路地裏は見た目ごとに違う(null。あることだけ確かめる)
+    { id: 'alley', counts: [[2, 3], [2, 3], [2, 3]], mischief: null },
+    { id: 'garage', counts: [[2], [2, 3, 4], [2, 3, 4]], mischief: 'whistle' },
+    { id: 'mall', counts: [[2, 3], [2, 3], [2, 3]], mischief: 'signal' },
+    { id: 'tower', counts: [[1, 2], [2, 3], [2, 3], [2]], mischief: 'psychic' }
+  ] as const)('$id:波ごとのワルの数は $counts(ボスは別。どれも出る)。badCount と同じ。見た目は波の中で重ならない。悪さは $mischief', ({ id, counts, mischief }) => {
+    const seen = counts.map(() => new Set<number>());
+    const bad: string[] = [];
+    for (const s of BY_ID[id]) {
+      s.waves.forEach((w, i) => {
+        const at = `seed ${s.seed} 波${w.no}`;
+        const bads = w.people.filter((p) => p.truth === 'bad');
+        seen[i].add(bads.length);
+        if (bads.length !== w.badCount) bad.push(`${at} badCount`);
+        if (new Set(bads.map((p) => p.look)).size !== bads.length) bad.push(`${at} 見た目が重なる`);
+        for (const p of bads) if (mischief ? p.mischief !== mischief : p.mischief === undefined) bad.push(`${at} ${p.id} 悪さ ${p.mischief}`);
+      });
+    }
+    expect(bad).toEqual([]);
+    expect(seen.map((c) => [...c].sort())).toEqual(counts);
   });
 
   it.each([

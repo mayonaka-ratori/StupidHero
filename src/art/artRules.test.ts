@@ -3,13 +3,14 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, type PixelGrid } from './lib';
 import { IMAGES, KEY_ACCESSORY, SHEETS, sheetByKey } from './sheets';
-import { buildHeroSheets } from './heroSet';
-import { WORLD_BGS, buildWorldSheets } from './worldSet';
+import { ART_SETS } from './sets';
+import { colorsOf, rgbOf } from './testColors';
+import { WORLD_BGS } from './worldSet';
 import { drawLogo } from './world/logo';
-import { WORLD2_IMAGES, buildWorld2Sheets } from './world2';
-import { WORLD3_IMAGES, buildWorld3Sheets } from './world3';
+import { WORLD2_IMAGES } from './world2';
+import { WORLD3_IMAGES } from './world3';
 import { GLITCH } from './world3/palette';
-import { WORLD4_BG_SETS, WORLD4_IMAGES, buildWorld4Sheets } from './world4';
+import { WORLD4_BG_SETS } from './world4';
 import { PSY } from './world4/palette';
 
 /**
@@ -17,19 +18,13 @@ import { PSY } from './world4/palette';
  * いちばん明るい R255 G219 B255 は、前から路地裏の看板のネオンにも使っているので確かめない
  */
 const PSY_ONLY = [PSY[1], PSY[2]];
-import { buildFreeSheets } from './free';
 
-/** 担当ごとのシート(ヒーローと顔とエフェクト、ステージ1〜3、フリープレイ) */
-const SETS: Record<string, Record<string, PixelGrid[][]>> = {
-  hero: buildHeroSheets(),
-  world: buildWorldSheets(),
-  world2: buildWorld2Sheets(),
-  world3: buildWorld3Sheets(),
-  world4: buildWorld4Sheets(),
-  free: buildFreeSheets()
-};
-/** 背景の1枚絵(キー → 描く関数) */
-const IMAGE_DRAW: Record<string, () => PixelGrid> = { ...WORLD_BGS, ...WORLD2_IMAGES, ...WORLD3_IMAGES, ...WORLD4_IMAGES };
+/** 担当ごとのシート(ヒーローと顔とエフェクト、ステージ1〜4、フリープレイ)。sets.ts の一覧から作る */
+const SETS: Record<string, Record<string, PixelGrid[][]>> = Object.fromEntries(
+  Object.entries(ART_SETS).map(([name, set]) => [name, set.sheets()])
+);
+/** 1枚絵(キー → 描く関数)。背景とロゴ */
+const IMAGE_DRAW: Record<string, () => PixelGrid> = Object.assign({}, ...Object.values(ART_SETS).map((set) => set.images));
 /**
  * 色の数を確かめる背景の組(奥の絵1枚と、それに組む壁と床で45色まで)。1枚目は奥の絵で、透明なし。
  * ステージ1〜3は1組ずつ、高層ビルは階ごとの4組とエレベーター
@@ -40,22 +35,26 @@ const BG_SETS: Record<string, string[]> = {
 
 const GREEN = 'rgb(0,255,0)';
 
-const colorsOf = (grids: PixelGrid[]): Set<string> => {
-  const s = new Set<string>();
-  for (const g of grids) for (const row of g.cells) for (const c of row) if (c) s.add(c);
-  return s;
-};
-const okLevel = (c: string): boolean => {
-  const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(c);
-  return !!m && [m[1], m[2], m[3]].every((v) => (LEVELS as readonly number[]).includes(Number(v)));
-};
+/** 8段階の色(md で作れる色)だけか */
+const okLevel = (c: string): boolean => rgbOf(c)?.every((v) => (LEVELS as readonly number[]).includes(v)) ?? false;
 
-/** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人と、その見た目に化けた女ボスだけ */
 /** 超能力の紫を使ってよい絵(もれと念力のエフェクト、親玉の光、念力で浮くシャンデリア) */
 const mayUsePsy = (key: string): boolean => key.startsWith('fx_psy_') || key === 'boss4' || key === 'prop_chandelier';
 
+/** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人と、その見た目に化けた女ボスだけ */
 const mayUseAccessory = (key: string): boolean =>
   /^(guard|mechanic|clubber|officelady)_(civ|bad)$/.test(key) || key.startsWith('boss2_disguise_');
+
+/** 決まった絵にしか使わない色の決まり。colors の色は、may が true の絵にしか使わない。skip の担当では確かめない */
+interface ColorRule { name: string; colors: readonly string[]; may: (key: string) => boolean; skip?: string }
+const COLOR_RULES: ColorRule[] = [
+  { name: '赤紫(R255 G0 B255)はステージ2の人の小物だけ', colors: [KEY_ACCESSORY], may: mayUseAccessory },
+  { name: '超能力の紫(濃いほうの2色)は、ステージ4のもれ、念力、親玉の光だけ', colors: PSY_ONLY, may: mayUsePsy },
+  {
+    name: '黄緑の3色(くずれと合図の色)はステージ3だけ(フリープレイの宇宙人の触角と合図はよい)',
+    colors: GLITCH, may: (key) => key === 'fp_alien', skip: 'world3'
+  }
+];
 
 describe('絵の色の決まり', () => {
   for (const [set, sheets] of Object.entries(SETS)) {
@@ -82,29 +81,13 @@ describe('絵の色の決まり', () => {
         }
       });
 
-      it('赤紫(R255 G0 B255)はステージ2の人の小物だけ', () => {
+      it.each(COLOR_RULES.filter((r) => r.skip !== set))('$name', ({ colors, may }) => {
         for (const [key, rows] of Object.entries(sheets)) {
-          if (!mayUseAccessory(key)) expect(colorsOf(rows.flat()).has(KEY_ACCESSORY), key).toBe(false);
-        }
-      });
-
-      it('超能力の紫(濃いほうの2色)は、ステージ4のもれ、念力、親玉の光だけ', () => {
-        for (const [key, rows] of Object.entries(sheets)) {
-          if (mayUsePsy(key)) continue;
+          if (may(key)) continue;
           const cs = colorsOf(rows.flat());
-          for (const c of PSY_ONLY) expect(cs.has(c), `${key} ${c}`).toBe(false);
+          for (const c of colors) expect(cs.has(c), `${key} ${c}`).toBe(false);
         }
       });
-
-      if (set !== 'world3') {
-        it('黄緑の3色(くずれと合図の色)はステージ3だけ(フリープレイの宇宙人の触角と合図はよい)', () => {
-          for (const [key, rows] of Object.entries(sheets)) {
-            if (key === 'fp_alien') continue;
-            const cs = colorsOf(rows.flat());
-            for (const c of GLITCH) expect(cs.has(c), `${key} ${c}`).toBe(false);
-          }
-        });
-      }
     });
   }
 
@@ -141,5 +124,13 @@ describe('絵の色の決まり', () => {
   it('表の絵は全部どれかの担当が描いている(仮の四角がない)', () => {
     const drawn = new Set(Object.values(SETS).flatMap((s) => Object.keys(s)));
     expect(SHEETS.map((d) => d.key).filter((k) => !drawn.has(k))).toEqual([]);
+  });
+
+  it('1枚絵も全部どれかの担当が描いていて、同じキーを2つの担当が描いていない', () => {
+    const imageKeys = Object.values(ART_SETS).flatMap((s) => Object.keys(s.images));
+    expect(IMAGES.map((d) => d.key).filter((k) => !imageKeys.includes(k))).toEqual([]);
+    expect(imageKeys.length).toBe(new Set(imageKeys).size);
+    const sheetKeys = Object.values(SETS).flatMap((s) => Object.keys(s));
+    expect(sheetKeys.length).toBe(new Set(sheetKeys).size);
   });
 });

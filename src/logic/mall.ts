@@ -15,14 +15,11 @@
 //            宇宙人のくずれは rushGlitchShowing(sec)(0.3秒に1回。sec はラッシュが始まってからの秒数でよい)
 
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed, rushLineup } from './pick';
+import { includeLook, leastUsed, rushLineup, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { GLITCH, RUSH } from './rules';
 import { BOSS3_DISGUISES, MALL_LOOKS, STAGES, sheetKeyFor } from './stages';
 import type { GlitchTiming, MallLook, RushPlan, RushRunner, Wave } from './types';
-
-/** ショッピングモールの見た目と親玉の化けた姿。定義は stages.ts にあり、ここからも読めるようにしておく */
-export { BOSS3_DISGUISES, MALL_LOOKS } from './stages';
 
 // ─── 動きのくずれ ─────────────────────────────────
 
@@ -53,8 +50,8 @@ export function glitchCount(glitch: GlitchTiming | undefined, sec: number): numb
 
 export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
   const def = STAGES.mall;
-  const badCount: Record<MallLook, number> = { mascot: 0, clerk: 0, dancer: 0, uncle: 0 };
-  const civCount: Record<MallLook, number> = { mascot: 0, clerk: 0, dancer: 0, uncle: 0 };
+  const badCount = zeroCounts(MALL_LOOKS);
+  const civCount = zeroCounts(MALL_LOOKS);
   const bossDisguise = rng.pick(BOSS3_DISGUISES);
 
   return def.waves.map((plan) => {
@@ -70,11 +67,8 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
     // 市民の見た目:宇宙人と同じ見た目 → (波3)親玉の化けた姿と同じ見た目 → 残りは偏らないように
     const civLooks: MallLook[] = [];
     for (const l of rng.shuffle(alienLooks)) if (civLooks.length < civSlots) civLooks.push(l);
-    if (plan.boss && !civLooks.includes(bossDisguise)) {
-      // 親玉と同じ見た目の市民がいないなら、足すか最後の1人を入れかえる
-      if (civLooks.length < civSlots) civLooks.push(bossDisguise);
-      else if (civLooks.length > 0) civLooks[civLooks.length - 1] = bossDisguise;
-    }
+    // 親玉と同じ見た目の市民がいないなら、足すか最後の1人を入れかえる
+    if (plan.boss) includeLook(civLooks, bossDisguise, civSlots);
     while (civLooks.length < civSlots) {
       const fresh = leastUsed(rng, MALL_LOOKS, civCount).filter((l) => !civLooks.includes(l));
       civLooks.push(fresh[0] ?? rng.pick(MALL_LOOKS));
@@ -88,7 +82,7 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
       return p;
     });
     for (const look of civLooks) drafts.push(makePerson(rng, used, 'mall', plan.no, look, 'civ'));
-    if (plan.boss) drafts.push(makePerson(rng, used, 'mall', plan.no, bossDisguise, 'boss', bossDisguise));
+    if (plan.boss) drafts.push(makePerson(rng, used, 'mall', plan.no, bossDisguise, 'boss'));
 
     const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: alienTotal, hasBoss: plan.boss, groups: [] };

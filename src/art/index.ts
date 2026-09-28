@@ -2,14 +2,9 @@
 // どの担当も作らなかったキーには、仮の四角を入れておく(ゲームが止まらないように)。
 
 import Phaser from 'phaser';
-import { createCanvas, createSheetAnims, makeArtContext } from './lib';
+import { addGridImages, addGridSheets, createCanvas, createSheetAnims, makeArtContext } from './lib';
 import { IMAGES, SHEETS, sheetSize } from './sheets';
-import { generateHeroSet } from './heroSet';
-import { generateWorldSet } from './worldSet';
-import { generateWorld2Set } from './world2';
-import { generateWorld3Set } from './world3';
-import { generateWorld4Set } from './world4';
-import { generateFreeSet } from './free';
+import { ART_SETS } from './sets';
 
 /** public/art/manifest.json の中身。PNGを用意したキーを並べる */
 export interface ArtManifest { sheets?: string[]; images?: string[] }
@@ -37,12 +32,10 @@ export function loadArtPngs(scene: Phaser.Scene, manifest: ArtManifest | undefin
 
 export function generateArt(scene: Phaser.Scene, skip: Set<string>): void {
   const ctx = makeArtContext(scene, usablePngs(scene, skip));
-  generateHeroSet(ctx);
-  generateWorldSet(ctx);
-  generateWorld2Set(ctx);
-  generateWorld3Set(ctx);
-  generateWorld4Set(ctx);
-  generateFreeSet(ctx);
+  for (const set of Object.values(ART_SETS)) {
+    addGridSheets(ctx, set.sheets(ctx.skip));
+    addGridImages(ctx, set.images);
+  }
   fillPlaceholders(ctx);
   registerAnims(scene);
 }

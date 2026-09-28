@@ -22,7 +22,7 @@
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
 // エラーが出たとき、結果画面まで行けなかったとき、数が合わないときは exit code 1 で終わる。
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { checker, gameUrl, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
 const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -153,14 +153,7 @@ async function play(policy) {
   // 読みこめなかったファイル(外への通信が止められている環境など)はゲームのエラーに数えず、名前だけ出す
   const failed = new Set();
   page.on('response', (r) => { if (r.status() >= 400) failed.add(`${r.status()} ${r.url()}`); });
-  const u = new URL(url);
-  u.search = '';
-  u.searchParams.set('scene', 'Street');
-  u.searchParams.set('free', '1');
-  u.searchParams.set('wave', '1');
-  u.searchParams.set('seed', seed);
-  u.searchParams.set('unlocked', unlocked);
-  await page.goto(u.toString());
+  await page.goto(gameUrl(url, { scene: 'Street', free: '1', wave: '1', seed, unlocked }));
   await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
   const pad = await touchPad(page);
   const exp = await page.evaluate(expected);
@@ -246,7 +239,7 @@ async function play(policy) {
     check(`[${policy}] クリアの時間は、逃がしたワル、市民のけが、ワルへの待て1つにつき3秒を足す`,
       Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt + snap.badSparedByStop) * 3)) < 1e-6);
     check(`[${policy}] 待てと行けのチャンスは巻きぞえで消えない(ヒーローが殴った市民と守った市民で9人)`,
-      policy === 'two' || snap.civHurtByHero + f.stopSaved === 9, `${snap.civHurtByHero}+${f.stopSaved}`);
+      snap.civHurtByHero + f.stopSaved === 9, `${snap.civHurtByHero}+${f.stopSaved}`);
     if (policy === 'good') {
       check('[good] 待てで市民を全員守った', f.stopSaved === 9, String(f.stopSaved));
       check('[good] 行けを全部決めた', f.goScenes === 8, String(f.goScenes));
@@ -373,10 +366,7 @@ async function playTwo(kind) {
   const page = await openPage(browser, { errors });
   let found = null;
   for (let sd = Number(seed); sd < Number(seed) + 60 && found === null; sd++) {
-    const u = new URL(url);
-    u.search = '';
-    for (const [k, v] of Object.entries({ scene: 'Street', free: '1', wave: '3', seed: String(sd), unlocked, threat: '8' })) u.searchParams.set(k, v);
-    await page.goto(u.toString());
+    await page.goto(gameUrl(url, { scene: 'Street', free: '1', wave: '3', seed: String(sd), unlocked, threat: '8' }));
     await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
     const ready = await page.evaluate(twoReady);
     if (kind === 'ab' ? ready.a : ready.c) found = sd;

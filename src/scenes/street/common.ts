@@ -1,4 +1,4 @@
-// 結果発表(Street)とその部品(gang.ts、ufo.ts、rush.ts)、フリープレイの通り(free.ts)で共通の数と形。煙の色はボス戦(Boss.ts)でも使う。
+// 結果発表(Street)とその部品(gang.ts、ufo.ts、rush.ts、psychic.ts)、フリープレイの通り(free.ts)で共通の数と形。煙の色はボス戦(Boss.ts)でも使う。
 
 import type Phaser from 'phaser';
 import type { Look, PropKind, StageId } from '../../logic';

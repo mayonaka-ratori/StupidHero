@@ -17,7 +17,7 @@ import {
   WORST_CASE_NAMES,
   introSeconds,
   songSeconds
-} from '../audio/offline';
+} from './offline';
 
 /** ステージ2で足した効果音(何度も続けて鳴らしたときの大きさも測る) */
 const STAGE2_SFX: SfxName[] = ['whistle', 'engine', 'skid', 'horn', 'crash'];

@@ -1,8 +1,6 @@
 // 画面の切り替え。ドット風のワイプ(四角が斜めに広がって画面をふさぎ、次のシーンでまたひらく)で次のシーンへ行く。
 // 使い方:
-//   goto(this, SCENES.sort, { wave: 1 });                  // ふつうのワイプ(合わせて約0.4秒)
-//   goto(this, SCENES.result, data, { kind: 'fade' });       // 段階的に暗くなるフェード
-//   goto(this, SCENES.title, undefined, { ms: 600, color: 0xffffff });   // 白いワイプ、ゆっくり
+//   goto(this, SCENES.sort, { wave: 1 });                  // 黒いワイプ(合わせて約0.4秒)
 // 切り替えの途中でもう一度呼んでも無視する(ボタンの連打で2回行かないように)。goto は受け付けたら true、無視したら false を返す。
 //   if (goto(this, SCENES.sort)) this.leaving = true;      // 受け付けたときだけ「出ていく途中」にする
 //   gotoWhenFree(this, SCENES.street);                     // 自動で次へ進むとき:切り替えの途中なら、終わってから行く
@@ -15,10 +13,6 @@ import { layout } from '../layout';
 const WIPE_SCENE = 'UiWipe';
 
 export interface GotoOptions {
-  kind?: 'wipe' | 'fade';
-  /** 閉じてから開くまで全部の時間(ミリ秒) */
-  ms?: number;
-  color?: number;
   /** 閉じきったときに呼ぶ(次のシーンが始まる前) */
   onCovered?: () => void;
 }
@@ -60,6 +54,9 @@ export function gotoWhenFree(from: Phaser.Scene, to: string, data?: object, opt:
 interface WipeData { from: string; to: string; data?: object; opt: GotoOptions }
 
 const CELL = 8;
+/** 閉じてから開くまで全部の時間(ミリ秒) */
+const TOTAL_MS = 400;
+const COLOR = 0x000000;
 
 /** main.ts でゲームの起動時に登録しておく(あとから add すると、更新中に呼んだとき start が失敗するため) */
 export class WipeScene extends Phaser.Scene {
@@ -67,10 +64,7 @@ export class WipeScene extends Phaser.Scene {
 
   create(d: WipeData): void {
     const { W, H } = layout;
-    const kind = d.opt.kind ?? 'wipe';
-    const total = d.opt.ms ?? 400;
-    const half = total / 2;
-    const color = d.opt.color ?? 0x000000;
+    const half = TOTAL_MS / 2;
     // 下のシーンのタップを止める
     this.add.zone(0, 0, W, H).setOrigin(0).setInteractive();
     const g = this.add.graphics();
@@ -80,14 +74,7 @@ export class WipeScene extends Phaser.Scene {
 
     const draw = (t: number, opening: boolean): void => {
       g.clear();
-      g.fillStyle(color, 1);
-      if (kind === 'fade') {
-        // 4段階で暗くなる
-        const step = Math.round(t * 4) / 4;
-        g.setAlpha(step);
-        g.fillRect(0, 0, W, H);
-        return;
-      }
+      g.fillStyle(COLOR, 1);
       for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
         const delay = ((i / cols) * 0.6 + (j / rows) * 0.4) * spread;
         let p = Phaser.Math.Clamp((t * (1 + spread) - delay) / 1, 0, 1);

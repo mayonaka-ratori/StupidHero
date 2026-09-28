@@ -12,9 +12,9 @@ import { UI } from '../config';
 import { PixelText } from './text';
 import { DEPTH, FS, UIX, darker, lighter } from './theme';
 
-export type ButtonColor = 'bad' | 'civ' | 'stop' | 'go' | number;
+type ButtonColor = 'bad' | 'civ' | 'stop' | 'go' | number;
 
-export interface ButtonOptions {
+interface ButtonOptions {
   color?: ButtonColor;
   /** 文字の大きさ */
   size?: number;
@@ -118,7 +118,7 @@ export class Button extends Phaser.GameObjects.Container {
     const fill = pressed ? darker(base, 0.15) : base;
     g.clear();
     // 外の白い線(角は落とす)
-    g.fillStyle(this.enabled ? 0xffffff : 0x8a84a0, 1);
+    g.fillStyle(this.enabled ? 0xffffff : UIX.disabledText, 1);
     g.fillRect(-1, 0, w + 2, h).fillRect(0, -1, w, h + 2);
     // 黒い線
     g.fillStyle(UI.black, 1).fillRect(0, 0, w, h);

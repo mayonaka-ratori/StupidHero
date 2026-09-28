@@ -11,7 +11,7 @@
 // tower :中断と再開、見逃したヴィランが念力で運ぶ物を、運び始めてすぐ行けで落とす(早送りでも運ぶ間はふつうの速さ)、
 //         ソファの真上で行けを押して落とす(何も壊れない)、押さずにいると市民に落ちる(写真を撮る)
 // URL に ?scene= がなければ、開発用の入口で波1から始める。NG があれば exit code 1。
-import { checker, openBrowser, openPage, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { checker, gameUrl, openBrowser, openPage, resumeGame, serverUrl, shotsDir, touchPad } from './lib.mjs';
 
 const [urlArg, outArg, stage = 'alley', seed = stage === 'garage' ? '3' : '1'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -25,15 +25,9 @@ const S = (page, fn, arg) => page.evaluate(fn, arg);
 /** 開発用の入口で Street を開く。sorts:truth / random / bad / civ */
 async function open(sorts, wave = 1) {
   const page = await openPage(browser, { errors });
-  const u = new URL(url);
-  if (!u.searchParams.has('scene')) {
-    u.searchParams.set('scene', 'Street');
-    u.searchParams.set('wave', String(wave));
-    u.searchParams.set('sorts', sorts);
-    u.searchParams.set('seed', seed);
-    u.searchParams.set('stage', stage);
-  }
-  await page.goto(u.toString());
+  // ?scene がもうあれば触らない(そのまま開く)
+  const hasScene = new URL(url).searchParams.has('scene');
+  await page.goto(hasScene ? url : gameUrl(url, { scene: 'Street', wave, sorts, seed, stage }, { keepQuery: true }));
   await page.waitForFunction(() => window.streetDev && window.streetDev.goBtn, null, { timeout: 15000 });
   return { page, pad: await touchPad(page) };
 }
@@ -52,8 +46,7 @@ async function pauseCheck(page, pad) {
   await page.screenshot({ path: `${outDir}/${stage}_tap_pause.png` });
   // 一時停止はメニュー。少し待ってから「つづける」を押す
   await page.waitForTimeout(400);
-  const r = await S(page, () => { const b = window.pauseDev.resume; return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; });
-  await pad.tap(r.x, r.y);
+  await resumeGame(page, pad);
   await page.waitForTimeout(300);
   check('「つづける」で再開', !(await S(page, () => window.streetDev.scene.isPaused())));
 }

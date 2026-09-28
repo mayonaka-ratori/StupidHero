@@ -15,7 +15,7 @@ import { DEPTH, FS, UIX } from './theme';
 
 export type TailDir = 'down' | 'down-left' | 'down-right' | 'up' | 'up-left' | 'up-right' | 'left' | 'right' | 'none';
 
-export interface BubbleOptions {
+interface BubbleOptions {
   tail?: TailDir;
   size?: number;
   /** 折り返す幅(0で折り返さない) */

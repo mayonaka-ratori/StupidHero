@@ -15,6 +15,7 @@
 // モヒカンの髪と宇宙人の触角は、帽子を人の後ろ(front: false)に置いて、髪と触角が帽子より手前に見えるようにしてある。
 // どのワルも、目印(ナイフ、バンダナ、バット、触角)は小物に隠れない。
 import type { FreeItem } from '../../logic/types';
+import { FEET_OFFSET } from '../sheets';
 
 export interface ItemAnchor {
   /** 足の裏(originFor で置いた位置)からの横のずれ。右向きのときの値 */
@@ -75,8 +76,8 @@ const SPOTS: Readonly<Record<string, Spot>> = {
 /** 表にある見た目のシートのキー(フリープレイに出る全部の見た目) */
 export const FREE_LOOK_SHEETS: readonly string[] = Object.keys(SPOTS);
 
-/** コマの中で、足の裏の点(originFor の 'feet')は左から32、上から60のドットの境目 */
-const FEET_X = 32, FEET_Y = 60;
+/** コマ(64×64)の中で、足の裏の点(originFor の 'feet')は左から32、上から60(下から FEET_OFFSET)のドットの境目 */
+const FEET_X = 32, FEET_Y = 64 - FEET_OFFSET;
 
 /**
  * その見た目の人に小物を付ける場所(足の裏からのずれ。右向き)。付けないときは null。

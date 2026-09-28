@@ -44,7 +44,7 @@ export function demoKindFor(text: string): DemoKind | null {
   if (/プロフィール|見た目/.test(t)) return 'clues';
   if (/一言/.test(t)) return 'operator';
   if (/時間切れ|勝手に決める/.test(t)) return 'timeUp';
-  if (/待て/.test(t) && /行け/.test(t)) return 'stop';
+  // 待てと行けの両方が出てくるときも、待てを見せる
   if (/待て/.test(t)) return 'stop';
   if (/行け/.test(t)) return 'go';
   return null;

@@ -213,7 +213,7 @@ const VIBES: FmPatch = {
 
 // ---------------------------------------------------------------- 楽器
 
-export type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
+type Instrument = (ctx: Ctx, out: AudioNode, t: number, midi: number, gate: number, vol: number) => void;
 
 const fmInst = (p: FmPatch): Instrument => (ctx, out, t, midi, gate, vol) => {
   fm(ctx, out, t, hz(midi), gate, p, vol);
@@ -259,7 +259,7 @@ export const INSTRUMENTS: Record<string, Instrument> = {
 
 // ---------------------------------------------------------------- ドラム
 
-export type Drum = (ctx: Ctx, out: AudioNode, t: number, vol: number) => void;
+type Drum = (ctx: Ctx, out: AudioNode, t: number, vol: number) => void;
 
 export const DRUMS: Record<string, Drum> = {
   // キック:音程が下がるサイン波 + 短いクリック

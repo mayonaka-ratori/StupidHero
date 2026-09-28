@@ -15,7 +15,7 @@ import { animKey, originFor } from '../art/sheets';
 import { FREE_INTRO, bgForWave, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type StageId } from '../logic';
 import { currentWave, getRun } from '../run';
 import { Button, CUT_H, CUT_TOP_H, FS, PauseControl, addPanel, panelRect, spawnFx } from '../ui';
-import { Z, addMute, devHook, drawStageBg, drawLightPool, flicker, unlockOnTap } from './sort/common';
+import { Z, addMute, drawStageBg, drawLightPool, flicker, unlockOnTap } from './sort/common';
 import { Dialogue } from './dialogue';
 import { IntroDemo, demoKindFor } from './sort/introDemo';
 
@@ -106,15 +106,7 @@ export class IntroScene extends Phaser.Scene {
     const skip = new Button(this, r.x, btnY, skipW, btnH, 'とばす▶▶', { color: 0x2a2540, size: FS.small, textColor: UI.textDim, onPress: () => talk.leave() });
     const nextBtn = new Button(this, r.x + skipW + 6, btnY, r.w - skipW - 6, btnH, '次へ▶', { color: 0x3a3354, onPress: () => talk.advance() });
 
-    this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.some((o) => o.parentContainer === skip || o.parentContainer === mute || o.parentContainer === nextBtn)) return;
-      talk.advance();
-    });
-    this.input.keyboard?.on('keydown-SPACE', () => talk.advance());
-    this.input.keyboard?.on('keydown-ENTER', () => talk.advance());
-    this.input.keyboard?.on('keydown-ESC', () => talk.leave());
-
-    devHook(this, { advance: () => talk.advance(), leave: () => talk.leave(), state: () => ({ index: talk.index, total: talk.total, typing: talk.cut.isTyping }) });
+    talk.bindInput([skip, mute, nextBtn]);
     this.time.delayedCall(260, () => talk.next());
   }
 

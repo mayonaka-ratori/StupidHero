@@ -1,6 +1,6 @@
 // 担当:ステージ4(高層ビル)の人、親玉、物、エフェクト、背景。
 // 人の仕組みや色はステージ1(src/art/world/)のものをそのまま使う。
-import { type ArtContext, type PixelGrid, addGridImages, addGridSheets, buildFxSheets } from '../lib';
+import { type PixelGrid, buildFxSheets } from '../lib';
 import {
   drawLift, drawLiftView, drawPartyGround, drawPartyWall, drawTower1Far, drawTower2Far, drawTower3Far, drawTower4Far,
   drawTowerGround, drawTowerWall
@@ -36,8 +36,3 @@ export const WORLD4_BG_SETS: Record<string, string[]> = {
   tower4: ['bg_tower4_far', 'bg_party_wall', 'bg_party_ground'],
   lift: ['bg_lift_view', 'bg_lift']
 };
-
-export function generateWorld4Set(ctx: ArtContext): void {
-  addGridSheets(ctx, buildWorld4Sheets(ctx.skip));
-  addGridImages(ctx, WORLD4_IMAGES);
-}

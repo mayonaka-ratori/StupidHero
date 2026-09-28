@@ -34,14 +34,17 @@ export function makeStamp(scene: Phaser.Scene, choice: SortChoice, size = 16, ma
   return box;
 }
 
+/** 2倍で出してから1倍に落とすまでのコマ数 */
+const POP_FRAMES = 2;
+
 /** 2倍で出して、次のコマで1倍に落とす(ハンコをドンと押す感じ) */
-export function popStamp(scene: Phaser.Scene, box: Phaser.GameObjects.Container, frames = 2): void {
+export function popStamp(scene: Phaser.Scene, box: Phaser.GameObjects.Container): void {
   box.setScale(2);
   let n = 0;
   const tick = (): void => {
     n++;
     if (!box.active) { scene.events.off(Phaser.Scenes.Events.UPDATE, tick); return; }
-    if (n >= frames) { box.setScale(1); scene.events.off(Phaser.Scenes.Events.UPDATE, tick); }
+    if (n >= POP_FRAMES) { box.setScale(1); scene.events.off(Phaser.Scenes.Events.UPDATE, tick); }
   };
   scene.events.on(Phaser.Scenes.Events.UPDATE, tick);
 }

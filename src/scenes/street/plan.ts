@@ -42,20 +42,35 @@ const PASSERS: readonly { key: string; look: Look }[] = [
   { key: 'granny_civ', look: 'granny' }
 ];
 
+/** 並べる順は波の順。ただしボスは最後にする(ボスの前に来たらボス戦へ行くので、後ろの人が残らないように) */
+function bossLast(people: readonly Person[]): Person[] {
+  return [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+}
+
+/** 最後の人の x(人がいなければ FIRST_X)と、通りの終わり(最後の人の120ドット先) */
+function endOf(spots: readonly PersonSpot[]): { lastX: number; endX: number } {
+  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
+  return { lastX, endX: lastX + 120 };
+}
+
+/** 通りがかりの市民を、並んだ人(足の y)と違う列に立たせる y。奥の人なら手前、手前の人なら奥(rng を1回使う) */
+function otherLaneY(y: number, rng: Rng): number {
+  return y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+}
+
 /**
- * 並べる順は波の順。ただしボスは最後にする(ボスの前に来たらボス戦へ行くので、後ろの人が残らないように)。
+ * 並べる順は波の順。ただしボスは最後にする(bossLast)。
  * passBadIds:見逃したワルの id。悪さの相手がいるように、その人のすぐ先に通りがかりの市民を置く。
  */
 export function planStreet(people: readonly Person[], passBadIds: ReadonlySet<string>, rng: Rng): StreetPlan {
-  const order = [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+  const order = bossLast(people);
   const lane0 = rng.int(0, LANES.length - 1);
   const spots: PersonSpot[] = order.map((person, i) => ({
     person,
     x: FIRST_X + i * GAP + rng.int(-6, 6),
     y: LANES[(lane0 + i) % LANES.length] + rng.int(-2, 2)
   }));
-  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
-  const endX = lastX + 120;
+  const { endX } = endOf(spots);
 
   // 通りがかりの市民:見逃したワルの先には必ず、ほかにも少し(それだけで正体が分からないように)
   const passers: PasserSpot[] = [];
@@ -64,7 +79,7 @@ export function planStreet(people: readonly Person[], passBadIds: ReadonlySet<st
     if (!need && !rng.chance(0.35)) return;
     if (s.person.truth === 'boss') return;
     const look = rng.pick(PASSERS.filter((p) => p.look !== 'granny' || rng.chance(0.3)));
-    const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+    const y = otherLaneY(s.y, rng);
     passers.push({ ...look, x: s.x + 72 + rng.int(-3, 3), y });
   });
 
@@ -120,7 +135,7 @@ const GARAGE_PASSERS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'of
  * 物は柱、料金所のバー、三角コーン、消火器の箱(壁)、止めてある車。ワゴンの前後には置かない。
  */
 export function planGarage(people: readonly Person[], passBadIds: ReadonlySet<string>, props: readonly PropKind[], rng: Rng): StreetPlan {
-  const order = [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+  const order = bossLast(people);
   const lane0 = rng.int(0, LANES.length - 1);
   const spots: PersonSpot[] = [];
   const gathers: GatherSpot[] = [];
@@ -138,8 +153,7 @@ export function planGarage(people: readonly Person[], passBadIds: ReadonlySet<st
       x += GATHER_ROOM;
     }
   });
-  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
-  const endX = lastX + 120;
+  const { endX } = endOf(spots);
   // ワゴンのまわり(物や通りがかりの市民を置かない)
   const nearVan = (px: number, pad = 0): boolean => nearGather(gathers, px, pad);
 
@@ -151,7 +165,7 @@ export function planGarage(people: readonly Person[], passBadIds: ReadonlySet<st
     if (nearVan(px, 8)) return;
     const look = rng.pick(GARAGE_PASSERS);
     const color = ACCESSORY_COLORS[rng.pick(GANG_COLOR_IDS)].color;
-    const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+    const y = otherLaneY(s.y, rng);
     passers.push({ key: `${look}_civ`, look, x: px, y, color });
   });
 
@@ -218,7 +232,7 @@ function garageProps(
 
 // ─── ステージ3(ショッピングモール)────────────────────
 
-/** 見逃した宇宙人から、UFOが下りてくる所(連れ去られる買い物客が立つ所)まで。画面(Street.ts)も同じ数字を使う */
+/** 見逃した宇宙人から、UFOが下りてくる所(連れ去られる買い物客が立つ所)まで。画面(street/ufo.ts)も同じ数字を使う */
 export const UFO_DX = 70;
 /** UFOの横の半分の幅(64×32)。物の真ん中がUFOの真ん中からこれより近ければ、UFOの真下 */
 export const UFO_HALF = 32;
@@ -232,7 +246,7 @@ export const RUSH_DX = 70;
 /** 店の物を置く奥の列(下の端の y) */
 const MALL_BACK_Y = 148;
 /** 物の横の半分の幅(重ならないように並べるため) */
-const MALL_HALF: Partial<Record<PropKind, number>> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
+export const MALL_HALF: Partial<Record<PropKind, number>> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
 
 /**
  * ショッピングモールの並べ方。人の並び方は路地裏と同じ。
@@ -244,15 +258,14 @@ const MALL_HALF: Partial<Record<PropKind, number>> = { gacha: 12, mannequin: 12,
  * - rush:タイムセールラッシュのある波。ヒーローが立つ所(rushX)の後ろにエスカレーターを置き、まわりはあける
  */
 export function planMall(people: readonly Person[], passBadIds: ReadonlySet<string>, props: readonly PropKind[], rng: Rng, rush = false): StreetPlan {
-  const order = [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+  const order = bossLast(people);
   const lane0 = rng.int(0, LANES.length - 1);
   const spots: PersonSpot[] = order.map((person, i) => ({
     person,
     x: FIRST_X + i * GAP + rng.int(-6, 6),
     y: LANES[(lane0 + i) % LANES.length] + rng.int(-2, 2)
   }));
-  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
-  const endX = lastX + 120;
+  const { lastX, endX } = endOf(spots);
   const rushX = rush ? lastX + RUSH_DX : undefined;
   const ufoXs = spots.filter((s) => passBadIds.has(s.person.id)).map((s) => s.x + UFO_DX);
 
@@ -261,7 +274,7 @@ export function planMall(people: readonly Person[], passBadIds: ReadonlySet<stri
   spots.forEach((s) => {
     if (s.person.truth === 'boss' || passBadIds.has(s.person.id) || !rng.chance(0.3)) return;
     const look = rng.pick(MALL_LOOKS);
-    const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+    const y = otherLaneY(s.y, rng);
     const x = s.x + 56 + rng.int(-3, 3);
     // ラッシュでヒーローが立つ所のまわりはあける(走ってくる人とまぎれないように)
     if (rushX !== undefined && Math.abs(x - rushX) < 60) return;
@@ -365,7 +378,7 @@ export interface PsySpot {
 export function planTower(
   people: readonly Person[], passBadIds: ReadonlySet<string>, props: readonly PropKind[], looks: readonly Look[], floorIndex: number, rng: Rng
 ): StreetPlan {
-  const order = [...people.filter((p) => p.truth !== 'boss'), ...people.filter((p) => p.truth === 'boss')];
+  const order = bossLast(people);
   const lane0 = rng.int(0, LANES.length - 1);
   const spots: PersonSpot[] = [];
   const psy: PsySpot[] = [];
@@ -394,8 +407,7 @@ export function planTower(
       x += PSY_ROOM;
     }
   });
-  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
-  const endX = lastX + 120;
+  const { endX } = endOf(spots);
   // 念力の場面(ヴィランの少し手前から、市民の少し先まで)
   const zones = psy.map((p) => [p.plan.villainX - 24, p.plan.victimX + 20] as const);
   const inZone = (px: number, pad: number): boolean => zones.some(([l, r]) => px + pad > l && px - pad < r);
@@ -408,7 +420,7 @@ export function planTower(
     const px = s.x + 56 + rng.int(-3, 3);
     if (inZone(px, 14)) return;
     const look = rng.pick(passerLooks);
-    const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
+    const y = otherLaneY(s.y, rng);
     passers.push({ key: sheetKeyFor(look, 'civ', 'tower'), look, x: px, y });
   });
 
@@ -481,8 +493,7 @@ export function planFree(people: readonly Person[], input: FreePlanInput, rng: R
       x += GATHER_ROOM;
     }
   });
-  const lastX = spots[spots.length - 1]?.x ?? FIRST_X;
-  const endX = lastX + 120;
+  const { endX } = endOf(spots);
 
   // 悪さの相手。見た目は使った回数の少ないものから
   const passers: PasserSpot[] = [];
@@ -500,8 +511,7 @@ export function planFree(people: readonly Person[], input: FreePlanInput, rng: R
     if (!kind) continue;
     const l = pickLook();
     if (kind === 'threat') {
-      const y = s.y < 192 ? 204 + rng.int(-2, 2) : 178 + rng.int(-2, 2);
-      passers.push({ ...l, x: s.x + THREAT_DX, y });
+      passers.push({ ...l, x: s.x + THREAT_DX, y: otherLaneY(s.y, rng) });
     } else {
       // UFOの真下に立つ(画面の ufoDescend と同じ列)
       const ux = s.x + UFO_DX;

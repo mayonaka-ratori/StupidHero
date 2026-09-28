@@ -3,7 +3,10 @@
 //   const s = new CurlSmoke(this, { x: () => car.frontX, y: () => car.smokeY, depth: 50 });
 //   s.stopAfter(3000);   // 3秒たったら出すのをやめる(出ている粒は消えるまで流れて、全部消えたら自分で片づく)
 //   s.stop();            // すぐ出すのをやめる
-//   const b = new HermiteSparks(this, { from: () => ({ x, y }), to: () => ({ x: ufo.x, y: ufo.bottom }), depth: 700 });
+//   const b = new HermiteSparks(this, {
+//     from: () => ({ x, y }), to: () => ({ x: ufo.x, y: ufo.bottom }), depth: 700,
+//     colors: [0x92ff00, 0xffffff], rate: 60, bulge: 260, pull: 110
+//   });
 //   b.stop();
 // どちらもシーンの時計の速さに合わせて動く(ヒットストップの間は止まり、早送りの間は速くなる)。
 // シーンが終わると片づく。
@@ -79,7 +82,7 @@ interface SmokeDot { x: number; y: number; age: number; life: number; ember: boo
 /** 煙の渦の大きさ(ドット) */
 const SMOKE_CELL = 16;
 
-export interface CurlSmokeOptions {
+interface CurlSmokeOptions {
   /** 煙が出る所(毎フレーム読むので、動くものに合わせられる) */
   x: Num;
   y: Num;
@@ -167,7 +170,7 @@ export class CurlSmoke extends FlowEmitter {
 
 interface Spark { x0: number; y0: number; mx: number; my: number; age: number; life: number }
 
-export interface HermiteSparksOptions {
+interface HermiteSparksOptions {
   /** 粒が出る所を1つ決める(粒ごとに呼ぶ) */
   from: () => { x: number; y: number };
   /** 粒が吸いこまれる所(毎フレーム読む) */
@@ -176,14 +179,15 @@ export interface HermiteSparksOptions {
   /** 粒の色(出たばかり → 着く前)。先の色ほど明るくする */
   colors: readonly number[];
   /** 1秒に出す粒の数 */
-  rate?: number;
-  /** 着くまでの秒(いちばん短い、いちばん長い) */
-  life?: [number, number];
+  rate: number;
   /** 出るときに横へふくらむ強さ(ドット) */
-  bulge?: number;
+  bulge: number;
   /** to に入るときの、上向きの勢い(ドット) */
-  pull?: number;
+  pull: number;
 }
+
+/** 粒が着くまでの秒(いちばん短い、いちばん長い) */
+const SPARK_LIFE = [0.45, 0.8] as const;
 
 /** 光の粒が、横へふくらんでから to へ吸いこまれる(道すじはエルミート曲線) */
 export class HermiteSparks extends FlowEmitter {
@@ -197,10 +201,10 @@ export class HermiteSparks extends FlowEmitter {
 
   protected step(dt: number): number {
     const o = this.opt;
-    const [l0, l1] = o.life ?? [0.45, 0.8];
-    const bulge = o.bulge ?? 70;
+    const [l0, l1] = SPARK_LIFE;
+    const bulge = o.bulge;
     if (this.emitting) {
-      this.carry += (o.rate ?? 30) * dt;
+      this.carry += o.rate * dt;
       while (this.carry >= 1) {
         this.carry--;
         const f = o.from();
@@ -214,7 +218,7 @@ export class HermiteSparks extends FlowEmitter {
       }
     }
     const to = o.to();
-    const pull = o.pull ?? 90;
+    const pull = o.pull;
     const g = this.g.clear();
     let n = 0;
     const at = (s: Spark, t: number): [number, number] => [

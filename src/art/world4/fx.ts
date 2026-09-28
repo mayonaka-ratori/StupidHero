@@ -1,10 +1,9 @@
 // ステージ4のもれと念力のエフェクト。紫(PSY)は半透明にせず、市松で薄く見せる。
 // どれも左右反転しても変に見えない形にする。置くときの基準はコマの真ん中(照明だけは上の真ん中)。
 import { gridFrames, md, OUTLINE, PixelGrid } from '../lib';
-import { Painter } from '../world/pix';
+import { Painter, sprite } from '../world/pix';
 import { GOLD, WHITE } from '../world/palette';
 import { dith } from '../world/wrap';
-import { sprite } from './people';
 import { PSY, WEAK } from './palette';
 
 const W0 = WHITE[0];

@@ -11,7 +11,7 @@ export function spawnFx(scene: Phaser.Scene, key: string, x: number, y: number, 
 }
 
 /** 光の拳が from から to へ飛んで消える(fx_punch はくり返しのアニメなので、動きが終わったら消す) */
-export function flyPunch(scene: Phaser.Scene, fromX: number, toX: number, y: number, ms = 60): void {
+export function flyPunch(scene: Phaser.Scene, fromX: number, toX: number, y: number, ms = 50): void {
   const s = scene.add.sprite(Math.round(fromX), Math.round(y), 'fx_punch', 0).setDepth(DEPTH_OF.fx);
   const anim = animKey('fx_punch', 'play');
   if (scene.anims.exists(anim)) s.play(anim);

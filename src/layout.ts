@@ -6,16 +6,14 @@ export interface Layout {
   W: number;
   /** 高さ(384〜468) */
   H: number;
-  /** アクション部分の高さ(214) */
+  /** アクション部分の高さ(214)。下の操作部分の上端もここ */
   actionH: number;
-  /** 下の操作部分の上端(=actionH) */
-  panelTop: number;
   /** ホームバーのぶん、ボタンを上にずらす量(論理ドット) */
   safeBottom: number;
 }
 
 export let layout: Layout = {
-  W: GAME_W, H: MIN_H, actionH: ACTION_H, panelTop: ACTION_H, safeBottom: 0
+  W: GAME_W, H: MIN_H, actionH: ACTION_H, safeBottom: 0
 };
 
 export function computeLayout(): Layout {
@@ -28,14 +26,20 @@ export function computeLayout(): Layout {
   const safeCss = probe ? probe.getBoundingClientRect().height : 0;
   const cssPerLogical = Math.min(vw / GAME_W, vh / H);
   const safeBottom = Math.ceil(safeCss / Math.max(cssPerLogical, 0.001));
-  layout = { W: GAME_W, H, actionH: ACTION_H, panelTop: ACTION_H, safeBottom };
+  layout = { W: GAME_W, H, actionH: ACTION_H, safeBottom };
   return layout;
+}
+
+/** 画面の大きさを端末の画素で数えたもの(dpr は CSS の1ピクセルが何画素か) */
+function devicePixels(): { dpr: number; devW: number; devH: number } {
+  const dpr = window.devicePixelRatio || 1;
+  return { dpr, devW: window.innerWidth * dpr, devH: window.innerHeight * dpr };
 }
 
 /** 論理ドット1つを、端末の画素いくつで表示するか(キャンバスを細かく作る倍率に使う。1〜6) */
 export function computeRes(W: number, H: number): number {
-  const dpr = window.devicePixelRatio || 1;
-  const s = Math.min((window.innerWidth * dpr) / W, (window.innerHeight * dpr) / H);
+  const { devW, devH } = devicePixels();
+  const s = Math.min(devW / W, devH / H);
   return Math.max(1, Math.min(6, Math.round(s)));
 }
 
@@ -44,9 +48,7 @@ export function computeRes(W: number, H: number): number {
  * 実際の画素の数で整数倍にし、整数倍だと小さくなりすぎるときだけ小数倍にする。
  */
 export function fitCanvas(canvas: HTMLCanvasElement, W: number, H: number): void {
-  const dpr = window.devicePixelRatio || 1;
-  const devW = window.innerWidth * dpr;
-  const devH = window.innerHeight * dpr;
+  const { dpr, devW, devH } = devicePixels();
   let s = Math.min(devW / W, devH / H);
   const si = Math.floor(s);
   if (si >= 1 && si / s >= 0.85) s = si;

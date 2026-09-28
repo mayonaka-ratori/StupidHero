@@ -3,7 +3,7 @@
 import type { PixelGrid } from '../lib';
 
 export type Pt = readonly [number, number];
-export type ColorAt = string | null | ((x: number, y: number) => string | null);
+type ColorAt = string | null | ((x: number, y: number) => string | null);
 
 const pick = (c: ColorAt, x: number, y: number): string | null => (typeof c === 'function' ? c(x, y) : c);
 

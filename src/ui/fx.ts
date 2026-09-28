@@ -9,7 +9,7 @@
 //   popText(this, x, y, '¥80万', { color: UI.danger });   // 数字がぴょんと出て上に消える
 //   await banner(this, 'ボス出現!');     // 黒い帯が横から入ってきて、文字を見せて去る
 //   const alarm = new EdgeAlarm(this);  alarm.start();  alarm.stop();   // 画面の左右の端を赤く点滅
-//   enableTapSparks(this);               // タップしたところに小さな火花を出す
+//   tapSpark(this, x, y);                // (x, y)に小さな火花を出す
 //   spawnFx(this, 'fx_hit', x, y, { depth: 700 });   // エフェクトの絵を1回流して消す
 //   await waitMs(this, 300);             // シーンの時計で0.3秒待つ(一時停止やヒットストップの間は止まる)
 // 設定の「光と揺れを弱くする」(settings.reduceFx)がオンのときは、flash は何もせず、shake は1ドットまで
@@ -22,24 +22,29 @@ import { UI } from '../config';
 import { layout } from '../layout';
 import { PixelText } from './text';
 import { DEPTH, FS } from './theme';
-import { px } from '../hires';
 import { settings } from '../settings';
 
 /** いま光っている flash の数(シーンごと) */
 const flashing = new WeakMap<Phaser.Scene, number>();
 
-/** 市松もよう(2×2 に1点)のテクスチャ。光の名残を弱く見せるのに使う */
-function sparseDither(scene: Phaser.Scene, color: number): string {
-  const key = `__flash_dither_${color.toString(16)}`;
+/** 2×2 のテクスチャの、dots の点だけを color で塗る(半透明を使わずに暗くしたり、弱く光らせたりするため) */
+function dotTexture(scene: Phaser.Scene, key: string, color: string, dots: readonly (readonly [number, number])[]): string {
   if (scene.textures.exists(key)) return key;
   const c = document.createElement('canvas');
   c.width = 2; c.height = 2;
   const g = c.getContext('2d')!;
-  g.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-  g.fillRect(0, 0, 1, 1);
+  g.fillStyle = color;
+  for (const [x, y] of dots) g.fillRect(x, y, 1, 1);
   scene.textures.addCanvas(key, c);
   return key;
 }
+
+/** 黒の市松もよう(2×2 に2点)のテクスチャ。下の絵を暗く見せる(一時停止のメニューの後ろなど) */
+export const ditherTexture = (scene: Phaser.Scene): string => dotTexture(scene, '__ui_dither', '#000000', [[0, 0], [1, 1]]);
+
+/** 2×2 に1点だけのテクスチャ。光の名残を弱く見せるのに使う */
+const sparseDither = (scene: Phaser.Scene, color: number): string =>
+  dotTexture(scene, `__flash_dither_${color.toString(16)}`, `#${color.toString(16).padStart(6, '0')}`, [[0, 0]]);
 
 /**
  * 画面全体を一瞬光らせる。光に弱い人のため、画面全体を塗るのは1コマだけ。
@@ -76,14 +81,17 @@ export function flash(scene: Phaser.Scene, color = 0xffffff, frames = 2): void {
 /** 画面全体の光(flash)が出ているか */
 const isFlashing = (scene: Phaser.Scene): boolean => (flashing.get(scene) ?? 0) > 0;
 
+/** whenNoFlash が光の消えるのを待つ、いちばん長いコマ数 */
+const NO_FLASH_MAX_FRAMES = 60;
+
 /**
  * 画面全体の光が出ていないコマになったら fn を呼ぶ(ワーストシーンを撮るときなど)。
- * maxFrames コマ待っても光が消えなければ、そのまま呼ぶ
+ * NO_FLASH_MAX_FRAMES コマ待っても光が消えなければ、そのまま呼ぶ
  */
-export function whenNoFlash(scene: Phaser.Scene, fn: () => void, maxFrames = 60): void {
+export function whenNoFlash(scene: Phaser.Scene, fn: () => void): void {
   let n = 0;
   const check = (): void => {
-    if (isFlashing(scene) && n++ < maxFrames) return;
+    if (isFlashing(scene) && n++ < NO_FLASH_MAX_FRAMES) return;
     scene.events.off(Phaser.Scenes.Events.POST_UPDATE, check);
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, stop);
     fn();
@@ -94,7 +102,8 @@ export function whenNoFlash(scene: Phaser.Scene, fn: () => void, maxFrames = 60)
 }
 
 /** カメラを揺らす(px はドット)。光と揺れを弱くする設定では、大きな揺れ(4ドット以上)だけを1ドットで */
-export function shake(scene: Phaser.Scene, px = 3, ms = 200, cam = scene.cameras.main): void {
+export function shake(scene: Phaser.Scene, px = 3, ms = 200): void {
+  const cam = scene.cameras.main;
   if (settings.reduceFx) {
     if (px < 4) return;
     px = 1;
@@ -224,7 +233,7 @@ export function blink(target: Phaser.GameObjects.GameObject & { setVisible(v: bo
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
 }
 
-export interface PopTextOptions { color?: number; size?: number; rise?: number; ms?: number }
+interface PopTextOptions { color?: number; size?: number; rise?: number; ms?: number }
 
 /** 文字がぴょんと出て、上に動きながら点滅して消える */
 export function popText(scene: Phaser.Scene, x: number, y: number, text: string, opt: PopTextOptions = {}): PixelText {
@@ -250,19 +259,19 @@ export function popText(scene: Phaser.Scene, x: number, y: number, text: string,
   return t;
 }
 
-export interface BannerOptions { y?: number; color?: number; band?: number; hold?: number; size?: number }
+interface BannerOptions { y?: number; band?: number; hold?: number }
 
 /** 黒い帯が右から入ってきて、文字を見せて左へ去る */
 export function banner(scene: Phaser.Scene, text: string, opt: BannerOptions = {}): Promise<void> {
   const { W } = layout;
   const y = Math.round(opt.y ?? layout.actionH / 2);
-  const size = opt.size ?? FS.big;
+  const size = FS.big;
   const bandH = size + 14;
   const c = scene.add.container(W, y - Math.floor(bandH / 2)).setDepth(DEPTH.fx).setScrollFactor(0);
   const g = scene.add.graphics();
   g.fillStyle(UI.black, 1).fillRect(0, 0, W, bandH);
   g.fillStyle(opt.band ?? UI.bad, 1).fillRect(0, 1, W, 2).fillRect(0, bandH - 3, W, 2);
-  const label = new PixelText(scene, Math.floor(W / 2), 7, text, { size, color: opt.color ?? UI.gold, outline: true }).setOrigin(0.5, 0);
+  const label = new PixelText(scene, Math.floor(W / 2), 7, text, { size, color: UI.gold, outline: true }).setOrigin(0.5, 0);
   c.add([g, label]);
   return new Promise((resolve) => {
     scene.tweens.add({
@@ -289,8 +298,6 @@ export class EdgeAlarm {
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.events.off(Phaser.Scenes.Events.UPDATE, this.tick, this));
   }
-
-  get running(): boolean { return this.on; }
 
   start(): this { this.on = true; this.n = 0; return this; }
   stop(): this { this.on = false; this.g.setVisible(false); return this; }
@@ -336,11 +343,6 @@ export function tapSpark(scene: Phaser.Scene, x: number, y: number, color = 0xff
     if (f === 0) g.fillRect(cx - 1, cy - 1, 3, 3);
   };
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
-}
-
-/** タップのたびに火花を出す */
-export function enableTapSparks(scene: Phaser.Scene, color = 0xffffff): void {
-  scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => { const q = px(p); tapSpark(scene, q.x, q.y, color); });
 }
 
 export interface SpawnFxOptions {

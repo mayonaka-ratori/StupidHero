@@ -15,10 +15,10 @@ import { RES } from '../hires';
 
 interface HiResRender { renderWebGL: (...a: unknown[]) => void; renderCanvas: (...a: unknown[]) => void }
 
-export type Align = 'left' | 'center' | 'right';
+type Align = 'left' | 'center' | 'right';
 
 export interface TextStyle {
-  /** 文字の大きさ(ドット)。16か12が基本。8はかなと数字だけ */
+  /** 文字の大きさ(ドット)。16か12が基本。10はかなと数字だけ(theme.ts の FS) */
   size?: number;
   /** 文字の色 */
   color?: number;
@@ -37,7 +37,7 @@ export interface TextStyle {
 }
 
 /** 全部の値が決まった書き方 */
-export type FullTextStyle = Required<TextStyle>;
+type FullTextStyle = Required<TextStyle>;
 
 const DEFAULTS: FullTextStyle = {
   size: 12, color: UI.text, wrap: 0, lineSpacing: 2, align: 'left',
@@ -114,7 +114,7 @@ function fontReady(size: number, text: string): boolean {
 }
 
 /** 文字を先に読み込んでおく(日本語は字ごとに分かれて読み込まれるため) */
-export function preloadFont(texts: string[], sizes: number[] = [12, 16], timeoutMs = 3000): Promise<void> {
+export function preloadFont(texts: string[], sizes: number[] = [10, 12, 16], timeoutMs = 3000): Promise<void> {
   if (!document.fonts) return Promise.resolve();
   const all = stripMarkup(texts.join(''));
   const jobs = sizes.map((s) => document.fonts.load(fontOf(s), all).catch(() => []));
@@ -275,8 +275,6 @@ export class PixelText extends Phaser.GameObjects.Image {
   get text(): string { return this.raw; }
   /** 見える字の数({色}や改行は数えない)。文字送りに使う */
   get length(): number { return this.laid.glyphs.length; }
-  /** 行の数 */
-  get lineCount(): number { return this.laid.lines.length; }
   get style(): Readonly<FullTextStyle> { return this.st; }
 
   setText(text: string | number): this {
