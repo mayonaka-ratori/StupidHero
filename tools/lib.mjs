@@ -44,10 +44,11 @@ export function shotsDir(arg) {
 /** 論理画面の横幅(src/config.ts の GAME_W) */
 export const GAME_W = 216;
 
-/** base の検索パラメータを params だけにしたURL文字列にする(元にあった検索は捨てる。値が undefined のものは付けない) */
-export function gameUrl(base, params) {
+/** base に検索パラメータ params を付けたURL文字列にする(値が undefined のものは付けない)。
+ *  keepQuery が false なら、元にあった検索は捨てる。true なら残して、同じ名前だけ上書きする */
+export function gameUrl(base, params, { keepQuery = false } = {}) {
   const u = new URL(base);
-  u.search = '';
+  if (!keepQuery) u.search = '';
   for (const [k, v] of Object.entries(params)) if (v !== undefined) u.searchParams.set(k, String(v));
   return u.toString();
 }

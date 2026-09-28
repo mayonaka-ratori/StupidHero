@@ -116,6 +116,10 @@ async function open(mode, extra = '') {
 // 5. タップで数え上げを飛ばす、もう一回、タイトルへ
 {
   const { ctx, page, tapAt, tapBtn } = await open('none', SKIP_SAMPLE);
+  // open() は共有カードができるまで待つので、そのあいだに数え上げが終わっていることがある。
+  // 数え上げの途中でタップするため、開き直してボタンが出たところで押す
+  await page.goto(BASE + SKIP_SAMPLE);
+  await page.waitForFunction(() => window.resultDev && window.resultDev.buttons, null, { timeout: 10000 });
   await page.waitForTimeout(300);
   await tapAt(150, 150);
   const done = await page.evaluate(() => window.resultDev.scene.tl.done);

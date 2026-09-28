@@ -122,7 +122,7 @@ export class BossFight {
     return BOSS.hpTaps * r * r;
   }
 
-  /** 連打の回数 counted のまま、体力が maxHp × ratio まで減る時刻 */
+  /** 連打の回数 counted のまま、体力が BOSS.hpTaps × ratio まで減る時刻 */
   private timeWhenHp(counted: number, ratio: number): number {
     if (!Number.isFinite(this.maxSec)) return Infinity;
     const left = Math.max(0, BOSS.hpTaps * (1 - ratio) - counted);
@@ -207,7 +207,7 @@ export class BossFight {
     return { damageYen, idleTicks, defeated, boardedCar };
   }
 
-  /** 残りの体力(0〜maxHp。小数になる) */
+  /** 残りの体力(0〜BOSS.hpTaps。小数になる) */
   get hp(): number {
     return Math.max(0, this.rawHpAt(this.t), this.floorAt(this.t));
   }

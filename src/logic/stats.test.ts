@@ -345,6 +345,8 @@ describe('ラッシュの数え方(タイムセールとエレベーターは同
     expect(r[key]).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs, civsSaved: civs - 1, civsHit: 1 });
     expect(toText(r[key]!)).toBe(summary);
     expect(r[other]).toBeNull();
+    // ほかのステージの数は0のまま
+    expect([r.defeatedByPsy, r.escapedByPsy, r.sofaSaves]).toEqual([0, 0, 0]);
     expect(r.allDefeated).toBe(false);
     expect([r.defeated, r.civHurt, r.escaped, r.civSavedByStop, r.badSparedByStop]).toEqual([0, 0, 0, 0, 0]);
     // snapshot は写し

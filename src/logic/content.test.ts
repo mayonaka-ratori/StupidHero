@@ -214,6 +214,12 @@ describe('結果発表の決めつけと、待て・行けの使い方', () => {
     expect(Object.keys(REACTIONS)).not.toContain('streetWatch');
   });
 
+  it('路地裏と地下駐車場の帯、本性ちらり、決めつけの文は allTexts に入っている(字の読みこみから漏れない)', () => {
+    const all = new Set(allTexts());
+    for (const t of Object.values(STREET_TEXTS)) expect(all.has(t), t).toBe(true);
+    for (const look of LOOKS) for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
+  });
+
   it('結果発表の帯で待てと行けを教える', () => {
     expect(STREET_TEXTS.band).toContain('待て');
     expect(STREET_TEXTS.band).toContain('行け');

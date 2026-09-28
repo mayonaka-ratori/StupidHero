@@ -27,7 +27,7 @@ async function open(sorts, wave = 1) {
   const page = await openPage(browser, { errors });
   // ?scene がもうあれば触らない(そのまま開く)
   const hasScene = new URL(url).searchParams.has('scene');
-  await page.goto(hasScene ? url : gameUrl(url, { scene: 'Street', wave, sorts, seed, stage }));
+  await page.goto(hasScene ? url : gameUrl(url, { scene: 'Street', wave, sorts, seed, stage }, { keepQuery: true }));
   await page.waitForFunction(() => window.streetDev && window.streetDev.goBtn, null, { timeout: 15000 });
   return { page, pad: await touchPad(page) };
 }

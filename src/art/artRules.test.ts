@@ -125,4 +125,12 @@ describe('絵の色の決まり', () => {
     const drawn = new Set(Object.values(SETS).flatMap((s) => Object.keys(s)));
     expect(SHEETS.map((d) => d.key).filter((k) => !drawn.has(k))).toEqual([]);
   });
+
+  it('1枚絵も全部どれかの担当が描いていて、同じキーを2つの担当が描いていない', () => {
+    const imageKeys = Object.values(ART_SETS).flatMap((s) => Object.keys(s.images));
+    expect(IMAGES.map((d) => d.key).filter((k) => !imageKeys.includes(k))).toEqual([]);
+    expect(imageKeys.length).toBe(new Set(imageKeys).size);
+    const sheetKeys = Object.values(SETS).flatMap((s) => Object.keys(s));
+    expect(sheetKeys.length).toBe(new Set(sheetKeys).size);
+  });
 });

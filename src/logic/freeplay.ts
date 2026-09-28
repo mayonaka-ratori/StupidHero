@@ -8,7 +8,7 @@
 //   heroChoice(rule, person)                               // 'bad' なら殴りかかる、'civ' なら素通り
 //   freeRoleOf(fw, person)                                 // 'stop' 待てのチャンス / 'go' 行けのチャンス / 'heroBad' 'heroCiv' ヒーローが正しい
 //   const t = freeTiming(fw.no, slow);                     // 人と人の間、ため、マークのゆっくり、逃げるまでの秒数など
-//   const dry = new DryPress();                            // 空押し。押すたびに dry.press(nowMs, マークがあるか)
+//   const dry = new DryPress();                            // 空押し。押すたびに dry.tap(nowMs, マークがあるか, 前ぶれ)
 //                                                          // マークが消えたら dry.markGone(nowMs)(直後の押しは空押しにしない)
 //                                                          // 行けは dry.tap(nowMs, マーク, 前ぶれ) で前ぶれの間の押しを覚え、毎コマ dry.settle(マーク, 前ぶれ)
 //   clearTimeSec(rawSec, escaped, civHurt, badSparedByStop) // クリアまでの時間(逃がしたワル、市民のけが、ワルへの待ての分を足す)

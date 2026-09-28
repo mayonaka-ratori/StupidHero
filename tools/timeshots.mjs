@@ -1,7 +1,7 @@
 // 画面を開いて、決めた時間ごとにスクリーンショットを撮る(仕分け、結果発表、ボス戦など、どの場面でも)。
 // 1回だけ撮りたいとき(開発用のページを撮るときなど)も、時間を1つだけ渡せばよい。
 // 使い方: node tools/timeshots.mjs <URL> <出力の頭> <時間> [オプション...]
-//   時間:ゲームができてからのミリ秒。「1000,3000,5200」のように並べるか、「2500+150x3」(2500ミリ秒から150ミリ秒ごとに3枚)
+//   時間:ゲームができてから(ゲームのない開発用のページは読みこみが終わってから)のミリ秒。「1000,3000,5200」のように並べるか、「2500+150x3」(2500ミリ秒から150ミリ秒ごとに3枚)
 //   オプション:
 //     press=stop|go|both  結果発表(Street)で合図が出たら、その瞬間に待て/行けを押す
 //     dpr=2               画素の倍率(既定1)
@@ -28,7 +28,9 @@ const browser = await openBrowser();
 const page = await openPage(browser, { width: w, height: h, dpr: Number(opt.dpr ?? 1) });
 page.on('console', (m) => { if (m.text().startsWith('[shots]')) console.log(m.text()); });
 await page.goto(url);
-await waitForGame(page);
+// 開発用のページのうち、絵、文字、音のページにはゲームがないので、読みこみが終わるのだけ待つ
+if (/\/dev\/(?!ui\.html)/.test(new URL(url).pathname)) await page.waitForLoadState('load');
+else await waitForGame(page);
 if (opt.press) {
   await page.waitForFunction(() => window.streetDev, null, { timeout: 15000 });
   await page.evaluate((mode) => {

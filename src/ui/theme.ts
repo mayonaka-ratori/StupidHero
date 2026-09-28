@@ -16,7 +16,6 @@ export const FS = { small: 10, body: 12, big: 16 } as const;
 
 /** config の UI にない色 */
 export const UIX = {
-  /** 青いウィンドウのふちのすぐ内側の線 */
   /** 赤紫のカットインのふちのすぐ内側の線 */
   cutInner: 0xa02a60,
   /** 警告のカットインのふち */

@@ -22,7 +22,7 @@ const S = (page, fn, arg) => page.evaluate(fn, arg);
 /** 開発用の入口を開く。ctx を渡すと同じ記録(localStorage)で開く */
 async function open(h, query, ctx = null) {
   const page = ctx ? await openPage(ctx, { errors }) : await openPage(browser, { ...viewportFor(h), errors });
-  await page.goto(gameUrl(url, query));
+  await page.goto(gameUrl(url, query, { keepQuery: true }));
   await waitForGame(page);
   return { page, pad: await touchPad(page) };
 }
