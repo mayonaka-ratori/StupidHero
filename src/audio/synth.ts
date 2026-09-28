@@ -7,7 +7,7 @@ export type Ctx = BaseAudioContext;
 export const hz = (midi: number): number => 440 * Math.pow(2, (midi - 69) / 12);
 
 /** 音の大きさの形。a=立ち上がり d=減衰(時定数の3倍) s=持続の割合(0〜1) r=離してから消えるまで。単位は秒 */
-export interface Env { a: number; d: number; s: number; r: number }
+interface Env { a: number; d: number; s: number; r: number }
 
 /** 音の大きさの形(Env)を短く書く。E(a, d, s, r) */
 export const E = (a: number, d: number, s: number, r: number): Env => ({ a, d, s, r });
@@ -37,15 +37,12 @@ function adsr(p: AudioParam, t: number, peak: number, e: Env, gate: number): num
 // ---------------------------------------------------------------- FM
 
 /** オペレーター1つ。ratio=基本の周波数に対する倍率。lvl=キャリアなら音量、モジュレーターなら変調指数 */
-export interface Op {
+interface Op {
   ratio: number;
-  /** 周波数を固定したいとき(Hz) */
-  fixed?: number;
   /** セント単位のずれ */
   det?: number;
   lvl: number;
   env: Env;
-  wave?: OscillatorType;
 }
 
 /** FMの音色。mods=[変調する側, される側] の組、out=音として出すオペレーター */
@@ -57,7 +54,7 @@ export interface FmPatch {
   vib?: [number, number, number];
 }
 
-export interface Bend {
+interface Bend {
   /** 始まりの音程のずれ(セント) */
   from: number;
   /** 終わりの音程のずれ(セント) */
@@ -74,8 +71,8 @@ export function fm(ctx: Ctx, out: AudioNode, t: number, freq: number, gate: numb
   const isCarrier = patch.ops.map((_, i) => patch.out.includes(i));
   patch.ops.forEach((op, i) => {
     const o = ctx.createOscillator();
-    o.type = op.wave ?? 'sine';
-    const f = op.fixed ?? freq * op.ratio;
+    o.type = 'sine';
+    const f = freq * op.ratio;
     o.frequency.setValueAtTime(f, t);
     if (op.det) o.detune.setValueAtTime(op.det, t);
     if (bend) {
@@ -121,7 +118,7 @@ export function fm(ctx: Ctx, out: AudioNode, t: number, freq: number, gate: numb
 
 // ---------------------------------------------------------------- PSG(矩形波)
 
-export interface ToneOpts {
+interface ToneOpts {
   f: number;
   /** ここまで周波数を動かす(指数カーブ) */
   f2?: number;
@@ -187,7 +184,7 @@ function noiseBuffer(ctx: Ctx): AudioBuffer {
 
 let noiseOffset = 0;
 
-export interface NoiseOpts {
+interface NoiseOpts {
   gate: number;
   env: Env;
   vol: number;

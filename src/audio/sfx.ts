@@ -1,5 +1,4 @@
 // 効果音。どれも短く、FMと矩形波とノイズで作る。p は音程の倍率(1=そのまま)。終わる時刻を返す。
-import type { SfxName } from './index';
 import { type Ctx, E, type FmPatch, drop, fm, hz, noise, tone } from './synth';
 
 type Sfx = (ctx: Ctx, out: AudioNode, t: number, p: number) => number;
@@ -7,8 +6,8 @@ type Sfx = (ctx: Ctx, out: AudioNode, t: number, p: number) => number;
 const max = (...xs: number[]) => Math.max(...xs);
 
 /** 短いピコッという矩形波 */
-const blipTone = (ctx: Ctx, out: AudioNode, t: number, f: number, len: number, vol: number, wave: OscillatorType = 'square') =>
-  tone(ctx, out, t, { f, gate: len, env: E(0.001, len, 0.5, 0.015), vol, wave });
+const blipTone = (ctx: Ctx, out: AudioNode, t: number, f: number, len: number, vol: number) =>
+  tone(ctx, out, t, { f, gate: len, env: E(0.001, len, 0.5, 0.015), vol, wave: 'square' });
 
 /** 金属っぽいベル(ratio 3.5 の変調) */
 const BELL_FX: FmPatch = {
@@ -132,7 +131,8 @@ const PSY: FmPatch = {
   vib: [9, 45, 0]
 };
 
-export const SFX: Record<SfxName, Sfx> = {
+/** 効果音の表。キーが効果音の名前(SfxName)になる */
+export const SFX = {
   // ボタン:ピコッ(2音)
   button: (c, o, t, p) => max(blipTone(c, o, t, 1047 * p, 0.035, 0.15), blipTone(c, o, t + 0.035, 1568 * p, 0.05, 0.13)),
 
@@ -527,4 +527,4 @@ export const SFX: Record<SfxName, Sfx> = {
       tone(c, o, t, { f: 660 * p, f2: 990 * p, slide: 0.07, gate: 0.07, env: E(0.004, 0.08, 0.6, 0.02), vol: 0.07, wave: 'triangle' }),
       tone(c, o, t + 0.08, { f: 1320 * p, gate: 0.025, env: E(0.002, 0.03, 0.3, 0.015), vol: 0.035, wave: 'triangle' })
     )
-};
+} satisfies Record<string, Sfx>;

@@ -13,9 +13,11 @@ import {
 const PERSON = { left: 108 - 12 * 2 - 8, top: 204 - 58 * 2 };
 
 describe('高層ビルの仕分けの画面の照明と机', () => {
+  // 小物の絵(fx_psy_items)は1回だけ作って、下の2つのテストで使う
+  const items = sheetByKey('fx_psy_items');
+  const grids = FX4.fx_psy_items(items.frameW, items.frameH, items.rows[0].frames);
+
   it('小物の絵のある行は、fx_psy_items の絵と合っている', () => {
-    const d = sheetByKey('fx_psy_items');
-    const grids = FX4.fx_psy_items(d.frameW, d.frameH, d.rows[0].frames);
     for (const [item, f] of Object.entries(TOWER_ITEM_FRAMES) as [TowerItem, number][]) {
       const rows: number[] = [];
       for (let y = 0; y < TOWER_ITEM_SIZE; y++) for (let x = 0; x < TOWER_ITEM_SIZE; x++) if (grids[f].get(x, y)) rows.push(y);
@@ -24,9 +26,7 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
   });
 
   it('料理のコマ(ケーキ、肉料理)は、ほかの小物と同じく下の端が7段目で、コマの横の真ん中あたりにある', () => {
-    const d = sheetByKey('fx_psy_items');
-    const grids = FX4.fx_psy_items(d.frameW, d.frameH, d.rows[0].frames);
-    expect(d.rows[0].frames).toBe(8);
+    expect(items.rows[0].frames).toBe(8);
     for (const [food, f] of Object.entries(PARTY_FOOD_FRAMES)) {
       const xs: number[] = [];
       const ys: number[] = [];

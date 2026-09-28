@@ -14,6 +14,7 @@
 import type { LeakSpots } from '../logic/tower';
 import type { WaveNo } from '../logic/types';
 import { CLUE_H, CLUE_W, type ClueRect } from './clueSpots';
+import { sheetByKey } from './sheets';
 
 /** fx_psy_items のコマ */
 export const TOWER_ITEM_FRAMES = { pen: 0, card: 1, cup: 2, glass: 3, napkin: 4, candle: 5 } as const;
@@ -34,11 +35,11 @@ export const TOWER_ITEM_ROWS: Readonly<Record<TowerItem, { top: number; bottom: 
   candle: { top: 1, bottom: 7 }
 };
 
-/** 小物のコマの大きさ */
-export const TOWER_ITEM_SIZE = 12;
+/** 小物のコマ(fx_psy_items)の大きさ(縦と横は同じ) */
+export const TOWER_ITEM_SIZE = sheetByKey('fx_psy_items').frameW;
 /** 机(tw_desk)の大きさ */
-export const TOWER_DESK_W = 40;
-export const TOWER_DESK_H = 32;
+export const TOWER_DESK_W = sheetByKey('tw_desk').frameW;
+export const TOWER_DESK_H = sheetByKey('tw_desk').frameH;
 /** 小物の下の端をのせる行(机のコマの上から数えて。天板の上の面は3〜4段目) */
 export const DESK_TOP_ROW = 4;
 /** 浮いた小物が上がる高さ(ドット)。上下のゆれは、ここから1ドット上まで */
@@ -50,13 +51,13 @@ export const FLOAT_PX = 3;
  */
 export const TOWER_LAMP = { x: 94, y: 0, scale: 2 } as const;
 /** fx_psy_lamp の大きさ */
-export const TOWER_LAMP_W = 40;
-export const TOWER_LAMP_H = 24;
+export const TOWER_LAMP_W = sheetByKey('fx_psy_lamp').frameW;
+export const TOWER_LAMP_H = sheetByKey('fx_psy_lamp').frameH;
 /** 仕分けの画面の机(tw_desk の下の真ん中)。人の左の細い所。足の高さ(204)にそろえる */
 export const TOWER_DESK = { x: 38, y: 204 } as const;
 
 /** 机の上の小物1つ。dx は机の真ん中から小物のコマの真ん中までのずれ */
-export interface DeskItem { item: TowerItem; dx: number }
+interface DeskItem { item: TowerItem; dx: number }
 
 /** 1つの階の机。items[0] がもれの出る小物(spot)。rect は窓の四角(机の下の真ん中からのずれ) */
 export interface TowerDeskSpot { items: readonly [DeskItem, DeskItem]; rect: ClueRect }

@@ -8,7 +8,7 @@ import { BLUE, HAIR4, HERO_KEYS, OUT, RED, SKIN, WHITE, type Ramp } from './pale
 import { HEADS, HEAD_NECK, HEAD_TAIL, type FaceId } from './heads';
 import { stamp } from './sprite';
 
-export type Hand = 'fist' | 'open' | 'flat' | 'point' | 'thumb';
+type Hand = 'fist' | 'open' | 'flat' | 'point' | 'thumb';
 
 /** 腕: a = 肩の角度、e = ひじの曲げ(前腕の角度 = a + e)、hand = 手の形、ha = 手の向き(省略時は前腕の向き)、fs = こぶしの大きさ(1が基本) */
 export interface Arm { a: number; e: number; hand?: Hand; ha?: number; fs?: number }
@@ -20,9 +20,9 @@ export interface Leg { a: number; k: number; f?: number; front?: boolean }
 /** マント: a = なびく向き、len = 長さ、ph = 揺れの位相、w = すその幅、bend = しなり */
 export interface Cape { a: number; len: number; ph: number; w?: number; bend?: number; amp?: number }
 /** ポニーテール: a = 向き、ph = 揺れ */
-export interface Tail { a: number; ph?: number; len?: number; curl?: number }
+interface Tail { a: number; ph?: number; len?: number; curl?: number }
 /** コマごとの手直し。(x, y) を左上に、HERO_KEYS の文字で打った絵を上から重ねる('.' と ' ' はそのまま、'_' で消す) */
-export interface Fix { x: number; y: number; rows: string[] }
+interface Fix { x: number; y: number; rows: string[] }
 
 export interface Pose {
   /** 腰の位置。ground のときは y を足から自動で決める */

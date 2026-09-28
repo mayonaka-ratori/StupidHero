@@ -84,8 +84,6 @@ function edgeLine(g: PixelGrid, inside: (x: number, y: number) => boolean, col: 
     if (g.get(x, y) || !inn(x, y)) continue;
     if (g.get(x + 1, y) === col || g.get(x - 1, y) === col || g.get(x, y + 1) === col || g.get(x, y - 1) === col) g.px(x, y, OUTLINE);
   }
-  // 中は空ける
-  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) if (g.get(x, y) !== col && g.get(x, y) !== OUTLINE) g.px(x, y, null);
 }
 
 export const auraAttackLine = (n: number): PixelGrid[] => gridFrames(64, 64, n, (g) => {

@@ -2,11 +2,11 @@
 // 白いスーツに紫のマント、黒いシャツに紫のネクタイ。なでつけた黒髪に白い一筋。目が紫に光る(超能力の紫 PSY)。
 // 体は bossKit の道具で組み立てる(人の仕組み figure.ts は使わない)。
 import { OUTLINE, PixelGrid, md } from '../lib';
-import { Painter, type Pt, rotateGrid } from '../world/pix';
+import { Painter, type Pt } from '../world/pix';
 import {
-  type ArmDims, type BArm, type BLeg, type BPose, type HeadArt, type Ramp4,
-  alignFeet, armShapes, drawNeckAndHead, drawScraps, footShape, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall,
-  TALL_STAND, tallBossPoses
+  type BArm, type BLeg, type BPose, type HeadArt, type Ramp4,
+  alignFeet, drawNeckAndHead, drawScraps, drawTallArm, footShape, hitDefeatRows, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall,
+  TALL_STAND, tallBossPoses, tallShoulderB, tallShoulderF
 } from '../world/bossKit';
 import { PSY } from './palette';
 
@@ -81,30 +81,9 @@ function bossHead(face: BossFace): HeadArt {
 
 // ---------- 体 ----------
 
-const ARM: ArmDims = { up: 3.4, fore: 3.2, wrist: 2.4, fist: 2.6 };
-const shoulderF = (p: BPose): Pt => [p.neck[0] - 7, p.neck[1] + 5];
-const shoulderB = (p: BPose): Pt => [p.neck[0] + 7, p.neck[1] + 4];
-
 /** 腕(白いそで、金のカフス、手)。念力の手は指を広げる */
 function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
-  const su = limbRamp(SUIT, far);
-  const sk = limbRamp(SKIN, far);
-  const { upper, fore, hand, wrist } = armShapes(P, s, arm, ARM);
-  shade(P, upper.clone().union(fore).union(hand), OUTLINE, { sep: 'outline' });
-  shade(P, upper, su, { sep: 'none', hi: 0.34, lo: 0.64 });
-  shade(P, fore, su, { sep: 'dark', hi: 0.34, lo: 0.64 });
-  const kind = arm.hand ?? 'fist';
-  const dx = arm.h[0] - arm.e[0], dy = arm.h[1] - arm.e[1], L = Math.hypot(dx, dy) || 1;
-  const ux = dx / L, uy = dy / L;
-  if (kind === 'fist') shadeBall(P, hand, sk, arm.h[0] - 1, arm.h[1] - 1, 3.4, 3.4, { sep: 'outline', cut: [0.5, -0.1, -9] });
-  else {
-    const m = P.mask().ellipse(arm.h[0] - ux, arm.h[1] - uy, 2.2, 2.2);
-    for (const q of kind === 'point' ? [0] : [-2, 0, 2]) {
-      const len = kind === 'point' ? 5 : 4;
-      m.capsule([arm.h[0] - uy * q * 0.6, arm.h[1] + ux * q * 0.6], [arm.h[0] + ux * len - uy * q * 1.4, arm.h[1] + uy * len + ux * q * 1.4], 0.5);
-    }
-    shade(P, m, sk, { sep: 'outline', hi: 0.4, lo: 0.7 });
-  }
+  const { wrist, ux, uy } = drawTallArm(P, s, arm, far, SUIT, SKIN, { spread: [-2, 0, 2], root: 0.6, tip: 1.4, len: 4 });
   // 袖口の黒いシャツと金のカフス
   const cuff = P.mask().capsule(wrist, [wrist[0] - ux * 0.8, wrist[1] - uy * 0.8], 1.6);
   shade(P, cuff, DARK, { sep: 'none' });
@@ -148,7 +127,7 @@ function drawBoss(pose: BPose, face: BossFace, o: BossOpts = {}): PixelGrid {
   const n = pose.neck, p = pose.hip;
   const lean = (p[0] - n[0]) / Math.max(1, p[1] - n[1]);
   const T = (dx: number, dy: number): Pt => [n[0] + dx + lean * dy, n[1] + dy];
-  const sF = shoulderF(pose), sB = shoulderB(pose);
+  const sF = tallShoulderF(pose), sB = tallShoulderB(pose);
   // 背中のマント(ひざまで。すそはとがる)
   const foot = Math.max(pose.lF.a[1], pose.lB.a[1]);
   const hem = Math.min(foot - 4, p[1] + 22);
@@ -220,16 +199,8 @@ export function buildBoss4(): PixelGrid[][] {
     alignFeet(drawBoss(a3, 'shout', { glow: ['B'] }))
   ];
 
-  // 3 ラッシュを受ける
-  const hit = [alignFeet(drawBoss(h0, 'hurt')), alignFeet(drawBoss(h1, 'hurt'))];
-
-  // 4 やられる:よろけて、ひざをつき、目を回して倒れる
-  const defeat = [
-    alignFeet(drawBoss(d0, 'hurt')),
-    alignFeet(drawBoss(d1, 'hurt')),
-    rotateGrid(drawBoss(d2, 'ko'), -1.0, 48, 52, 48, 58),
-    alignFeet(rotateGrid(drawBoss(d3, 'ko'), -Math.PI / 2, 48, 48, 48, 48), true)
-  ];
+  // 3 ラッシュを受ける、4 やられる(よろけて、ひざをつき、目を回して倒れる)
+  const [hit, defeat] = hitDefeatRows(drawBoss, [h0, h1], [d0, d1, d2, d3]);
 
   // 5 念力の選択:両手を上げて、客とシャンデリアを浮かせる(左上の客へ奥の手、真上のシャンデリアへ手前の手)
   const c0 = pose((p) => {

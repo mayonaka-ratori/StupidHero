@@ -28,12 +28,6 @@ export function createCanvas(w: number, h: number): Canvas2D {
   return { canvas, ctx };
 }
 
-/** シートの大きさの空のキャンバス */
-function createSheetCanvas(def: SheetDef): Canvas2D {
-  const { w, h } = sheetSize(def);
-  return createCanvas(w, h);
-}
-
 /**
  * 小さな格子に色を塗ってから、コマに書き写すための道具。
  * grid[y][x] に色の文字列(または null)を入れる。
@@ -136,10 +130,6 @@ function colorBytes(c: string): readonly [number, number, number, number] {
   return v;
 }
 
-/** シートの中の、row行目 i番目のコマの左上 */
-const cellOrigin = (def: SheetDef, row: number, i: number): { x: number; y: number } =>
-  ({ x: i * def.frameW, y: row * def.frameH });
-
 /** シートの表の通りに、テクスチャにコマ(番号は 行×列の数+列)を切る */
 export function addSheetFrames(tex: Phaser.Textures.Texture, def: SheetDef): void {
   for (let row = 0; row < def.rows.length; row++) {
@@ -159,7 +149,7 @@ export function createSheetAnims(scene: Phaser.Scene, def: SheetDef, key = def.k
   });
 }
 
-export interface ArtContext {
+interface ArtContext {
   scene: Phaser.Scene;
   /** PNGが用意されていて、作らなくてよいキー */
   skip: Set<string>;
@@ -193,13 +183,12 @@ export function makeArtContext(scene: Phaser.Scene, skip: Set<string>): ArtConte
 
 /** rows[行][コマ] の順にコマを並べて、シートのキャンバスにする */
 function buildSheet(def: SheetDef, rows: PixelGrid[][]): HTMLCanvasElement {
-  const { canvas, ctx } = createSheetCanvas(def);
+  const { w, h } = sheetSize(def);
+  const { canvas, ctx } = createCanvas(w, h);
   rows.forEach((frames, r) => {
     if (r >= def.rows.length) return;
-    frames.slice(0, def.rows[r].frames).forEach((g, i) => {
-      const o = cellOrigin(def, r, i);
-      g.drawTo(ctx, o.x, o.y);
-    });
+    // コマの左上は (i×コマの幅, r×コマの高さ)
+    frames.slice(0, def.rows[r].frames).forEach((g, i) => g.drawTo(ctx, i * def.frameW, r * def.frameH));
   });
   return canvas;
 }

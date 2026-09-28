@@ -142,7 +142,6 @@ export class Engine implements AudioEngine {
     const mix = this.mix;
     if (!ctx || !mix || this.muted || this.hidden || ctx.state !== 'running') return;
     const fn = SFX[name];
-    if (!fn) return;
     const now = ctx.currentTime;
     const last = this.lastSfx.get(name);
     if (last !== undefined && now - last < (SFX_GAP[name] ?? SFX_GAP_DEFAULT) && now >= last) return;

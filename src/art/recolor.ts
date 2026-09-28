@@ -7,10 +7,11 @@
 // 小物のないシート(ステージ1の人など)や、色がないときは、元のキーをそのまま返す。
 
 import type Phaser from 'phaser';
-import { addSheetFrames, createSheetAnims } from './lib';
-import { animKey, sheetByKey } from './sheets';
+import { addSheetFrames, createCanvas, createSheetAnims } from './lib';
+import { KEY_ACCESSORY, animKey, sheetByKey } from './sheets';
 
-const KEY_R = 255, KEY_G = 0, KEY_B = 255;
+/** KEY_ACCESSORY('rgb(255,0,255)')の R、G、B */
+const [KEY_R, KEY_G, KEY_B] = KEY_ACCESSORY.slice(4, -1).split(',').map(Number);
 /** 女ボスの金(logic の ACCESSORY_COLORS.gold)と、その光と影 */
 const GOLD = 0xdbb624, GOLD_HI = 0xffff92, GOLD_LO = 0x926d00;
 /** 塗り替えたことのある元のシート → 小物があったか */
@@ -24,9 +25,7 @@ export function accessorySheet(scene: Phaser.Scene, sheetKey: string, color?: nu
   const src = scene.textures.get(sheetKey);
   const img = src.getSourceImage() as HTMLCanvasElement | HTMLImageElement;
   const w = img.width, h = img.height;
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const { canvas, ctx } = createCanvas(w, h);
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;

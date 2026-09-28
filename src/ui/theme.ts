@@ -23,8 +23,6 @@ export const UIX = {
   /** 警告のカットインのふち */
   alarmEdge: 0xffe08a,
   alarmInner: 0xc0303a,
-  /** 名前の色 */
-  name: UI.gold,
   /** 黄色いボタン(待て)の文字 */
   stopText: 0x2a1a00,
   /** 使えないボタン */
@@ -49,11 +47,7 @@ export const TEXT_COLORS: Record<string, number> = {
   gold: UI.gold,
   dim: UI.textDim,
   red: UI.danger,
-  danger: UI.danger,
-  bad: UI.bad,
-  civ: 0x7fb0ff,
-  black: 0x000000,
-  yellow: UI.stop
+  civ: 0x7fb0ff
 };
 
 /** 2人の名前。決まったらここだけ変える */

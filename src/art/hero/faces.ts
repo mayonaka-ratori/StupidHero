@@ -3,6 +3,7 @@
 // (元は mocks/hero_art_src/face48.py と op48.py)。
 // 表情ごとの絵は、いちばん上の表情の口を閉じた顔(BASE)に、違う行だけを重ねて作る('_' は元のまま)。
 import { md, OUTLINE, PixelGrid } from '../lib';
+import { HERO_KEYS, SKIN, WHITE } from './palette';
 import { patch, stamp } from './sprite';
 
 const S = 48;
@@ -10,7 +11,7 @@ const S = 48;
 // ---------- ヒーロー(ドヤ顔、やっちまった(汗)、笑顔) ----------
 // o=ふち、a,b,c=肌、H,1,2,3=髪(明るい→影)、L,B,N=スーツとマスクの青、R,r,d=マントの赤、w=白
 
-const HERO_KEYS: Record<string, string> = { o: OUTLINE, a: md(7, 6, 5), b: md(7, 5, 4), c: md(5, 3, 3), H: md(7, 7, 5), '1': md(7, 6, 1), '2': md(6, 4, 0), '3': md(4, 2, 1), L: md(3, 5, 7), B: md(1, 3, 6), N: md(1, 1, 4), R: md(7, 3, 2), r: md(6, 1, 1), d: md(3, 0, 2), w: md(7, 7, 7) };
+// 色の表 HERO_KEYS は palette.ts にある(体の絵と同じ15色)
 
 const HERO_BASE = [
   '................................................',
@@ -138,7 +139,7 @@ const HERO_FACES: Record<number, string>[][] = [
 // ---------- オペレーター(ふつう、あせり(汗)、あきれ、ノリノリ) ----------
 // o=ふち、a,b,c=肌、K,k,q=髪(明るい→影)、T,t,D=制服と瞳の青緑、w=白、R,p=リボンと口の中、s,S=ヘッドセット
 
-const OP_KEYS: Record<string, string> = { o: OUTLINE, a: md(7, 6, 5), b: md(7, 5, 4), c: md(5, 3, 3), K: md(3, 3, 6), k: md(1, 1, 4), q: md(0, 0, 2), T: md(2, 6, 5), t: md(1, 4, 4), D: md(0, 2, 3), w: md(7, 7, 7), R: md(6, 1, 1), p: md(7, 4, 4), s: md(5, 5, 6), S: md(2, 2, 3) };
+const OP_KEYS: Record<string, string> = { o: OUTLINE, a: SKIN[0], b: SKIN[1], c: SKIN[2], K: md(3, 3, 6), k: md(1, 1, 4), q: md(0, 0, 2), T: md(2, 6, 5), t: md(1, 4, 4), D: md(0, 2, 3), w: WHITE, R: md(6, 1, 1), p: md(7, 4, 4), s: md(5, 5, 6), S: md(2, 2, 3) };
 
 const OP_BASE = [
   '....................oooooooo....................',

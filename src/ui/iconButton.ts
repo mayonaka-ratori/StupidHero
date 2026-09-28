@@ -12,10 +12,12 @@ import Phaser from 'phaser';
 import { UI } from '../config';
 import { DEPTH, darker } from './theme';
 
-export type IconName = 'pause' | 'soundOn' | 'soundOff' | 'play' | 'fast';
+type IconName = 'pause' | 'soundOn' | 'soundOff' | 'play' | 'fast';
 
 const D = 16; // 直径
 const HIT = 28;
+/** 丸の中のふつうの色 */
+const FILL = 0x2a2448;
 
 /** 丸を1行ずつ塗る(ぎざぎざのないドットの丸) */
 function fillCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, d: number): void {
@@ -63,12 +65,11 @@ export class IconButton extends Phaser.GameObjects.Container {
   icon: IconName;
   private g: Phaser.GameObjects.Graphics;
   private pressedUntil = 0;
-  protected color: number;
+  protected color = FILL;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, icon: IconName, onPress?: () => void, color = 0x2a2448) {
+  constructor(scene: Phaser.Scene, x: number, y: number, icon: IconName, onPress?: () => void) {
     super(scene, Math.round(x), Math.round(y));
     this.icon = icon;
-    this.color = color;
     this.g = new Phaser.GameObjects.Graphics(scene);
     const hit = new Phaser.GameObjects.Zone(scene, 0, 0, HIT, HIT);
     this.add([this.g, hit]);
@@ -111,7 +112,7 @@ export class IconButton extends Phaser.GameObjects.Container {
   }
 }
 
-export interface MuteOptions {
+interface MuteOptions {
   isMuted: () => boolean;
   toggle: () => boolean | void;
 }
@@ -133,7 +134,7 @@ export class MuteButton extends IconButton {
   refresh(): this {
     if (!this.mo) return this;
     const muted = this.mo.isMuted();
-    this.color = muted ? UI.bad : 0x2a2448;
+    this.color = muted ? UI.bad : FILL;
     return this.setIcon(muted ? 'soundOff' : 'soundOn');
   }
 }

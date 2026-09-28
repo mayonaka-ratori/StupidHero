@@ -4,7 +4,7 @@ import { gridFrames, md, OUTLINE, PixelGrid } from '../lib';
 import { ellipse, fillWhere, line, line1, poly, rng, type Pt } from './shapes';
 import { stamp } from './sprite';
 
-export type FxMaker = (w: number, h: number, frames: number) => PixelGrid[];
+type FxMaker = (w: number, h: number, frames: number) => PixelGrid[];
 
 // 光の3段
 const W = md(7, 7, 7);
@@ -292,22 +292,30 @@ const shockwave: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
 });
 
 // ---------- 必殺技の光線(横につなげる) ----------
+
+/**
+ * 光線の1列(x)を、真ん中から白、黄、緑の順に塗る。それぞれの太さは、x を周期 period(ドット)で回る角度と、
+ * コマの位相 ph で波打つ
+ */
+function beamColumn(g: PixelGrid, x: number, period: number, ph: number): void {
+  const cy = g.h / 2;
+  const u = (x / period) * Math.PI * 2;
+  const core = 5 + Math.sin(u * 2 + ph) * 1.2;
+  const mid = core + 5 + Math.sin(u * 3 - ph) * 1.5;
+  const out = mid + 4 + Math.sin(u * 4 + ph * 2) * 1.5;
+  for (let y = 0; y < g.h; y++) {
+    const d = Math.abs(y + 0.5 - cy);
+    if (d <= core) g.px(x, y, W);
+    else if (d <= mid) g.px(x, y, Y);
+    else if (d <= out) g.px(x, y, G);
+  }
+}
+
 const beam: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cy = h / 2;
   const ph = (i / n) * Math.PI * 2;
-  for (let x = 0; x < w; x++) {
-    // 周期は w で割り切れるようにする(つなぎ目が見えない)
-    const u = (x / w) * Math.PI * 2;
-    const core = 5 + Math.sin(u * 2 + ph) * 1.2;
-    const mid = core + 5 + Math.sin(u * 3 - ph) * 1.5;
-    const out = mid + 4 + Math.sin(u * 4 + ph * 2) * 1.5;
-    for (let y = 0; y < h; y++) {
-      const d = Math.abs(y + 0.5 - cy);
-      if (d <= core) g.px(x, y, W);
-      else if (d <= mid) g.px(x, y, Y);
-      else if (d <= out) g.px(x, y, G);
-    }
-  }
+  // 周期は w で割り切れるようにする(つなぎ目が見えない)
+  for (let x = 0; x < w; x++) beamColumn(g, x, w, ph);
   // 中を流れる光の筋
   for (let k = 0; k < 3; k++) {
     const y = Math.round(cy - 9 + k * 9);
@@ -325,18 +333,7 @@ const beamHead: FxMaker = (w, h, n) => gridFrames(w, h, n, (g, i) => {
   const cy = h / 2;
   const ph = (i / n) * Math.PI * 2;
   // 左端は光線と同じ太さ
-  for (let x = 0; x < 26; x++) {
-    const u = (x / 32) * Math.PI * 2;
-    const core = 5 + Math.sin(u * 2 + ph) * 1.2;
-    const mid = core + 5 + Math.sin(u * 3 - ph) * 1.5;
-    const out = mid + 4 + Math.sin(u * 4 + ph * 2) * 1.5;
-    for (let y = 0; y < h; y++) {
-      const d = Math.abs(y + 0.5 - cy);
-      if (d <= core) g.px(x, y, W);
-      else if (d <= mid) g.px(x, y, Y);
-      else if (d <= out) g.px(x, y, G);
-    }
-  }
+  for (let x = 0; x < 26; x++) beamColumn(g, x, 32, ph);
   const hx = 28, r = 13 + (i % 2) * 1.5;
   const rot = i * 11;
   for (let k = 0; k < 8; k++) ray(g, hx, cy, rot + k * 45 - 90, r - 3, r + (k % 2 ? 4 : 8), k % 2 ? 1.5 : 2.4, [Y, G]);

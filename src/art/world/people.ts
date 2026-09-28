@@ -8,7 +8,7 @@ import {
 import {
   BAG_RED, BLADE, GOLD, HAIR, KNIFE_YELLOW, OUTLINE, SKIN, TATTOO, WALLET_BROWN, WHITE
 } from './palette';
-import type { Painter, Pt, Ramp } from './pix';
+import { type Painter, type Pt, type Ramp, sprite } from './pix';
 import { STAND, civRows, walkFrames, withFace } from './poses';
 import { disguiseRows } from './bossKit';
 
@@ -23,18 +23,9 @@ function wristOf(pose: Pose, arm: 'aF' | 'aB', d = 2.6): Pt {
   return [a.h[0] + (dx / L) * d, a.h[1] + (dy / L) * d];
 }
 
-/** 塗った物の上に、ふちで囲んだ小さな絵を置く。rows の文字: 0,1,2=ramp、o=ふち、w=白 */
-function sprite(P: Painter, x: number, y: number, rows: string[], ramp: Ramp, extra: Record<string, string> = {}): void {
-  const m = P.mask();
-  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') m.set(x + i, y + j); });
-  P.fill(m, OUTLINE, { sep: 'outline', flat: true });
-  rows.forEach((r, j) => {
-    for (let i = 0; i < r.length; i++) {
-      const ch = r[i];
-      const c = ch === '0' ? ramp[0] : ch === '1' ? ramp[1] : ch === '2' ? ramp[2] : ch === 'o' ? OUTLINE : extra[ch];
-      if (c) P.px(x + i, y + j, c);
-    }
-  });
+/** 塗った物の上に、ふちで囲んだ小さな絵を置く(pix.ts の sprite)。rows の文字: 0,1,2=ramp、o=ふち、ほかは extra の色 */
+function rampSprite(P: Painter, x: number, y: number, rows: string[], ramp: Ramp, extra: Record<string, string> = {}): void {
+  sprite(P, x, y, rows, { ...extra, 0: ramp[0], 1: ramp[1], 2: ramp[2], o: OUTLINE });
 }
 
 // =====================================================================
@@ -77,13 +68,13 @@ const backPocket = (pose: Pose): Pt => R([pose.hip[0] - 7, pose.hip[1] - 1]);
 
 function drawWallet(P: Painter, pose: Pose): void {
   const [x, y] = backPocket(pose);
-  sprite(P, x - 1, y - 3, ['0000', '1112', '2222', '1112', '1112'], WALLET_BROWN, { w: SKIN[0] });
+  rampSprite(P, x - 1, y - 3, ['0000', '1112', '2222', '1112', '1112'], WALLET_BROWN, { w: SKIN[0] });
   P.px(x, y - 3, SKIN[0]);
 }
 
 function drawKnifeHandle(P: Painter, pose: Pose): void {
   const [x, y] = backPocket(pose);
-  sprite(P, x - 1, y - 6, ['.0.', '0o2', '012', '012', '012', '012', 'ooo'], KNIFE_YELLOW);
+  rampSprite(P, x - 1, y - 6, ['.0.', '0o2', '012', '012', '012', '012', 'ooo'], KNIFE_YELLOW);
 }
 
 /** 突き飛ばす:ため → 踏みこむ → 両手で突く(当たり) → 残心 */
@@ -186,14 +177,14 @@ function suitLook(extra: Partial<Look> = {}): Look {
 /** 腕時計(金色) */
 function drawWatch(P: Painter, pose: Pose): void {
   const [x, y] = R(wristOf(pose, 'aF', 2.4));
-  sprite(P, x - 1, y - 1, ['010', '101', '212'], GOLD, {});
+  rampSprite(P, x - 1, y - 1, ['010', '101', '212'], GOLD, {});
   P.px(x, y, WHITE[0]);
 }
 
 /** 女物のバッグ(赤)を手前の脇に抱える */
 function drawBag(P: Painter, pose: Pose, at?: Pt): void {
   const [x, y] = R(at ?? [pose.hip[0] - 2, pose.hip[1] - 8]);
-  sprite(P, x - 4, y - 3, [
+  rampSprite(P, x - 4, y - 3, [
     '..oooo..',
     '.o....o.',
     '00000000',
@@ -241,7 +232,7 @@ function snatchMischief(): Pose[] {
 function snatchedBag(P: Painter, pose: Pose, i: number): void {
   if (i < 2) return;
   const [x, y] = R(pose.aB.h);
-  sprite(P, x - 2, y, ['.oo..', 'o..o.', '00000', '11112', '11112', '22222'], BAG_RED);
+  rampSprite(P, x - 2, y, ['.oo..', 'o..o.', '00000', '11112', '11112', '22222'], BAG_RED);
 }
 
 function suitSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
@@ -342,9 +333,9 @@ function drawTote(P: Painter, pose: Pose): void {
 function toteContents(P: Painter, pose: Pose, kind: 'rice' | 'loot'): void {
   const [x, y] = toteAt(pose);
   if (kind === 'rice') {
-    sprite(P, x + 6, y - 6, ['.000.', '00002', '02202', '00002', '00022', '.002.'], WHITE);
+    rampSprite(P, x + 6, y - 6, ['.000.', '00002', '02202', '00002', '00022', '.002.'], WHITE);
   } else {
-    sprite(P, x + 6, y - 5, ['.000.', '0o1o2', '01112', '11112', '11222'], GOLD);
+    rampSprite(P, x + 6, y - 5, ['.000.', '0o1o2', '01112', '11112', '11222'], GOLD);
   }
 }
 
@@ -404,7 +395,7 @@ function shopperSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pos
   const pp = pickpocketMischief();
   bad.push(pp.map((p, i) => drawPerson(shopperLook({
     mid: (P, q) => toteBehind(P, q, 'loot'),
-    front: i >= 2 ? (P, q) => sprite(P, Math.round(q.aF.h[0]) - 1, Math.round(q.aF.h[1]) - 3, ['0000', '0o11', '1111'], GOLD) : undefined
+    front: i >= 2 ? (P, q) => rampSprite(P, Math.round(q.aF.h[0]) - 1, Math.round(q.aF.h[1]) - 3, ['0000', '0o11', '1111'], GOLD) : undefined
   }), p)));
   return { civ, bad, civSort, civLook };
 }

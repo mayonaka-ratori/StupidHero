@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PixelGrid } from '../lib';
 import { KEY_ACCESSORY, SHEETS, originFor, sheetByKey } from '../sheets';
+import { colorsOf, rgbOf } from '../testColors';
 import { BLADE } from '../world/palette';
 import { GLITCH } from '../world3/palette';
 import { FREE_ITEMS } from '../../logic/freeNames';
@@ -15,13 +16,9 @@ import { buildWorld3Sheets } from '../world3';
 const free = buildFreeSheets();
 const people: Record<string, PixelGrid[][]> = { ...buildWorldSheets(), ...buildWorld2Sheets(), ...buildWorld3Sheets(), ...free };
 
-const rgb = (c: string): [number, number, number] => {
-  const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(c)!;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-};
 /** 色あい(0〜360)、あざやかさ、明るさ(0〜1) */
 const hsv = (c: string): [number, number, number] => {
-  const [r, g, b] = rgb(c).map((v) => v / 255);
+  const [r, g, b] = rgbOf(c)!.map((v) => v / 255);
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   let h = 0;
   if (d > 0) h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
@@ -38,11 +35,6 @@ const forbidden = (c: string): string | null => {
   if (h >= 280 && h < 340) return '赤紫';
   if (h >= 70 && h < 100 && v > 0.6) return '黄緑';
   return null;
-};
-const colorsOf = (grids: PixelGrid[]): Set<string> => {
-  const s = new Set<string>();
-  for (const g of grids) for (const row of g.cells) for (const c of row) if (c) s.add(c);
-  return s;
 };
 
 /** 人の待機の1コマ目に、小物を itemAnchor の場所で置いたときの、小物のドット(コマの中の座標) */
@@ -72,7 +64,6 @@ describe('フリープレイの絵', () => {
       const d = sheetByKey(key);
       expect(d.rows.map((r) => r.name), key).toEqual(['idle', 'walk', 'sortIdle', 'surprised', 'knocked', 'down', 'mischief']);
       expect(d.rows[6].hits, key).toEqual([3]);
-      expect(free[key].length, key).toBe(7);
     }
   });
 

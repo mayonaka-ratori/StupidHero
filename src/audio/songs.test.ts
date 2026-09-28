@@ -4,22 +4,13 @@ import { INSTRUMENTS } from './patches';
 import { SONGS } from './songs';
 
 describe('曲のデータ', () => {
-  it('どの曲も音符の予定表にできる(知らない楽器や音の名前がない)', () => {
+  it('どの曲も音符の予定表にでき(知らない楽器や音の名前がない)、トラックの長さは区間の長さを割り切る(数えまちがいでずれない)', () => {
     for (const [name, song] of Object.entries(SONGS)) {
       expect(() => compile(song), name).not.toThrow();
       for (const sec of [song.intro, song.loop]) {
-        for (const tr of sec?.tracks ?? []) {
-          if (tr.inst !== 'drums') expect(INSTRUMENTS[tr.inst], `${name} ${tr.inst}`).toBeDefined();
-        }
-      }
-    }
-  });
-
-  it('トラックの長さは区間の長さを割り切る(数えまちがいでずれない)', () => {
-    for (const [name, song] of Object.entries(SONGS)) {
-      for (const sec of [song.intro, song.loop]) {
         if (!sec) continue;
         for (const tr of sec.tracks) {
+          if (tr.inst !== 'drums') expect(INSTRUMENTS[tr.inst], `${name} ${tr.inst}`).toBeDefined();
           const n = tr.notes.trim().split(/\s+/).length;
           expect((sec.bars * 16) % n, `${name} ${tr.inst} ${n}マス`).toBe(0);
         }

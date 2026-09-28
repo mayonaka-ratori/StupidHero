@@ -1,6 +1,6 @@
 // 担当:ステージ3(ショッピングモール)の人、親玉、物、エフェクト、背景。
 // 人の仕組みや色はステージ1(src/art/world/)のものをそのまま使う。
-import { type ArtContext, type PixelGrid, addGridImages, addGridSheets, buildFxSheets } from '../lib';
+import { type PixelGrid, buildFxSheets } from '../lib';
 import { drawFar, drawGround, drawWall } from './backgrounds';
 import { buildBoss3 } from './boss3';
 import { FX3 } from './fx';
@@ -15,8 +15,3 @@ export function buildWorld3Sheets(skip: Set<string> = new Set()): Record<string,
 }
 
 export const WORLD3_IMAGES: Record<string, () => PixelGrid> = { bg_mall_far: drawFar, bg_mall_wall: drawWall, bg_mall_ground: drawGround };
-
-export function generateWorld3Set(ctx: ArtContext): void {
-  addGridSheets(ctx, buildWorld3Sheets(ctx.skip));
-  addGridImages(ctx, WORLD3_IMAGES);
-}

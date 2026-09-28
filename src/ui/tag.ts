@@ -10,7 +10,7 @@ import { UI } from '../config';
 import { PixelText } from './text';
 import { DEPTH, FS, darker } from './theme';
 
-export type TagKind = 'bad' | 'civ';
+type TagKind = 'bad' | 'civ';
 
 /** 札の文字の大きさ */
 const TAG_SIZE = FS.small;

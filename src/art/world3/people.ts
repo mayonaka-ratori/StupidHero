@@ -7,7 +7,7 @@ import {
   clonePose, drawPerson, moveUpper, shoulders
 } from '../world/figure';
 import { HAIR, OUTLINE, SKIN, WHITE } from '../world/palette';
-import { Painter, type Pt, type Ramp, mix, rotateGrid } from '../world/pix';
+import { Painter, type Pt, type Ramp, mix, rotateGrid, sprite } from '../world/pix';
 import { STAND, civRows, walkFrames, withFace } from '../world/poses';
 import { disguiseRows } from '../world/bossKit';
 import { GLITCH } from './palette';
@@ -15,7 +15,7 @@ import { GLITCH } from './palette';
 const R = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
 
 /** ポーズに持たせる印 */
-export interface P3 extends Pose {
+interface P3 extends Pose {
   /** くずれのコマ(0〜3)。ないときはふつう */
   glitch?: number;
   /** 着ぐるみの頭の傾き(ラジアン、正で時計回り) */
@@ -25,14 +25,6 @@ export interface P3 extends Pose {
 }
 const P = (p: Pose): P3 => p as P3;
 const tag = (p: Pose, extra: Partial<P3>): P3 => Object.assign(clonePose(p), extra) as P3;
-
-/** 塗った物の上に、ふちで囲んだ小さな絵を置く。rows の文字は map で色にする('.' は塗らない) */
-function sprite(Pn: Painter, x: number, y: number, rows: string[], map: Record<string, string>): void {
-  const m = Pn.mask();
-  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') m.set(x + i, y + j); });
-  Pn.fill(m, OUTLINE, { sep: 'outline', flat: true });
-  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const c = map[r[i]]; if (c) Pn.px(x + i, y + j, c); } });
-}
 
 // ---------------------------------------------------------------------
 // 宇宙人に共通の動き

@@ -2,11 +2,11 @@
 // 大きな頭に黒い大きな目と触角、銀の宇宙服、紫のえりと肩当てとマント。目と触角の玉と胸の宝石は黄緑(くずれと同じ色)。
 // 体は bossKit の道具で組み立てる(人の仕組み figure.ts は使わない)。
 import { OUTLINE, PixelGrid, md } from '../lib';
-import { Painter, type Pt, rotateGrid } from '../world/pix';
+import { Painter, type Pt } from '../world/pix';
 import {
-  type ArmDims, type BArm, type BLeg, type BPose, type HeadArt, type Ramp4,
-  alignCenter, alignFeet, armShapes, drawNeckAndHead, drawScraps, footShape, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall,
-  TALL_STAND, tallBossPoses
+  type BArm, type BLeg, type BPose, type HeadArt, type Ramp4,
+  alignCenter, alignFeet, drawNeckAndHead, drawScraps, drawTallArm, footShape, hitDefeatRows, legShapes, limbRamp, moveUpperB, poseMaker, shade, shadeBall,
+  TALL_STAND, tallBossPoses, tallShoulderB, tallShoulderF
 } from '../world/bossKit';
 import { GLITCH } from './palette';
 
@@ -78,32 +78,10 @@ function bossHead(face: BossFace): HeadArt {
 
 // ---------- 体 ----------
 
-const ARM: ArmDims = { up: 3.4, fore: 3.2, wrist: 2.4, fist: 2.6 };
-const shoulderF = (p: BPose): Pt => [p.neck[0] - 7, p.neck[1] + 5];
-const shoulderB = (p: BPose): Pt => [p.neck[0] + 7, p.neck[1] + 4];
-
-/** 腕(銀のそで、紫の袖口、青緑の長い指の手) */
+/** 腕(銀のそで、紫の袖口、青緑の長い指の手)。開いた手は指を3本のばす(握るときは丸く) */
 function drawArm(P: Painter, s: Pt, arm: BArm, far: boolean): void {
-  const su = limbRamp(SUIT, far);
   const cp = limbRamp(CAPE, far);
-  const sk = limbRamp(ASKIN, far);
-  const { upper, fore, hand, wrist } = armShapes(P, s, arm, ARM);
-  shade(P, upper.clone().union(fore).union(hand), OUTLINE, { sep: 'outline' });
-  shade(P, upper, su, { sep: 'none', hi: 0.34, lo: 0.64 });
-  shade(P, fore, su, { sep: 'dark', hi: 0.34, lo: 0.64 });
-  // 手:指を3本のばす(握るときは丸く)
-  const kind = arm.hand ?? 'fist';
-  const dx = arm.h[0] - arm.e[0], dy = arm.h[1] - arm.e[1], L = Math.hypot(dx, dy) || 1;
-  const ux = dx / L, uy = dy / L;
-  if (kind === 'fist') shadeBall(P, hand, sk, arm.h[0] - 1, arm.h[1] - 1, 3.4, 3.4, { sep: 'outline', cut: [0.5, -0.1, -9] });
-  else {
-    const m = P.mask().ellipse(arm.h[0] - ux, arm.h[1] - uy, 2.2, 2.2);
-    for (const q of kind === 'point' ? [0] : [-1.6, 0, 1.6]) {
-      const len = kind === 'point' ? 5 : 3.6;
-      m.capsule([arm.h[0] - uy * q, arm.h[1] + ux * q], [arm.h[0] + ux * len - uy * q * 1.3, arm.h[1] + uy * len + ux * q * 1.3], 0.5);
-    }
-    shade(P, m, sk, { sep: 'outline', hi: 0.4, lo: 0.7 });
-  }
+  const { wrist, ux, uy } = drawTallArm(P, s, arm, far, SUIT, ASKIN, { spread: [-1.6, 0, 1.6], root: 1, tip: 1.3, len: 3.6 });
   // 紫の袖口
   const cuff = P.mask().capsule(wrist, [wrist[0] - ux * 1.5, wrist[1] - uy * 1.5], 2.1);
   shade(P, cuff, cp, { sep: 'outline', hi: 0.35, lo: 0.7 });
@@ -143,7 +121,7 @@ function drawBoss(pose: BPose, face: BossFace, o: { scraps?: number; beam?: numb
   const n = pose.neck, p = pose.hip;
   const lean = (p[0] - n[0]) / Math.max(1, p[1] - n[1]);
   const T = (dx: number, dy: number): Pt => [n[0] + dx + lean * dy, n[1] + dy];
-  const sF = shoulderF(pose), sB = shoulderB(pose);
+  const sF = tallShoulderF(pose), sB = tallShoulderB(pose);
   // 背中のマント(すそがとがる)
   const foot = Math.max(pose.lF.a[1], pose.lB.a[1]);
   const hem = Math.min(foot - 2, p[1] + 26);
@@ -213,16 +191,8 @@ export function buildBoss3(): PixelGrid[][] {
     alignFeet(drawBoss(a0, 'shout')), alignFeet(drawBoss(a1, 'shout')), alignFeet(drawBoss(a2, 'grin', { beam: 0.45 })), alignFeet(drawBoss(a3, 'shout'))
   ];
 
-  // 3 ラッシュを受ける
-  const hit = [alignFeet(drawBoss(h0, 'hurt')), alignFeet(drawBoss(h1, 'hurt'))];
-
-  // 4 やられる:よろけて、ひざをつき、目を回して倒れる
-  const defeat = [
-    alignFeet(drawBoss(d0, 'hurt')),
-    alignFeet(drawBoss(d1, 'hurt')),
-    rotateGrid(drawBoss(d2, 'ko'), -1.0, 48, 52, 48, 58),
-    alignFeet(rotateGrid(drawBoss(d3, 'ko'), -Math.PI / 2, 48, 48, 48, 48), true)
-  ];
+  // 3 ラッシュを受ける、4 やられる(よろけて、ひざをつき、目を回して倒れる)
+  const [hit, defeat] = hitDefeatRows(drawBoss, [h0, h1], [d0, d1, d2, d3]);
 
   // 5 母艦に乗りこむ:天をさして呼ぶ → しゃがむ → 両手を上げて浮き上がる → ひざをかかえて吸いこまれる
   const b0 = pose((p) => {
