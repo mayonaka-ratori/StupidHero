@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { AGES, NAMES } from './content';
-import { hashSeed } from './rng';
-import { createRng } from './rng';
+import { createRng, hashSeed } from './rng';
 import { DECOY_LOOKS, LIFT } from './rules';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { TOWER_LOOKS, sheetKeyFor } from './stages';
-import {
-  BOSS4_DISGUISES, FLOOR_LOOKS, buildLift, canDecoy, leakSpots, rollLeak
-} from './tower';
+import { FLOOR_LOOKS, buildLift, canDecoy, leakSpots, rollLeak } from './tower';
 import type { LiftPlan, Person, Stage, StageId, TowerLook } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 5);
@@ -15,24 +12,10 @@ const stages: Stage[] = SEEDS.map((s) => createStage(s, 'tower'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage(seed, "tower")', () => {
-  // id と名前、波の人数と時間、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
+  // id と名前、波の人数と時間、波ごとのヴィランの数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
 
   it('同じ種なら同じステージ(ラッシュの並びも)', () => {
     expect(createStage(55, 'tower')).toEqual(createStage(55, 'tower'));
-  });
-
-  it('ヴィランの数は、波1が1〜2人、波2と3が2〜3人、波4が2人(どれも出る)。見た目は波の中で重ならない。悪さは念力', () => {
-    const counts: Set<number>[] = [new Set(), new Set(), new Set(), new Set()];
-    for (const s of stages) {
-      s.waves.forEach((w, i) => {
-        const bad = w.people.filter((p) => p.truth === 'bad');
-        expect(bad.length).toBe(w.badCount);
-        counts[i].add(bad.length);
-        expect(new Set(bad.map((p) => p.look)).size).toBe(bad.length);
-        for (const p of bad) expect(p.mischief).toBe('psychic');
-      });
-    }
-    expect(counts.map((c) => [...c].sort())).toEqual([[1, 2], [2, 3], [2, 3], [2]]);
   });
 
   it('出る見た目は階ごと(1階は2種類、18階は4種類、35階は6種類、最上階は8種類)。最上階にはドレスの女性と手品師がかならずいる', () => {
@@ -111,8 +94,7 @@ describe('createStage(seed, "tower")', () => {
     expect(rollLeak(createRng(1), true)).toEqual({ light: true, item: true });
   });
 
-  it('親玉にはもれも紛らわしさもない。化けた姿の一覧は BOSS4_DISGUISES。年齢と名前は化けた姿の幅と一覧から', () => {
-    expect([...BOSS4_DISGUISES].sort()).toEqual(['lady', 'magician', 'waiter']);
+  it('親玉にはもれも紛らわしさもない。年齢と名前は化けた姿の幅と一覧から', () => {
     for (const s of stages) {
       const boss = findBoss(s)!;
       expect(boss.leak).toBeUndefined();

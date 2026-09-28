@@ -11,7 +11,7 @@ const stages: Stage[] = SEEDS.map((s) => createStage(s, 'garage'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage(seed, "garage")', () => {
-  // id と名前、波の人数と時間、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
+  // id と名前、波の人数と時間、波ごとのギャングの数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
 
   it('ワルは全員どこかの組。組は2〜3人、波1は2人の組が1つ、波2と波3は1〜2組', () => {
     const counts = { w2: new Set<number>(), w3: new Set<number>(), sizes: new Set<number>() };
@@ -21,11 +21,9 @@ describe('createStage(seed, "garage")', () => {
       for (const w of s.waves) {
         const at = `seed ${s.seed} 波${w.no}`;
         const bads = w.people.filter((p) => p.truth === 'bad');
-        if (bads.length !== w.badCount) bad.push(`${at} badCount`);
         if (bads.length > GANG.maxPerWave) bad.push(`${at} ギャングが多い`);
         for (const b of bads) {
           if (b.group === undefined) bad.push(`${at} ${b.id} 組がない`);
-          if (b.mischief !== 'whistle') bad.push(`${at} ${b.id} 悪さ ${b.mischief}`);
         }
         for (const p of w.people) if (p.truth !== 'bad' && p.group !== undefined) bad.push(`${at} ${p.id} ギャングでないのに組`);
         const memberTotal = w.groups.reduce((n, g) => n + g.memberIds.length, 0);

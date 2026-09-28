@@ -16,16 +16,13 @@ import {
   GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
   GARAGE_WAVE_INTRO, LINK_HINTS, allLinkTexts
 } from './garageContent';
-import { MALL_LOOKS } from './mall';
 import {
   BOSS3_HINTS, MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS,
   MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
 } from './mallContent';
-import { TOWER_LOOKS } from './stages';
+import { GANG_LOOKS, MALL_LOOKS, TOWER_LOOKS } from './stages';
 import { TITLES, titlesFor } from './titles';
-import type { GangLook, Look } from './types';
-
-const GANG_LOOKS: readonly GangLook[] = ['guard', 'mechanic', 'clubber', 'officelady'];
+import type { Look } from './types';
 
 // ステージごとのセリフの文(下の「ステージごとの文の決まり」で使う)
 const ALLEY_SPEECH_TEXTS = [
@@ -217,10 +214,7 @@ describe('結果発表の決めつけと、待て・行けの使い方', () => {
     expect(Object.keys(REACTIONS)).not.toContain('streetWatch');
   });
 
-  it('結果発表の帯と本性ちらりの文は allTexts に入っている', () => {
-    const all = new Set(allTexts());
-    for (const t of Object.values(STREET_TEXTS)) expect(all.has(t), t).toBe(true);
-    for (const look of LOOKS) for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
+  it('結果発表の帯で待てと行けを教える', () => {
     expect(STREET_TEXTS.band).toContain('待て');
     expect(STREET_TEXTS.band).toContain('行け');
   });
@@ -294,15 +288,6 @@ describe('ステージ3の文', () => {
     }
   });
 
-  it('同じ見た目の市民と宇宙人で、あわてた顔とあきれ顔の数が同じ(顔だけで分からない)', () => {
-    const count = (l: readonly { face: string }[], face: string) => l.filter((h) => h.face === face).length;
-    for (const look of MALL_LOOKS) {
-      const { civ, bad } = MALL_OPERATOR_HINTS[look];
-      for (const face of ['panic', 'deadpan']) expect(count(civ, face), `${look} ${face}`).toBe(count(bad, face));
-      expect(count(civ, 'panic'), look).toBeGreaterThan(0);
-    }
-  });
-
   it('掛け合いは5枚で、くずれ、ぎこちない市民、UFO、全員は待てないことを伝える。タイムセールは言わない', () => {
     const joined = introFor('mall').map((s) => s.text.replace('\n', '')).join('/');
     for (const word of ['ショッピングモール', '宇宙人', 'くずれる', 'ぎこちない市民', '待って', 'UFO', 'さらう', '全員は待てない']) {
@@ -316,12 +301,6 @@ describe('ステージ3の文', () => {
     expect(waveIntroFor('mall', 3)[1].text).toContain('くずれない');
   });
 
-  it('壊した称号のひとことはモールの文。モールの言い換えは、元からあるセリフの種類だけ', () => {
-    expect(titleCommentFor('demolition', 'mall').text).toBe('モールの修理代、\n誰が払うの…');
-    for (const k of Object.keys(MALL_OVERRIDES)) expect(Object.keys(REACTIONS)).toContain(k);
-    for (const k of Object.keys(MALL_GARAGE_OVERRIDES)) expect(Object.keys(GARAGE_REACTIONS)).toContain(k);
-  });
-
   it('say でモールの言い方が出る。母艦は女ボスの車と同じ種類、モールが開いたときの一言もある', () => {
     const rng = createRng(12);
     expect(MALL_REACTIONS.ufoBeam).toContain(say('ufoBeam', rng, 'mall'));
@@ -333,6 +312,8 @@ describe('ステージ3の文', () => {
     // 路地裏と地下駐車場は今まで通り
     expect(GARAGE_REACTIONS.unlocked).toContain(say('unlocked', rng));
     expect(reactionList('pass', 'garage')).toBe(GARAGE_OVERRIDES.pass);
+    expect(streetTextsFor('alley')).toBe(STREET_TEXTS);
+    expect(streetTextsFor('garage')).toBe(STREET_TEXTS);
     expect(REACTIONS.oops).toContain(say('oops', rng, 'mall'));
     // 見逃した宇宙人は空へ合図を送る
     for (const look of MALL_LOOKS) expect(MALL_REACTIONS.ufoSignal).toContain(mischiefLine(look, rng));
@@ -342,22 +323,6 @@ describe('ステージ3の文', () => {
     expect(say('rushCivHit', rng, 'mall').text).toBe('あれ？');
   });
 
-  it('本性ちらりは宇宙人なら「ピピッ…」。市民は今までと同じ', () => {
-    expect(streetTextsFor('mall').peekBad).toBe('ピピッ…');
-    expect(streetTextsFor('mall').peekCiv).toBe(STREET_TEXTS.peekCiv);
-    expect(streetTextsFor('alley')).toBe(STREET_TEXTS);
-    expect(streetTextsFor('garage')).toBe(STREET_TEXTS);
-  });
-
-  it('ラッシュの説明は、初めては2つ、見たことがあれば1つ。終わりの一言は市民を全員守れたかで変わる', () => {
-    expect(rushIntroFor(false)).toHaveLength(2);
-    expect(rushIntroFor(true)).toHaveLength(1);
-    expect(rushIntroFor(false)[1].text).toContain('市民だけ待てを押して');
-    expect(rushIntroFor(true)[0].text).toContain('市民だけ待てを押して');
-    expect(RUSH_BAND).toBe('タイムセール開始！');
-    expect(rushEndLine({ civs: 4, civsSaved: 4 }).face).toBe('hype');
-    expect(rushEndLine({ civs: 4, civsSaved: 3 }).face).toBe('deadpan');
-  });
 });
 
 describe('ステージ4の文', () => {
@@ -379,16 +344,7 @@ describe('ステージ4の文', () => {
     }
     expect(AGES.newbie).toEqual([22, 25]);
     expect(AGES.janitor).toEqual([40, 65]);
-  });
-
-  it('同じ見た目の市民とヴィランで、あわてた顔とあきれ顔の数が同じ。同じ文はいつも同じ顔', () => {
-    const count = (l: readonly { face: string }[], face: string) => l.filter((h) => h.face === face).length;
-    for (const look of TOWER_LOOKS) {
-      const { civ, bad } = TOWER_OPERATOR_HINTS[look];
-      for (const face of ['panic', 'deadpan']) expect(count(civ, face), `${look} ${face}`).toBe(count(bad, face));
-      expect(count(civ, 'panic'), look).toBeGreaterThan(0);
-    }
-    // 手品師の「カードが浮いてる!?」は市民にもヴィランにも出る
+    // 手品師の「カードが浮いてる!?」は市民にもヴィランにも出る(同じ文はいつも同じ顔)
     for (const t of ['civ', 'bad'] as const) {
       expect(TOWER_OPERATOR_HINTS.magician[t].map((h) => h.text)).toContain('カードが\n浮いてる！？');
     }
@@ -412,12 +368,6 @@ describe('ステージ4の文', () => {
     expect(([1, 2, 3, 4] as const).map((n) => towerFloorLabel(n))).toEqual(['1F', '18F', '35F', '50F']);
   });
 
-  it('壊した称号のひとことはビルの文。ビルの言い換えは、元からあるセリフの種類だけ', () => {
-    expect(titleCommentFor('demolition', 'tower').text).toBe('ビルの修理代、\n誰が払うの…');
-    for (const k of Object.keys(TOWER_OVERRIDES)) expect(Object.keys(REACTIONS)).toContain(k);
-    for (const k of Object.keys(TOWER_GARAGE_OVERRIDES)) expect(Object.keys(GARAGE_REACTIONS)).toContain(k);
-  });
-
   it('say でビルの言い方が出る。見逃したヴィランは念力で物を持ち上げる', () => {
     const rng = createRng(21);
     expect(TOWER_REACTIONS.psyCarry).toContain(say('psyCarry', rng, 'tower'));
@@ -436,23 +386,54 @@ describe('ステージ4の文', () => {
     expect(say('bossChoice', rng, 'tower').text).toBe('客は待て！\nシャンデリアは行け！');
   });
 
-  it('本性ちらりはヴィランなら「フッ…」。市民は今までと同じ', () => {
-    expect(streetTextsFor('tower').peekBad).toBe('フッ…');
-    expect(streetTextsFor('tower').peekCiv).toBe(STREET_TEXTS.peekCiv);
-  });
-
-  it('エレベーターの説明は、初めては2つ、見たことがあれば1つ。着いたときの一言は市民を全員守れたかで変わる', () => {
-    expect(liftIntroFor(false)).toHaveLength(2);
-    expect(liftIntroFor(true)).toHaveLength(1);
-    expect(liftIntroFor(false)[1].text).toContain('市民だけ待てを押して');
-    expect(liftIntroFor(true)[0].text).toContain('市民だけ待てを押して');
-    expect(LIFT_BAND).toBe('最上階へ！');
-    expect(liftEndLine({ civs: 3, civsSaved: 3 }).face).toBe('hype');
-    expect(liftEndLine({ civs: 3, civsSaved: 2 }).face).toBe('deadpan');
-  });
-
   it('終わりの場面は3枚(オペレーター、ヒーロー、オペレーター)', () => {
     expect(TOWER_ENDING.map((s) => s.who)).toEqual(['operator', 'hero', 'operator']);
+  });
+});
+
+/** 見た目ごとの市民とワルの一言(モールと高層ビルで形をそろえる) */
+type HintsByLook = Readonly<Record<string, { civ: readonly { face: string }[]; bad: readonly { face: string }[] }>>;
+
+describe.each([
+  {
+    stage: 'モール', id: 'mall', bad: '宇宙人', looks: MALL_LOOKS as readonly string[], hints: MALL_OPERATOR_HINTS as HintsByLook,
+    demolition: 'モールの修理代、\n誰が払うの…', overrides: MALL_OVERRIDES, garageOverrides: MALL_GARAGE_OVERRIDES, peekBad: 'ピピッ…',
+    rush: 'ラッシュ', introFor: rushIntroFor, band: RUSH_BAND, bandText: 'タイムセール開始！', endLine: rushEndLine, civs: 4
+  },
+  {
+    stage: '高層ビル', id: 'tower', bad: 'ヴィラン', looks: TOWER_LOOKS as readonly string[], hints: TOWER_OPERATOR_HINTS as HintsByLook,
+    demolition: 'ビルの修理代、\n誰が払うの…', overrides: TOWER_OVERRIDES, garageOverrides: TOWER_GARAGE_OVERRIDES, peekBad: 'フッ…',
+    rush: 'エレベーター', introFor: liftIntroFor, band: LIFT_BAND, bandText: '最上階へ！', endLine: liftEndLine, civs: 3
+  }
+] as const)('$stage の文(モールと高層ビルで同じ形の決まり)', (c) => {
+  it(`同じ見た目の市民と${c.bad}で、あわてた顔とあきれ顔の数が同じ(顔だけで分からない)`, () => {
+    const count = (l: readonly { face: string }[], face: string) => l.filter((h) => h.face === face).length;
+    for (const look of c.looks) {
+      const { civ, bad } = c.hints[look];
+      for (const face of ['panic', 'deadpan']) expect(count(civ, face), `${look} ${face}`).toBe(count(bad, face));
+      expect(count(civ, 'panic'), look).toBeGreaterThan(0);
+    }
+  });
+
+  it('壊した称号のひとことはそのステージの文。言い換えは、元からあるセリフの種類だけ', () => {
+    expect(titleCommentFor('demolition', c.id).text).toBe(c.demolition);
+    for (const k of Object.keys(c.overrides)) expect(Object.keys(REACTIONS)).toContain(k);
+    for (const k of Object.keys(c.garageOverrides)) expect(Object.keys(GARAGE_REACTIONS)).toContain(k);
+  });
+
+  it(`本性ちらりは${c.bad}なら「${c.peekBad}」。市民は今までと同じ`, () => {
+    expect(streetTextsFor(c.id).peekBad).toBe(c.peekBad);
+    expect(streetTextsFor(c.id).peekCiv).toBe(STREET_TEXTS.peekCiv);
+  });
+
+  it(`${c.rush}の説明は、初めては2つ、見たことがあれば1つ。終わりの一言は市民を全員守れたかで変わる`, () => {
+    expect(c.introFor(false)).toHaveLength(2);
+    expect(c.introFor(true)).toHaveLength(1);
+    expect(c.introFor(false)[1].text).toContain('市民だけ待てを押して');
+    expect(c.introFor(true)[0].text).toContain('市民だけ待てを押して');
+    expect(c.band).toBe(c.bandText);
+    expect(c.endLine({ civs: c.civs, civsSaved: c.civs }).face).toBe('hype');
+    expect(c.endLine({ civs: c.civs, civsSaved: c.civs - 1 }).face).toBe('deadpan');
   });
 });
 

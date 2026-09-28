@@ -130,19 +130,21 @@ export function formatSeconds(sec: number): string {
   return `${(Math.ceil(sec * 10 - 1e-9) / 10).toFixed(1)}秒`;
 }
 
+/** 市民のけがの理由と、内わけに書く言い方(この順に並べる) */
+const HURT_LABELS = [
+  ['civHurtByHero', 'なぐった'],
+  ['civHurtByCollateral', 'まきぞえ'],
+  ['civHurtByVillain', 'ワルにやられた'],
+  ['civHurtByAbduction', 'さらわれた'],
+  ['civHurtByDrop', '物が落ちた']
+] as const;
+
 /**
  * 市民のけがの内わけ(結果画面の小さな1行)。0の理由は書かない。
  * 例:['なぐった1', 'まきぞえ2', 'ワルにやられた1', 'さらわれた1', '物が落ちた1'] を '・' でつなぐ
  */
 export function hurtBreakdown(
-  s: Pick<StageStats, 'civHurtByHero' | 'civHurtByCollateral' | 'civHurtByVillain'>
-    & Partial<Pick<StageStats, 'civHurtByAbduction' | 'civHurtByDrop'>>
+  s: Pick<StageStats, 'civHurtByHero' | 'civHurtByCollateral' | 'civHurtByVillain' | 'civHurtByAbduction' | 'civHurtByDrop'>
 ): string[] {
-  return [
-    s.civHurtByHero > 0 ? `なぐった${s.civHurtByHero}` : '',
-    s.civHurtByCollateral > 0 ? `まきぞえ${s.civHurtByCollateral}` : '',
-    s.civHurtByVillain > 0 ? `ワルにやられた${s.civHurtByVillain}` : '',
-    (s.civHurtByAbduction ?? 0) > 0 ? `さらわれた${s.civHurtByAbduction}` : '',
-    (s.civHurtByDrop ?? 0) > 0 ? `物が落ちた${s.civHurtByDrop}` : ''
-  ].filter(Boolean);
+  return HURT_LABELS.filter(([key]) => s[key] > 0).map(([key, label]) => `${label}${s[key]}`);
 }

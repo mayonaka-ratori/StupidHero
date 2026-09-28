@@ -46,7 +46,7 @@ export interface GameRun {
   stage: Stage;
   rng: Rng;
   stats: StatsTracker;
-  /** いまの波(0〜2) */
+  /** いまの波(0から。ステージ1〜3とフリープレイは0〜2、高層ビルは0〜3) */
   waveIndex: number;
   /** 仕分けの結果。person.id → 'bad' | 'civ'(時間切れの人もヒーローが決めた結果を入れる) */
   sorts: Record<string, SortChoice>;
@@ -58,7 +58,7 @@ export interface GameRun {
   scrollX: number;
   /** 開発用に途中のシーンから始めたとき true */
   debug: boolean;
-  /** 'stage' はステージ1〜3、'free' はフリープレイ */
+  /** 'stage' はステージ1〜4、'free' はフリープレイ */
   mode: 'stage' | 'free';
   /** フリープレイのときだけ。ステージのときは null */
   free: FreeRun | null;
@@ -66,23 +66,28 @@ export interface GameRun {
 
 const KEY = 'run';
 
-export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug = false, stageId: StageId = 'alley'): GameRun {
-  const stage = createStage(seed, stageId);
+/** 1回のプレイを作って registry に入れる(ステージとフリープレイで共通。rng の種は stage.seed + 1) */
+function newRun(scene: Phaser.Scene, stage: Stage, stats: StatsTracker, debug: boolean, free: FreeRun | null): GameRun {
   const run: GameRun = {
     stage,
     rng: createRng(stage.seed + 1),
-    stats: new StatsTracker(stage.villainTotal, stage.id),
+    stats,
     waveIndex: 0,
     sorts: {},
     randomSorted: [],
     worstShot: null,
     scrollX: 0,
     debug,
-    mode: 'stage',
-    free: null
+    mode: free ? 'free' : 'stage',
+    free
   };
   scene.registry.set(KEY, run);
   return run;
+}
+
+export function startRun(scene: Phaser.Scene, seed: number = randomSeed(), debug = false, stageId: StageId = 'alley'): GameRun {
+  const stage = createStage(seed, stageId);
+  return newRun(scene, stage, new StatsTracker(stage.villainTotal, stage.id), debug, null);
 }
 
 export interface FreeRunOptions {
@@ -102,21 +107,7 @@ export function startFreeRun(scene: Phaser.Scene, seed: number = randomSeed(), o
   const stats = new StatsTracker(stage.villainTotal, stage.id);
   stats.startFree(plan, slow);
   stats.setFreeRule(plan.waves[0].rule);
-  const run: GameRun = {
-    stage,
-    rng: createRng(stage.seed + 1),
-    stats,
-    waveIndex: 0,
-    sorts: {},
-    randomSorted: [],
-    worstShot: null,
-    scrollX: 0,
-    debug: opts.debug ?? false,
-    mode: 'free',
-    free: { plan, clockMs: 0, slow, opCounts: {} }
-  };
-  scene.registry.set(KEY, run);
-  return run;
+  return newRun(scene, stage, stats, opts.debug ?? false, { plan, clockMs: 0, slow, opCounts: {} });
 }
 
 /** フリープレイのいまの波の決めつけ(背景、ルール、言い直し)。フリープレイでなければ投げる */
@@ -165,10 +156,10 @@ export function fillUnsorted(run: GameRun): Person[] {
   return filled;
 }
 
-/** 最後の波(波3)か */
+/** 最後の波か(高層ビルは波4、ほかは波3) */
 const isLastWave = (run: GameRun): boolean => run.waveIndex >= run.stage.waves.length - 1;
 
-/** Street が波の最後まで進んだあとの行き先。波1と波2は答え合わせ、波3はボス戦(答え合わせはボス戦のあと) */
+/** Street が波の最後まで進んだあとの行き先。最後の波でなければ答え合わせ、最後の波はボス戦(答え合わせはボス戦のあと) */
 export function nextAfterStreet(run: GameRun): string {
   return isLastWave(run) ? SCENES.boss : SCENES.waveReview;
 }

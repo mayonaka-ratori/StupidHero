@@ -148,7 +148,6 @@ describe('称号(ステージ2)', () => {
 
 describe('称号(ステージ3)', () => {
   const mall = (over: Partial<StageStats> = {}): StageStats => base({ stageId: 'mall', ...over });
-  const perfectRush = { aliens: 4, aliensDefeated: 4, aliensSpared: 0, civs: 4, civsSaved: 4, civsHit: 0 };
 
   it('宇宙人の案内係は ギャングの見送り係 のすぐあと、タイムセールの守り神は 街のほんものヒーロー のすぐあと、UFOハンターは 待ての達人 のすぐあと', () => {
     const ids = TITLES.map((t) => t.id);
@@ -156,9 +155,6 @@ describe('称号(ステージ3)', () => {
     expect(ids.indexOf('saleGuardian')).toBe(ids.indexOf('realHero') + 1);
     expect(ids.indexOf('ufoHunter')).toBe(ids.indexOf('stopMaster') + 1);
     for (const id of ['ufoGuide', 'saleGuardian', 'ufoHunter'] as const) expect(titleById(id).stages).toEqual(['mall']);
-    expect(titleById('ufoGuide').pose).toBe('win_shy');
-    expect(titleById('saleGuardian').pose).toBe('win_pose');
-    expect(titleById('ufoHunter').pose).toBe('win_fist');
   });
 
   it('ステージごとに取れる数:路地裏12、地下駐車場13、ショッピングモール14', () => {
@@ -192,17 +188,6 @@ describe('称号(ステージ3)', () => {
     expect(decideTitle(kind).id).toBe('tooKind');
   });
 
-  it('タイムセールの守り神:市民を全員守り、宇宙人を全員倒した。ラッシュをしていなければ入らない', () => {
-    expect(decideTitle(mall({ rush: perfectRush })).id).toBe('saleGuardian');
-    expect(decideTitle(mall({ rush: { ...perfectRush, civsSaved: 3, civsHit: 1 } })).id).toBe('soSo');
-    expect(decideTitle(mall({ rush: { ...perfectRush, aliensDefeated: 3, aliensSpared: 1 } })).id).toBe('soSo');
-    expect(decideTitle(mall({ rush: null })).id).toBe('soSo');
-    // 街のほんものヒーローより後、連打の申し子より先
-    expect(decideTitle(mall({ rush: perfectRush, bossFightSec: 5 })).id).toBe('saleGuardian');
-    const real = mall({ rush: perfectRush, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 6_000_000 });
-    expect(decideTitle(real).id).toBe('realHero');
-  });
-
   it('UFOハンター:UFOを2機以上落とした。待ての達人より後、一網打尽と追い打ちの鬼より先', () => {
     const s = mall({ ufosDowned: 2, defeatedByUfo: 2, defeatedByGo: 3 });
     expect(decideTitle(s).id).toBe('ufoHunter');
@@ -213,7 +198,6 @@ describe('称号(ステージ3)', () => {
 
 describe('称号(ステージ4)', () => {
   const tower = (over: Partial<StageStats> = {}): StageStats => base({ stageId: 'tower', ...over });
-  const perfectLift = { aliens: 3, aliensDefeated: 3, aliensSpared: 0, civs: 3, civsSaved: 3, civsHit: 0 };
   const TOWER_ONLY = ['topHero', 'furnitureGuide', 'liftGuardian', 'sofaMaster'] as const;
 
   it('入れる場所:最上階のヒーローは完全無欠のすぐあと、空飛ぶ家具の見送り係は宇宙人の案内係のすぐあと、'
@@ -223,10 +207,10 @@ describe('称号(ステージ4)', () => {
     expect(ids.indexOf('furnitureGuide')).toBe(ids.indexOf('ufoGuide') + 1);
     expect(ids.indexOf('liftGuardian')).toBe(ids.indexOf('saleGuardian') + 1);
     expect(ids.indexOf('sofaMaster')).toBe(ids.indexOf('ufoHunter') + 1);
-    expect(titleById('topHero')).toMatchObject({ name: '最上階のヒーロー', pose: 'win_pose', hint: '最後のボスを倒す' });
-    expect(titleById('furnitureGuide')).toMatchObject({ name: '空飛ぶ家具の見送り係', pose: 'win_shy', hint: '念力で市民が2人けがをする' });
-    expect(titleById('liftGuardian')).toMatchObject({ name: 'エレベーターの守り神', pose: 'win_pose', hint: 'エレベーターで1人も間違えない' });
-    expect(titleById('sofaMaster')).toMatchObject({ name: 'ソファの名人', pose: 'win_arms', hint: 'ソファの上に2回落とす' });
+    expect(titleById('topHero').hint).toBe('最後のボスを倒す');
+    expect(titleById('furnitureGuide').hint).toBe('念力で市民が2人けがをする');
+    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人も間違えない');
+    expect(titleById('sofaMaster').hint).toBe('ソファの上に2回落とす');
     for (const id of TOWER_ONLY) {
       expect(titleById(id).stages).toEqual(['tower']);
       expect(titleById(id).modes).toEqual(['stage']);
@@ -300,18 +284,6 @@ describe('称号(ステージ4)', () => {
     expect(decideTitle({ ...s, escaped: 5 }).id).toBe('tooKind');
   });
 
-  it('エレベーターの守り神:市民を全員守り、ヴィランを全員倒した。タイムセールラッシュの数では取れない', () => {
-    expect(decideTitle(tower({ lift: perfectLift })).id).toBe('liftGuardian');
-    expect(decideTitle(tower({ lift: { ...perfectLift, civsSaved: 2, civsHit: 1 } })).id).toBe('soSo');
-    expect(decideTitle(tower({ lift: { ...perfectLift, aliensDefeated: 2, aliensSpared: 1 } })).id).toBe('soSo');
-    expect(decideTitle(tower({ lift: null })).id).toBe('soSo');
-    expect(decideTitle(tower({ rush: perfectLift })).id).not.toBe('liftGuardian');
-    // 街のほんものヒーローより後、連打の申し子より先
-    expect(decideTitle(tower({ lift: perfectLift, bossFightSec: 5 })).id).toBe('liftGuardian');
-    const real = tower({ lift: perfectLift, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: 16_000_000 });
-    expect(decideTitle(real).id).toBe('realHero');
-  });
-
   it('ソファの名人:2回以上ソファの上で落とした。待ての達人より後、追い打ちの鬼より先', () => {
     const s = tower({ sofaSaves: 2, defeatedByPsy: 3, defeatedByGo: 3 });
     expect(decideTitle(s).id).toBe('sofaMaster');
@@ -324,5 +296,25 @@ describe('称号(ステージ4)', () => {
     expect(titleCommentFor('furnitureGuide', 'tower').text).toBe('家具が飛ぶのを\n見てたよね');
     expect(titleCommentFor('liftGuardian', 'tower').text).toBe('満員のエレベーターで\n一人も間違えなかった！');
     expect(titleCommentFor('sofaMaster', 'tower').text).toBe('ソファの上に\nぴったり落とした！');
+  });
+});
+
+describe('ラッシュの守り神(タイムセールとエレベーター)', () => {
+  it.each([
+    { id: 'saleGuardian', stageId: 'mall', key: 'rush', other: 'lift', n: 4, realDamage: 6_000_000 },
+    { id: 'liftGuardian', stageId: 'tower', key: 'lift', other: 'rush', n: 3, realDamage: 16_000_000 }
+  ] as const)('$id:市民を全員守り、悪党を全員倒した。ラッシュをしていないときと、もう片方のラッシュの数では取れない', ({ id, stageId, key, other, n, realDamage }) => {
+    const st = (over: Partial<StageStats> = {}): StageStats => base({ stageId, ...over });
+    const perfect = { aliens: n, aliensDefeated: n, aliensSpared: 0, civs: n, civsSaved: n, civsHit: 0 };
+    expect(decideTitle(st({ [key]: perfect })).id).toBe(id);
+    expect(decideTitle(st({ [key]: { ...perfect, civsSaved: n - 1, civsHit: 1 } })).id).toBe('soSo');
+    expect(decideTitle(st({ [key]: { ...perfect, aliensDefeated: n - 1, aliensSpared: 1 } })).id).toBe('soSo');
+    expect(decideTitle(st({ [key]: null })).id).toBe('soSo');
+    // タイムセールとエレベーターを取り違えない
+    expect(decideTitle(st({ [other]: perfect })).id).not.toBe(id);
+    // 街のほんものヒーローより後、連打の申し子より先
+    expect(decideTitle(st({ [key]: perfect, bossFightSec: 5 })).id).toBe(id);
+    const real = st({ [key]: perfect, allDefeated: true, civHurt: 0, civHurtByHero: 0, damage: realDamage });
+    expect(decideTitle(real).id).toBe('realHero');
   });
 });

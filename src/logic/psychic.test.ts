@@ -8,27 +8,12 @@ import { decideTitle } from './titles';
 import type { PropKind, WaveNo } from './types';
 
 describe('PsyCall', () => {
-  it('手を出す → 浮く → 運ぶ → 落ちる → 市民に当たった、の順に進む。行けのマークは運ぶ間だけ', () => {
-    const c = new PsyCall('w1-2');
-    expect(c.phase).toBe('raise');
-    expect(c.villainId).toBe('w1-2');
-    expect(c.markOn).toBe(false);
-    expect(c.update(599)).toEqual([]);
-    expect(c.update(1)).toEqual(['lift']);
-    expect(c.markOn).toBe(false);
-    expect(c.update(800)).toEqual(['carry']);
-    expect(c.markOn).toBe(true);
-    expect(c.update(1500)).toEqual([]);
-    expect(c.progress).toBeCloseTo(0.5);
-    expect(c.update(1500)).toEqual(['fall']);
-    expect(c.markOn).toBe(false);
-    expect(c.update(400)).toEqual(['hit']);
-    expect(c.isOver).toBe(true);
-    expect(c.progress).toBe(1);
-    expect(c.update(1000)).toEqual([]);
+  // 段階の進み方、行けが効く段階、長さの変え方、順番待ちの決まりは timedCall.test.ts で確かめる
+  it('villainId は念力を使っているヴィランの id', () => {
+    expect(new PsyCall('w1-2').villainId).toBe('w1-2');
   });
 
-  it('行けが効いたときの、運ぶ段階の進み具合を覚える(効く段階は timedCall.test.ts で確かめる)', () => {
+  it('行けが効いたときの、運ぶ段階の進み具合を覚える', () => {
     const c = new PsyCall('x');
     c.update(600 + 800 + 750);
     expect(c.phase).toBe('carry');
@@ -48,17 +33,9 @@ describe('PsyCall', () => {
     expect(c.phase).toBe('fall');
     expect(c.photoDue).toBe(true);
   });
-
-  it('長さは外から変えられる(ゆっくりモードなど)', () => {
-    const c = new PsyCall('x', { carrySec: 4.5 });
-    expect(c.update(1400)).toEqual(['lift', 'carry']);
-    expect(c.update(4400)).toEqual([]);
-    expect(c.update(100)).toEqual(['fall']);
-  });
 });
 
 describe('PsyQueue', () => {
-  // 1回ずつ順に来ることと、行けのあとに次の番になることは timedCall.test.ts で確かめる
   it('行けで倒すと、そのヴィランの id と、押したときの運ぶ進み具合が返る', () => {
     const q = new PsyQueue();
     q.add('a');

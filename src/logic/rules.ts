@@ -365,8 +365,12 @@ export function pickAttack(rng: Rng): AttackKind {
 
 /** dx が攻撃の届く範囲に入っているか */
 function inReach(kind: AttackKind, dx: number): boolean {
-  const { from, to } = ATTACKS[kind].reach;
-  return dx >= from && dx <= to;
+  return withinReach(ATTACKS[kind].reach, dx);
+}
+
+/** dx が届く範囲(from 以上 to 以下)に入っているか。攻撃とまとめて吹き飛ばすときで共通 */
+function withinReach(reach: { from: number; to: number }, dx: number): boolean {
+  return dx >= reach.from && dx <= reach.to;
 }
 
 /** dx ドット先にいる市民に、この攻撃が当たる確率(0〜1)。殴る相手自身(dx=0)は0 */
@@ -547,8 +551,7 @@ export function rollGroupWipeProps<T extends { kind: PropKind; x: number }>(
   props: readonly T[], centerX: number, rng: Rng
 ): T[] {
   return props.filter((p) => {
-    const dx = p.x - centerX;
-    if (dx < GROUP_WIPE.reach.from || dx > GROUP_WIPE.reach.to) return false;
+    if (!withinReach(GROUP_WIPE.reach, p.x - centerX)) return false;
     const chance = GROUP_WIPE.propBreakChance[p.kind];
     return chance > 0 && rng.chance(chance);
   });
@@ -647,9 +650,7 @@ export const LEAK = {
   /** 2か所とも出る確率(残りは1か所だけ) */
   bothChance: 0.5,
   /** 1か所だけのとき、それが照明になる確率(残りは机の小物) */
-  lightOnlyChance: 0.5,
-  /** 練習用のヴィランは2か所とも出す */
-  practiceBoth: true
+  lightOnlyChance: 0.5
 } as const;
 
 /**

@@ -21,6 +21,11 @@ const FREE_ITEM_KANA: Readonly<Record<FreeItem, string>> = {
 
 export const FREE_ITEMS: readonly FreeItem[] = ['balloon', 'hat', 'bag'];
 
+/** 全部のルール(みんなワル、みんないい人、小物ごとのルールの順) */
+export const FREE_RULES: readonly FreeRule[] = [
+  { kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))
+];
+
 /** ルールの札の文(ひらがな) */
 export function ruleSignText(rule: FreeRule): string {
   if (rule.kind === 'allBad') return 'みんなワル';

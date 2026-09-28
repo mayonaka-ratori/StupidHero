@@ -52,12 +52,9 @@ import type { Rng } from './rng';
  */
 export type PsyPhase = 'raise' | 'lift' | 'carry' | 'fall' | 'downed' | 'hit';
 
-/** 時間を変えるとき(ゆっくりモードなど)。省いた段階は PSY の秒数 */
+/** 運ぶ長さを変えるとき(ゆっくりモードなど)。省くと PSY.carrySec */
 export interface PsyCallOptions {
-  raiseSec?: number;
-  liftSec?: number;
   carrySec?: number;
-  dropSec?: number;
 }
 
 /** 念力1回ぶん(見逃したヴィラン1人ぶん) */
@@ -65,10 +62,10 @@ export class PsyCall extends TimedCall<PsyPhase> {
   constructor(villainId: string, opts: PsyCallOptions = {}) {
     super(villainId, {
       steps: [
-        { phase: 'raise', sec: opts.raiseSec ?? PSY.raiseSec },
-        { phase: 'lift', sec: opts.liftSec ?? PSY.liftSec },
+        { phase: 'raise', sec: PSY.raiseSec },
+        { phase: 'lift', sec: PSY.liftSec },
         { phase: 'carry', sec: opts.carrySec ?? PSY.carrySec },
-        { phase: 'fall', sec: opts.dropSec ?? PSY.dropSec }
+        { phase: 'fall', sec: PSY.dropSec }
       ],
       goPhase: 'carry',
       goEnd: 'downed',
@@ -112,11 +109,6 @@ export class PsyQueue {
   /** 今の念力(なければ null)。markOn、phase、progress、photoDue を画面に使う */
   get current(): PsyCall | null {
     return this.q.current;
-  }
-
-  /** まだ始まっていないヴィランの id(並んだ順) */
-  get queued(): readonly string[] {
-    return this.q.queued;
   }
 
   /** 今の念力も、待っているヴィランもいないか(波の結果発表を終えてよいか) */

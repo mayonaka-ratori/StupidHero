@@ -15,7 +15,7 @@
 //   buildShareText({ caption, url })
 //   結果画面の小さな1行:heroAccuracyText(s.free!)(「ヒーローだけなら10/27人、あなたが直して25/27人」)
 
-import { FREE_ITEMS, FREE_ITEM_NAME } from './freeNames';
+import { FREE_ITEM_NAME, FREE_RULES } from './freeNames';
 import type { FreeRule, FreeTally, FreeWorstScene, StageId, WorstScene } from './types';
 
 const SHARE_HASHTAG = '#StupidHero';
@@ -130,6 +130,5 @@ export function heroAccuracyText(t: Pick<FreeTally, 'heroRight' | 'fixedRight' |
 
 /** フリープレイの共有と結果画面の文の全部(字を先に読みこむため。数字は別に読みこむ) */
 export function freeShareTexts(): string[] {
-  const rules: FreeRule[] = [{ kind: 'allBad' }, { kind: 'allCiv' }, ...FREE_ITEMS.map((item): FreeRule => ({ kind: 'item', item }))];
-  return [...Object.values(FREE_WORST_CAPTION), ...rules.map((r) => `『${ruleQuote(r)}』で`), 'ヒーローだけなら人、あなたが直して人'];
+  return [...Object.values(FREE_WORST_CAPTION), ...FREE_RULES.map((r) => `『${ruleQuote(r)}』で`), 'ヒーローだけなら人、あなたが直して人'];
 }

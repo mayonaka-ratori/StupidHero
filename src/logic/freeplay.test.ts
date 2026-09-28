@@ -1,27 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { GANG_LOOKS } from './garage';
 import { gatherMembers } from './gang';
-import { MALL_LOOKS } from './mall';
 import {
   DryPress, FREE, canCarry, clearTimeSec, createFreePlay, formatClearTime, freeRoleOf, freeTiming, heroChoice, isSceneHead, ruleAt,
   type FreeRole, type FreeWave
 } from './freeplay';
 import { MARK } from './rules';
-import { STAGES, sheetKeyFor } from './stages';
+import { GANG_LOOKS, MALL_LOOKS, STAGES, sheetKeyFor } from './stages';
 import type { Look, Person, StageId, Wave } from './types';
 
 const UNLOCKS: readonly (readonly StageId[])[] = [['alley'], ['alley', 'garage'], ['alley', 'garage', 'mall']];
 
-describe('高層ビルはフリープレイに入れない', () => {
-  it('高層ビルが開いていても、背景にも人にも出ない', () => {
-    for (let seed = 1; seed <= 100; seed++) {
-      const plan = createFreePlay(seed, ['alley', 'garage', 'mall', 'tower']);
-      expect(plan.unlocked).toEqual(['alley', 'garage', 'mall']);
-      for (const w of plan.waves) expect(w.bgStage).not.toBe('tower');
-      for (const w of plan.stage.waves) for (const p of w.people) expect(STAGES.tower.looks).not.toContain(p.look);
-    }
-  });
-});
 const SEEDS = Array.from({ length: 150 }, (_, i) => i * 7919 + 3);
 
 /** 開き方と種のすべての組み合わせの並び。最初に1回だけ作り、どのテストでも使い回す(テストは中身を書きかえない) */
@@ -213,6 +201,17 @@ describe('createFreePlay:人と背景', () => {
   });
 });
 
+describe('高層ビルはフリープレイに入れない', () => {
+  it('高層ビルが開いていても、背景にも人にも出ない', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const plan = createFreePlay(seed, ['alley', 'garage', 'mall', 'tower']);
+      expect(plan.unlocked).toEqual(['alley', 'garage', 'mall']);
+      for (const w of plan.waves) expect(w.bgStage).not.toBe('tower');
+      for (const w of plan.stage.waves) for (const p of w.people) expect(STAGES.tower.looks).not.toContain(p.look);
+    }
+  });
+});
+
 describe('createFreePlay:ギャングとUFO', () => {
   it('ギャングは2人組だけ、1つの波に1組まで。行けのチャンスにだけ出て、gatherMembers で2人とも集まれる', () => {
     let pairs = 0;
@@ -343,38 +342,35 @@ describe('時間と空押し', () => {
     expect(formatClearTime(600)).toBe('10:00');
   });
 
+  // tap の答えが 'dry' のときだけ空押しに数える(画面が stats.dryPress() を呼ぶ)
   it('空押し:マークがないと1.0秒効かず、効かない間に押し直すと数え直す。見て押せば効く', () => {
     const d = new DryPress();
-    expect(d.press(0, true)).toBe(true);
-    expect(d.press(100, false)).toBe(false);
-    expect(d.dryCount).toBe(1);
-    expect(d.locked(1000)).toBe(true);
-    expect(d.remainingMs(600)).toBe(500);
-    // 効かない間は、マークがあっても効かず、そこから数え直す
-    expect(d.press(900, true)).toBe(false);
-    expect(d.dryCount).toBe(1);
-    expect(d.press(1500, true)).toBe(false);
-    expect(d.press(2500, true)).toBe(true);
-    // 連打すると一度も効かない
+    expect(d.tap(0, true)).toBe('hit');
+    expect(d.tap(100, false)).toBe('dry');
+    expect(d.locked(1099)).toBe(true);
+    expect(d.locked(1100)).toBe(false);
+    // 効かない間は、マークがあっても効かず(空押しには数えない)、そこから数え直す
+    expect(d.tap(900, true)).toBe('locked');
+    expect(d.tap(1500, true)).toBe('locked');
+    expect(d.tap(2500, true)).toBe('hit');
+    // 連打すると一度も効かない。やめて1.0秒たてば効く
     const m = new DryPress();
-    let hit = 0;
-    for (let t = 0; t < 5000; t += 300) if (m.press(t, t > 2000)) hit++;
-    expect(hit).toBe(0);
-    expect(m.dryCount).toBe(7);
-    m.reset();
-    expect(m.press(5000, true)).toBe(true);
+    const results: string[] = [];
+    for (let t = 0; t < 5000; t += 300) results.push(m.tap(t, t > 2000));
+    expect(results.filter((r) => r === 'hit')).toEqual([]);
+    expect(results.filter((r) => r === 'dry')).toHaveLength(7);
+    expect(m.tap(5799, true)).toBe('locked');
+    expect(m.tap(6799, true)).toBe('hit');
   });
 
   it('マークが消えた直後(0.15秒まで)の押しは、空押しに数えず、効かない時間も始めない', () => {
     const d = new DryPress();
     d.markGone(1000);
-    expect(d.press(1150, false)).toBe(false);
-    expect(d.dryCount).toBe(0);
+    expect(d.tap(1150, false)).toBe('late');
     expect(d.locked(1200)).toBe(false);
-    expect(d.press(1200, true)).toBe(true);
+    expect(d.tap(1200, true)).toBe('hit');
     // 0.15秒をすぎたら、ふつうの空押し
-    expect(d.press(1151 + 200, false)).toBe(false);
-    expect(d.dryCount).toBe(1);
+    expect(d.tap(1151 + 200, false)).toBe('dry');
     expect(d.locked(1400)).toBe(true);
   });
   it('行けの前ぶれの間の押しは、空押しにせず覚えておき、マークが出たら効かせる', () => {
@@ -382,11 +378,9 @@ describe('時間と空押し', () => {
     // 前ぶれの間(マークなし)に押す:覚える。空押しに数えず、効かない時間も始めない
     expect(d.tap(0, false, true)).toBe('armed');
     expect(d.armed).toBe(true);
-    expect(d.dryCount).toBe(0);
     expect(d.locked(10)).toBe(false);
     // 押し直しても同じ
     expect(d.tap(200, false, true)).toBe('armed');
-    expect(d.dryCount).toBe(0);
     // マークが出るまでは効かせない。マークが出たら1回だけ効かせる
     expect(d.settle(false, true)).toBe(false);
     expect(d.settle(true, false)).toBe(true);
@@ -403,7 +397,6 @@ describe('時間と空押し', () => {
     expect(d.settle(true, false)).toBe(false);
     // 前ぶれのないところ:ふつうの空押し
     expect(d.tap(100, false, false)).toBe('dry');
-    expect(d.dryCount).toBe(1);
     expect(d.locked(500)).toBe(true);
   });
 
@@ -412,13 +405,9 @@ describe('時間と空押し', () => {
     expect(d.tap(0, false)).toBe('dry');
     expect(d.tap(500, false, true)).toBe('locked');
     expect(d.armed).toBe(false);
-    expect(d.dryCount).toBe(1);
     // 効かない時間は数え直す
     expect(d.locked(1400)).toBe(true);
     expect(d.tap(1600, false, true)).toBe('armed');
-    // 波が変わったら、覚えも消す
-    d.reset();
-    expect(d.armed).toBe(false);
   });
 
   it('マークが出ていれば、前ぶれがあってもそのマークに効く。遅れた押しは late', () => {
@@ -429,6 +418,5 @@ describe('時間と空押し', () => {
     expect(d.tap(1100, false, true)).toBe('late');
     expect(d.tap(1100, false)).toBe('late');
     expect(d.armed).toBe(false);
-    expect(d.dryCount).toBe(0);
   });
 });

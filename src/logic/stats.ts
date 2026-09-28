@@ -398,7 +398,7 @@ export class StatsTracker {
   /**
    * ボスを市民に仕分けて、素通りのあとボスが暴れた。足した額を返す。
    * 額はステージごと(路地裏¥1,000万、地下駐車場は手下の車をけしかけて¥1,500万、
-   * ショッピングモールは母艦の光線でモールを焼いて¥2,000万)
+   * ショッピングモールは母艦の光線でモールを焼いて¥2,000万、高層ビルは家具を念力で窓の外へ投げて¥2,000万)
    */
   bossRampage(): number {
     const cost = STAGES[this.stageId].bossRampageCost;
@@ -602,7 +602,7 @@ export class StatsTracker {
   }
 
   /** フリープレイの今の数(フリープレイでなければ null) */
-  freeTally(): FreeTally | null {
+  private freeTally(): FreeTally | null {
     const f = this.free;
     if (!f) return null;
     // 直したあとの当たり:ヒーローが殴った市民と、逃げきったワルの場面のほかは、全部当たり

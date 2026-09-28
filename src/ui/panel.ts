@@ -1,4 +1,4 @@
-// 下の操作部分の背景(layout.panelTop から画面の下まで)。
+// 下の操作部分の背景(layout.actionH から画面の下まで)。
 // 使い方:
 //   addPanel(this);                        // 背景を置く(depth は DEPTH.panel)
 //   const r = panelRect();                 // 中身を置ける四角 { x, y, w, h }(左右8ドット、下はホームバーのぶんをあける)
@@ -13,7 +13,7 @@ export interface PanelRect { x: number; y: number; w: number; h: number; right: 
 
 /** 操作部分の背景を置く */
 export function addPanel(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
-  const { W, H, panelTop } = layout;
+  const { W, H, actionH: panelTop } = layout;
   const g = scene.add.graphics().setDepth(DEPTH.panel);
   g.fillStyle(UI.panel, 1).fillRect(0, panelTop, W, H - panelTop);
   g.fillStyle(UI.black, 1).fillRect(0, panelTop, W, 1);
@@ -26,7 +26,7 @@ export function addPanel(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
 
 /** 操作部分の中で、ものを置ける四角 */
 export function panelRect(margin = 8): PanelRect {
-  const { W, H, panelTop, safeBottom } = layout;
+  const { W, H, actionH: panelTop, safeBottom } = layout;
   const x = margin;
   const y = panelTop + 3 + margin;
   const bottom = H - Math.max(margin, safeBottom + 4);

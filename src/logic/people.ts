@@ -1,4 +1,4 @@
-// 仕分けに出てくる1人を作る部品(stage.ts と garage.ts で使う。index.ts からは書き出さない)。
+// 仕分けに出てくる1人を作る部品(stage.ts、garage.ts、mall.ts、tower.ts、freeplay.ts で使う。index.ts からは書き出さない)。
 
 import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
 import { pickFresh } from './pick';
@@ -27,9 +27,9 @@ function ageOverlap(a: readonly [number, number], b: readonly [number, number]):
   return lo <= hi ? [lo, hi] : [b[0], b[1]];
 }
 
-/** 1人を作る(名前、年齢、プロフィール、一言、絵のキー)。ボスなら disguise に化けた姿 */
+/** 1人を作る(名前、年齢、プロフィール、一言、絵のキー)。ボスなら look に化けた姿を渡す(disguise にも入る) */
 export function makePerson(
-  rng: Rng, used: UsedTexts, stageId: StageId, wave: WaveNo, look: Look, truth: Truth, disguise?: DisguiseLook
+  rng: Rng, used: UsedTexts, stageId: StageId, wave: WaveNo, look: Look, truth: Truth
 ): PersonDraft {
   // ボスは、化けた姿の市民と同じ名前の一覧から偽名を選ぶ(名前で分からないように)。
   // ボスの年齢の幅があるステージ(地下駐車場の女ボス)は、その幅と化けた姿の幅の重なりから
@@ -41,7 +41,7 @@ export function makePerson(
   let lines: readonly string[];
   let hints: readonly OperatorHint[];
   if (truth === 'boss') {
-    const d = disguise ?? (look as DisguiseLook);
+    const d = look as DisguiseLook;
     lines = BOSS_PROFILE_LINES[d];
     hints = BOSS_HINTS[d];
   } else {
@@ -56,7 +56,7 @@ export function makePerson(
     profile: { name, age, line },
     hint: { ...hint }
   };
-  if (truth === 'boss') person.disguise = disguise ?? (look as DisguiseLook);
+  if (truth === 'boss') person.disguise = look as DisguiseLook;
   if (truth === 'bad') person.mischief = MISCHIEF_BY_LOOK[look];
   return person;
 }

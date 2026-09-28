@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { liftSummary } from './reasons';
+import { liftSummary, rushSummary } from './reasons';
 import { STAGES } from './stages';
 import { StatsTracker, WORST_SCENE_RANK, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
 
@@ -249,28 +249,6 @@ describe('StatsTracker(ステージ3)', () => {
     expect(s.heroMistakes).toBe(0);
   });
 
-  it('タイムセールラッシュの数は、ほかの数字と全員撃破に入らない', () => {
-    const s = new StatsTracker(1, 'mall');
-    expect(s.snapshot().rush).toBeNull();
-    s.startRush({ alienCount: 3, civCount: 5 });
-    s.rushHit('bad');
-    s.rushHit('bad');
-    s.rushStopped('bad');
-    s.rushHit('civ');
-    for (let i = 0; i < 4; i++) s.rushStopped('civ');
-    const r = s.snapshot();
-    expect(r.rush).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs: 5, civsSaved: 4, civsHit: 1 });
-    expect(r.defeated).toBe(0);
-    expect(r.allDefeated).toBe(false);
-    expect(r.civHurt).toBe(0);
-    expect(r.escaped).toBe(0);
-    expect(r.civSavedByStop).toBe(0);
-    expect(r.badSparedByStop).toBe(0);
-    // snapshot は写し
-    s.rushHit('bad');
-    expect(r.rush!.aliensDefeated).toBe(2);
-  });
-
   it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない', () => {
     const s = new StatsTracker(9, 'tower');
     expect(s.mischief('chef')).toBe(0);
@@ -337,32 +315,43 @@ describe('StatsTracker(ステージ4)', () => {
     expect(s.snapshot().worstScene).toBe('civHit');
   });
 
-  it('エレベーターラッシュの数はタイムセールラッシュと同じ形で、ほかの数字に入らない', () => {
-    const s = new StatsTracker(1, 'tower');
-    expect(s.snapshot().lift).toBeNull();
-    s.startLift({ villainCount: 3, civCount: 3 });
-    s.liftHit('bad');
-    s.liftHit('bad');
-    s.liftStopped('bad');
-    s.liftHit('civ');
-    s.liftStopped('civ');
-    s.liftStopped('civ');
+});
+
+describe('ラッシュの数え方(タイムセールとエレベーターは同じ形)', () => {
+  type Who = 'bad' | 'civ';
+  it.each([
+    {
+      name: 'タイムセールラッシュ', stageId: 'mall', key: 'rush', other: 'lift', civs: 5, summary: 'セール：撃破2/3・守った4/5',
+      start: (s: StatsTracker, bad: number, civ: number) => s.startRush({ alienCount: bad, civCount: civ }),
+      hit: (s: StatsTracker, w: Who) => s.rushHit(w), stopped: (s: StatsTracker, w: Who) => s.rushStopped(w),
+      tally: (s: StatsTracker) => s.rushTally, toText: rushSummary
+    },
+    {
+      name: 'エレベーターラッシュ', stageId: 'tower', key: 'lift', other: 'rush', civs: 3, summary: 'エレベーター：撃破2/3・守った2/3',
+      start: (s: StatsTracker, bad: number, civ: number) => s.startLift({ villainCount: bad, civCount: civ }),
+      hit: (s: StatsTracker, w: Who) => s.liftHit(w), stopped: (s: StatsTracker, w: Who) => s.liftStopped(w),
+      tally: (s: StatsTracker) => s.liftTally, toText: liftSummary
+    }
+  ] as const)('$name の数は、ほかの数字と全員撃破に入らない', ({ stageId, key, other, civs, summary, start, hit, stopped, tally, toText }) => {
+    const s = new StatsTracker(1, stageId);
+    expect(s.snapshot()[key]).toBeNull();
+    start(s, 3, civs);
+    hit(s, 'bad');
+    hit(s, 'bad');
+    stopped(s, 'bad');
+    hit(s, 'civ');
+    for (let i = 0; i < civs - 1; i++) stopped(s, 'civ');
     const r = s.snapshot();
-    expect(r.lift).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs: 3, civsSaved: 2, civsHit: 1 });
-    expect(liftSummary(r.lift!)).toBe('エレベーター：撃破2/3・守った2/3');
-    expect(r.rush).toBeNull();
+    expect(r[key]).toEqual({ aliens: 3, aliensDefeated: 2, aliensSpared: 1, civs, civsSaved: civs - 1, civsHit: 1 });
+    expect(toText(r[key]!)).toBe(summary);
+    expect(r[other]).toBeNull();
+    expect(r.allDefeated).toBe(false);
     expect([r.defeated, r.civHurt, r.escaped, r.civSavedByStop, r.badSparedByStop]).toEqual([0, 0, 0, 0, 0]);
     // snapshot は写し
-    s.liftHit('bad');
-    expect(r.lift!.aliensDefeated).toBe(2);
+    hit(s, 'bad');
+    expect(r[key]!.aliensDefeated).toBe(2);
     // 2回始めたら数え直す
-    s.startLift({ villainCount: 2, civCount: 4 });
-    expect(s.liftTally).toEqual({ aliens: 2, aliensDefeated: 0, aliensSpared: 0, civs: 4, civsSaved: 0, civsHit: 0 });
-  });
-
-  it('ステージ1〜3では念力とエレベーターの数は0のまま', () => {
-    const r = new StatsTracker(3, 'mall').snapshot();
-    expect([r.defeatedByPsy, r.escapedByPsy, r.sofaSaves]).toEqual([0, 0, 0]);
-    expect(r.lift).toBeNull();
+    start(s, 2, 4);
+    expect(tally(s)).toEqual({ aliens: 2, aliensDefeated: 0, aliensSpared: 0, civs: 4, civsSaved: 0, civsHit: 0 });
   });
 });

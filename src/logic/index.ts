@@ -5,7 +5,7 @@
 //   const stageId: StageId = 'garage';                // 'alley'(路地裏)、'garage'(地下駐車場)、'mall'(ショッピングモール)、
 //                                                    // 'tower'(高層ビル)
 //   const rng = createRng(randomSeed());
-//   const stage = createStage(rng.seed, stageId);    // 3つの波。路地裏16人、地下駐車場18人、ショッピングモール18人
+//   const stage = createStage(rng.seed, stageId);    // 3つの波(高層ビルは4つ)。路地裏16人、地下駐車場18人、ショッピングモール18人
 //   const def = stage.def;                           // 背景 def.bg、曲 def.bgm、ボスの絵 def.bossSheet、置く物 def.props
 //                                                    // 仕組みは def.mechanic('none' | 'gang' | 'ufo' | 'psychic')、ラッシュは def.rush
 //   const stats = new StatsTracker(stage.villainTotal, stage.id);
@@ -25,14 +25,14 @@
 //   //   ショッピングモールで passBad の宇宙人:空へ合図 → ufos.add(person.id)(new UfoQueue()。ufo.ts)
 //   //     行けで落としたら stats.ufoDowned()、連れ去られたら stats.ufoEscaped() と stats.reportScene('abducted')
 //   //   高層ビルで passBad のヴィラン:planPsychic で並べ方 → psy.add(person.id)(new PsyQueue()。psychic.ts)
-//     行けで落としたら stats.psyDowned(resolvePsyDrop(plan, psyCarryX(plan, at)))、市民に落ちたら stats.psyEscaped() と
-//     stats.reportScene('dropped')
-//   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
+//   //     行けで落としたら stats.psyDowned(resolvePsyDrop(plan, psyCarryX(plan, at)))、市民に落ちたら stats.psyEscaped() と
+//   //     stats.reportScene('dropped')
+//   //   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
 //   //     (rushIntroFor(hasSeenRush(stage.id))、markRushSeen、stats.startRush、rushHit、rushStopped、rushEndLine)
 //   //   高層ビルの波3の答え合わせのあと:stage.rush でエレベーターラッシュ(stats.startLift、liftHit、liftStopped。まとめは liftSummary)
-//   ひどい場面:if (stats.reportScene(scene)) 画面を撮る
+//   // ひどい場面:if (stats.reportScene(scene)) 画面を撮る
 //   // ボス戦:const fight = new BossFight(def.bossFight); tap() と update(deltaMs)。boardedCar で女ボスが車に乗る
-//   //   (ショッピングモールは親玉が母艦に乗りこむ)。倒したら def.bossDefeatProp があれば stats.breakProp(def.bossDefeatProp)
+//   //   (ショッピングモールは親玉が母艦に乗りこむ。高層ビルは念力の選択で、new PsyChoice() と applyChoice。bossChoice.ts)。倒したら def.bossDefeatProp があれば stats.breakProp(def.bossDefeatProp)
 //   // 結果:const s = stats.snapshot(); const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });
 //   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   市民のけがの内わけは hurtBreakdown(s)、ラッシュのまとめは s.rush があれば rushSummary(s.rush)
@@ -52,8 +52,8 @@
 //   //   'civ' なら素通り。場面の種類は freeRoleOf(fw, person)。仕組みは見た目で決める
 //   //   (fp_gang はギャングの組、fp_alien はUFO、fp_mohawk はナイフで脅す)
 //   //   波3の言い直し:person.index が fw.redeclare.after になる前に、ルールを変えて stats.setFreeRule(fw.redeclare.rule)
-//   // 待てと行け:new DryPress() を待てと行けに1つずつ。dry.press(nowMs, マークがあるか) が false なら効かない
-//   //   (マークがなければ stats.dryPress())。数え方は stats.ts の先頭の「フリープレイ」
+//   // 待てと行け:new DryPress() を待てと行けに1つずつ。dry.tap(nowMs, マークがあるか) が 'hit' でなければ効かない
+//   //   ('dry' なら stats.dryPress())。数え方は stats.ts の先頭の「フリープレイ」
 //   // 波の終わり:nextAfterFreeStreet(run)(run.ts)。波3のあとは stats.finishFree(時計) をしてから Result
 //   // 結果:const s = stats.snapshot(); const title = decideTitle(s);   // s.free があればフリープレイの順で調べる
 //   //   s.free.clearSec(大きく)、s.free.stopSaved、s.free.goScenes、heroAccuracyText(s.free)

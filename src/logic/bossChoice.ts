@@ -32,17 +32,15 @@ export interface ChoiceOutcome {
 export const CHOICE_GUARD_SEC = 0.3;
 
 export class PsyChoice {
-  readonly limitSec: number;
-  readonly guardSec: number;
+  // limitSec、guardSec、elapsedSec は tools/boss_test.mjs が window.bossScene.choice から読む
+  /** 選べる秒数(BOSS4.choiceSec) */
+  readonly limitSec = BOSS4.choiceSec;
+  /** ボタンが出てから押しを受け付けるまでの秒数(CHOICE_GUARD_SEC) */
+  readonly guardSec = CHOICE_GUARD_SEC;
   private t = 0;
   private stopAt: number | null = null;
   private goAt: number | null = null;
   private endedAt: number | null = null;
-
-  constructor(limitSec: number = BOSS4.choiceSec, guardSec: number = CHOICE_GUARD_SEC) {
-    this.limitSec = limitSec;
-    this.guardSec = guardSec;
-  }
 
   /** ボタンが押された。受け付けたら true(終わったあと、同じボタンの2回目、出た直後の押しは false) */
   press(p: ChoicePress): boolean {
@@ -72,11 +70,6 @@ export class PsyChoice {
   /** 終わったか(両方押したか、時間切れ) */
   get done(): boolean {
     return this.endedAt !== null;
-  }
-
-  /** そのボタンを押したか */
-  pressed(p: ChoicePress): boolean {
-    return (p === 'stop' ? this.stopAt : this.goAt) !== null;
   }
 
   /** 残りの時間の割合(1〜0)。時間のバーに使う */

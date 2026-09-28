@@ -142,11 +142,6 @@ export class CallQueue<P extends string, C extends TimedCall<P>> {
     return this.cur;
   }
 
-  /** まだ始まっていない id(並んだ順) */
-  get queued(): readonly string[] {
-    return this.waiting;
-  }
-
   /** 今の出来事も、待っている id もないか */
   get idle(): boolean {
     return this.cur === null && this.waiting.length === 0;
