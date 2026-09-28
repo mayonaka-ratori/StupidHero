@@ -1,6 +1,6 @@
 // 顔のカットイン(48×48、胸から上)。各行が表情、左が口を閉じ、右が口を開ける。
 // 1文字が1ドット('.' は透明)。顔の形と髪のかたまりを図形で置いてから、目、口、毛先を手で打って作った
-// (元は mocks/hero_art_src/face48.py と op48.py)。
+// (元は見本の mocks/hero_art_src/face48.py と op48.py。見本は消したが git の 5180bdd にある)。
 // 表情ごとの絵は、いちばん上の表情の口を閉じた顔(BASE)に、違う行だけを重ねて作る('_' は元のまま)。
 import { md, OUTLINE, PixelGrid } from '../lib';
 import { HERO_KEYS, SKIN, WHITE } from './palette';

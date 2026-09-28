@@ -1,6 +1,6 @@
 // ステージ4の物:ソファ(階ごとの色の4コマ。壊れない)、観葉植物、花のかざり、コピー機、水槽、ワインの棚、
 // シャンパンタワー、ピアノ(ふつうと壊れた)、シャンデリア(ふつう、念力で浮く、落ちて壊れた)と、仕分けの画面の机。
-// 置くときの基準はコマの下の真ん中(シャンデリアだけは上の真ん中)。見本は mocks/stage4_src/scenes.ts。
+// 置くときの基準はコマの下の真ん中(シャンデリアだけは上の真ん中)。見本は mocks/stage4_src/scenes.ts(消したが git の 5180bdd にある)。
 import { md, OUTLINE, PixelGrid } from '../lib';
 import { Painter, type Pt, type Ramp, rotateGrid, sprite } from '../world/pix';
 import { GOLD, WHITE } from '../world/palette';
