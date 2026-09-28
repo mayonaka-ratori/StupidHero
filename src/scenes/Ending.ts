@@ -15,7 +15,7 @@ import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
 import { TOWER_ENDING, TOWER_ENDING_SKIP, bgForWave, markEndingSeen } from '../logic';
 import { getRun } from '../run';
 import { Button, CUT_H, CUT_TOP_H, FS, PixelText, addPanel, panelRect, spawnFx } from '../ui';
-import { Z, devHook, drawLightPool, drawStageBg, unlockOnTap } from './sort/common';
+import { Z, drawLightPool, drawStageBg, unlockOnTap } from './sort/common';
 import { Dialogue } from './dialogue';
 import { Sunrise } from './boss/sunrise';
 import { CHANDELIER_HANG_Y, drawChain } from './boss/choice';
@@ -82,15 +82,7 @@ export class EndingScene extends Phaser.Scene {
     this.talk = talk;
     new PixelText(this, wide.x + wide.w - 2, cutY + ch + 5, 'タップで次へ', { size: FS.small, color: UI.textDim }).setOrigin(1, 0);
 
-    this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.some((o) => o.parentContainer === skip)) return;
-      talk.advance();
-    });
-    this.input.keyboard?.on('keydown-SPACE', () => talk.advance());
-    this.input.keyboard?.on('keydown-ENTER', () => talk.advance());
-    this.input.keyboard?.on('keydown-ESC', () => talk.leave());
-
-    devHook(this, { advance: () => talk.advance(), leave: () => talk.leave(), state: () => ({ index: talk.index, total: talk.total, typing: talk.cut.isTyping }) });
+    talk.bindInput([skip]);
     // 朝日のキラキラ
     for (let i = 0; i < 5; i++) this.time.delayedCall(200 + i * 260, () => spawnFx(this, 'fx_sparkle', Phaser.Math.Between(24, 200), Phaser.Math.Between(20, 80), { depth: Z.wall + 1 }));
     this.time.delayedCall(400, () => talk.next());

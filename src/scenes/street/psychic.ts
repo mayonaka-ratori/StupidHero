@@ -18,9 +18,10 @@ import {
   type Look, type PropKind, type PsyDrop, type PsyEvent, type PsyPlan, PsyQueue
 } from '../../logic';
 import { layout } from '../../layout';
+import { currentWave } from '../../run';
 import { settings } from '../../settings';
 import { hitStop, impact, shake, waitMs } from '../../ui';
-import { Actor, HEAD } from './actor';
+import { Actor } from './actor';
 import { PSY_ROWS, type PsySpot } from './plan';
 import { PARTY_FOOD_FRAMES, TOWER_ITEM_FRAMES } from '../../art/towerSpots';
 import type { StreetScene } from '../Street';
@@ -111,6 +112,28 @@ function psyOutlineKey(scene: Phaser.Scene, key: string, frame: number): string 
   }
   c.refresh();
   return out;
+}
+
+/** 物の絵に、紫の1ドットのふちの絵を重ねる(下の真ん中を基準に、物の1ドット下へ)。奥行きと向きは呼ぶ側で決める */
+function addOutline(scene: Phaser.Scene, sp: Phaser.GameObjects.Sprite): Phaser.GameObjects.Image {
+  const frame = Number(sp.frame.name) || 0;
+  return scene.add.image(sp.x, sp.y + 1, psyOutlineKey(scene, sp.texture.key, frame)).setOrigin(0.5, 1);
+}
+
+/** 物を包むもやの大きさ(もやの絵の何倍か。ドットが崩れないように、整数倍で広げる) */
+function hazeScale(sp: Phaser.GameObjects.Sprite): { sx: number; sy: number } {
+  return { sx: Math.max(2, Math.ceil((sp.width + 12) / 16)), sy: Math.max(2, Math.ceil((sp.height + 10) / 14)) };
+}
+
+/**
+ * 紫の小さな火花(光と揺れを弱くするときは、またたかずに1コマ目で止める)。ボス戦の念力の選択(boss/choice.ts)も使う。
+ * 始まりのコマは見た目だけなので、ゲームの乱数(rng)は使わない
+ */
+export function psySpark(scene: Phaser.Scene, x: number, y: number, depth: number): Phaser.GameObjects.Sprite {
+  const s = scene.add.sprite(Math.round(x), Math.round(y), 'fx_psy_spark', 0).setDepth(depth);
+  const key = animKey('fx_psy_spark', 'play');
+  if (!settings.reduceFx && scene.anims.exists(key)) s.play({ key, startFrame: Phaser.Math.Between(0, 3) });
+  return s;
 }
 
 export class PsyPart {
@@ -266,7 +289,7 @@ export class PsyPart {
 
   /** 通りがかりの市民(ヴィランと違う、その階の市民の見た目)が右から歩いてきて、市民が止まる所で止まる */
   private walkVictim(u: PsyRun): void {
-    const no = this.s.run.stage.waves[this.s.run.waveIndex]?.no ?? 1;
+    const no = currentWave(this.s.run)?.no ?? 1;
     const looks = (FLOOR_LOOKS[no - 1] ?? FLOOR_LOOKS[0]).filter((l) => l !== u.villain.look);
     const look: Look = this.s.rng.pick(looks.length > 0 ? looks : FLOOR_LOOKS[3]);
     const v = new Actor(this.s, sheetKeyFor(look, 'civ', 'tower'), this.s.L.right + 24, PSY_ROWS.victim);
@@ -285,34 +308,24 @@ export class PsyPart {
     const reduce = settings.reduceFx;
     audio.sfx('psy');
     sp.setDepth(850);
-    const frame = Number(sp.frame.name) || 0;
-    u.outline = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame)).setOrigin(0.5, 1).setDepth(849.9);
-    // もやは物を包む大きさに(ドットが崩れないように、整数倍で広げる)
-    const sx = Math.max(2, Math.ceil((sp.width + 12) / 16));
-    const sy = Math.max(2, Math.ceil((sp.height + 10) / 14));
+    u.outline = addOutline(this.s, sp).setDepth(849.9);
+    // もやは物を包む大きさに
+    const { sx, sy } = hazeScale(sp);
     u.haze = this.s.add.sprite(sp.x, sp.y - sp.height / 2, 'fx_psy_haze', 0).setScale(sx, sy).setDepth(849.8);
     if (!reduce) u.haze.play(animKey('fx_psy_haze', 'play'));
-    for (let i = 0; i < SPARKS; i++) u.sparks.push(this.spark(sp.x, sp.y, 850.1));
+    for (let i = 0; i < SPARKS; i++) u.sparks.push(psySpark(this.s, sp.x, sp.y, 850.1));
     this.moveSparks(u, reduce);
     // ヴィランの手の先にも火花
     const a = u.villain;
-    u.hand = this.spark(a.x + 14, a.y - 30, a.y + 0.6);
+    u.hand = psySpark(this.s, a.x + 14, a.y - 30, a.y + 0.6);
     this.s.opSay(this.s.line('psyLift', this.s.rng), true);
-  }
-
-  /** 紫の小さな火花(光と揺れを弱くするときは、またたかずに1コマ目で止める) */
-  spark(x: number, y: number, depth: number): Phaser.GameObjects.Sprite {
-    const s = this.s.add.sprite(Math.round(x), Math.round(y), 'fx_psy_spark', 0).setDepth(depth);
-    if (!settings.reduceFx) s.play({ key: animKey('fx_psy_spark', 'play'), startFrame: Phaser.Math.Between(0, 3) });
-    return s;
   }
 
   /** 物が市民の上へ運ばれる。物の上に大きな行けのマーク(その回で初めてなら行けの使い方を言う) */
   private psyCarry(u: PsyRun): void {
     const sp = u.lifted.sprite;
     u.mark = this.s.bigMark(sp.x, sp.y - sp.height - 20, 2);
-    this.s.heroBubble?.destroy();
-    this.s.heroBubble = undefined;
+    this.s.clearHeroBubble();
     this.s.goAlarm.start();
     this.s.opSay(this.s.firstTime('psy') ? this.s.line('teachPsy') : this.s.line('psyCarry', this.s.rng), true);
     this.s.goHandler = () => this.psyGo();
@@ -362,16 +375,8 @@ export class PsyPart {
     const v = u.victim;
     const a = u.villain;
     this.clearGlow(u);
-    audio.sfx('hit', { pitch: 0.7 });
-    audio.sfx('thud');
-    shake(this.s, 3, 200);
     this.s.stats.psyEscaped();
-    if (this.s.stats.reportScene('dropped', null)) this.useDropShot(u);
-    if (v?.standing) {
-      this.s.fx('fx_hit', v.x, v.y - VICTIM_HEAD + 4, { depth: 960 });
-      this.s.knock(v, 10, 6, -1);
-    }
-    this.s.opSay(this.s.line('psyHit', this.s.rng), true);
+    this.hitVictim(u, v);
     // 物は市民の上ではずんで、横の床に落ちる(壊れない)
     void this.bounceTo(u.lifted, u.plan.victimX + 22, (v?.y ?? PSY_ROWS.victim) + 3);
     // ヴィランは右へ走って逃げる
@@ -382,6 +387,19 @@ export class PsyPart {
     this.s.hero.play('idle');
     await waitMs(this.s, 1200);
     u.done();
+  }
+
+  /** 物が市民に当たる:音と揺れ、いちばんひどい場面の写真、市民がのびる、オペレーターの一言 */
+  private hitVictim(u: PsyRun, v: Actor | undefined): void {
+    audio.sfx('hit', { pitch: 0.7 });
+    audio.sfx('thud');
+    shake(this.s, 3, 200);
+    if (this.s.stats.reportScene('dropped', null)) this.useDropShot(u);
+    if (v?.standing) {
+      this.s.fx('fx_hit', v.x, v.y - VICTIM_HEAD + 4, { depth: 960 });
+      this.s.knock(v, 10, 6, -1);
+    }
+    this.s.opSay(this.s.line('psyHit', this.s.rng), true);
   }
 
   /** 物を山なりに動かして、床に置く(壊さない) */
@@ -443,13 +461,10 @@ export class PsyPart {
     const cost = this.s.stats.psyDowned(drop);
     await this.dropAt(u, drop, cost);
     this.s.auraOn = false;
-    h.play('okay', true);
-    audio.sfx('okay');
-    this.s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.s.okayPose();
     // 市民に落ちなかったら、落ちる音におどろいてはずみ、右へ去る
     if (v?.standing) {
-      this.s.passers = this.s.passers.filter((p) => p !== v);
-      this.s.safeWalkers.push(v);
+      this.s.makeSafe(v);
       this.s.tweens.killTweensOf(v);
       v.pose('surprised');
       await this.s.arc(v, v.x, 8, 240);
@@ -490,15 +505,7 @@ export class PsyPart {
       this.s.opSay(this.s.line('psySofa', this.s.rng), true);
     } else if (drop.on === 'citizen' && v) {
       // 押すのが遅れて、市民の真上だった。ヴィランは倒れたが、市民に当たる(物は壊れない)
-      audio.sfx('hit', { pitch: 0.7 });
-      audio.sfx('thud');
-      shake(this.s, 3, 200);
-      if (this.s.stats.reportScene('dropped', null)) this.useDropShot(u);
-      if (v.standing) {
-        this.s.fx('fx_hit', v.x, v.y - VICTIM_HEAD + 4, { depth: 960 });
-        this.s.knock(v, 10, 6, -1);
-      }
-      this.s.opSay(this.s.line('psyHit', this.s.rng), true);
+      this.hitVictim(u, v);
       await this.bounceTo(u.lifted, u.plan.victimX + 22, v.y + 3);
     } else {
       // ほかの物の上か床:落ちた物が壊れる(ほかの物の上なら、その物も)
@@ -603,23 +610,22 @@ export class PsyPart {
   /**
    * 絵を1つ浮かせて、紫のふち、もや、火花を付ける。浮いたあとは(揺れを弱くしないときは)ゆっくり上下にゆれる。
    * 絵の基準は下の真ん中。gone が true になったら(物が壊れたら)、ふちともやと火花を片づける。
-   * hazeScale を渡さないときは、もやを絵を包む大きさに広げる
+   * fixedScale を渡さないときは、もやを絵を包む大きさに広げる
    */
-  private floatUp(sp: Phaser.GameObjects.Sprite, gone: () => boolean, hazeScale?: number): void {
+  private floatUp(sp: Phaser.GameObjects.Sprite, gone: () => boolean, fixedScale?: number): void {
     if (!sp.active) return;
     const reduce = settings.reduceFx;
-    const frame = Number(sp.frame.name) || 0;
     const d = sp.depth;
-    const line = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame))
-      .setOrigin(0.5, 1).setDepth(d - 0.01).setFlipX(sp.flipX);
-    // もやは物を包む大きさに(ドットが崩れないように、整数倍で広げる。psyLift と同じ)
-    const sx = hazeScale ?? Math.max(2, Math.ceil((sp.width + 12) / 16));
-    const sy = hazeScale ?? Math.max(2, Math.ceil((sp.height + 10) / 14));
+    const line = addOutline(this.s, sp).setDepth(d - 0.01).setFlipX(sp.flipX);
+    // もやは物を包む大きさに(psyLift と同じ)
+    const fit = hazeScale(sp);
+    const sx = fixedScale ?? fit.sx;
+    const sy = fixedScale ?? fit.sy;
     // 小物(コマの下に絵のない段がある)は、もやの真ん中を絵の真ん中に合わせる
-    const hazeDy = hazeScale ? sp.height / 2 + ITEM_FOOT / 2 : sp.height / 2;
+    const hazeDy = fixedScale ? sp.height / 2 + ITEM_FOOT / 2 : sp.height / 2;
     const haze = this.s.add.sprite(sp.x, sp.y - hazeDy, 'fx_psy_haze', 0).setScale(sx, sy).setDepth(d - 0.02);
     if (!reduce) haze.play(animKey('fx_psy_haze', 'play'));
-    const spark = this.spark(sp.x, sp.y, d + 0.01);
+    const spark = psySpark(this.s, sp.x, sp.y, d + 0.01);
     const x = sp.x;
     const y0 = sp.y;
     // 浮く高さと、ゆれの始まりは物ごとに少しずらす(見た目だけなので、ゲームの乱数は使わない)
@@ -675,9 +681,8 @@ export class PsyPart {
     p.broken = true;
     this.guarded.delete(p);
     const sp = p.sprite;
-    const frame = Number(sp.frame.name) || 0;
-    const line = this.s.add.image(sp.x, sp.y + 1, psyOutlineKey(this.s, sp.texture.key, frame)).setOrigin(0.5, 1);
-    const s = this.spark(sp.x, sp.y - sp.height / 2, 961);
+    const line = addOutline(this.s, sp);
+    const s = psySpark(this.s, sp.x, sp.y - sp.height / 2, 961);
     sp.setDepth(900 + i * 0.1);
     line.setDepth(sp.depth - 0.01);
     const x0 = sp.x;

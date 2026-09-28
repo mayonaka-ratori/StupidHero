@@ -26,13 +26,13 @@ import { getRun, type GameRun } from '../run';
 import { settings } from '../settings';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText,
-  gotoWhenFree, hitStop, impact, isFrozen, lighter, spawnFx, waitMs
+  gotoWhenFree, hitStop, impact, isFrozen, spawnFx, waitMs
 } from '../ui';
 import { addMute, unlockOnTap } from './sort/common';
 import { Actor, HEAD } from './street/actor';
 import { Layers } from './street/layers';
 import { shootAction } from './shot';
-import { buildStreetPanel, buttonPulse } from './street/panel';
+import { buildStreetPanel, pulseButton } from './street/panel';
 import { rushBand, rushTapIntro } from './street/rushIntro';
 import {
   DOOR_MOVE_SEC, LIFT_SPOT, liftDoorOpen, liftFloorAt, liftMoving, liftPhase, liftSchedule, liftSlot, nearestButton,
@@ -265,7 +265,7 @@ export class ElevatorScene extends Phaser.Scene {
   private updateButtons(): void {
     const st = this.stopHandler !== null;
     if (this.stopBtn.isEnabled !== st) this.stopBtn.setEnabled(st).setColor(UI.stop);
-    if (st && this.frameN % 3 === 0) this.stopBtn.setColor(lighter(UI.stop, buttonPulse(this.time.now) * 0.3));
+    if (st && this.frameN % 3 === 0) pulseButton(this.stopBtn, UI.stop, this.time.now);
   }
 
   // ─── 小さな道具 ───────────────────────────────
@@ -634,7 +634,6 @@ export class ElevatorScene extends Phaser.Scene {
       const x0 = Math.round(d.x - k * 70), x1 = Math.round(d.x + d.w + k * 4);
       for (let x = x0 + ((y >> 1) % 2) * 2; x < x1; x += 4) g.fillRect(x, y, 1, 1);
     }
-    g.setDepth(-18);
   }
 
   /** まとめの1行(アクション部分の上に帯で) */

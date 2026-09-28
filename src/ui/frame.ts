@@ -15,7 +15,7 @@ type FrameKind = 'win' | 'cut' | 'alarm';
 export const FRAME_PAD = 3;
 
 const FRAME_COLORS: Record<FrameKind, { edge: number; inner: number; fill: number }> = {
-  win: { edge: UI.winEdge, inner: UIX.winInner, fill: UI.winFill },
+  win: { edge: UI.winEdge, inner: UI.winInner, fill: UI.winFill },
   cut: { edge: UI.cutEdge, inner: UIX.cutInner, fill: UI.cutFill },
   alarm: { edge: UIX.alarmEdge, inner: UIX.alarmInner, fill: UI.cutAlarm }
 };

@@ -28,14 +28,14 @@ import {
   ruleAt, shout, type AttackKind, type FreeItem, type FreeLines, type FreeOpContext, type FreeOpKey, type FreeRule, type FreeTiming,
   type FreeWave, type GangCallOptions, type Look, type Person, type StageDef, type StageId
 } from '../../logic';
-import { currentFreeWave, nextAfterFreeStreet, setSort, type GameRun } from '../../run';
+import { currentFreeWave, currentWave, nextAfterFreeStreet, setSort, type GameRun } from '../../run';
 import { settings } from '../../settings';
-import { banner, impact, lighter, waitMs } from '../../ui';
+import { banner, impact, waitMs } from '../../ui';
 import type { StreetScene } from '../Street';
 import { Actor, HEAD } from './actor';
 import { ATTACK_GAP, JUDGE_RISE, RUN } from './common';
 import { FreeItems } from './freeItems';
-import { buttonPulse } from './panel';
+import { buttonPulse, pulseButton } from './panel';
 import { THREAT_DX, planFree, type PasserLook, type StreetPlan } from './plan';
 import { RuleSign } from './ruleSign';
 
@@ -174,7 +174,7 @@ export class FreeStreet {
       if (t > 0) this.threatSecDebug = t;
     }
     // ヒーローが決めた通りの仕分けを残す(結果画面と共有の文が使う。fillUnsorted は使わない)
-    for (const p of s.run.stage.waves[run.waveIndex].people) setSort(run, p, heroChoice(ruleAt(this.fw, p.index), p));
+    for (const p of currentWave(run).people) setSort(run, p, heroChoice(ruleAt(this.fw, p.index), p));
     // 途中でゆっくりモードにしたら、ゆっくりの記録にし、これからの時間を1.5倍にする
     if (settings.slowMode) this.markSlow();
     this.offSettings = settings.onChange((st) => {
@@ -327,8 +327,7 @@ export class FreeStreet {
       const alpha = this.inputOpen && dry.locked(now) ? 0.45 : 1;
       if (btn.alpha !== alpha) btn.setAlpha(alpha);
       if (s.frameN % 3 === 0 && this.inputOpen) {
-        const t = mark && alpha === 1 ? buttonPulse(now) : dry.armed ? 0.5 : 0;
-        btn.setColor(lighter(color, t * 0.3));
+        pulseButton(btn, color, now, 0.3, mark && alpha === 1 ? buttonPulse(now) : dry.armed ? 0.5 : 0);
       }
     }
   }
@@ -493,7 +492,7 @@ export class FreeStreet {
     if (s.stats.reportFreeScene('waveGang')) {
       if (this.gangShot instanceof HTMLImageElement) this.run.worstShot = this.gangShot;
       else if (this.gangShot === 'pending') this.gangShot = 'want';
-      else s.shoot(0, (img) => { this.run.worstShot = img; });
+      else s.shootWorst();
     }
     this.gangShot = null;
     this.miss('escaped', { look: 'fp_gang' });
@@ -556,8 +555,7 @@ export class FreeStreet {
     s.opSay(d.op, false, true);
     await this.waitOrSkip(DECLARE_OP_MS, sk.skipped);
     sk.off();
-    s.heroBubble?.destroy();
-    s.heroBubble = undefined;
+    s.clearHeroBubble();
     h.play('idle');
     this.lastOpAt = s.time.now;
     this.inputOpen = true;
@@ -709,7 +707,7 @@ export class FreeStreet {
     if (a.civ) {
       // 拳が当たる寸前に止めた:ギリギリセーフの場面
       if (close) this.seen.closeCall++;
-      if (close && s.stats.reportFreeScene('closeCall')) s.time.delayedCall(60, () => s.shoot(0, (img) => { this.run.worstShot = img; }));
+      if (close && s.stats.reportFreeScene('closeCall')) s.shootWorst(60);
       this.hit('saved');
       await s.doStop(a);
       return;
@@ -775,7 +773,7 @@ export class FreeStreet {
       this.opEvent('passBadRule', { look });
       // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)
       if (look !== 'fp_gang' && s.stats.reportFreeScene(freeWaveScene(look))) {
-        s.time.delayedCall(120, () => s.shoot(0, (img) => { this.run.worstShot = img; }));
+        s.shootWorst(120);
       }
     }
     await s.passOn(a);
@@ -826,8 +824,7 @@ export class FreeStreet {
         }
         const victim = v;
         // 脅されている相手は、巻きぞえにしない(助かったあとも。UFOの買い物客と同じ)
-        s.passers = s.passers.filter((p) => p !== victim);
-        s.safeWalkers.push(victim);
+        s.makeSafe(victim);
         a.faceLeft(false).play('walk', true, 2.4);
         s.fx('fx_dust', a.x - 6, a.y - 8, { depth: a.y });
         // 走り出してからマークが出るまでは、行けのマークの前ぶれ(この間に押した行けは覚えておく)

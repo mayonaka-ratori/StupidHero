@@ -216,8 +216,7 @@ export class UfoPart {
     u.mark = this.s.bigMark(u.x, u.bottom - 32 - 18, 2);
     u.tractorMs = 0;
     // 吹き出しが大きな合図に重ならないように消す
-    this.s.heroBubble?.destroy();
-    this.s.heroBubble = undefined;
+    this.s.clearHeroBubble();
     this.s.goAlarm.start();
     this.s.opSay(this.s.firstTime('ufo') ? this.s.line('teachUfo') : this.s.line('ufoBeam', this.s.rng), true);
     this.s.free?.goMarkShown();
@@ -300,10 +299,7 @@ export class UfoPart {
     const s = u.shopper;
     const a = u.alien;
     // 助かった買い物客は、立ち去るまで巻きぞえや悪さの相手にしない
-    if (s) {
-      this.s.passers = this.s.passers.filter((p) => p !== s);
-      this.s.safeWalkers.push(s);
-    }
+    if (s) this.s.makeSafe(s);
     this.s.heroSay(this.s.line('ufoGo', this.s.rng), 1000);
     this.s.auraOn = true;
     // UFOの横まで走って、UFOの高さまで跳ぶ
@@ -371,9 +367,7 @@ export class UfoPart {
     await waitMs(this.s, 500);
     this.s.auraOn = false;
     this.s.opSay(this.s.line('ufoDowned', this.s.rng));
-    h.play('okay', true);
-    audio.sfx('okay');
-    this.s.fx('fx_kiran', h.x + 10, h.y - HEAD, { scale: 2, depth: 960 });
+    this.s.okayPose();
     // 買い物客はほっとして、右へ歩いて去る
     if (s?.standing) {
       s.play('idle');

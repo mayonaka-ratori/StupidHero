@@ -1,4 +1,4 @@
-// ボス戦。結果発表(Street)で波3のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、波3の答え合わせ(WaveReview)へ。
+// ボス戦。結果発表(Street)で最後の波(高層ビルは波4、ほかのステージは波3)のボスが正体を現したあとに来る。行け!ボタンの連打でボスを倒し、その波の答え合わせ(WaveReview)へ。
 // 決まりは docs/SPEC.md の「ボス」「ボス戦」、docs/STAGE2.md と docs/STAGE3.md の「ボス戦」。連打の計算は logic の BossFight。
 //
 // 流れ:ボス出現!の帯 → 2人のセリフ → 「連打!」 → 連打(手が止まるとボスが暴れて被害額が増える)
@@ -25,7 +25,7 @@ import { animKey, frameIndex, originFor, sheetByKey } from '../art/sheets';
 import { audio } from '../audio';
 import {
   BOSS, BossFight, PsyChoice, applyChoice, bgForWave, findBoss, formatSeconds, formatYen, propsForWave, say, sheetKeyFor,
-  type AnyReactionKey, type ChoicePress, type Look, type Speech, type StageDef, type StageId
+  type AnyReactionKey, type ChoicePress, type Look, type PropKind, type Speech, type StageDef, type StageId
 } from '../logic';
 import { currentWave, getRun, type GameRun } from '../run';
 import {
@@ -103,7 +103,7 @@ export class BossScene extends Phaser.Scene {
   private run!: GameRun;
   private def!: StageDef;
   private stageId: StageId = 'alley';
-  /** ボスの絵のキー(路地裏は boss、地下駐車場は boss2、モールは boss3) */
+  /** ボスの絵のキー(路地裏は boss、地下駐車場は boss2、モールは boss3、高層ビルは boss4) */
   private bossKey = 'boss';
   private fight!: BossFight;
   private phase: Phase = 'intro';
@@ -202,6 +202,8 @@ export class BossScene extends Phaser.Scene {
     this.wasIdle = false;
     this.lastIdleLineAt = this.lastRushLineAt = -1e9;
     this.shownTime = '';
+    // 連打の技の順番と拳の上下は、戦いごとに始めから(シーンは使い回されるので、前の戦いの続きにしない)
+    this.punchSide = this.moveIdx = 0;
     this.icons = [];
     this.car = null;
     this.carMode = 'foot';
@@ -420,6 +422,8 @@ export class BossScene extends Phaser.Scene {
 
     let hx: number, fy: number;
     const car = this.car;
+    // 光の拳は、上と下へ交互に飛ばす
+    this.punchSide ^= 1;
     if (car && this.carMode === 'car') {
       // 車ごと殴る:車が押し下げられ、少しずつへこむ
       car.push = Math.min(10, car.push + 3);
@@ -428,10 +432,8 @@ export class BossScene extends Phaser.Scene {
         car.back = Math.min(CAR_BACK_MAX, car.back + 0.8);
         if (this.carTaps % 2 === 0) car.addDent();
       }
-      this.punchSide ^= 1;
       fy = this.vehicleHitY() + (this.punchSide ? -8 : 5) + Math.round(MOVE_HIT_DY[move] / 2) + Phaser.Math.Between(-3, 3);
       hx = car.frontX;
-      flyPunch(this, this.hero.x + 24, hx - 6, fy, 50);
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-4, 8), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
       if (tps >= 5) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(0, 40), this.vehicleHitY() + Phaser.Math.Between(-14, 10), { depth: DEPTH_OF.fxTop });
       if (tps >= 8 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(-30, 30), Phaser.Math.Between(0, 30), 360);
@@ -439,17 +441,16 @@ export class BossScene extends Phaser.Scene {
     } else {
       this.bossPush = Math.min(move === 'punch' ? 8 : 12, this.bossPush + (move === 'punch' ? 2 : 4));
       // 光の拳と火花
-      this.punchSide ^= 1;
       fy = HIT_Y + (this.punchSide ? -8 : 6) + MOVE_HIT_DY[move] + Phaser.Math.Between(-3, 3);
       hx = HIT_X + this.bossPush;
       if (this.carMode === 'boarding') hx = this.boss.x - 12;
       // 母艦へ浮き上がっている親玉は、体の高さに当てる
       if (this.carMode === 'boarding' && this.car?.flies) fy = this.boss.y - 52 + (this.punchSide ? -8 : 6);
-      flyPunch(this, this.hero.x + 24, hx - 6, fy, 50);
       spawnFx(this, 'fx_hit_big', hx + Phaser.Math.Between(-6, 6), fy + Phaser.Math.Between(-4, 4), { depth: DEPTH_OF.fxTop, speed: 1 + power });
       if (tps >= 6) spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-18, 14), HIT_Y + Phaser.Math.Between(-24, 22), { depth: DEPTH_OF.fxTop });
       if (tps >= 9 && this.combo % 2 === 0) throwDebris(this, hx, fy, Phaser.Math.Between(20, 50), Phaser.Math.Between(10, 40), 360);
     }
+    flyPunch(this, this.hero.x + 24, hx - 6, fy);
     // 蹴りとアッパーは、火花を1つ多く出す。アッパーは破片を上へ、飛び蹴りは砂ぼこりも
     if (move !== 'punch') {
       spawnFx(this, 'fx_hit', hx + Phaser.Math.Between(-4, 10), fy + (move === 'uppercut' ? -10 : 4), { depth: DEPTH_OF.fxTop });
@@ -719,7 +720,7 @@ export class BossScene extends Phaser.Scene {
         this.quake(6, 260);
         hitStop(this, 60);
         this.hud.refresh(this.run.stats);
-        popText(this, Phaser.Math.Clamp(party.chandelier.x, 44, 172), FEET_Y - 34, formatYen(cost), { color: UI.danger, size: FS.big });
+        this.popYen(party.chandelier.x, FEET_Y - 34, formatYen(cost), 44, 172);
       });
     }
     this.hud.refresh(this.run.stats);
@@ -741,7 +742,6 @@ export class BossScene extends Phaser.Scene {
   private boardCar(): void {
     if (!this.car || this.carMode !== 'foot' || this.phase !== 'fight') return;
     this.carMode = 'boarding';
-    this.boardAt = this.time.now;
     void (this.car.flies ? this.boardShipSequence() : this.boardSequence());
   }
 
@@ -999,7 +999,7 @@ export class BossScene extends Phaser.Scene {
       this.cracks.throwDish(BOSS_X - 18, FEET_Y - 70, (at) => {
         if (this.phase !== 'fight') return;
         // 体力のバー(y=26〜34)にかからないよう、当たった所の少し下に出す
-        popText(this, Phaser.Math.Clamp(at.x, 30, 186), Math.max(at.y + 30, 62), label, { color: UI.danger, size: FS.big });
+        this.popYen(at.x, Math.max(at.y + 30, 62), label);
       });
       return;
     }
@@ -1024,7 +1024,8 @@ export class BossScene extends Phaser.Scene {
       for (let i = 0; i < 4; i++) throwDebris(this, x, FEET_Y - 6, Phaser.Math.Between(-40, 40), Phaser.Math.Between(-10, 10));
       jolt(this.boss, 2, 160);
       audio.sfx('break', { pitch: 0.8 });
-      popText(this, x, FEET_Y - 30, label, { color: UI.danger, size: FS.big });
+      // x は 24〜192 なので、寄せずにその場に出す
+      this.popYen(x, FEET_Y - 30, label, 24, 192);
     }
   }
 
@@ -1034,7 +1035,19 @@ export class BossScene extends Phaser.Scene {
     audio.sfx('break');
     spawnFx(this, fx, at.x, at.y, { depth: DEPTH_OF.fxTop });
     for (let i = 0; i < debris; i++) throwDebris(this, at.x, at.y, Phaser.Math.Between(-40, 40), Phaser.Math.Between(10, 50));
-    popText(this, Phaser.Math.Clamp(at.x, 30, 186), at.y - 10, label, { color: UI.danger, size: FS.big });
+    this.popYen(at.x, at.y - 10, label);
+  }
+
+  /** 被害額を赤い大きな字で飛ばす(x は画面の端で切れないように lo〜hi に寄せる) */
+  private popYen(x: number, y: number, label: string, lo = 30, hi = 186): void {
+    popText(this, Phaser.Math.Clamp(x, lo, hi), y, label, { color: UI.danger, size: FS.big });
+  }
+
+  /** ボスを倒したときに壊れた物(def.bossDefeatProp)を被害額に足して、上の数字を直し、額を飛ばす */
+  private countDefeatProp(kind: PropKind, x: number, y: number, lo?: number, hi?: number): void {
+    const cost = this.run.stats.breakProp(kind);
+    this.hud.refresh(this.run.stats);
+    this.popYen(x, y, formatYen(cost), lo, hi);
   }
 
   /**
@@ -1075,7 +1088,7 @@ export class BossScene extends Phaser.Scene {
           this.breakPropFx(prop, target, label, 'fx_hit_big', 5);
         });
       } else {
-        popText(this, Phaser.Math.Clamp(hitX, 30, 186), hitY - 20, label, { color: UI.danger, size: FS.big });
+        this.popYen(hitX, hitY - 20, label);
       }
     });
   }
@@ -1116,7 +1129,7 @@ export class BossScene extends Phaser.Scene {
           this.breakPropFx(prop, target, label, 'fx_hit_big', 4);
         });
       } else {
-        popText(this, Phaser.Math.Clamp(bx, 30, 186), by - 30, label, { color: UI.danger, size: FS.big });
+        this.popYen(bx, by - 30, label);
       }
     });
   }
@@ -1261,7 +1274,7 @@ export class BossScene extends Phaser.Scene {
     await waitMs(this, 400);
     await this.speak(this.line('bossDefeatedOp', this.run.rng));
     await waitMs(this, 900);
-    gotoWhenFree(this, SCENES.waveReview, undefined, { kind: 'wipe' });
+    gotoWhenFree(this, SCENES.waveReview);
   }
 
   /**
@@ -1305,9 +1318,7 @@ export class BossScene extends Phaser.Scene {
         spawnFx(this, 'fx_hit_big', tower.x, tower.y - 30, { depth: DEPTH_OF.fxTop });
         for (let i = 0; i < 6; i++) this.time.delayedCall(i * 90, () => spawnFx(this, 'fx_sparkle', tower.x + Phaser.Math.Between(-22, 22), tower.y - Phaser.Math.Between(20, 56), { depth: DEPTH_OF.fxTop }));
         for (let i = 0; i < 6; i++) throwDebris(this, tower.x, tower.y - 30, Phaser.Math.Between(-50, 30), Phaser.Math.Between(-10, 30), 460);
-        const cost = this.run.stats.breakProp(kind);
-        this.hud.refresh(this.run.stats);
-        popText(this, Phaser.Math.Clamp(tower.x, 40, 174), tower.y - 52, formatYen(cost), { color: UI.danger, size: FS.big });
+        this.countDefeatProp(kind, tower.x, tower.y - 52, 40, 174);
         // 目を回した星
         const stars = this.add.sprite(x1 - 16, FEET_Y - 24, 'fx_stars', 0).setDepth(DEPTH_OF.fxTop);
         this.playAnim(stars, 'fx_stars', 'play');
@@ -1454,9 +1465,7 @@ export class BossScene extends Phaser.Scene {
         if (fountain && kind) {
           fountain.setFrame(1).setDepth(DEPTH_OF.car + 0.2);
           splash(this, fountain.x, fountain.y - 24, 16);
-          const cost = this.run.stats.breakProp(kind);
-          this.hud.refresh(this.run.stats);
-          popText(this, Phaser.Math.Clamp(fountain.x, 30, 186), fountain.y - 50, formatYen(cost), { color: UI.danger, size: FS.big });
+          this.countDefeatProp(kind, fountain.x, fountain.y - 50);
         }
       }
     });

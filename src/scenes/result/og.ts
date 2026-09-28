@@ -30,7 +30,7 @@ function tag(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, cx: number, y: 
 class Og extends Phaser.Scene {
   async create(): Promise<void> {
     generateArt(this, new Set());
-    await preloadFont([...COPY, SUB, 'ワル?', '市民?', 'スマホのブラウザで遊べる'], [10, 12, 16]);
+    await preloadFont([...COPY, SUB, 'ワル?', '市民?', 'スマホのブラウザで遊べる']);
     const { canvas, ctx } = makeCanvas(W, H, 3);
     paintStageBg(ctx, this, 0, -4, 90, W);
 
@@ -58,8 +58,7 @@ class Og extends Phaser.Scene {
     tag(ctx, this, 112, 132, '市民?', UI.civ);
     tag(ctx, this, 164, 126, 'ワル?', UI.bad);
 
-    const out = canvas;
-    (window as unknown as { __og: string }).__og = out.toDataURL('image/png');
+    (window as unknown as { __og: string }).__og = canvas.toDataURL('image/png');
   }
 }
 

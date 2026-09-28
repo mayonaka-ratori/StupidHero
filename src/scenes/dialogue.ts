@@ -4,13 +4,14 @@
 //   d.next()     次のセリフへ(最後のセリフのあとは to のシーンへ)
 //   d.leave()    to のシーンへ
 //   d.update()   毎フレーム呼ぶ(文字を出し終わったら▼を出す)
+//   d.bindInput([skip, mute])   画面のタップとキーで進める(渡したボタンの上のタップは見ない)。開発中は window.__sh も出す
 
 import Phaser from 'phaser';
 import { UI } from '../config';
 import { audio } from '../audio';
 import type { Speech } from '../logic';
 import { CutIn, FS, PixelText } from '../ui';
-import { gotoSafe } from './sort/common';
+import { devHook, gotoSafe } from './sort/common';
 
 export interface DialogueOptions {
   /** カットインの位置と大きさ */
@@ -73,6 +74,22 @@ export class Dialogue {
       onChar: () => { if (n++ % 2 === 0) audio.sfx('blip', { volume: 0.4, pitch: line.who === 'hero' ? 1.25 : 1 }); }
     });
     this.opt.onLine?.(line);
+  }
+
+  /**
+   * 画面のどこをタップしても進める(ignore のボタンの上をタップしたときは、そのボタンに任せる)。
+   * スペースと Enter で進め、Esc でとばす。開発中だけ、自動テストから進めたり状態を見たりできるようにする(window.__sh)
+   */
+  bindInput(ignore: readonly Phaser.GameObjects.Container[]): void {
+    const sc = this.scene;
+    sc.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over.some((o) => o.parentContainer && ignore.includes(o.parentContainer))) return;
+      this.advance();
+    });
+    sc.input.keyboard?.on('keydown-SPACE', () => this.advance());
+    sc.input.keyboard?.on('keydown-ENTER', () => this.advance());
+    sc.input.keyboard?.on('keydown-ESC', () => this.leave());
+    devHook(sc, { advance: () => this.advance(), leave: () => this.leave(), state: () => ({ index: this.index, total: this.total, typing: this.cut.isTyping }) });
   }
 
   leave(): void {

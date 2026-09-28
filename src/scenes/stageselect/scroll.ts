@@ -135,8 +135,6 @@ export class ListScroll {
 
   /** 指を離したあとすべっているか、自動でずらしているか */
   get moving(): boolean { return this.anim !== null || (this.finger === null && this.vel !== 0); }
-  /** 指でずらしている最中か */
-  get dragging(): boolean { return !!this.finger?.dragging; }
   /** 指が触れているか */
   get touching(): boolean { return this.finger !== null; }
 

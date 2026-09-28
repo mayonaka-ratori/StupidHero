@@ -216,9 +216,9 @@ export class TitleScene extends Phaser.Scene {
     this.time.delayedCall(320, () => {
       if (first) {
         // 新しいプレイは、切り替えを受け付けてから作る(StageSelect と同じ)
-        gotoWhenFree(this, entrySceneFor('alley'), undefined, { kind: 'wipe', onCovered: () => startRun(this, randomSeed(), false, 'alley') });
+        gotoWhenFree(this, entrySceneFor('alley'), undefined, { onCovered: () => startRun(this, randomSeed(), false, 'alley') });
       } else {
-        gotoWhenFree(this, SCENES.stageSelect, undefined, { kind: 'wipe' });
+        gotoWhenFree(this, SCENES.stageSelect);
       }
     });
   }

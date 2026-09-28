@@ -382,28 +382,15 @@ export class StageCard {
 
   /** 開いていないカードをタップしたとき:鍵がガタガタ揺れる */
   shakeLock(): void {
-    const base = 0;
-    let n = 0;
-    this.scene.time.addEvent({
-      delay: 40, repeat: 7, callback: () => {
-        n++;
-        this.lockG.x = n % 2 === 0 ? base - 2 : base + 2;
-        if (n >= 8) this.lockG.x = base;
-      }
-    });
+    rattle(this.scene, this.lockG, 8, 40);
   }
 
   /** 鍵がこわれて開く。こわれた瞬間に onBreak を呼ぶ */
   unlock(onBreak: (x: number, y: number) => void): Promise<void> {
     return new Promise((resolve) => {
-      let n = 0;
-      this.scene.time.addEvent({
-        delay: 50, repeat: 11, callback: () => {
-          n++;
-          this.lockG.x = n % 2 === 0 ? -2 : 2;
-          this.lockG.y = n % 4 < 2 ? 0 : -1;
-          if (n < 12) return;
-          this.lockG.setPosition(0, 0);
+      rattle(this.scene, this.lockG, 12, 50, {
+        hop: true,
+        onEnd: () => {
           this.locked = false;
           this.applyLocked();
           this.flashUntil = this.scene.time.now + 300;
@@ -420,4 +407,26 @@ export class StageCard {
     this.locked = on;
     this.applyLocked();
   }
+}
+
+/**
+ * 鍵の絵 g を左右に2ドットずつ揺らす(delay ミリ秒ごとに times 回。最後は元の位置 0 に戻す)。
+ * ステージのカードと、フリープレイのボタン(freeButton.ts)の鍵で使う。
+ * hop なら上にも1ドット跳ねる(こわれるとき)。onEnd は最後の1回のあとに呼ぶ
+ */
+export function rattle(
+  scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, times: number, delay: number, opt: { hop?: boolean; onEnd?: () => void } = {}
+): void {
+  let n = 0;
+  scene.time.addEvent({
+    delay, repeat: times - 1, callback: () => {
+      n++;
+      g.x = n % 2 === 0 ? -2 : 2;
+      if (opt.hop) g.y = n % 4 < 2 ? 0 : -1;
+      if (n < times) return;
+      g.x = 0;
+      if (opt.hop) g.y = 0;
+      opt.onEnd?.();
+    }
+  });
 }

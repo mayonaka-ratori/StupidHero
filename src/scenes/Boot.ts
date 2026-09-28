@@ -37,7 +37,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     const skip = loadArtPngs(this, this.cache.json.get('art-manifest') as ArtManifest | undefined);
-    const fontReady = preloadFont([...allTexts(), ...stageTexts(), ...Object.values(NAMES).flat(), ...TITLES.map((t) => t.name), BASIC_CHARS, ...FREE_TEXTS], [10, 12, 16]);
+    const fontReady = preloadFont([...allTexts(), ...stageTexts(), ...Object.values(NAMES).flat(), ...TITLES.map((t) => t.name), BASIC_CHARS, ...FREE_TEXTS]);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       fontReady.then(() => {
         generateArt(this, skip);

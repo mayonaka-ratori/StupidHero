@@ -1,7 +1,7 @@
 // ボス戦の背景に置く、ボスが暴れると壊れる物。置く物と場所はステージごと。
 // 被害額はボス戦の決まり(路地裏は1秒ごとに¥50万、地下駐車場の車は¥100万、モールの母艦は¥150万)で数えるので、
 // ここでは stats.breakProp を呼ばない。見た目だけ。
-// (モールの噴水だけは、倒した母艦が落ちて壊れるときに Boss.ts が stats.breakProp(def.bossDefeatProp) を呼ぶ)
+// (モールの噴水と高層ビルのシャンパンタワーだけは、倒したボスが落ちたり倒れこんだりして壊れるときに Boss.ts が stats.breakProp(def.bossDefeatProp) を呼ぶ)
 
 import Phaser from 'phaser';
 import { originFor } from '../../art/sheets';
@@ -77,13 +77,13 @@ export class BossProps {
   private next = 0;
 
   /** kinds はそのステージに置いてよい物(stage.def.props)。表にあっても kinds にない物は置かない */
-  constructor(scene: Phaser.Scene, stageId: StageId = 'alley', kinds?: readonly PropKind[]) {
+  constructor(scene: Phaser.Scene, stageId: StageId, kinds: readonly PropKind[]) {
     const places = PLACES[stageId] ?? PLACES.alley ?? [];
     // 柱に付ける消火器の箱は、柱より手前に描く(同じ深さなら後から足した物が手前)
     const sorted = [...places].sort((a, b) => (a.kind === 'extinguisher' ? 1 : 0) - (b.kind === 'extinguisher' ? 1 : 0));
     const made = new Map<PropPlace, Phaser.GameObjects.Sprite>();
     for (const p of sorted) {
-      if (stageId !== 'alley' && kinds && !kinds.includes(p.kind)) continue;
+      if (stageId !== 'alley' && !kinds.includes(p.kind)) continue;
       const key = `prop_${p.kind}`;
       const s = scene.add.sprite(p.x, p.y, key, p.frame ?? 0).setOrigin(...originFor(key)).setDepth(p.depth ?? DEPTH_OF.prop);
       made.set(p, s);

@@ -113,7 +113,7 @@ export class PauseControl {
     const tryGo = (): void => {
       const sys = this.scene.sys;
       if (!sys || (!sys.isActive() && !sys.isPaused())) return;
-      if (!goto(this.scene, to, undefined, { kind: 'wipe' })) window.setTimeout(tryGo, 50);
+      if (!goto(this.scene, to)) window.setTimeout(tryGo, 50);
     };
     window.setTimeout(tryGo, 0);
   }

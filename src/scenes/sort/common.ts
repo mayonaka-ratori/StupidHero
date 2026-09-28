@@ -1,9 +1,11 @@
-// タイトル、ステージ前の掛け合い、仕分けの3つのシーンで使う小さな道具。
+// いくつものシーン(タイトル、掛け合い、仕分け、結果発表、ボス戦、答え合わせ、結果など)で使う小さな道具。
 //   drawStageBg(this, def.bg)  ステージの背景(遠く、壁、地面)を置く。bg を省くと路地裏
 //   spotlightDim(this)         スポットライトの形に穴のあいた「暗くする網目」のテクスチャ
 //   edgeGlow(g, side, level)   画面の左右の端を光らせる帯を描く
 //   flicker(this, obj)         1コマおきに見えたり消えたりさせる(半透明の代わり)
 //   devHook(this, extra)       開発中だけ window.__sh に中身を出す(自動テスト用)
+//   setAllVisible(objs, on)    いくつかの絵や字を、まとめて見せる/隠す
+//   goldFractions(text)        文の中の「3/5」のような分数を金色にする(PixelText の {gold} の印を付ける)
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
@@ -68,7 +70,8 @@ export function scrollStageBg(l: StageBgLayers, scrollX: number): void {
  * 穴のまわりは網目を粗くして、光がぼやけて見えるようにする。
  * @param cx 光の真ん中、@param feetY 光の輪の中心(足もと)
  */
-export function spotlightDim(scene: Phaser.Scene, cx: number, feetY: number, key = 'sort_spot_dim'): string {
+export function spotlightDim(scene: Phaser.Scene, cx: number, feetY: number): string {
+  const key = 'sort_spot_dim';
   if (scene.textures.exists(key)) return key;
   const { W, actionH } = layout;
   const tex = scene.textures.createCanvas(key, W, actionH)!;
@@ -123,8 +126,11 @@ export function drawLightPool(g: Phaser.GameObjects.Graphics, cx: number, cy: nu
  * 画面の端を光らせる帯。level は0〜1(大きいほど太く明るい)。
  * 内側ほど網目を粗くして、光がにじんでいるように見せる。
  */
-export function edgeGlow(g: Phaser.GameObjects.Graphics, side: 'left' | 'right', color: number, level: number, top = 0, bottom = layout.actionH): void {
+export function edgeGlow(g: Phaser.GameObjects.Graphics, side: 'left' | 'right', color: number, level: number): void {
   const { W } = layout;
+  // 帯はアクション部分の上から下まで
+  const top = 0;
+  const bottom = layout.actionH;
   const solid = 2 + Math.round(level * 4);
   const soft = 3 + Math.round(level * 8);
   const xAt = (i: number): number => (side === 'left' ? i : W - 1 - i);
@@ -173,7 +179,7 @@ export function unlockOnTap(scene: Phaser.Scene): void {
  * ゲームの更新の外(setTimeout)から呼んで避ける。
  */
 export function gotoSafe(
-  scene: Phaser.Scene, to: string, data?: object, opt: GotoOptions = { kind: 'wipe' }, onResult?: (accepted: boolean) => void
+  scene: Phaser.Scene, to: string, data?: object, opt: GotoOptions = {}, onResult?: (accepted: boolean) => void
 ): void {
   // 切り替えの途中だと goto は受け付けない。そのときは onResult(false) で知らせる
   window.setTimeout(() => { onResult?.(goto(scene, to, data, opt)); }, 0);
@@ -183,6 +189,16 @@ export function gotoSafe(
 export function devHook(scene: Phaser.Scene, extra: Record<string, unknown> = {}): void {
   if (!import.meta.env.DEV) return;
   (window as unknown as { __sh: unknown }).__sh = { scene, game: scene.game, key: scene.scene.key, ...extra };
+}
+
+/** いくつかの絵や字を、まとめて見せる/隠す */
+export function setAllVisible(objs: readonly Phaser.GameObjects.GameObject[], on: boolean): void {
+  for (const o of objs) (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(on);
+}
+
+/** 文の中の「3/5」のような分数を、金色の印({gold}〜{/})で囲む(ラッシュのまとめの数) */
+export function goldFractions(text: string): string {
+  return text.replace(/(\d+\/\d+)/g, '{gold}$1{/}');
 }
 
 /** 色の文字列 */

@@ -62,7 +62,7 @@ export class FloorScene extends Phaser.Scene {
     }
     if (this.elapsed >= TOTAL_MS && !this.left) {
       this.left = true;
-      gotoWhenFree(this, SCENES.sort, undefined, { kind: 'wipe' });
+      gotoWhenFree(this, SCENES.sort);
     }
   }
 }

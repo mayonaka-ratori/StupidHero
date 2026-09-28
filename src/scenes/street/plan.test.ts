@@ -1,14 +1,14 @@
-// 結果発表の通りの並べ方(planStreet、planGarage、planMall、フリープレイの planFree)。画面には頼らない計算だけを確かめる。
+// 結果発表の通りの並べ方(planStreet、planGarage、planMall、planTower、フリープレイの planFree)。画面には頼らない計算だけを確かめる。
 // Phaser は読みこまない(読みこんだら失敗にする)。
 
 import { describe, expect, it, vi } from 'vitest';
 import {
   FLOOR_LOOKS, PSY, PSY_LAYOUT, createFreePlay, createRng, createStage, freeRoleOf, freeTiming, propsForWave, resolvePsyDrop, STAGES,
-  type Person, type Stage, type StageId
+  type Person, type PropKind, type Stage, type StageId
 } from '../../logic';
 import {
-  FIRST_X, GAP, GATHER_ROOM, PSY_AHEAD, PSY_ROOM, PSY_ROWS, RUSH_DX, THREAT_DX, TOWER_HALF, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y,
-  planFree, planGarage, planMall, planStreet, planTower, type StreetPlan
+  FIRST_X, GAP, GATHER_ROOM, MALL_HALF, PSY_AHEAD, PSY_ROOM, PSY_ROWS, RUSH_DX, THREAT_DX, TOWER_HALF, UFO_DX, UFO_HALF, UFO_UNDER_KINDS, VAN_Y,
+  planFree, planGarage, planMall, planStreet, planTower, type PropSpot, type StreetPlan
 } from './plan';
 
 vi.mock('phaser', () => {
@@ -41,18 +41,23 @@ function cases(stageId: StageId, n: number): Case[] {
   return out;
 }
 
-/** どのステージでも同じ決まり。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる) */
-function commonRules({ stage, people, plan }: Case): string[] {
+/** ケースの名前(失敗したときの文の頭) */
+const labelOf = ({ stage, people }: Case): string => `seed ${stage.seed} 波${people[0].wave}`;
+
+/**
+ * どのステージでも同じ決まり(フリープレイも)。守れていないところを文で返す(全部そろえて最後に1回だけ確かめる)。
+ * gap は人と人の間(ステージは GAP、フリープレイは波ごとの gap)
+ */
+function commonRules({ label: at, people, plan, gap = GAP }: { label: string; people: readonly Person[]; plan: StreetPlan; gap?: number }): string[] {
   const bad: string[] = [];
-  const at = `seed ${stage.seed} 波${people[0].wave}`;
   const xs = plan.people.map((s) => s.x);
   // 波の人は全員1回ずつ。ボスは最後で、ほかは出てくる順のまま
   const nonBoss = people.filter((p) => p.truth !== 'boss').map((p) => p.id);
   const boss = people.filter((p) => p.truth === 'boss').map((p) => p.id);
   if (plan.people.map((s) => s.person.id).join() !== [...nonBoss, ...boss].join()) bad.push(`${at}: 並ぶ順`);
-  // 左から右へ並び、間はだいたい GAP 以上。1人目は FIRST_X のあたり
+  // 左から右へ並び、間はだいたい gap 以上。1人目は FIRST_X のあたり
   if (Math.abs(xs[0] - FIRST_X) > 6) bad.push(`${at}: 1人目 x=${xs[0]}`);
-  for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] < GAP - 12) bad.push(`${at}: 間がせまい ${xs[i - 1]}→${xs[i]}`);
+  for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] < gap - 12) bad.push(`${at}: 間がせまい ${xs[i - 1]}→${xs[i]}`);
   // 人と通りがかりの市民は車道の中に立つ
   for (const s of [...plan.people, ...plan.passers]) {
     if (s.y < GROUND.road || s.y > GROUND.bottom) bad.push(`${at}: 道の外 y=${s.y}`);
@@ -65,6 +70,46 @@ function commonRules({ stage, people, plan }: Case): string[] {
   }
   // 終わりは最後の人の先
   if (plan.endX !== xs[xs.length - 1] + 120) bad.push(`${at}: endX`);
+  return bad;
+}
+
+/** kinds にない物(そのステージに置いてはいけない物)を文で返す */
+function strayProps(label: string, plan: StreetPlan, kinds: readonly PropKind[]): string[] {
+  return plan.props.filter((q) => !kinds.includes(q.kind)).map((q) => `${label}: ${q.kind}`);
+}
+
+/**
+ * 同じ列の物を x の順に並べて、となりどうしが allow ドットより多く重なる組を文で返す。
+ * half は物の横の半分の幅
+ */
+function overlaps(label: string, row: readonly PropSpot[], half: (k: PropKind) => number, allow = 0): string[] {
+  const bad: string[] = [];
+  const sorted = [...row].sort((a, b) => a.x - b.x);
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1];
+    const b = sorted[i];
+    if (a.x + half(a.kind) - (b.x - half(b.kind)) > allow) bad.push(`${label}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
+  }
+  return bad;
+}
+
+/**
+ * l〜r の区域(両端は含まない)に入っている物と通りがかりの市民を文で返す。
+ * 物は横の半分の幅 half(省くと0)ぶんでもかかれば入っているとし、skip が true の物は見ない。
+ * 通りがかりの市民は、区域を左右に pad ずつ広げて見る
+ */
+function intrudersIn(
+  label: string, plan: StreetPlan, l: number, r: number,
+  opt: { half?: (k: PropKind) => number; skip?: (p: PropSpot) => boolean; pad?: number } = {}
+): string[] {
+  const { half = () => 0, skip = () => false, pad = 0 } = opt;
+  const bad: string[] = [];
+  for (const q of plan.props) {
+    if (skip(q)) continue;
+    const h = half(q.kind);
+    if (q.x + h > l && q.x - h < r) bad.push(`${label}: ${q.kind} ${q.x}`);
+  }
+  for (const q of plan.passers) if (q.x > l - pad && q.x < r + pad) bad.push(`${label}: 通りがかり ${q.x}`);
   return bad;
 }
 
@@ -83,15 +128,11 @@ describe.each([
   { id: 'tower', name: 'planTower(高層ビル)' }
 ] as const)('$name の共通の決まり', ({ id }) => {
   it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(CASES[id].flatMap(commonRules)).toEqual([]);
+    expect(CASES[id].flatMap((c) => commonRules({ ...c, label: labelOf(c) }))).toEqual([]);
   });
 
   it('物はそのステージの物だけ(高層ビルはその階の物だけ)', () => {
-    const bad = CASES[id].flatMap(({ plan, people, stage }) => {
-      const kinds = propsForWave(STAGES[id], people[0].wave);
-      return plan.props.filter((q) => !kinds.includes(q.kind)).map((q) => `seed ${stage.seed} 波${people[0].wave}: ${q.kind}`);
-    });
-    expect(bad).toEqual([]);
+    expect(CASES[id].flatMap((c) => strayProps(labelOf(c), c.plan, propsForWave(STAGES[id], c.people[0].wave)))).toEqual([]);
   });
 });
 
@@ -149,11 +190,10 @@ describe('planGarage(地下駐車場)', () => {
   it('ワゴンのまわりには、ほかの物も通りがかりの市民も置かない。止めてある車はワゴンの逃げ道にかからない', () => {
     const bad: string[] = [];
     for (const { plan, stage } of all) {
+      const at = `seed ${stage.seed}`;
       for (const g of plan.gathers) {
-        const near = (x: number) => x > g.x - 60 && x < g.vanX + 64 + 12;
-        for (const p of plan.props) if (!p.wall && p.kind !== 'van' && near(p.x)) bad.push(`seed ${stage.seed}: ${p.kind} ${p.x}`);
-        for (const p of plan.passers) if (near(p.x)) bad.push(`seed ${stage.seed}: 通りがかり ${p.x}`);
-        for (const c of plan.props) if (c.kind === 'car' && c.x > g.vanX && c.x < g.vanX + 300) bad.push(`seed ${stage.seed}: 車 ${c.x}`);
+        bad.push(...intrudersIn(at, plan, g.x - 60, g.vanX + 64 + 12, { skip: (p) => p.wall || p.kind === 'van' }));
+        for (const c of plan.props) if (c.kind === 'car' && c.x > g.vanX && c.x < g.vanX + 300) bad.push(`${at}: 車 ${c.x}`);
       }
     }
     expect(bad).toEqual([]);
@@ -171,15 +211,9 @@ describe('planMall(ショッピングモール)', () => {
   const all = CASES.mall;
 
   it('奥の列の物は重ならない。エスカレーターは必ずある', () => {
-    const half: Record<string, number> = { gacha: 12, mannequin: 12, showcase: 16, fountain: 32, escalator: 48 };
     const bad: string[] = [];
     for (const { plan, stage } of all) {
-      const back = plan.props.filter((p) => p.y < 200).sort((a, b) => a.x - b.x);
-      for (let i = 1; i < back.length; i++) {
-        const a = back[i - 1];
-        const b = back[i];
-        if (b.x - half[b.kind] < a.x + half[a.kind]) bad.push(`seed ${stage.seed}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
-      }
+      bad.push(...overlaps(`seed ${stage.seed}`, plan.props.filter((p) => p.y < 200), (k) => MALL_HALF[k] ?? 12));
       if (!plan.props.some((p) => p.kind === 'escalator')) bad.push(`seed ${stage.seed}: エスカレーターがない`);
     }
     expect(bad).toEqual([]);
@@ -204,7 +238,7 @@ describe('planMall(ショッピングモール)', () => {
   });
 
   it('UFOの落ちる真下に置く物は、UFO_DX の所(UFOの幅の中)に置く', () => {
-    // 画面(Street.ts)は見逃した宇宙人の x + UFO_DX にUFOを下ろし、UFOの幅の中の UFO_UNDER_KINDS の物を壊す。
+    // 画面(street/ufo.ts)は見逃した宇宙人の x + UFO_DX にUFOを下ろし、UFOの幅の中の UFO_UNDER_KINDS の物を壊す。
     // 並べ方が同じ所に物を置いていれば、見逃した宇宙人の多く(7割)で真下に物がある
     let ufos = 0, under = 0;
     for (const { plan, passBad } of all) {
@@ -221,14 +255,14 @@ describe('planMall(ショッピングモール)', () => {
   it('UFOの落ちる真下に、エスカレーターと噴水は来ない(ラッシュのエスカレーターは壊れる物に入らない)', () => {
     expect(UFO_UNDER_KINDS).not.toContain('escalator');
     expect(UFO_UNDER_KINDS).not.toContain('fountain');
-    const half: Record<string, number> = { fountain: 32, escalator: 48 };
+    const big: readonly PropKind[] = ['fountain', 'escalator'];
     const bad: string[] = [];
     for (const { plan, passBad, stage } of all) {
       for (const s of plan.people) {
         if (!passBad.has(s.person.id)) continue;
         const ux = s.x + UFO_DX;
         for (const p of plan.props) {
-          if (!(p.kind in half) || Math.abs(p.x - ux) >= UFO_HALF + half[p.kind]) continue;
+          if (!big.includes(p.kind) || Math.abs(p.x - ux) >= UFO_HALF + (MALL_HALF[p.kind] ?? 12)) continue;
           // ラッシュのエスカレーター(ヒーローが立つ所の後ろ)は動かせないので、画面が壊さない
           if (p.kind === 'escalator' && plan.rushX !== undefined && Math.abs(p.x - plan.rushX) <= 12) continue;
           bad.push(`seed ${stage.seed}: UFO ${ux} の下に ${p.kind} ${p.x}`);
@@ -285,14 +319,9 @@ describe('planTower(高層ビル)', () => {
     for (const { plan, stage } of all) {
       for (const p of plan.psy ?? []) {
         const own = [p.plan.lift, ...p.plan.floor];
-        const l = p.plan.villainX - 24;
-        const r = p.plan.victimX + 20;
-        for (const q of plan.props) {
-          if (own.some((o) => o.x === q.x && o.kind === q.kind)) continue;
-          const h = TOWER_HALF[q.kind] ?? 12;
-          if (q.x + h > l && q.x - h < r) bad.push(`seed ${stage.seed}: ${q.kind} ${q.x}`);
-        }
-        for (const q of plan.passers) if (q.x > l - 14 && q.x < r + 14) bad.push(`seed ${stage.seed}: 通りがかり ${q.x}`);
+        bad.push(...intrudersIn(`seed ${stage.seed}`, plan, p.plan.villainX - 24, p.plan.victimX + 20, {
+          half: (k) => TOWER_HALF[k] ?? 12, skip: (q) => own.some((o) => o.x === q.x && o.kind === q.kind), pad: 14
+        }));
       }
     }
     expect(bad).toEqual([]);
@@ -302,13 +331,7 @@ describe('planTower(高層ビル)', () => {
     const bad: string[] = [];
     for (const { plan, stage } of all) {
       for (const y of [PSY_ROWS.back, PSY_ROWS.front, 214]) {
-        const row = plan.props.filter((p) => p.y === y).sort((a, b) => a.x - b.x);
-        for (let i = 1; i < row.length; i++) {
-          const a = row[i - 1];
-          const b = row[i];
-          const over = a.x + (TOWER_HALF[a.kind] ?? 12) - (b.x - (TOWER_HALF[b.kind] ?? 12));
-          if (over > 2) bad.push(`seed ${stage.seed}: ${a.kind} ${a.x} と ${b.kind} ${b.x}`);
-        }
+        bad.push(...overlaps(`seed ${stage.seed}`, plan.props.filter((p) => p.y === y), (k) => TOWER_HALF[k] ?? 12, 2));
       }
     }
     expect(bad).toEqual([]);
@@ -325,7 +348,7 @@ describe('planTower(高層ビル)', () => {
 
 describe('planFree(フリープレイ)', () => {
   const looks = [{ key: 'suit_civ', look: 'suit' as const }, { key: 'guard_civ', look: 'guard' as const, color: 0xd87400 }];
-  const all: { plan: StreetPlan; gap: number; victims: Map<string, 'threat' | 'ufo'>; bg: StageId; people: Person[] }[] = [];
+  const all: { label: string; plan: StreetPlan; gap: number; victims: Map<string, 'threat' | 'ufo'>; bg: StageId; people: Person[] }[] = [];
   for (let i = 0; i < 40; i++) {
     const fp = createFreePlay(i * 13 + 5, ['alley', 'garage', 'mall']);
     fp.waves.forEach((fw, wi) => {
@@ -338,21 +361,14 @@ describe('planFree(フリープレイ)', () => {
       }
       const gap = freeTiming(fw.no, i % 4 === 0).gapPx;
       const plan = planFree(people, { gap, bg: fw.bgStage, props: STAGES[fw.bgStage].props, victims, passerLooks: looks }, createRng(`free-${i}-${wi}`));
-      all.push({ plan, gap, victims, bg: fw.bgStage, people });
+      all.push({ label: `free ${i} 波${fw.no}`, plan, gap, victims, bg: fw.bgStage, people });
     });
   }
 
-  it('人は波の順に、人と人の間(gap)をあけて道の中に並ぶ', () => {
-    const bad: string[] = [];
-    for (const { plan, gap, people } of all) {
-      if (plan.people.map((s) => s.person.id).join() !== people.map((p) => p.id).join()) bad.push('並ぶ順');
-      for (let i = 1; i < plan.people.length; i++) {
-        const d = plan.people[i].x - plan.people[i - 1].x;
-        if (d < gap - 12) bad.push(`間 ${d} < ${gap}`);
-      }
-      for (const s of [...plan.people, ...plan.passers]) if (s.y < GROUND.road || s.y > GROUND.bottom) bad.push(`道の外 y=${s.y}`);
-    }
-    expect(bad).toEqual([]);
+  it('人は波の順に、人と人の間(gap)をあけて道の中に並ぶ(ステージと同じ決まり)', () => {
+    // フリープレイの波にはボスがいないので、ステージの決まり(ボスは最後)でも並ぶ順は波の順のまま
+    expect(all.flatMap(({ label, people }) => people.filter((p) => p.truth === 'boss').map(() => `${label}: ボス`))).toEqual([]);
+    expect(all.flatMap(commonRules)).toEqual([]);
   });
 
   it('悪さの相手は、モヒカンの72ドット先と、UFOが下りてくる所に1人ずつ。ほかの通りがかりの市民はいない', () => {
@@ -387,8 +403,6 @@ describe('planFree(フリープレイ)', () => {
   });
 
   it('物は背景のステージの物だけ', () => {
-    for (const { plan, bg } of all) {
-      expect(plan.props.filter((p) => !STAGES[bg].props.includes(p.kind))).toEqual([]);
-    }
+    expect(all.flatMap(({ label, plan, bg }) => strayProps(label, plan, STAGES[bg].props))).toEqual([]);
   });
 });
