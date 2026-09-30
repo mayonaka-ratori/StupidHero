@@ -128,11 +128,27 @@ export const TELLS: TellTable = {
   },
   uncle: {
     bad: [
-      t('flicker', null, '体の色がちらついた'),
+      t('flicker', null, '体の色がちらついた', ['今、色が']),
       t('hatch', 'hatch', 'おなかがぱかっと開いた')
     ]
   }
 };
+
+/**
+ * 路地裏のボスの化けた姿が持つ小物(スーツと買い物袋)。その見た目の市民と同じ3つから選ぶ
+ * (いつも元の小物だと「スマホを持ったスーツの男はボスではない」と分かってしまうため)。
+ * ボスの見分け方は腕の入れ墨などの「おかしな所」なので、小物は答え合わせの決め手にも、文の合わせ方にも使わない。
+ * 化けた姿の絵のキー → 小物の一覧
+ */
+const BOSS_ITEMS: Readonly<Record<string, { look: Look; items: readonly TellDef[] }>> = {
+  boss_disguise_suit: { look: 'suit', items: TELLS.suit?.civ ?? [] },
+  boss_disguise_shopper: { look: 'shopper', items: TELLS.shopper?.civ ?? [] }
+};
+
+/** ボスの化けた姿の小物の一覧(小物を選ばない化けた姿は空)。sheetKey は化けた姿の絵のキー */
+export function bossItemsFor(sheetKey: string): readonly TellDef[] {
+  return BOSS_ITEMS[sheetKey]?.items ?? [];
+}
 
 /** その見た目と正体の手がかりの一覧(出し分けのない人は空) */
 export function tellsFor(look: Look, truth: Truth): readonly TellDef[] {
@@ -176,9 +192,17 @@ export function tellRngFor(stageRng: Pick<Rng, 'seed'>): Rng {
   return createRng(`tell:${stageRng.seed}`);
 }
 
-/** 出し分けのある絵の一覧(元の絵のキー → 足した絵のキー)。絵の担当の確かめ(テスト)に使う */
-export function tellSheetKeys(): { base: string; key: string; look: Look; truth: 'civ' | 'bad'; tell: string }[] {
-  const out: { base: string; key: string; look: Look; truth: 'civ' | 'bad'; tell: string }[] = [];
+/**
+ * ボスの化けた姿の小物を選ぶ乱数。手がかりの乱数(tellRngFor)から作る、さらに別の乱数
+ * (ボスの小物を選んでも、ほかの人の手がかりの選び方は変わらない)
+ */
+export function bossItemRng(tellRng: Pick<Rng, 'seed'>): Rng {
+  return createRng(`boss-item:${tellRng.seed}`);
+}
+
+/** 出し分けのある絵の一覧(元の絵のキー → 足した絵のキー)。ボスの化けた姿の小物の絵も入る。絵の担当の確かめ(テスト)に使う */
+export function tellSheetKeys(): { base: string; key: string; look: Look; truth: Truth; tell: string }[] {
+  const out: { base: string; key: string; look: Look; truth: Truth; tell: string }[] = [];
   for (const [look, byTruth] of Object.entries(TELLS) as [Look, TellTable[Look]][]) {
     for (const truth of ['civ', 'bad'] as const) {
       for (const d of byTruth?.[truth] ?? []) {
@@ -187,6 +211,9 @@ export function tellSheetKeys(): { base: string; key: string; look: Look; truth:
         out.push({ base, key: tellSheetKey(base, d), look, truth, tell: d.id });
       }
     }
+  }
+  for (const [base, { look, items }] of Object.entries(BOSS_ITEMS)) {
+    for (const d of items) if (d.suffix) out.push({ base, key: tellSheetKey(base, d), look, truth: 'boss', tell: d.id });
   }
   return out;
 }

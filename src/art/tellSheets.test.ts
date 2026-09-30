@@ -6,6 +6,7 @@ import type { PixelGrid } from './lib';
 import { CLUE_SPOTS, type ClueRect } from './clueSpots';
 import { KEY_ACCESSORY, SHEETS, TELL_BASE, TELL_SHEETS, sheetByKey } from './sheets';
 import { ART_SETS } from './sets';
+import { buildItemlessPeople } from './world/people';
 
 const drawn: Record<string, PixelGrid[][]> = Object.assign({}, ...Object.values(ART_SETS).map((set) => set.sheets()));
 
@@ -21,6 +22,20 @@ const countIn = (g: PixelGrid, r: ClueRect, c: string): number => {
   return n;
 };
 const same = (a: PixelGrid, b: PixelGrid): boolean => a.cells.every((row, y) => row.every((c, x) => c === b.cells[y][x]));
+
+/** ステージ1の、小物を描かない絵(小物のドットを取り出すのに使う) */
+const ITEMLESS = buildItemlessPeople();
+/** 小物を窓のふちから何ドット離すか */
+const MARGIN = 1;
+/** 2つのコマで違うドットを囲む四角(違いがなければ null) */
+const boxOfDiff = (a: PixelGrid, b: PixelGrid): { x0: number; y0: number; x1: number; y1: number } | null => {
+  let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+  for (let y = 0; y < a.h; y++) for (let x = 0; x < a.w; x++) {
+    if (a.cells[y][x] === b.cells[y][x]) continue;
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+};
 
 describe('手がかりの出し分けの絵', () => {
   it('絵の表(TELL_SHEETS)は、ルールの出し分け(logic/tells.ts)と同じ', () => {
@@ -49,6 +64,42 @@ describe('手がかりの出し分けの絵', () => {
       if (sheetByKey(key).rows.length === 8) continue; // 宇宙人は下で見る
       const r = CLUE_SPOTS[key];
       drawn[key][2].forEach((g, i) => expect(diffIn(g, drawn[base][2][i], r), `${key} コマ${i}`).toBeGreaterThanOrEqual(4));
+    }
+  });
+
+  it('ステージ1:小物(ふちの線まで)は、仕分けの4コマのどれでも、窓のふちから1ドット以上内側にある(切れて形が変わらない)', () => {
+    // 小物のドットは、小物を描かない絵(buildItemlessPeople)と比べて取り出す
+    const bad: string[] = [];
+    for (const [base, rows] of Object.entries(ITEMLESS)) {
+      const r = CLUE_SPOTS[base];
+      for (const key of [base, ...Object.keys(TELL_BASE).filter((k) => TELL_BASE[k] === base)]) {
+        drawn[key][2].forEach((g, i) => {
+          const b = boxOfDiff(g, rows[2][i]);
+          expect(b, `${key} コマ${i}`).not.toBeNull();
+          // 路地裏のボスが化けた買い物袋の女性は、袋を高く持ち上げる(化けた姿のおかしな所)ので、上だけははみ出してよい
+          const top = base === 'boss_disguise_shopper' ? -Infinity : r.y + MARGIN;
+          if (b!.x0 < r.x + MARGIN || b!.y0 < top || b!.x1 > r.x + r.w - 1 - MARGIN || b!.y1 > r.y + r.h - 1 - MARGIN) {
+            bad.push(`${key} コマ${i}: 小物 x${b!.x0}-${b!.x1} y${b!.y0}-${b!.y1}、窓 x${r.x}-${r.x + r.w - 1} y${r.y}-${r.y + r.h - 1}`);
+          }
+        });
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('ステージ1:ボスの買い物袋の女性の小物も、半分より多くが窓に入る', () => {
+    const base = 'boss_disguise_shopper', r = CLUE_SPOTS[base];
+    for (const key of [base, ...Object.keys(TELL_BASE).filter((k) => TELL_BASE[k] === base)]) {
+      drawn[key][2].forEach((g, i) => {
+        let all = 0, inside = 0;
+        const itemless = ITEMLESS[base][2][i];
+        for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+          if (g.cells[y][x] === itemless.cells[y][x]) continue;
+          all++;
+          if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) inside++;
+        }
+        expect(inside / all, `${key} コマ${i}`).toBeGreaterThan(0.5);
+      });
     }
   });
 

@@ -4,13 +4,14 @@ import { judgeLine } from './content';
 import { createRng } from './rng';
 import { REASON_MAX, reasonFor, stripReasonMarkup } from './reasons';
 import { createStage } from './stage';
-import { TELLS, fitsTell, tellDef, tellSheetKey, tellsFor } from './tells';
+import { TELLS, baseSheetKey, bossItemsFor, fitsTell, tellDef, tellSheetKey, tellsFor } from './tells';
 import type { Look, Person, Stage, StageId } from './types';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 104729 + 11);
 const stagesOf = (id: StageId): Stage[] => SEEDS.map((s) => createStage(s, id));
 const ALL: Record<'alley' | 'garage' | 'mall', Stage[]> = { alley: stagesOf('alley'), garage: stagesOf('garage'), mall: stagesOf('mall') };
 const everyone = (list: Stage[]): Person[] => list.flatMap((s) => s.waves.flatMap((w) => w.people.map((p) => p)));
+const findBossKey = (s: Stage): string | undefined => everyone([s]).find((p) => p.truth === 'boss')?.sheetKey;
 
 describe('手がかりの出し分け', () => {
   it('同じ種なら同じ出し分け(別の乱数で選ぶので、何度作っても同じ)', () => {
@@ -66,6 +67,39 @@ describe('手がかりの出し分け', () => {
       }
     }
     expect(bad).toEqual([]);
+  });
+
+  it('ステージ3:「今、色が…？」の一言は、体の色がちらつく宇宙人だけ。「顔色が悪くない？」はどちらにも出る', () => {
+    const flash = '今、色が…？\n気のせい？', pale = '顔色が\n悪くない？';
+    expect(fitsTell(flash, 'uncle', 'bad', 'flicker')).toBe(true);
+    expect(fitsTell(flash, 'uncle', 'bad', 'hatch')).toBe(false);
+    expect(fitsTell(pale, 'uncle', 'bad', 'flicker')).toBe(true);
+    expect(fitsTell(pale, 'uncle', 'bad', 'hatch')).toBe(true);
+    const hatch = everyone(ALL.mall).filter((p) => p.tell === 'hatch');
+    expect(hatch.length).toBeGreaterThan(0);
+    for (const p of hatch) expect(p.hint.text, p.sheetKey).not.toContain('今、色が');
+  });
+
+  it('路地裏のボスの化けた姿(スーツと買い物袋)は、市民と同じ3つの小物のどれかを持つ(持ち物でボスでないと分からない)', () => {
+    const count = new Map<string, number>();
+    const total = new Map<string, number>();
+    for (const s of ALL.alley) {
+      const boss = everyone([s]).find((p) => p.truth === 'boss')!;
+      expect(boss.tell).toBeUndefined();
+      const items = bossItemsFor(baseSheetKey(boss.sheetKey));
+      if (boss.disguise === 'granny') { expect(boss.sheetKey).toBe('boss_disguise_granny'); continue; }
+      expect(items.map((d) => d.id)).toEqual(tellsFor(boss.look, 'civ').map((d) => d.id));
+      expect(items.map((d) => tellSheetKey(`boss_disguise_${boss.look}`, d))).toContain(boss.sheetKey);
+      count.set(boss.sheetKey, (count.get(boss.sheetKey) ?? 0) + 1);
+      total.set(boss.look, (total.get(boss.look) ?? 0) + 1);
+    }
+    for (const look of ['suit', 'shopper'] as const) {
+      for (const d of tellsFor(look, 'civ')) {
+        expect((count.get(tellSheetKey(`boss_disguise_${look}`, d)) ?? 0) / total.get(look)!, `${look} ${d.id}`).toBeGreaterThan(0.15);
+      }
+    }
+    // 同じ種なら同じ小物
+    expect(findBossKey(createStage(42, 'alley'))).toBe(findBossKey(createStage(42, 'alley')));
   });
 
   it('決めつけのセリフも、その人の出し分けと食いちがわない(肩章の人に「腕章があやしい!」と言わない)', () => {

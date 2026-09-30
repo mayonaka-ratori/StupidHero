@@ -5,7 +5,7 @@ import { pickFresh } from './pick';
 import type { Rng } from './rng';
 import { MISCHIEF_BY_LOOK } from './rules';
 import { STAGES, sheetKeyFor } from './stages';
-import { fitsTell, tellSheetKey, tellsFor, type TellDef } from './tells';
+import { bossItemRng, bossItemsFor, fitsTell, tellSheetKey, tellsFor, type TellDef } from './tells';
 import type { DisguiseLook, Look, OperatorHint, Person, StageId, Truth, WaveNo } from './types';
 
 /** 名前と文の使い回しを避けるための記録(ステージ全体で1つ) */
@@ -63,13 +63,23 @@ export function makePerson(
 }
 
 /**
- * 手がかりの出し分けを選んで、tell と絵のキーを入れる(tells.ts)。出し分けのない人(ボス、モヒカン、おばあさん、
- * ステージ4の人)は何もしない。rng は tellRngFor で作った、ステージとは別の乱数。
+ * 手がかりの出し分けを選んで、tell と絵のキーを入れる(tells.ts)。出し分けのない人(モヒカン、おばあさん、
+ * ステージ4の人など)は何もしない。rng は tellRngFor で作った、ステージとは別の乱数。
  * プロフィールと一言はもう選んであるので、その文と食いちがわない手がかりから選ぶ
  * (「黄色い物がちらっと見えた」の人は、黄色い物を持っている)。どれとも合わないときは一言に合わせ、
- * プロフィールを合う文から選び直す
+ * プロフィールを合う文から選び直す。
+ * 路地裏のボスの化けた姿(スーツと買い物袋)は、市民と同じ小物から1つ選んで、絵のキーだけを変える
+ * (tell は入れない。ボスの文と決め手は小物に関係ないので)。ボスの小物は、さらに別の乱数(bossItemRng)で選ぶ
+ * (rng を引かないので、ほかの人の手がかりは、ボスの小物を足す前と同じ)
  */
 export function giveTell(rng: Rng, used: UsedTexts, p: PersonDraft): TellDef | undefined {
+  if (p.truth === 'boss') {
+    const items = bossItemsFor(p.sheetKey);
+    if (items.length === 0) return undefined;
+    const item = bossItemRng(rng).pick(items);
+    p.sheetKey = tellSheetKey(p.sheetKey, item);
+    return item;
+  }
   const defs = tellsFor(p.look, p.truth);
   if (defs.length === 0) return undefined;
   const fits = (d: TellDef, text: string) => fitsTell(text, p.look, p.truth, d.id);

@@ -6,6 +6,7 @@ import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { TOWER_LOOKS, sheetKeyFor } from './stages';
 import { FLOOR_LOOKS, buildLift, canDecoy, isDoubtHint, isOddLine, leakSpots, rollLeak, spotHintsFor } from './tower';
 import { TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_SPOT_HINTS } from './towerContent';
+import { baseSheetKey } from './tells';
 import type { LiftPlan, Person, Stage, StageId, TowerLook } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 5);
@@ -297,7 +298,9 @@ describe('ステージ1〜3は高層ビルを足す前と同じ', () => {
       const sale = saleRushOf(s);
       const rush = sale ? (({ kind: _kind, ...rest }) => rest)(sale) : s.rush;
       // あとから足した服の色ちがい(colorVariant)は別の乱数で決めるので、ここでは取りのぞいて比べる
-      const noVariant = (k: string, v: unknown): unknown => (k === 'colorVariant' ? undefined : v);
+      // 路地裏のボスの小物(tells.ts の bossItemsFor)も、あとから足して別の乱数で選ぶので、元の化けた姿の絵のキーに直して比べる
+      const noVariant = (k: string, v: unknown): unknown =>
+        k === 'colorVariant' ? undefined : k === 'sheetKey' && typeof v === 'string' && v.startsWith('boss_disguise_') ? baseSheetKey(v) : v;
       expect(hashSeed(JSON.stringify({ waves: s.waves, rush, seed: s.seed }, noVariant)), key).toBe(BEFORE[key]);
     }
   });

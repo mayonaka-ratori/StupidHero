@@ -184,6 +184,8 @@ export const TELL_SHEETS: Readonly<Record<string, readonly string[]>> = {
   hoodie_civ: ['banana', 'keys'], hoodie_bad: ['knuckles', 'stungun'],
   suit_civ: ['phone', 'ticket'], suit_bad: ['purse', 'pearls'],
   shopper_civ: ['leek', 'bread'], shopper_bad: ['watch', 'phones'],
+  // 路地裏のボスの化けた姿も、市民と同じ小物から選ぶ(logic/tells.ts の bossItemsFor)
+  boss_disguise_suit: ['phone', 'ticket'], boss_disguise_shopper: ['leek', 'bread'],
   guard_civ: ['epaulette'], guard_bad: ['epaulette'],
   mechanic_civ: ['hanky'], mechanic_bad: ['hanky'],
   clubber_civ: ['cap', 'phones'], clubber_bad: ['cap', 'phones'],
@@ -212,7 +214,7 @@ export const SHEETS: SheetDef[] = [
   ...withTells(person('shopper_civ', false), person('shopper_bad', true)),
   person('villain_mohawk', true),
   person('granny_civ', false),
-  disguise('boss_disguise_suit'), disguise('boss_disguise_granny'), disguise('boss_disguise_shopper'),
+  ...withTells(disguise('boss_disguise_suit'), disguise('boss_disguise_granny'), disguise('boss_disguise_shopper')),
   BOSS,
   prop('prop_trash', 32, 32, 'bottom'),
   prop('prop_window', 24, 32, 'center'),
@@ -221,7 +223,7 @@ export const SHEETS: SheetDef[] = [
   prop('prop_car', 128, 56, 'bottom'),
   // ─── ステージ2(docs/STAGE2.md)───
   // 小物(腕章、タオル、バンダナ、ヘアバンド、スカーフ)は KEY_ACCESSORY の色で描き、ゲームの中で人ごとの色に塗り替える
-  // 小物の形の出し分け(ネクタイ、キャップなど)も、同じ赤紫で描く
+  // 小物の形の出し分け(肩章、キャップなど)も、同じ赤紫で描く
   ...withTells(person('guard_civ', false), person('guard_bad', true)),
   ...withTells(person('mechanic_civ', false), person('mechanic_bad', true)),
   ...withTells(person('clubber_civ', false), person('clubber_bad', true)),

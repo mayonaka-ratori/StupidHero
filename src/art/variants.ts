@@ -102,13 +102,14 @@ export const COLOR_VARIANTS: Readonly<Record<string, LookColors>> = {
       ]
     }]
   },
-  // おばあさんのショール(紫)を、こけ色、紺、あずき色がかった灰色に。入れ墨の水色に近い色(明るい青も)はさける
+  // おばあさんのショール(紫)を、深い緑、紺、あずき色がかった灰色に。入れ墨の水色に近い色(明るい青も)はさける。
+  // スカートのオリーブ色(黄みの灰色)に近いこけ色はさける(ショールとスカートが同じ色に見える)
   granny: {
     sheets: ['granny_civ', 'boss_disguise_granny'],
     swaps: [{
       from: [md(5, 3, 6), md(4, 2, 5), md(2, 1, 3)],
       to: [
-        [md(4, 5, 3), md(3, 4, 2), md(1, 2, 1)],
+        [md(2, 5, 3), md(1, 4, 2), md(0, 2, 1)],
         [md(3, 3, 5), md(2, 2, 4), md(1, 1, 2)],
         [md(5, 4, 5), md(4, 3, 4), md(2, 1, 2)]
       ]
@@ -283,7 +284,8 @@ export const COLOR_VARIANTS: Readonly<Record<string, LookColors>> = {
       }
     ]
   },
-  // ウェイターのベストとズボン(黒)を、紺、深い緑、えんじに。いちばん暗い色はふちと同じなので変えない
+  // ウェイターのベストとズボン(黒)を、紺、深い緑、灰色に。いちばん暗い色はふちと同じなので変えない。
+  // えんじや茶色は、パーティ会場(波4)の赤いカーテンとじゅうたん、木の壁にとけこむのでさける
   waiter: {
     sheets: ['tw_waiter', 'tw_boss_waiter'],
     swaps: [{
@@ -291,7 +293,7 @@ export const COLOR_VARIANTS: Readonly<Record<string, LookColors>> = {
       to: [
         [md(2, 2, 5), md(1, 1, 3)],
         [md(1, 3, 2), md(0, 2, 1)],
-        [md(4, 1, 1), md(2, 0, 0)]
+        [md(4, 4, 4), md(2, 2, 2)]
       ]
     }]
   },
@@ -307,14 +309,15 @@ export const COLOR_VARIANTS: Readonly<Record<string, LookColors>> = {
       ]
     }]
   },
-  // 手品師のえんび服とシルクハット(黒)を、紺、えんじ、深い緑に。いちばん暗い色はふちと同じなので変えない
+  // 手品師のえんび服とシルクハット(黒)を、紺、灰色、深い緑に。いちばん暗い色はふちと同じなので変えない。
+  // えんじや茶色は、パーティ会場(波4)の赤いカーテンとじゅうたん、木の壁にとけこむのでさける
   magician: {
     sheets: ['tw_magician', 'tw_boss_magician'],
     swaps: [{
       from: [md(2, 2, 3), md(1, 1, 2)],
       to: [
         [md(2, 2, 5), md(1, 1, 3)],
-        [md(4, 1, 1), md(2, 0, 0)],
+        [md(4, 4, 5), md(3, 3, 3)],
         [md(1, 3, 2), md(0, 2, 1)]
       ]
     }]

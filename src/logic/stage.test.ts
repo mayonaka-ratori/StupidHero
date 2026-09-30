@@ -3,6 +3,7 @@ import { sheetByKey } from '../art/sheets';
 import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { STAGES } from './stages';
+import { baseSheetKey } from './tells';
 import { leakSpots, spotHintsFor } from './tower';
 import type { Person, Stage, StageId } from './types';
 
@@ -164,7 +165,8 @@ describe('createStage:どのステージにも共通の決まり', () => {
       expect(boss.wave).toBe(last);
       expect(disguises).toContain(boss.disguise);
       expect(boss.look).toBe(boss.disguise);
-      expect(boss.sheetKey).toBe(`${sheet}${boss.disguise}`);
+      // 路地裏のボスの化けた姿は、市民と同じ小物の絵のキーになることがある('boss_disguise_suit_phone' など。tells.ts の bossItemsFor)
+      expect(baseSheetKey(boss.sheetKey)).toBe(`${sheet}${boss.disguise}`);
       expect(boss.mischief).toBeUndefined();
       // 文と一言は、その化けた姿のボスの一覧から
       expect(BOSS_PROFILE_LINES[boss.disguise!]).toContain(boss.profile.line);

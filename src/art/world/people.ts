@@ -85,16 +85,24 @@ function drawKnuckles(P: Painter, pose: Pose): void {
   rampSprite(P, x - 3, y - 5, ['.0.0.0.', '0o0o0o0', '0101010', '1111112', '.22222.'], BLADE);
 }
 
-/** ワル:スタンガン(黒い本体、銀の2本の先、先のあいだに白い火花) */
+/**
+ * ワル:スタンガン(黒い本体、銀の2本の先、先のあいだに白い火花)。
+ * 本体のふちは銀にする(パーカーの色ちがいの黒でも形が見えるように)。本体の色はパーカーの色の表(variants.ts)にない色
+ */
 function drawStunGun(P: Painter, pose: Pose): void {
   const [x, y] = backPocket(pose);
-  rampSprite(P, x - 2, y - 10, ['w..w', '.ww.', 'b..b', 'b..b', '0000', '0r11', '0111', '0111', '0111', 'oooo'], STUN, { b: BLADE[1], w: WHITE[0], r: BAG_RED[1] });
+  rampSprite(P, x - 2, y - 8, ['w..w', '.ww.', 'b..b', 'bbbb', 'bkrb', 'bkkb', 'bkkb', 'bbbb'], [STUN_BODY, STUN_BODY, STUN_BODY], {
+    b: BLADE[1], k: STUN_BODY, w: WHITE[0], r: BAG_RED[1]
+  });
 }
 
-/** 市民:おやつのバナナ(黄色。先が黒く、少し曲がる) */
+/**
+ * 市民:おやつのバナナ。ポケットの上に、両はしが上を向いた弓の形で横たわる(まっすぐなナイフの柄とまちがえないように)。
+ * 左のはしは茶色の軸、右のはしは黒い先
+ */
 function drawBanana(P: Painter, pose: Pose): void {
   const [x, y] = backPocket(pose);
-  rampSprite(P, x - 1, y - 7, ['..o', '.0.', '01.', '012', '012', '.12', '.12'], KNIFE_YELLOW);
+  rampSprite(P, x - 4, y - 6, ['s.......', 's0.....o', '00....12', '.01..112', '.001112.', '..1122..'], KNIFE_YELLOW, { s: HAIR[1] });
 }
 
 /** 市民:家のカギ(銀の輪に2本のカギ) */
@@ -103,8 +111,10 @@ function drawKeys(P: Painter, pose: Pose): void {
   rampSprite(P, x - 2, y - 7, ['.00..', '0..0.', '0..0.', '.00..', '.1.1.', '.121.', '.1.2.', '.2.2.'], BLADE);
 }
 
-/** スタンガンの本体(黒に近い灰色) */
-const STUN: Ramp = [md(3, 3, 4), md(2, 2, 3), md(1, 1, 2)];
+/** スマホの本体(黒に近い灰色。スーツの男と買い物袋の女性の絵だけで使う) */
+const PHONE: Ramp = [md(3, 3, 4), md(2, 2, 3), md(1, 1, 2)];
+/** スタンガンの本体(黒)。パーカーの服の色(md(3,3,4) など)とかぶらない色 */
+const STUN_BODY = md(1, 1, 2);
 
 /** 突き飛ばす:ため → 踏みこむ → 両手で突く(当たり) → 残心 */
 function pushMischief(): Pose[] {
@@ -295,10 +305,14 @@ function drawPurse(P: Painter, pose: Pose, at?: Pt): void {
   handOver(P, pose, x, y);
 }
 
-/** ワル:真珠の首飾り。抱えた手から、白い玉の輪が下がる */
+/**
+ * ワル:真珠の首飾り。抱えた手から、白い玉をつないだ輪がひとまわり下がる(白と灰色の玉を交互にして、玉の並びに見せる)
+ */
 function drawPearls(P: Painter, pose: Pose, at?: Pt): void {
   const [x, y] = R(at ?? [pose.hip[0] - 2, pose.hip[1] - 8]);
-  rampSprite(P, x - 3, y - 3, [
+  rampSprite(P, x - 3, y - 2, [
+    '..w.w..',
+    '.g...g.',
     'w.....w',
     'g.....g',
     '.w...w.',
@@ -307,18 +321,20 @@ function drawPearls(P: Painter, pose: Pose, at?: Pt): void {
   handOver(P, pose, x, y);
 }
 
+// スマホと切符は、手の少し下にずらして持つ(「持ち物」の窓の上のはしで切れないように)
+
 /** 市民:スマホで時間を見る(手前の手に持つ。黒い本体と白く光る画面) */
 function drawPhone(P: Painter, pose: Pose): void {
   const [hx, hy] = R(pose.aF.h);
-  rampSprite(P, hx - 3, hy - 5, ['000', 'www', 'wgw', 'www', '000'], STUN, { w: WHITE[0], g: WHITE[2] });
+  rampSprite(P, hx - 3, hy - 1, ['000', 'www', 'wgw', '000'], PHONE, { w: WHITE[0], g: WHITE[2] });
   // 画面を持つ親指
-  P.px(hx - 1, hy - 1, SKIN[0]);
+  P.px(hx - 1, hy + 2, SKIN[0]);
 }
 
 /** 市民:新幹線の切符(白い紙に水色の線)を手前の手に持つ */
 function drawTicket(P: Painter, pose: Pose): void {
   const [hx, hy] = R(pose.aF.h);
-  rampSprite(P, hx - 5, hy - 4, ['wwww', 'tttw', 'wwgw'], WHITE, { w: WHITE[0], g: WHITE[2], t: TIE });
+  rampSprite(P, hx - 5, hy - 2, ['wwww', 'tttw', 'wwgw'], WHITE, { w: WHITE[0], g: WHITE[2], t: TIE });
 }
 
 /** スーツの男の手がかり(絵のキーの後ろにつける名前 → 描き方。'' は元の絵。名前は logic/tells.ts と同じ) */
@@ -332,8 +348,8 @@ function suitCivSort(): Pose[] {
   const watch = (p: Pose, raise = true): Pose => {
     const q = clonePose(p);
     q.aF = raise
-      ? { e: [q.neck[0] - 2, q.neck[1] + 10], h: [q.neck[0] + 5, q.neck[1] + 6] }
-      : { e: [q.neck[0] - 2, q.neck[1] + 10], h: [q.neck[0] + 4, q.neck[1] + 12] };
+      ? { e: [q.neck[0] - 2, q.neck[1] + 10], h: [q.neck[0] + 5, q.neck[1] + 7] }
+      : { e: [q.neck[0] - 2, q.neck[1] + 10], h: [q.neck[0] + 4, q.neck[1] + 10] };
     return q;
   };
   const civSort = [
@@ -348,6 +364,18 @@ function suitCivSort(): Pose[] {
 
 function suitCiv(item: ItemFn): PixelGrid[][] {
   return civRows(suitLook({ front: item }), STAND, suitCivSort());
+}
+
+/**
+ * ボスの化けた姿の仕分けの動き。市民と同じ動きで、上げた手だけ2ドット低くする
+ * (化けた姿は背を伸ばして描くので、そのままだと手に持つスマホや切符が「持ち物」の窓の上にはみ出す)
+ */
+function suitBossSort(): Pose[] {
+  return suitCivSort().map((p) => {
+    const q = clonePose(p);
+    q.aF = { e: [q.aF.e[0], q.aF.e[1] + 1], h: [q.aF.h[0], q.aF.h[1] + 2] };
+    return q;
+  });
 }
 
 /** ワル:抱えた物を抱え直して、後ろを気にする。悪さはひったくり */
@@ -383,10 +411,13 @@ function suitBad(item: HoldFn): PixelGrid[][] {
 const CARDIGAN: Ramp = [md(7, 4, 4), md(6, 2, 3), md(4, 1, 2)];
 const SKIRT: Ramp = [md(1, 2, 3), md(1, 2, 3), md(1, 1, 2)];
 const TOTE: Ramp = [md(3, 5, 3), md(2, 4, 2), md(1, 1, 2)];
-/** 長ねぎの葉(袋と同じ緑に、明るい緑を1つ足す。黄緑の3色はステージ3だけの色なので使わない) */
+/**
+ * 長ねぎの葉(袋と同じ緑に、明るい緑を1つ足す。黄緑の3色はステージ3だけの色なので使わない)。
+ * 白い所の影は肌のいちばん明るい色にする(ボスの化けた姿の絵も1枚15色に入れるため)
+ */
 const LEEK: Ramp = [md(3, 6, 3), TOTE[0], TOTE[1]];
-/** フランスパン */
-const BREAD: Ramp = [md(7, 6, 3), md(6, 4, 1), md(4, 2, 1)];
+/** フランスパン。いちばん暗い色は髪の暗い色と同じにする(ボスの化けた姿の絵も1枚15色に入れるため) */
+const BREAD: Ramp = [md(7, 6, 3), md(6, 4, 1), HAIR[1]];
 const SHOPPER_BUILD: Build = { sh: 6.5, wa: 5, arm: 2, thigh: 2.6, shin: 2, hem: 1, chest: 1.5 };
 
 function shopperLook(extra: Partial<Look> = {}): Look {
@@ -433,29 +464,31 @@ function drawTote(P: Painter, pose: Pose): void {
 
 /**
  * 袋の口からのぞく中身(手がかり。名前は logic/tells.ts と同じ)。
- * 市民は白い米袋(rice)、長ねぎ(leek)、フランスパン(bread)。ワルは金色の財布(loot)、人の腕時計(watch)、何台ものスマホ(phones)
+ * 市民は白い米袋(rice)、長ねぎ(leek)、フランスパン(bread)。ワルは金色の財布(loot)、人の腕時計(watch)、何台ものスマホ(phones)。
+ * none は何も描かない(テストで、小物のない絵と比べるのに使う)。
+ * 中身は袋の口のまん中寄りに置き、高さは7ドットまでにする(「持ち物」の窓のふちで切れないように)
  */
-type ToteKind = 'rice' | 'leek' | 'bread' | 'loot' | 'watch' | 'phones';
+type ToteKind = 'rice' | 'leek' | 'bread' | 'loot' | 'watch' | 'phones' | 'none';
 function toteContents(P: Painter, pose: Pose, kind: ToteKind): void {
   const [x, y] = toteAt(pose);
   switch (kind) {
     case 'rice':
-      rampSprite(P, x + 6, y - 6, ['.000.', '00002', '02202', '00002', '00022', '.002.'], WHITE);
+      rampSprite(P, x + 4, y - 6, ['.000.', '00002', '02202', '00002', '00022', '.002.'], WHITE);
       break;
     case 'leek':
-      rampSprite(P, x + 6, y - 9, ['1..1', '01.2', '0112', '.12.', '.22.', '.ww.', '.wg.', '.wg.', '.wg.'], LEEK, { w: WHITE[0], g: WHITE[2] });
+      rampSprite(P, x + 4, y - 7, ['1..1', '01.2', '0112', '.12.', '.ww.', '.wg.', '.wg.'], LEEK, { w: WHITE[0], g: SKIN[0] });
       break;
     case 'bread':
-      rampSprite(P, x + 5, y - 9, ['...0.', '..012', '..11.', '.012.', '.11..', '.12..', '012..', '12...', '12...'], BREAD);
+      rampSprite(P, x + 3, y - 7, ['...01', '..012', '..11.', '.012.', '.12..', '012..', '12...'], BREAD);
       break;
     case 'loot':
-      rampSprite(P, x + 6, y - 5, ['.000.', '0o1o2', '01112', '11112', '11222'], GOLD);
+      rampSprite(P, x + 4, y - 5, ['.000.', '0o1o2', '01112', '11112', '11222'], GOLD);
       break;
     case 'watch':
-      rampSprite(P, x + 5, y - 7, ['.1111.', '100002', '10o002', '10oo02', '100002', '.2222.', '..22..'], GOLD);
+      rampSprite(P, x + 3, y - 7, ['.1111.', '100002', '10o002', '10oo02', '100002', '.2222.', '..22..'], GOLD);
       break;
     case 'phones':
-      rampSprite(P, x + 5, y - 7, ['bbb...', 'bwwbbb', 'bwwbww', 'bwwbww', 'bbbbww', '...bww', '...bbb'], STUN, { b: STUN[2], w: WHITE[2] });
+      rampSprite(P, x + 3, y - 7, ['bbb...', 'bwwbbb', 'bwwbww', 'bwwbww', 'bbbbww', '...bww', '...bbb'], PHONE, { b: PHONE[2], w: WHITE[2] });
       break;
   }
 }
@@ -498,7 +531,7 @@ function shopperCiv(kind: ToteKind): { rows: PixelGrid[][]; civSort: Pose[]; civ
   const civSort = [
     base,
     lift(moveUpper(base, 0, 1), 3),
-    (() => { const q = lift(base, 4); q.aF = { e: [q.neck[0] + 1, q.neck[1] + 10], h: [q.aB.h[0] - 2, q.aB.h[1] + 2] }; return q; })(),
+    (() => { const q = lift(base, 2); q.aF = { e: [q.neck[0] + 1, q.neck[1] + 10], h: [q.aB.h[0] - 2, q.aB.h[1] + 2] }; return q; })(),
     lift(withFace(base, 'shut'), 1)
   ];
   // 驚く、吹っ飛ぶ、のびているコマでは袋を手放す
@@ -768,13 +801,14 @@ export function buildPeople(skip: Set<string>): Record<string, PixelGrid[][]> {
   addTellSheets(out, skip, 'hoodie_bad', HOODIE_BAD_ITEMS, hoodieBad);
   addTellSheets(out, skip, 'suit_civ', SUIT_CIV_ITEMS, suitCiv);
   addTellSheets(out, skip, 'suit_bad', SUIT_BAD_ITEMS, suitBad);
-  if (!skip.has('boss_disguise_suit')) out.boss_disguise_suit = disguise(suitLook({ front: drawWatch }), STAND, suitCivSort());
+  // ボスの化けた姿も、市民と同じ小物から選ぶ(logic/tells.ts の bossItemsFor。持ち物でボスでないと分からないように)
+  addTellSheets(out, skip, 'boss_disguise_suit', SUIT_CIV_ITEMS, (item) => disguise(suitLook({ front: item }), STAND, suitBossSort()));
   addTellSheets(out, skip, 'shopper_civ', SHOPPER_CIV_ITEMS, (k) => shopperCiv(k).rows);
   addTellSheets(out, skip, 'shopper_bad', SHOPPER_BAD_ITEMS, shopperBad);
-  if (!skip.has('boss_disguise_shopper')) {
-    const s = shopperCiv('rice');
-    out.boss_disguise_shopper = disguise(s.civLook, s.civSort[0], s.civSort, walkFrames(s.civSort[0]).map(shopperWithBag));
-  }
+  addTellSheets(out, skip, 'boss_disguise_shopper', SHOPPER_CIV_ITEMS, (k) => {
+    const s = shopperCiv(k);
+    return disguise(s.civLook, s.civSort[0], s.civSort, walkFrames(s.civSort[0]).map(shopperWithBag));
+  });
   if (need('villain_mohawk')) out.villain_mohawk = mohawkSheets();
   if (need('granny_civ', 'boss_disguise_granny')) {
     const g = grannySheets();
@@ -784,4 +818,20 @@ export function buildPeople(skip: Set<string>): Record<string, PixelGrid[][]> {
     out.boss_disguise_granny = disguise(g.look, base, g.civSort, walk, 1.15);
   }
   return out;
+}
+
+/**
+ * テスト用:手がかりの小物を描かない、ステージ1の組の絵(出し分けの絵と比べて、小物のドットだけを取り出す。
+ * src/art/variants.test.ts)。キーは元の絵と同じ
+ */
+export function buildItemlessPeople(): Record<string, PixelGrid[][]> {
+  const none = (): void => {};
+  const shopper = shopperCiv('none');
+  return {
+    hoodie_civ: hoodieCiv(none), hoodie_bad: hoodieBad(none),
+    suit_civ: suitCiv(none), suit_bad: suitBad(none),
+    boss_disguise_suit: disguise(suitLook({ front: none }), STAND, suitBossSort()),
+    shopper_civ: shopper.rows, shopper_bad: shopperBad('none'),
+    boss_disguise_shopper: disguise(shopper.civLook, shopper.civSort[0], shopper.civSort, walkFrames(shopper.civSort[0]).map(shopperWithBag))
+  };
 }
