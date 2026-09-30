@@ -37,342 +37,189 @@ export const TOWER_AGES: Readonly<Record<TowerLook, readonly [number, number]>> 
 };
 
 /**
- * プロフィールの一文。嘘は書かないが、どちらとも取れる。市民とヴィランで似た言い回しを並べ、
- * どちらにも出る文も2つずつ入れる(それぞれの一覧の最後の2つ)。ヴィランの文は「力をかくしきれていない」くらいにとどめる。
- * 市民にも、ふしぎに聞こえるがふつうの理由がある文(「なぜか」「いつの間にか」など)を入れ、1つの文だけで決められないようにする
+ * 1つの見た目のプロフィールの文(docs/STAGE4_TEXT.md「プロフィール」)。嘘は書かないが、どちらとも取れる。
+ *   civOdd と badOdd:ふしぎに聞こえる文(「なぜか」「いつの間にか」「片手で軽々」など)。市民の文には、ふつうの理由がある。
+ *     市民とヴィランの両方に3つずつ入れ、ふしぎに聞こえる文だけでは決められないようにする
+ *   civPlain と badPlain:ふつうに聞こえる文(3つずつ)
+ *   shared:市民にもヴィランにも出る文(2つ)
+ * もれを隠すヴィランは badOdd から選び、一言はいつも疑う一言(TOWER_DOUBT_HINTS)にする。
+ * 市民は、ふしぎに聞こえる文と疑う一言が、同じ人にそろわない(tower.ts)。「両方あやしい人」だけがヴィランになる
  */
-export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly string[]; bad: readonly string[] }>> = {
+interface ProfileSet {
+  civOdd: readonly string[];
+  civPlain: readonly string[];
+  badOdd: readonly string[];
+  badPlain: readonly string[];
+  shared: readonly string[];
+}
+
+const PROFILES: Readonly<Record<TowerLook, ProfileSet>> = {
   florist: {
-    civ: [
-      '重いバケツで\n腕がパンパン',
-      '花びらが\nなぜか髪につく',
-      '朝は市場で\n花を仕入れる',
-      '好きな花は\nひまわり',
-      '店の電球が\nちかちかする',
-      '休みの日は\n屋上の花壇',
-      '花束を作るのが\n得意',
-      '店は1階の\n入口のそば'
-    ],
-    bad: [
-      '重いバケツも\n苦にならない',
-      '花びらが\nよく床に散る',
-      '朝は市場で\n花を選ぶ',
-      '好きな花は\nかすみ草',
-      '近くの電球が\nちかちかする',
-      '休みの日は\nビルの屋上',
-      '花束を作るのが\n得意',
-      '店は1階の\n入口のそば'
-    ]
+    civOdd: ['花びらが\nなぜか髪につく', '重い鉢も\n片手で軽々', '店の電球が\nちかちかする'],
+    civPlain: ['重いバケツで\n腕がパンパン', '朝は市場で\n花を仕入れる', '好きな花は\nひまわり'],
+    badOdd: ['重いバケツも\n苦にならない', '近くの電球が\nちかちかする', '花の向きが\nいつの間にか変わる'],
+    badPlain: ['花びらが\nよく床に散る', '朝は市場で\n花を選ぶ', '好きな花は\nかすみ草'],
+    shared: ['花束を作るのが\n得意', '店は1階の\n入口のそば']
   },
   courier: {
-    civ: [
-      'この辺りの担当に\nなって三年',
-      '荷物は\n両手で運ぶ',
-      'エレベーターは\nなぜか空いている',
-      '重い荷物で\n腰が痛い',
-      'ハンコを\nもらい忘れがち',
-      '好物は\nおにぎり',
-      '帽子は\n会社の支給',
-      '配達は\n時間通り'
-    ],
-    bad: [
-      'この辺りの担当に\nなって三日',
-      '荷物は\n手で運ぶことが多い',
-      'エレベーターは\nあまり使わない',
-      '重い荷物も\n慣れっこ',
-      'ハンコは\nすぐにもらえる',
-      '食事は\nあまりとらない',
-      '帽子は\n会社の支給',
-      '配達は\n時間通り'
-    ]
+    civOdd: ['エレベーターは\nなぜか空いている', '重い荷物も\n片手でひょい', '階段を\n一気に駆け上がる'],
+    civPlain: ['この辺りの担当に\nなって三年', 'ハンコを\nもらい忘れがち', '好物は\nおにぎり'],
+    badOdd: ['荷物は\n手で運ぶことが多い', '食事は\nあまりとらない', '重い荷物も\n慣れっこ'],
+    badPlain: ['この辺りの担当に\nなって三日', 'エレベーターは\nあまり使わない', 'ハンコは\nすぐにもらえる'],
+    shared: ['帽子は\n会社の支給', '配達は\n時間通り']
   },
   newbie: {
-    civ: [
-      '書類が\nよく机から落ちる',
-      'コピー機が\nなぜか動かない',
-      '朝は\nいつの間にか着いている',
-      '緊張すると\n手がふるえる',
-      '昼は\n社員食堂',
-      '席は\n照明の真下',
-      '入社して\nまだ一か月',
-      '先輩に\nよく怒られる'
-    ],
-    bad: [
-      '書類は\nあまり落とさない',
-      'コピー機とは\n相性がいい',
-      '朝は\n誰よりも早く来る',
-      '緊張すると\nペンがふるえる',
-      '昼は\n屋上で一人',
-      '席は\n窓ぎわ',
-      '入社して\nまだ一か月',
-      '先輩に\nよく怒られる'
-    ]
+    civOdd: ['コピー機が\nなぜか動かない', '朝は\nいつの間にか着いている', '机の上の物が\nよく動いている'],
+    civPlain: ['書類が\nよく机から落ちる', '緊張すると\n手がふるえる', '昼は\n社員食堂'],
+    badOdd: ['コピー機とは\n相性がいい', '緊張すると\nペンがふるえる', '昼は\n屋上で一人'],
+    badPlain: ['書類は\nあまり落とさない', '朝は\n誰よりも早く来る', '席は\n窓ぎわ'],
+    shared: ['入社して\nまだ一か月', '先輩に\nよく怒られる']
   },
   janitor: {
-    civ: [
-      'このビルで\n二十年働いている',
-      '夜中のビルは\n少しこわい',
-      '行く先の電球が\nなぜかよく切れる',
-      'モップは\n自分で選んだ',
-      '腰が\n少し痛い',
-      '休みは\n家族と過ごす',
-      '床みがきは\n誰にも負けない',
-      '全部の階を\n回っている'
-    ],
-    bad: [
-      'このビルで\n働き始めたばかり',
-      '夜中のビルは\n静かで好き',
-      '電球の交換は\n苦手',
-      'モップは\nあまり使わない',
-      '腰は\n痛くない',
-      '休みは\nひとりで過ごす',
-      '床みがきは\n誰にも負けない',
-      '全部の階を\n回っている'
-    ]
+    civOdd: ['行く先の電球が\nなぜかよく切れる', '夜中のビルは\n物音がよくする', '重い機械も\nひとりで運ぶ'],
+    civPlain: ['このビルで\n二十年働いている', 'モップは\n自分で選んだ', '休みは\n家族と過ごす'],
+    badOdd: ['モップは\nあまり使わない', '夜中のビルは\n静かで好き', '電球の交換は\n苦手'],
+    badPlain: ['このビルで\n働き始めたばかり', '腰は\n痛くない', '休みは\nひとりで過ごす'],
+    shared: ['床みがきは\n誰にも負けない', '全部の階を\n回っている']
   },
   chef: {
-    civ: [
-      'なべは\n片手で軽々',
-      '包丁を\n毎日研ぐ',
-      '湯気で\nめがねがくもる',
-      '火加減は\n思いのまま',
-      '休みの日は\n料理の研究',
-      '得意料理は\nオムライス',
-      'この店の\n料理長',
-      '味見は\n何度もする'
-    ],
-    bad: [
-      'なべは\n自分で運ばない',
-      '包丁は\nめったに研がない',
-      '湯気は\nあまり気にしない',
-      '火加減は\n目を閉じても分かる',
-      '休みの日は\nビルをながめる',
-      '得意料理は\nふわふわのスフレ',
-      'この店の\n料理長',
-      '味見は\n何度もする'
-    ]
+    civOdd: ['なべは\n片手で軽々', '火加減は\n思いのまま', '包丁が\nいつの間にか研いである'],
+    civPlain: ['湯気で\nめがねがくもる', '休みの日は\n料理の研究', '得意料理は\nオムライス'],
+    badOdd: ['なべは\n自分で運ばない', '火加減は\n目を閉じても分かる', '休みの日は\nビルをながめる'],
+    badPlain: ['包丁は\nめったに研がない', '湯気は\nあまり気にしない', '得意料理は\nふわふわのスフレ'],
+    shared: ['この店の\n料理長', '味見は\n何度もする']
   },
   waiter: {
-    civ: [
-      'お盆は\n片手で持てる',
-      'グラスを\n割ったことがある',
-      'お客さんの注文は\nなぜか先に分かる',
-      '立ちっぱなしで\n足が痛い',
-      '夢は\n自分の店を持つこと',
-      '静かに\n歩くのが得意',
-      'このレストランで\n三年目',
-      '蝶ネクタイは\n自分で結ぶ'
-    ],
-    bad: [
-      'お盆は\n指一本で持てる',
-      'グラスを\n割ったことがない',
-      'お客さんの顔は\nすぐ覚える',
-      '立ちっぱなしでも\n足は痛くない',
-      '夢は\nこのビルを持つこと',
-      '足音が\nほとんどしない',
-      'このレストランで\n三年目',
-      '蝶ネクタイは\n自分で結ぶ'
-    ]
+    civOdd: ['お盆は\n片手で持てる', 'お客さんの注文は\nなぜか先に分かる', '静かに\n歩くのが得意'],
+    civPlain: ['グラスを\n割ったことがある', '立ちっぱなしで\n足が痛い', '夢は\n自分の店を持つこと'],
+    badOdd: ['お盆は\n指一本で持てる', '夢は\nこのビルを持つこと', '足音が\nほとんどしない'],
+    badPlain: ['グラスを\n割ったことがない', 'お客さんの顔は\nすぐ覚える', '立ちっぱなしでも\n足は痛くない'],
+    shared: ['このレストランで\n三年目', '蝶ネクタイは\n自分で結ぶ']
   },
   lady: {
-    civ: [
-      'ヒールで\n足が痛い',
-      'グラスが\nいつの間にか空',
-      '夜景が\n大好き',
-      '羽の髪飾りが\nよくゆれる',
-      'お酒は\n弱い',
-      'オーナーとは\n初対面',
-      'パーティには\nよく招かれる',
-      'ドレスは\n今日のために新調'
-    ],
-    bad: [
-      'ヒールには\n慣れている',
-      'グラスは\n手にしていない',
-      '夜景を\n見下ろすのが好き',
-      '羽の髪飾りは\nお気に入り',
-      'お酒は\n飲まない',
-      'オーナーとは\n古い知り合い',
-      'パーティには\nよく招かれる',
-      'ドレスは\n今日のために新調'
-    ]
+    civOdd: ['グラスが\nいつの間にか空', '羽の髪飾りが\nよくゆれる', 'ヒールでも\n足音がしない'],
+    civPlain: ['ヒールで\n足が痛い', '夜景が\n大好き', 'お酒は\n弱い'],
+    badOdd: ['夜景を\n見下ろすのが好き', 'グラスは\n手にしていない', 'オーナーとは\n古い知り合い'],
+    badPlain: ['ヒールには\n慣れている', '羽の髪飾りは\nお気に入り', 'お酒は\n飲まない'],
+    shared: ['パーティには\nよく招かれる', 'ドレスは\n今日のために新調']
   },
   magician: {
-    civ: [
-      'タネも\nしかけもない',
-      'カードを\nよく落とす',
-      'シルクハットから\n何でも出せる',
-      '糸はいつも\nポケットに',
-      '失敗すると\n笑ってごまかす',
-      'つえは\n手作り',
-      '手品歴は\nけっこう長い',
-      'パーティに\n呼ばれて来た'
-    ],
-    bad: [
-      'タネは\n教えない',
-      'カードを\n落としたことがない',
-      'シルクハットから\nハトを出す',
-      '糸は\nたまに使う',
-      '失敗は\nしたことがない',
-      'つえは\nもらい物',
-      '手品歴は\nけっこう長い',
-      'パーティに\n呼ばれて来た'
-    ]
+    civOdd: ['物を浮かせる\n手品が得意', 'ハトが\nいつの間にか増える', '糸はいつも\nポケットに'],
+    civPlain: ['カードを\nよく落とす', '失敗すると\n笑ってごまかす', 'つえは\n手作り'],
+    badOdd: ['糸は\nたまに使う', '失敗は\nしたことがない', 'カードを\n落としたことがない'],
+    badPlain: ['タネは\n教えない', 'シルクハットから\nハトを出す', 'つえは\nもらい物'],
+    shared: ['手品歴は\nけっこう長い', 'パーティに\n呼ばれて来た']
   }
 };
 
+/** 見た目ごとの表の中身を f で作りかえる */
+const mapLooks = <A, B>(table: Readonly<Record<TowerLook, A>>, f: (a: A) => B): Record<TowerLook, B> =>
+  Object.fromEntries(Object.entries(table).map(([look, a]) => [look, f(a as A)])) as Record<TowerLook, B>;
+
 /**
- * オペレーターの一言。嘘はつかないが、どちらとも取れる。同じ見た目の市民とヴィランで、
- * あわてた顔(panic)とあきれ顔(deadpan)の数をそろえる。
- * 4つ目は「周りを見て」と言う一言で、市民とヴィランで同じ文にする(どちらにも本当のことなので、これでは決められない)。
- * 照明や小物に見えている物のことは、この一覧ではなく TOWER_SPOT_HINTS で言う(tower.ts が、もれのあるヴィランと
- * 紛らわしい市民に同じ確率で出す)。手品師の「カードが浮いてる!?」は、市民にもヴィランにも出す
+ * プロフィールの一文(見た目ごと、市民とヴィラン)。どちらにも出る文は、それぞれの一覧の最後の2つ。
+ * 中身と決まりは上の PROFILES
  */
-export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly OperatorHint[]; bad: readonly OperatorHint[] }>> = {
-  florist: {
-    civ: [
-      hint('normal', '花屋さんだ'),
-      hint('normal', '花束を\n持ってる'),
-      hint('deadpan', 'いい香り…'),
-      hint('normal', '机の上も\n見ておいて'),
-      hint('normal', '花びらが\n舞ってる'),
-      hint('panic', 'こっちを\n見てる！')
-    ],
-    bad: [
-      hint('normal', '花屋さんだ'),
-      hint('normal', '花束を\n持ってる'),
-      hint('deadpan', 'いい香り…？'),
-      hint('normal', '机の上も\n見ておいて'),
-      hint('normal', '花びらが\n舞ってる'),
-      hint('panic', 'こっちを\n見てる！')
-    ]
-  },
-  courier: {
-    civ: [
-      hint('normal', '配達の人だ'),
-      hint('normal', '段ボールを\nかかえてる'),
-      hint('deadpan', '重そう…'),
-      hint('normal', '周りも\nよく見てね'),
-      hint('normal', '帽子を\n直してる'),
-      hint('panic', '急いでる？')
-    ],
-    bad: [
-      hint('normal', '配達の人だ'),
-      hint('normal', '段ボールを\nかかえてる'),
-      hint('deadpan', '軽そう…？'),
-      hint('normal', '周りも\nよく見てね'),
-      hint('normal', '帽子を\n直してる'),
-      hint('panic', '急いでる？')
-    ]
-  },
-  newbie: {
-    civ: [
-      hint('normal', '新人さんかな'),
-      hint('normal', '書類が\nいっぱい'),
-      hint('deadpan', '緊張してる…'),
-      hint('normal', '照明と机、\n見比べて'),
-      hint('normal', '時計を\n気にしてる'),
-      hint('panic', '書類、\n落としそう！')
-    ],
-    bad: [
-      hint('normal', '新人さんかな'),
-      hint('normal', '書類が\nいっぱい'),
-      hint('deadpan', '緊張…\nしてるのかな'),
-      hint('normal', '照明と机、\n見比べて'),
-      hint('normal', '時計を\n気にしてる'),
-      hint('panic', '書類、\n落としそう！')
-    ]
-  },
-  janitor: {
-    civ: [
-      hint('normal', '清掃員さんだ'),
-      hint('normal', 'モップを\nかけてる'),
-      hint('deadpan', 'ていねい…'),
-      hint('normal', '上の明かりも\n忘れずに'),
-      hint('normal', '休まず\n働いてる'),
-      hint('panic', 'こっちに\n来る！')
-    ],
-    bad: [
-      hint('normal', '清掃員さんだ'),
-      hint('normal', 'モップを\nかけてる'),
-      hint('deadpan', 'ていねい…\nかな？'),
-      hint('normal', '上の明かりも\n忘れずに'),
-      hint('normal', '休まず\n働いてる'),
-      hint('panic', 'こっちに\n来る！')
-    ]
-  },
-  chef: {
-    civ: [
-      hint('normal', 'シェフだ'),
-      hint('normal', '味見してる'),
-      hint('deadpan', 'おいしそう…'),
-      hint('normal', '机のあたり、\n見てみて'),
-      hint('normal', 'コック帽が\n高い'),
-      hint('panic', 'おたまを\nふり回してる！')
-    ],
-    bad: [
-      hint('normal', 'シェフだ'),
-      hint('normal', '味見してる'),
-      hint('deadpan', 'おいしそう…？'),
-      hint('normal', '机のあたり、\n見てみて'),
-      hint('normal', 'コック帽が\n高い'),
-      hint('panic', 'おたまを\nふり回してる！')
-    ]
-  },
-  waiter: {
-    civ: [
-      hint('normal', 'ウェイターさんだ'),
-      hint('normal', 'お盆に\nグラス'),
-      hint('deadpan', '手なれてる…'),
-      hint('normal', '明かりも\n見ておいてね'),
-      hint('normal', '蝶ネクタイ、\n決まってる'),
-      hint('panic', 'こっち見て\nにやっとした！')
-    ],
-    bad: [
-      hint('normal', 'ウェイターさんだ'),
-      hint('normal', 'お盆に\nグラス'),
-      hint('deadpan', '手なれすぎ…？'),
-      hint('normal', '明かりも\n見ておいてね'),
-      hint('normal', '蝶ネクタイ、\n決まってる'),
-      hint('panic', 'こっち見て\nにやっとした！')
-    ]
-  },
-  lady: {
-    civ: [
-      hint('normal', 'ドレスの\nお客さんだ'),
-      hint('normal', '羽の髪飾り'),
-      hint('deadpan', 'セレブだ…'),
-      hint('normal', '周りに\n気をつけて'),
-      hint('normal', '香水の\nにおいがする'),
-      hint('panic', '目が合った！')
-    ],
-    bad: [
-      hint('normal', 'ドレスの\nお客さんだ'),
-      hint('normal', '羽の髪飾り'),
-      hint('deadpan', 'セレブ…\nなのかな'),
-      hint('normal', '周りに\n気をつけて'),
-      hint('normal', '香水の\nにおいがする'),
-      hint('panic', '目が合った！')
-    ]
-  },
-  magician: {
-    civ: [
-      hint('normal', '手品師さんだ'),
-      hint('normal', 'つえを\n持ってる'),
-      hint('deadpan', '手品かな…'),
-      hint('normal', '机の上、\nちゃんと見た？'),
-      hint('normal', 'シルクハットが\nおしゃれ'),
-      hint('panic', 'カードが\n浮いてる！？')
-    ],
-    bad: [
-      hint('normal', '手品師さんだ'),
-      hint('normal', 'つえを\n持ってる'),
-      hint('deadpan', '手品…\nだよね？'),
-      hint('normal', '机の上、\nちゃんと見た？'),
-      hint('normal', 'シルクハットが\nおしゃれ'),
-      hint('panic', 'カードが\n浮いてる！？')
-    ]
-  }
+export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly string[]; bad: readonly string[] }>> =
+  mapLooks(PROFILES, (p) => ({ civ: [...p.civOdd, ...p.civPlain, ...p.shared], bad: [...p.badOdd, ...p.badPlain, ...p.shared] }));
+
+/** ふしぎに聞こえるプロフィールの文(見た目ごと、市民とヴィラン)。もれを隠すヴィランは bad から選ぶ */
+export const TOWER_ODD_LINES: Readonly<Record<TowerLook, { civ: readonly string[]; bad: readonly string[] }>> =
+  mapLooks(PROFILES, (p) => ({ civ: p.civOdd, bad: p.badOdd }));
+
+/**
+ * オペレーターの一言(見た目ごと)。市民とヴィランで同じ一覧にする(一言だけでは決められない)。
+ * 並びは、ふつうの顔(normal)が4つ、あきれ顔(deadpan)が2つ、あわてた顔(panic)が1つ。
+ * 4つ目は「周りを見て」と言う一言。あきれ顔の2つ目は、疑う一言(TOWER_DOUBT_HINTS)。
+ * 前は疑う一言がヴィランにだけあり、それだけで決まってしまったので、市民にも出るようにした。
+ * 照明や小物に見えている物のことは、この一覧ではなく TOWER_SPOT_HINTS で言う(tower.ts が、もれのあるヴィランと
+ * 紛らわしい市民に同じ確率で出す)
+ */
+const OPERATOR_LINES: Readonly<Record<TowerLook, readonly OperatorHint[]>> = {
+  florist: [
+    hint('normal', '花屋さんだ'),
+    hint('normal', '花束を\n持ってる'),
+    hint('normal', '机の上も\n見ておいて'),
+    hint('normal', '花びらが\n舞ってる'),
+    hint('deadpan', 'いい香り…'),
+    hint('deadpan', 'いい香り…？'),
+    hint('panic', 'こっちを\n見てる！')
+  ],
+  courier: [
+    hint('normal', '配達の人だ'),
+    hint('normal', '段ボールを\nかかえてる'),
+    hint('normal', '周りも\nよく見てね'),
+    hint('normal', '帽子を\n直してる'),
+    hint('deadpan', '重そう…'),
+    hint('deadpan', '軽そう…？'),
+    hint('panic', '段ボールが\n落ちそう！')
+  ],
+  newbie: [
+    hint('normal', '新人さんだ'),
+    hint('normal', '書類が\nいっぱい'),
+    hint('normal', '照明と机、\n見比べて'),
+    hint('normal', '時計を\n気にしてる'),
+    hint('deadpan', '緊張してる…'),
+    hint('deadpan', '緊張…\nしてるのかな'),
+    hint('panic', '書類、\n落としそう！')
+  ],
+  janitor: [
+    hint('normal', '清掃員さんだ'),
+    hint('normal', 'モップを\nかけてる'),
+    hint('normal', '上の明かりも\n忘れずに'),
+    hint('normal', '休まず\n働いてる'),
+    hint('deadpan', 'ていねい…'),
+    hint('deadpan', 'ていねい…\nかな？'),
+    hint('panic', 'こっちに\n来る！')
+  ],
+  chef: [
+    hint('normal', 'シェフだ'),
+    hint('normal', '味見してる'),
+    hint('normal', '机のあたり、\n見てみて'),
+    hint('normal', 'コック帽が\n高い'),
+    hint('deadpan', 'おいしそう…'),
+    hint('deadpan', 'おいしそう…？'),
+    hint('panic', 'おたまを\nふり回してる！')
+  ],
+  waiter: [
+    hint('normal', 'ウェイターさんだ'),
+    hint('normal', 'お盆に\nグラス'),
+    hint('normal', '明かりも\n見ておいてね'),
+    hint('normal', '蝶ネクタイ、\n決まってる'),
+    hint('deadpan', '手なれてる…'),
+    hint('deadpan', '手なれすぎ…？'),
+    hint('panic', 'こっち見て\nにやっとした！')
+  ],
+  lady: [
+    hint('normal', 'ドレスの\nお客さんだ'),
+    hint('normal', '羽の髪飾り'),
+    hint('normal', '周りに\n気をつけて'),
+    hint('normal', '香水の\nにおいがする'),
+    hint('deadpan', 'セレブだ…'),
+    hint('deadpan', 'セレブ…\nなのかな'),
+    hint('panic', '目が合った！')
+  ],
+  magician: [
+    hint('normal', '手品師さんだ'),
+    hint('normal', 'つえを\n持ってる'),
+    hint('normal', '机の上、\nちゃんと見た？'),
+    hint('normal', 'シルクハットが\nおしゃれ'),
+    hint('deadpan', 'すごい手品…'),
+    hint('deadpan', '手品…\nだよね？'),
+    hint('panic', 'つえを\nふり回してる！')
+  ]
 };
+
+/** オペレーターの一言(見た目ごと、市民とヴィラン)。市民とヴィランで同じ一覧(中身は上の OPERATOR_LINES) */
+export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly OperatorHint[]; bad: readonly OperatorHint[] }>> =
+  mapLooks(OPERATOR_LINES, (l) => ({ civ: l, bad: l }));
+
+/**
+ * 疑う一言(見た目ごとに1つ。あきれ顔で「…？」「かな」と言う)。市民にもヴィランにも出る。
+ * もれを隠すヴィランはいつもこの一言で、プロフィールはふしぎに聞こえる文(TOWER_ODD_LINES)。
+ * 市民は、ふしぎに聞こえる文のときはこの一言にならない(tower.ts)
+ */
+export const TOWER_DOUBT_HINTS: Readonly<Record<TowerLook, OperatorHint>> = mapLooks(OPERATOR_LINES, (l) => l[5]);
 
 /**
  * 照明と小物に見えている物のことを言う一言(docs/STAGE4_TEXT.md「見えている物のことを言う一言」)。
@@ -382,13 +229,16 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
  *   lightPurple:照明が紫(もれ、紫のセロハン)
  *   itemFloat:小物が浮いている(もれ、手品の糸、手品の紫の煙、紫の風船)
  *   itemPurple:小物のあたりが紫(もれ、手品の紫の煙、紫の風船)
+ *   glassFloat:浮いている小物がグラス(35階と最上階。rules.ts の TOWER_SPOT_ITEMS)
  */
-export const TOWER_SPOT_HINTS: Readonly<Record<'lightOdd' | 'lightPurple' | 'itemFloat' | 'itemPurple', readonly OperatorHint[]>> = {
+export const TOWER_SPOT_HINTS: Readonly<Record<'lightOdd' | 'lightPurple' | 'itemFloat' | 'itemPurple' | 'glassFloat', readonly OperatorHint[]>> = {
   lightOdd: [hint('normal', '照明、なんか\n変じゃない？'), hint('normal', '明かりの色、\nいつもと違う？')],
   lightPurple: [hint('normal', '照明が…\n紫っぽい？')],
   itemFloat: [hint('normal', '今、何か\n浮かなかった？'), hint('normal', '机の上の物、\n浮いてない？')],
-  itemPurple: [hint('normal', '机のあたりが\n紫っぽい？')]
+  itemPurple: [hint('normal', '机のあたりが\n紫っぽい？')],
+  glassFloat: [hint('panic', 'グラスが\n浮いてる！？')]
 };
+
 
 // ─── 親玉(化けた姿) ───────────────────────────────
 
@@ -449,7 +299,7 @@ export const TOWER_INTRO: readonly Speech[] = [
   hero('smug', '最後は高層ビル！\n超能力者退治だ！'),
   op('normal', '見た目は普通の人。\n周りをよく見て'),
   op('deadpan', '明かりが紫になったり、\n物が浮いたりする'),
-  op('normal', '手品や風船の紫も\nあるよ。よく見て'),
+  op('normal', '手品や風船の紫には\n火花が出ないよ'),
   op('panic', '見逃すと念力で\n物を運んでくる！')
 ];
 
@@ -461,11 +311,14 @@ export const TOWER_WAVE_INTRO: Readonly<Partial<Record<WaveNo, readonly Speech[]
   ],
   2: [
     op('normal', '18階のオフィス。\n5人だよ'),
+    op('normal', '紫でも、火花が\nなければ市民だよ'),
     hero('smug', 'どんと来い！')
   ],
+  // 波3から、もれを隠すヴィランが出る(rules.ts の LEAK.hiddenPerWave)
   3: [
     op('normal', '35階は\nレストラン街'),
-    op('deadpan', '蛍光灯や風船にも\nだまされないで')
+    op('deadpan', '明かりも机も変えない\nヴィランもいる'),
+    op('normal', 'プロフィールと一言、\n両方あやしい人に注意')
   ],
   4: [
     op('panic', '最上階！\n親玉がまぎれてる'),

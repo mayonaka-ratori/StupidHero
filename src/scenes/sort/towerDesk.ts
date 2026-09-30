@@ -31,6 +31,15 @@ const PURPLE_DARK = 0x9224db;
 const OUTLINE = 0x240024;
 /** 浮いた小物の上下のゆれ(1往復のミリ秒) */
 const BOB_MS = 1400;
+/**
+ * 照明と小物の火花のまたたき(fx_psy_spark のコマ)。どのコマも十字が3ドット以上ある大きさ(1と2は大きく、0は3ドットの十字)。
+ * 前はシートのまたたき(0から3)をそのまま使っていて、小さいコマが続くと1ドットの点に見えた
+ */
+const SPARK_ANIM = 'fx_psy_spark.desk';
+const SPARK_FRAMES = [1, 2, 1, 0];
+const SPARK_FPS = 8;
+/** 「光と揺れを弱くする」のときに止めるコマ(大きい十字) */
+const SPARK_STILL = 1;
 /** 手品の糸を吊る点を、つえの先より何ドット上に置くか(小物の真上。ここから糸がまっすぐ下りる) */
 const HANG_ABOVE_TIP = 16;
 /** 吊る点からつえの先へ渡る糸の、真ん中のたるみ(ドット) */
@@ -102,10 +111,17 @@ export class TowerDesk {
     const { x: lx, y: ly } = opt.lamp;
     const ls = opt.lamp.scale ?? 1;
     this.lamp = add(scene.add.sprite(lx, ly, 'fx_psy_lamp', 0).setOrigin(0.5, 0).setScale(ls).setDepth(d));
-    // 照明の火花は、左の下と右の上
+    if (!scene.anims.exists(SPARK_ANIM)) {
+      scene.anims.create({
+        key: SPARK_ANIM, frames: SPARK_FRAMES.map((frame) => ({ key: 'fx_psy_spark', frame })), frameRate: SPARK_FPS, repeat: -1
+      });
+    }
+    // 照明の火花は、照明の右の上と右の下。どちらも下へこぼれる紫の光の外の、暗い壁の上に出す
+    // (前は1つ目が左の下で、紫の光に重なって見えにくく、左上の「○人目」の字の続きにも見えた)。
+    // 照明だけのもれ(火花1つ)は右の上
     this.lampSparks = [
-      add(scene.add.sprite(lx - 17 * ls, ly + 15 * ls, 'fx_psy_spark', 0).setScale(ls).setDepth(d + 0.2)),
-      add(scene.add.sprite(lx + 22 * ls, ly + 5 * ls, 'fx_psy_spark', 2).setScale(ls).setDepth(d + 0.2))
+      add(scene.add.sprite(lx + 22 * ls, ly + 5 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2)),
+      add(scene.add.sprite(lx + 24 * ls, ly + 18 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2))
     ];
     const { x: dx, y: dy } = opt.desk;
     this.desk = add(scene.add.image(dx, dy, 'tw_desk').setOrigin(0.5, 1).setDepth(d));
@@ -116,7 +132,7 @@ export class TowerDesk {
     this.haze = add(scene.add.sprite(this.spotX, this.restY - FLOAT_PX, 'fx_psy_haze', 0).setDepth(d + 0.1));
     this.items = this.spot.items.map(({ item, dx: ix }) =>
       add(scene.add.sprite(dx + ix, dy + itemRestDy(item), 'fx_psy_items', TOWER_ITEM_FRAMES[item]).setDepth(d + 0.2)));
-    this.itemSpark = add(scene.add.sprite(this.spotX + 7, this.restY - FLOAT_PX - 6, 'fx_psy_spark', 1).setDepth(d + 0.3));
+    this.itemSpark = add(scene.add.sprite(this.spotX + 7, this.restY - FLOAT_PX - 6, 'fx_psy_spark', SPARK_STILL).setDepth(d + 0.3));
     this.thread = add(scene.add.graphics().setDepth(opt.threadDepth ?? d + 0.3));
     this.balloon = add(scene.add.graphics().setDepth(d + 0.3));
     // 手品の煙は小物の後ろ(小物の形が見えるように)
@@ -157,15 +173,17 @@ export class TowerDesk {
 
   update(now: number): void {
     const L = this.look;
-    // 火花のまたたきともやの動き。光と揺れを弱くするときは1コマ目で止める
+    // 火花のまたたきともやの動き。光と揺れを弱くするときは、火花は大きい十字、もやは1コマ目で止める
     const reduce = settings.reduceFx;
     if (reduce !== this.reduce) {
       this.reduce = reduce;
       const sparks = [...this.lampSparks, this.itemSpark];
-      for (const s of [...sparks, this.haze]) {
-        if (reduce) s.stop().setFrame(0);
-        else s.play(animKey(s.texture.key, 'play'));
+      for (const s of sparks) {
+        if (reduce) s.stop().setFrame(SPARK_STILL);
+        else s.play(SPARK_ANIM);
       }
+      if (reduce) this.haze.stop().setFrame(0);
+      else this.haze.play(animKey(this.haze.texture.key, 'play'));
       // 火花がそろって光らないように、コマをずらす
       if (!reduce) sparks.forEach((s, i) => s.anims.setProgress(((i * 3) % 4) / 4));
     }

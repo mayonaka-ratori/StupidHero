@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TOWER_SPOT_ITEMS } from '../logic/rules';
 import { createStage } from '../logic/stage';
 import { leakSpots } from '../logic/tower';
 import { sheetByKey } from './sheets';
@@ -40,6 +41,8 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
       ['card', 'pen'], ['pen', 'cup'], ['glass', 'napkin'], ['glass', 'candle']
     ]);
     expect(towerDeskFor(3)).toBe(TOWER_DESKS[2]);
+    // ロジックの側の表(「グラスが浮いてる!?」を出す階を決める)と同じ
+    expect(TOWER_DESKS.map((d) => d.items[0].item)).toEqual([...TOWER_SPOT_ITEMS]);
   });
 
   it('小物は机の天板の上にのり、机からはみ出さない', () => {
@@ -84,12 +87,13 @@ describe('もれの見せ方(leakLook)', () => {
     expect(leakLook({ light: null, item: 'balloon' })).toMatchObject({ itemFloat: true, haze: false, thread: false, smoke: false, balloon: true });
   });
 
-  it('親玉とふつうの市民は何も出ない。ヴィランはかならず火花が出る。紛らわしい市民には火花ももやも出ない', () => {
+  it('親玉とふつうの市民ともれを隠すヴィランは何も出ない。ほかのヴィランはかならず火花が出る。紛らわしい市民には火花ももやも出ない', () => {
     for (let seed = 1; seed <= 60; seed++) {
       for (const w of createStage(seed, 'tower').waves) for (const p of w.people) {
         const look = leakLook(leakSpots(p));
-        if (p.truth === 'boss' || (p.truth === 'civ' && !p.decoy)) expect(look, p.id).toEqual(CALM_LOOK);
-        if (p.truth === 'bad') expect(look.lampSparks > 0 || look.haze, p.id).toBe(true);
+        const hidden = p.truth === 'bad' && !p.leak!.light && !p.leak!.item;
+        if (p.truth === 'boss' || (p.truth === 'civ' && !p.decoy) || hidden) expect(look, p.id).toEqual(CALM_LOOK);
+        else if (p.truth === 'bad') expect(look.lampSparks > 0 || look.haze, p.id).toBe(true);
         if (p.decoy) expect(look.lampSparks === 0 && look.lampFrame !== 1 && !look.haze, p.id).toBe(true);
       }
     }

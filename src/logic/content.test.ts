@@ -10,7 +10,8 @@ import {
 } from './content';
 import {
   BOSS4_HINTS, BOSS4_PROFILE_LINES, LIFT_BAND, LIFT_INTRO_AGAIN, LIFT_INTRO_FIRST, TOWER_ENDING, TOWER_GARAGE_OVERRIDES, TOWER_INTRO,
-  TOWER_OPERATOR_HINTS, TOWER_OVERRIDES, TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_TITLE_COMMENTS, TOWER_WAVE_INTRO
+  TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_OVERRIDES, TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_SPOT_HINTS,
+  TOWER_TITLE_COMMENTS, TOWER_WAVE_INTRO
 } from './towerContent';
 import {
   GARAGE_INTRO, GARAGE_OPERATOR_HINTS, GARAGE_OVERRIDES, GARAGE_PROFILE_LINES, GARAGE_REACTIONS,
@@ -332,14 +333,14 @@ describe('ステージ3の文', () => {
 });
 
 describe('ステージ4の文', () => {
-  it('8つの見た目に、名前が10人ずつ、市民とヴィランの文が8つずつと一言が6つずつある。どちらにも出る文が2つずつ', () => {
+  it('8つの見た目に、名前が10人ずつ、市民とヴィランの文が8つずつと一言が7つずつある。どちらにも出る文が2つずつ', () => {
     for (const look of TOWER_LOOKS) {
       const { civ, bad } = TOWER_PROFILE_LINES[look];
       expect(civ, look).toHaveLength(8);
       expect(bad, look).toHaveLength(8);
       expect(civ.filter((l) => bad.includes(l)), look).toHaveLength(2);
-      expect(OPERATOR_HINTS[look].civ, look).toHaveLength(6);
-      expect(OPERATOR_HINTS[look].bad, look).toHaveLength(6);
+      expect(OPERATOR_HINTS[look].civ, look).toHaveLength(7);
+      expect(OPERATOR_HINTS[look].bad, look).toHaveLength(7);
       expect(NAMES[look], look).toHaveLength(10);
       expect(AGES[look][0], look).toBeLessThan(AGES[look][1]);
       expect(JUDGE_LINES[look], look).toHaveLength(3);
@@ -350,15 +351,43 @@ describe('ステージ4の文', () => {
     }
     expect(AGES.newbie).toEqual([22, 25]);
     expect(AGES.janitor).toEqual([40, 65]);
-    // 手品師の「カードが浮いてる!?」は市民にもヴィランにも出る(同じ文はいつも同じ顔)
-    for (const t of ['civ', 'bad'] as const) {
-      expect(TOWER_OPERATOR_HINTS.magician[t].map((h) => h.text)).toContain('カードが\n浮いてる！？');
+    // 「カードが浮いてる!?」は、手品師が出る最上階の机の小物(グラス)と合わず嘘になるので、見た目ごとの一言から外し、
+    // 見えている物のことを言う一言の「グラスが浮いてる!?」にした
+    const allHints = TOWER_LOOKS.flatMap((look) => [...TOWER_OPERATOR_HINTS[look].civ, ...TOWER_OPERATOR_HINTS[look].bad]);
+    expect(allHints.map((h) => h.text).filter((t) => t.includes('カード'))).toEqual([]);
+    expect(TOWER_SPOT_HINTS.glassFloat.map((h) => h.text)).toEqual(['グラスが\n浮いてる！？']);
+  });
+
+  it('ふしぎに聞こえるプロフィールの文は、市民とヴィランに3つずつ(どちらにも出る文は入れない)。一言は市民とヴィランで同じ一覧で、疑う一言が1つずつある', () => {
+    const DOUBT = /？|かな|だよね/;
+    for (const look of TOWER_LOOKS) {
+      const odd = TOWER_ODD_LINES[look];
+      const lines = TOWER_PROFILE_LINES[look];
+      expect(odd.civ, look).toHaveLength(3);
+      expect(odd.bad, look).toHaveLength(3);
+      for (const l of odd.civ) expect(lines.civ.includes(l) && !lines.bad.includes(l), `${look} ${l}`).toBe(true);
+      for (const l of odd.bad) expect(lines.bad.includes(l) && !lines.civ.includes(l), `${look} ${l}`).toBe(true);
+      const hints = TOWER_OPERATOR_HINTS[look];
+      expect(hints.civ, look).toEqual(hints.bad);
+      const doubt = TOWER_DOUBT_HINTS[look];
+      expect(doubt.face, look).toBe('deadpan');
+      expect(hints.civ.filter((h) => h.text === doubt.text), look).toHaveLength(1);
+      // 疑う一言は「…?」「かな」のように疑う言い方。ほかのあきれ顔とあわてた顔の一言は、疑う言い方をしない
+      // (「周りを見て」のふつうの顔の一言は、問いかけでもよい)
+      expect(DOUBT.test(doubt.text), `${look} ${doubt.text}`).toBe(true);
+      for (const h of hints.civ) {
+        if (h.text === doubt.text || h.face === 'normal') continue;
+        expect(DOUBT.test(h.text), `${look} ${h.text}`).toBe(false);
+      }
     }
+    // 前は市民に嘘の文があった(手品師の「タネもしかけもない」「何でも出せる」)
+    const magic = [...TOWER_PROFILE_LINES.magician.civ, ...TOWER_PROFILE_LINES.magician.bad].join('/');
+    expect(magic).not.toMatch(/しかけもない|何でも出せる/);
   });
 
   it('掛け合いは5枚で、もれ、紛らわしい市民、念力を伝える。エレベーターのことは言わない', () => {
     const joined = introFor('tower').map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['高層ビル', '超能力者', '周りをよく見て', '紫', '浮いたり', '手品', '風船', '念力']) {
+    for (const word of ['高層ビル', '超能力者', '周りをよく見て', '紫', '浮いたり', '手品', '風船', '火花が出ない', '念力']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toContain('エレベーター');
@@ -366,7 +395,13 @@ describe('ステージ4の文', () => {
     expect(TOWER_INTRO[0].who).toBe('hero');
     expect(waveIntroFor('tower', 1)[0].text).toContain('4人');
     expect(waveIntroFor('tower', 2)[0].text).toContain('18階');
+    // 紫でも火花がなければ市民(紫のセロハン、手品の紫の煙、紫の風船)
+    expect(waveIntroFor('tower', 2)[1].text.replace('\n', '')).toContain('火花がなければ市民');
     expect(waveIntroFor('tower', 3)[0].text).toContain('35階');
+    // 波3から、もれを隠すヴィランが出る。プロフィールと一言を合わせて見ることを言う
+    const wave3 = waveIntroFor('tower', 3).map((s) => s.text.replace('\n', '')).join('/');
+    expect(wave3).toContain('変えないヴィラン');
+    expect(wave3).toContain('両方あやしい');
     expect(waveIntroFor('tower', 4)[0].text).toContain('親玉');
     expect(waveIntroFor('tower', 4)[1].text).toContain('変えない');
     // ステージ1〜3には波4の一言がない

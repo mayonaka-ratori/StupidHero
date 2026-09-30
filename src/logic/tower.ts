@@ -7,10 +7,14 @@
 // - 1つの波のヴィランは、波1が1〜2人、波2と3が2〜3人、波4が2人。見た目は波の中で重ならない。
 //   ヴィランと同じ見た目の市民を、なるべく同じ波に出す
 // - ヴィランにはもれ(person.leak)をつける。2か所とも出るか1か所だけか(半々)。波1の1人目は練習用で2か所とも
+// - 波3と波4には、もれを隠すヴィランを1人ずつ入れる(LEAK.hiddenPerWave。leak は { light: false, item: false })。
+//   プロフィールはふしぎに聞こえる文(TOWER_ODD_LINES)、一言は疑う一言(TOWER_DOUBT_HINTS)にする。
+//   市民は、ふしぎに聞こえる文と疑う一言が同じ人にそろわない。そのため「両方あやしい人」はヴィランと決められる
 // - 波2から、紛らわしい市民(person.decoy)を1〜2人ずつ入れる(TOWER_WAVES の decoys)。1つの波の中では種類を重ねない。
 //   種類ごとに出せる見た目が決まっている(DECOY_LOOKS)
 // - 照明か小物に何か出ている人(もれのあるヴィランと紛らわしい市民)は、半々で、オペレーターの一言を
-//   見えている物のことを言う一言(TOWER_SPOT_HINTS)に替える。ヴィランと紛らわしい市民で同じ確率にする
+//   見えている物のことを言う一言(TOWER_SPOT_HINTS)に替える。ヴィランと紛らわしい市民で同じ確率にする。
+//   「グラスが浮いてる!?」は、浮いている小物がグラスの階(35階と最上階)だけ
 // - 親玉は波4に1人。化けた姿はドレスの女性、手品師、ウェイターから。同じ見た目の市民を波4に入れる。親玉はもれない
 // - エレベーターラッシュ(stage.rush、kind は 'elevator'):6人、ヴィランは2人か3人(半々)。
 //   最初の2人は市民1人とヴィラン1人(順はランダム)。見た目は8種類から、前の人と続けて同じにしない
@@ -22,10 +26,10 @@
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed, pickFresh, rushLineup, zeroCounts } from './pick';
 import type { Rng } from './rng';
-import { DECOY_LOOKS, LEAK, LIFT } from './rules';
+import { DECOY_LOOKS, LEAK, LIFT, TOWER_SPOT_ITEMS } from './rules';
 import { BOSS4_DISGUISES, STAGES, TOWER_LOOKS, sheetKeyFor } from './stages';
-import { TOWER_SPOT_HINTS } from './towerContent';
-import type { Leak, LiftPlan, LiftRider, OperatorHint, Person, TowerDecoy, TowerLook, Wave } from './types';
+import { TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_SPOT_HINTS } from './towerContent';
+import type { Leak, LiftPlan, LiftRider, OperatorHint, Person, TowerDecoy, TowerLook, Wave, WaveNo } from './types';
 
 /** 波ごと(階ごと)に出る見た目。上の階には下の階の人も上がってくる */
 export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
@@ -89,13 +93,56 @@ export function leakSpots(p: Pick<Person, 'leak' | 'decoy'>): LeakSpots {
  * 照明と小物に見えている物のことを言う一言の候補(TOWER_SPOT_HINTS から、その人に本当に当てはまるものだけ)。
  * 何も出ていなければ空。もれか紛らわしい市民の理由かは言わない(どちらにも同じ文が出る)
  */
-export function spotHintsFor(s: LeakSpots): OperatorHint[] {
+export function spotHintsFor(s: LeakSpots, wave: WaveNo | null = null): OperatorHint[] {
   const out: OperatorHint[] = [];
   if (s.light) out.push(...TOWER_SPOT_HINTS.lightOdd);
   if (s.light === 'leak' || s.light === 'cellophane') out.push(...TOWER_SPOT_HINTS.lightPurple);
   if (s.item) out.push(...TOWER_SPOT_HINTS.itemFloat);
   if (s.item === 'leak' || s.item === 'smoke' || s.item === 'balloon') out.push(...TOWER_SPOT_HINTS.itemPurple);
+  // 浮いている小物がグラスの階(35階と最上階)だけ
+  if (s.item && wave !== null && TOWER_SPOT_ITEMS[wave - 1] === 'glass') out.push(...TOWER_SPOT_HINTS.glassFloat);
   return out;
+}
+
+/** 見た目ごとの一言のうち、疑う一言か */
+export function isDoubtHint(look: TowerLook, h: Pick<OperatorHint, 'text'>): boolean {
+  return TOWER_DOUBT_HINTS[look].text === h.text;
+}
+
+/** ふしぎに聞こえるプロフィールの文か(市民とヴィランのどちらの文も見る) */
+export function isOddLine(look: TowerLook, line: string): boolean {
+  const odd = TOWER_ODD_LINES[look];
+  return odd.civ.includes(line) || odd.bad.includes(line);
+}
+
+/**
+ * ヴィランのもれを隠す(もれを隠すヴィランにする)。もれはどこにも出ない。
+ * プロフィールはふしぎに聞こえる文、一言は疑う一言にする(市民にはこの2つがそろわないので、合わせると決められる)
+ */
+function hideLeak(rng: Rng, used: UsedTexts, p: PersonDraft): void {
+  const look = p.look as TowerLook;
+  p.leak = { light: false, item: false };
+  p.profile = { ...p.profile, line: pickFresh(rng, TOWER_ODD_LINES[look].bad, used.texts, (l) => l) };
+  p.hint = { ...TOWER_DOUBT_HINTS[look] };
+  used.texts.add(p.hint.text);
+}
+
+/**
+ * 市民の一言を決め直す。ふしぎに聞こえるプロフィールの文と疑う一言は、同じ人にそろわないようにする
+ * (そろっていたら、一言を疑う一言でないものに選び直す)。ふつうに聞こえる文の市民は、LEAK.civDoubtChance で
+ * 疑う一言にする(もれを隠すヴィランと同じくらい出して、疑う一言だけでは決められないように)
+ */
+function fairCivHint(rng: Rng, used: UsedTexts, p: PersonDraft): void {
+  const look = p.look as TowerLook;
+  const doubt = isDoubtHint(look, p.hint);
+  if (isOddLine(look, p.profile.line)) {
+    if (!doubt) return;
+    const others = TOWER_OPERATOR_HINTS[look].civ.filter((h) => !isDoubtHint(look, h));
+    p.hint = { ...pickFresh(rng, others, used.texts, (h) => h.text) };
+  } else if (!doubt && rng.chance(LEAK.civDoubtChance)) {
+    p.hint = { ...TOWER_DOUBT_HINTS[look] };
+    used.texts.add(p.hint.text);
+  }
 }
 
 /**
@@ -146,12 +193,21 @@ export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
     for (const l of civLooks) civCount[l]++;
 
     // ヴィラン:波1は1人目を練習用にする(並びはあとで混ぜるので、何番目に出るかはランダム)
+    const practice = (i: number): boolean => plan.practiceLeak === true && i === 0;
     const drafts: PersonDraft[] = villainLooks.map((look, i) => {
       const p = makePerson(rng, used, 'tower', plan.no, look, 'bad');
-      p.leak = rollLeak(rng, plan.practiceLeak === true && i === 0);
+      p.leak = rollLeak(rng, practice(i));
       return p;
     });
-    const civDrafts = civLooks.map((look) => makePerson(rng, used, 'tower', plan.no, look, 'civ'));
+    // もれを隠すヴィラン(波3と波4に1人ずつ。練習用のヴィランはしない)
+    const hideable = drafts.map((_, i) => i).filter((i) => !practice(i));
+    const hiddenTotal = Math.min(LEAK.hiddenPerWave[wi] ?? 0, hideable.length);
+    for (const i of rng.shuffle(hideable).slice(0, hiddenTotal)) hideLeak(rng, used, drafts[i]);
+    const civDrafts = civLooks.map((look) => {
+      const p = makePerson(rng, used, 'tower', plan.no, look, 'civ');
+      fairCivHint(rng, used, p);
+      return p;
+    });
     const [dMin, dMax] = plan.decoys ?? [0, 0];
     const decoyTotal = rng.int(dMin, dMax);
     const kindsUsed = new Set<TowerDecoy>();
@@ -165,7 +221,7 @@ export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
     drafts.push(...civDrafts);
     // 照明か小物に何か出ている人は、半々で一言を「見えている物」のことにする(ヴィランも紛らわしい市民も同じ)
     for (const d of drafts) {
-      const spotHints = spotHintsFor(leakSpots(d));
+      const spotHints = spotHintsFor(leakSpots(d), plan.no);
       if (spotHints.length === 0 || !rng.chance(LEAK.spotHintChance)) continue;
       d.hint = { ...pickFresh(rng, spotHints, used.texts, (h) => h.text) };
     }

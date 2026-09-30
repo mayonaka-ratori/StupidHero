@@ -87,14 +87,17 @@ export function towerDeskFor(no: WaveNo): TowerDeskSpot {
   return TOWER_DESKS[Math.min(TOWER_DESKS.length, Math.max(1, no)) - 1];
 }
 
-/** fx_psy_lamp のコマ(src/art/world4/fx.ts の lamp) */
-export const LAMP_FRAMES = { normal: 0, leak: 1, flicker: 2, flickerDark: 3, cellophane: 4 } as const;
+/** fx_psy_lamp のコマ(src/art/world4/fx.ts の lamp)。3(切れかけの暗いほう)はシートにあるが、いまは使わない */
+export const LAMP_FRAMES = { normal: 0, leak: 1, flicker: 2, cellophane: 4 } as const;
 
 /** 照明と小物の見せ方(leakSpots の答えを絵にするときの決まり) */
 export interface LeakLook {
   /** fx_psy_lamp のコマ(0:ふつう、1:もれ(紫)、2:切れかけ、4:紫のセロハン) */
   lampFrame: 0 | 1 | 2 | 4;
-  /** 照明のまわりに出す火花の数(もれだけ。2か所とももれていれば2つ、照明だけなら1つ) */
+  /**
+   * 照明のまわりに出す火花の数(もれだけ。2か所とももれていれば2つ、照明だけなら1つ)。
+   * 1つのときは照明の右上(暗い壁の上)、2つ目は右下に出す(src/scenes/sort/towerDesk.ts)
+   */
   lampSparks: 0 | 1 | 2;
   /** 1つ目の小物を浮かせる(もれ、手品の糸、手品の紫の煙、紫の風船) */
   itemFloat: boolean;
