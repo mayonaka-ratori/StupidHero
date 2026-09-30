@@ -24,7 +24,11 @@
 //         市民への待ては good と同じに押す。
 //         前ぶれの間に押した行けが覚えられ、悪さのマークが出た瞬間に全部効き、空押しが0かを見る
 //         (波3で、素通りのマークが出ている間に前ぶれが始まっても、素通りの相手ではなく悪さに効くか)
-//   both  good と none を続けて(all は good、civgo、none、late、two、early)
+//   gang1 good と同じに押すが、ギャングの組は、素通りしかけた1人目にだけ行けを押し、2人目には押さない。
+//         2人目は1人で口笛を吹くので、その行けのマークで押す。組が1つの場面として数えられ、逃がしたワルがいないかを見る
+//   gang1x gang1 と同じだが、1人で口笛を吹いた2人目にも押さない。組ごとに逃がしたワル1人と数え、
+//         その組を「行けで決めた」に数えないか(行けで決めた場面が8から組の数だけ減るか)を見る
+//   both  good と none を続けて(all は good、civgo、none、late、two、early、gang1、gang1x)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
@@ -34,7 +38,7 @@ import { checker, gameUrl, openBrowser, openPage, serverUrl, shotsDir, touchPad 
 const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
 const outDir = shotsDir(outArg);
-const POLICIES = ['good', 'civgo', 'none', 'late', 'two', 'early'];
+const POLICIES = ['good', 'civgo', 'none', 'late', 'two', 'early', 'gang1', 'gang1x'];
 const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? POLICIES : [policyArg];
 if (policies.some((p) => !POLICIES.includes(p))) { console.error(`押し方は ${POLICIES.join('、')}、both、all のどれか(${policyArg})`); process.exit(2); }
 const browser = await openBrowser();
@@ -61,6 +65,7 @@ const peek = () => {
     // 行けのマークの種類:悪さ(mischief)、素通りしかけたワル(passBad)、素通りしかけた市民(passCiv)
     goKind: f.mischiefTarget() !== null ? 'mischief' : f.passTarget ? (f.passTarget.civ ? 'passCiv' : 'passBad') : null,
     passId: f.passTarget?.person?.id ?? null,
+    passGroup: f.passTarget?.person?.group ?? null,
     stopLocked: f.dryStop.locked(sd.time.now),
     goLocked: f.dryGo.locked(sd.time.now),
     redeclared: f.redeclared,
@@ -186,6 +191,8 @@ async function play(policy) {
   let reached = false;
   let villainStopped = false;
   let civGoId = null;
+  const gangHit = new Map();
+  let gangPairs = 0;
   let declareShotAt = 0;
   while (Date.now() - t0 < 360000) {
     const st = await page.evaluate(peek);
@@ -209,7 +216,8 @@ async function play(policy) {
       await page.waitForTimeout(30);
       continue;
     }
-    const goodLike = policy === 'good' || policy === 'civgo';
+    const gangLike = policy === 'gang1' || policy === 'gang1x';
+    const goodLike = policy === 'good' || policy === 'civgo' || gangLike;
     if ((goodLike || policy === 'early') && s.open && !s.leaving) {
       // 波1の始め、マークのないときに1回だけ空押し(early はしない)
       if (policy === 'good' && !dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
@@ -227,6 +235,13 @@ async function play(policy) {
       }
       // 行けはワルにだけ(素通りしかけたワルと、悪さ)。civgo は、最初に素通りしかけた市民にも1回だけ押す
       const civGo = policy === 'civgo' && s.goKind === 'passCiv' && (civGoId === null || civGoId === s.passId);
+      // gang1、gang1x:組の2人目(1人目を行けで倒した組)には、素通りの行けを押さない。gang1x は悪さのマークにも押さない
+      if (gangLike && s.goKind === 'passBad' && s.passGroup && gangHit.has(s.passGroup) && gangHit.get(s.passGroup) !== s.passId) {
+        await page.waitForTimeout(40);
+        continue;
+      }
+      if (policy === 'gang1x' && s.goKind === 'mischief') { await page.waitForTimeout(40); continue; }
+      if (gangLike && s.goKind === 'passBad' && s.passGroup && !gangHit.has(s.passGroup)) { gangHit.set(s.passGroup, s.passId); gangPairs++; await shot('gang1_first'); }
       if (goodLike && (s.goKind === 'mischief' || s.goKind === 'passBad' || civGo) && !s.goLocked && Date.now() - pressedGoAt > 250) {
         pressedGoAt = Date.now();
         if (civGo) { civGoId = s.passId; await shot('civgo_press'); }
@@ -274,6 +289,15 @@ async function play(policy) {
       check('[civgo] 直したあとの当たりが1つ減った', f.fixedRight === f.units - 1, `${f.fixedRight}/${f.units}`);
       check('[civgo] いちばんひどい場面は市民を殴った場面', ['civHit', 'specialOnCiv'].includes(snap.worstScene), String(snap.worstScene));
       check('[civgo] 待てと行けはほかは全部決めた', f.stopSaved === 9 && f.goScenes === 8, `${f.stopSaved} ${f.goScenes}`);
+    } else if (policy === 'gang1' || policy === 'gang1x') {
+      console.log(`[${policy}] 1人目だけ先に倒したギャングの組 ${gangPairs}`);
+      check(`[${policy}] ギャングの組の1人目を先に倒した`, gangPairs >= 1, String(gangPairs));
+      // gang1 は組を全員倒したので8のまま。gang1x は2人目を逃がした組を「行けで決めた」から外す(逃げきった場面に数える)
+      const goWant = policy === 'gang1' ? 8 : 8 - gangPairs;
+      check(`[${policy}] 行けで決めた場面は ${goWant}(組は1つの場面。2人目を逃がした組は数えない)`, f.goScenes === goWant, String(f.goScenes));
+      check(`[${policy}] 待てで市民を全員守った`, f.stopSaved === 9, String(f.stopSaved));
+      if (policy === 'gang1') check('[gang1] 1人で口笛を吹いた2人目も行けで倒し、逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
+      else check('[gang1x] 組ごとに2人目を逃がした', snap.escaped === gangPairs, `${snap.escaped}/${gangPairs}`);
     } else if (policy === 'early') {
       const early = await page.evaluate(() => window.__early);
       console.log(`[early] 前ぶれで押した ${JSON.stringify(early)}`);

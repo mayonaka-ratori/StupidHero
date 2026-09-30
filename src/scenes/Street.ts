@@ -1238,7 +1238,7 @@ export class StreetScene extends Phaser.Scene {
     }
     // 逃げられた
     this.runAway(a);
-    this.stats.escaped();
+    this.stats.escaped(false, this.free ? a.person?.group : undefined);
     this.opSay(this.line('escaped', this.rng));
     this.free?.escapedAlone(a.look);
     h.play('idle');

@@ -429,11 +429,17 @@ export class StatsTracker {
 
   /**
    * 悪さを始めたワルが画面の右から逃げた。
-   * robbed はフリープレイのモヒカン:財布を奪って逃げたので、市民のけが(ワルにやられた)も数える
+   * robbed はフリープレイのモヒカン:財布を奪って逃げたので、市民のけが(ワルにやられた)も数える。
+   * group はフリープレイのギャング:1人目を行けで倒した組の残りが逃げたら、その組は「行けで決めた」から外す
+   * (組は1場面なので、逃げきった場面だけに数える)
    */
-  escaped(robbed = false): void {
+  escaped(robbed = false, group?: string): void {
     this.escapedCount++;
-    if (this.free) this.free.escapedScenes++;
+    const f = this.free;
+    if (f) {
+      f.escapedScenes++;
+      if (group && f.goGroups.delete(group)) f.goScenes--;
+    }
     if (robbed) this.hurtCiv('villain');
   }
 

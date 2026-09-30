@@ -136,18 +136,20 @@ describe('フリープレイの数え方', () => {
     expect(decideTitle(s).id).toBe('heroSitter');
   });
 
-  it('ギャングの組の1人を先に倒し、残った1人に逃げられたら、行けで決めた1回と逃げきった場面1つ', () => {
+  it('ギャングの組の1人を先に倒し、残った1人に逃げられたら、行けで決めたから外して逃げきった場面1つ', () => {
     const stats = new StatsTracker(3, 'garage');
     stats.startFree(PLAN);
     stats.defeatBad('go', false, 'w2-g1');
-    stats.escaped();
+    expect(stats.snapshot().free!.goScenes).toBe(1);
+    stats.escaped(false, 'w2-g1');
     const s = stats.snapshot();
-    expect(s.free!.goScenes).toBe(1);
+    expect(s.free!.goScenes).toBe(0);
     expect(s.escaped).toBe(1);
     expect(s.free!.fixedRight).toBe(26);
-    // 別の組なら、それぞれ数える
+    // 別の組なら、それぞれ数える。組の2人とも倒せば1場面
     stats.defeatBad('go', false, 'w3-g1');
-    expect(stats.snapshot().free!.goScenes).toBe(2);
+    stats.defeatBad('go', false, 'w3-g1');
+    expect(stats.snapshot().free!.goScenes).toBe(1);
   });
 
   it('素通りしかけた市民に行けを押して殴ると、市民のけが(なぐった)に数えて3秒足す。お守り役もなすがままも取れない', () => {
