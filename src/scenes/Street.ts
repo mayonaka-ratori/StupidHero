@@ -649,7 +649,7 @@ export class StreetScene extends Phaser.Scene {
     this.peek(a);
     // 決めつけは技を出すまで出しておく(叫びは技を出す瞬間に替える)。
     // 横に長いので相手の頭の上にかかる。札(ワル)を隠さないように、合図との間まで上げる
-    this.heroSay(judgeLine(a.person?.disguise ?? a.look, this.rng), 1600, JUDGE_RISE);
+    this.heroSay(judgeLine(a.person?.disguise ?? a.look, this.rng, a.person), 1600, JUDGE_RISE);
     // その回で初めての合図なら、待ての使い方を言う
     if (this.firstTime('stop')) this.opSay(this.line('teachStop'));
     const res = await this.markWindow(a, enc, k);

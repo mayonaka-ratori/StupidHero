@@ -4,24 +4,30 @@
 // - ワルは全員ギャングの組。組は2〜3人で、波1は2人の組が1つ、波2と波3は1〜2組(1つの波に4人まで)
 // - 見た目は4種類(警備員、整備士、派手な若者、会社員の女性)。ギャングと同じ見た目の市民をなるべく同じ波に出す
 // - 小物の色:組の仲間は同じ色、組ごとに違う色(ステージの中で重ならない)。
+//   小物の形(腕章かネクタイか、など)は人ごとに選ぶ(tells.ts)。組の仲間でも形は違うことがある。色を読む
 //   市民はばらばらの色で、3割くらいはたまたまその波のギャングの組と同じ色。女ボスは金色
 // - 女ボスは波3に1人。化けた姿は警備員、整備士、会社員の女性から
 // - 並び順を決めてから、前の人とのつながりの文を決める(ギャングは同じ組の前の仲間、市民はどちらとも取れるつながり)
 
 import { LINK_HINTS, LINK_PROFILES, linkText, type LinkTemplate } from './garageContent';
-import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
+import { giveTell, makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { includeLook, leastUsed, pickFresh, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, BOSS2_COLOR_ID, GANG, GANG_COLOR_IDS } from './rules';
 import { BOSS2_DISGUISES, GANG_LOOKS, STAGES } from './stages';
+import { tellRngFor, type TellDef } from './tells';
 import type {
   Accessory, AccessoryColorId, GangGroup, GangLook, Person, Wave
 } from './types';
 
-/** 小物を作る(色と、見た目と正体で決まる小物の名前) */
-export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean): Accessory {
+/**
+ * 小物を作る(色と、小物の名前)。名前は小物の形(tell。tells.ts)で決まり、形がなければ見た目と正体で決まる
+ * (女ボスは化けた姿の市民のいつもの小物)
+ */
+export function accessoryFor(colorId: AccessoryColorId, look: GangLook, isGang: boolean, tell?: TellDef): Accessory {
   const c = ACCESSORY_COLORS[colorId];
-  return { id: colorId, name: c.name, color: c.color, item: ACCESSORY_ITEM[look][isGang ? 'bad' : 'civ'] };
+  const item = tell?.item?.[isGang ? 'bad' : 'civ'] ?? ACCESSORY_ITEM[look][isGang ? 'bad' : 'civ'];
+  return { id: colorId, name: c.name, color: c.color, item };
 }
 
 /** 組ごとの人数を決める。どの組も最低人数から始め、上限までの間で少し足す */
@@ -48,6 +54,8 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
   const colorOrder = rng.shuffle(GANG_COLOR_IDS);
   let colorNext = 0;
   const bossDisguise = rng.pick(BOSS2_DISGUISES);
+  // 小物の形は別の乱数で選ぶ(ステージの乱数の引き方を変えない。tells.ts)
+  const tellRng = tellRngFor(rng);
 
   return def.waves.map((plan) => {
     // 組の数と人数
@@ -93,7 +101,7 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
         const look = gangLooks[k++];
         const p = makePerson(rng, used, 'garage', plan.no, look, 'bad');
         p.group = group.id;
-        p.accessory = accessoryFor(colorId, look, true);
+        p.accessory = accessoryFor(colorId, look, true, giveTell(tellRng, used, p));
         drafts.push(p);
       }
     });
@@ -107,7 +115,7 @@ export function buildGarageWaves(rng: Rng, used: UsedTexts): Wave[] {
     civLooks.forEach((look, i) => {
       const colorId = sameIdx.has(i) ? rng.pick(groupColors) : otherColors[o++ % otherColors.length];
       const p = makePerson(rng, used, 'garage', plan.no, look, 'civ');
-      p.accessory = accessoryFor(colorId, look, false);
+      p.accessory = accessoryFor(colorId, look, false, giveTell(tellRng, used, p));
       drafts.push(p);
     });
 
@@ -147,8 +155,8 @@ function addLinks(rng: Rng, used: UsedTexts, people: Person[]): void {
     const sameColor = p.accessory?.id === to.accessory?.id;
     const list = (where === 'profile' ? LINK_PROFILES : LINK_HINTS).filter((t: LinkTemplate) => !t.sameColor || sameColor);
     const look = p.look as GangLook;
-    const tpl = pickFresh(rng, list, used.texts, (t) => linkText(t.text, to.index, look));
-    const text = linkText(tpl.text, to.index, look);
+    const tpl = pickFresh(rng, list, used.texts, (t) => linkText(t.text, to.index, look, p.tell));
+    const text = linkText(tpl.text, to.index, look, p.tell);
     if (where === 'profile') p.profile = { ...p.profile, line: text };
     else p.hint = { face: tpl.face, text };
     p.link = { toId: to.id, where };

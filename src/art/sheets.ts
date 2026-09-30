@@ -175,13 +175,41 @@ const still = (key: string, w: number, h: number, anchor: SheetDef['anchor'], no
   key, frameW: w, frameH: h, cols: 1, anchor, rows: [a('idle', 1, 1, false, note)]
 });
 
+/**
+ * 見分ける手がかりの出し分けの絵(src/logic/tells.ts の TELLS と同じ。合っているかは src/art/tellSheets.test.ts で確かめる)。
+ * 元の絵のキー → 足した絵のキーの後ろにつける名前。足した絵のキーは `${元の絵のキー}_${名前}`(例 'hoodie_bad_knuckles')。
+ * 行の並びは元の絵と同じ。仕分けの窓の四角も元の絵と同じ(clueSpots.ts)
+ */
+export const TELL_SHEETS: Readonly<Record<string, readonly string[]>> = {
+  hoodie_civ: ['banana', 'keys'], hoodie_bad: ['knuckles', 'stungun'],
+  suit_civ: ['phone', 'ticket'], suit_bad: ['purse', 'pearls'],
+  shopper_civ: ['leek', 'bread'], shopper_bad: ['watch', 'phones'],
+  guard_civ: ['epaulette'], guard_bad: ['epaulette'],
+  mechanic_civ: ['hanky'], mechanic_bad: ['hanky'],
+  clubber_civ: ['cap', 'phones'], clubber_bad: ['cap', 'phones'],
+  officelady_civ: ['ribbon'], officelady_bad: ['ribbon'],
+  mascot_bad: ['pop'], clerk_bad: ['eye3'], dancer_bad: ['arm3'], uncle_bad: ['hatch']
+};
+
+/** 手がかりの出し分けの絵のキー → 元の絵のキー */
+export const TELL_BASE: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(TELL_SHEETS).flatMap(([base, names]) => names.map((n) => [`${base}_${n}`, base]))
+);
+
+/** 元の絵の形(行の並び)のまま、キーだけ変えた出し分けの絵を並べる */
+const tellSheets = (base: SheetDef): SheetDef[] =>
+  (TELL_SHEETS[base.key] ?? []).map((n) => ({ ...base, key: `${base.key}_${n}` }));
+
+/** 元の絵と、その出し分けの絵 */
+const withTells = (...defs: SheetDef[]): SheetDef[] => defs.flatMap((d) => [d, ...tellSheets(d)]);
+
 export const SHEETS: SheetDef[] = [
   HERO,
   face('face_hero', [['smug', 'ドヤ顔'], ['oops', 'やっちまった(汗)'], ['smile', '笑顔']]),
   face('face_operator', [['normal', 'ふつう'], ['panic', 'あせり(汗)'], ['deadpan', 'あきれ(ツッコミ)'], ['hype', 'ノリノリ']]),
-  person('hoodie_civ', false), person('hoodie_bad', true),
-  person('suit_civ', false), person('suit_bad', true),
-  person('shopper_civ', false), person('shopper_bad', true),
+  ...withTells(person('hoodie_civ', false), person('hoodie_bad', true)),
+  ...withTells(person('suit_civ', false), person('suit_bad', true)),
+  ...withTells(person('shopper_civ', false), person('shopper_bad', true)),
   person('villain_mohawk', true),
   person('granny_civ', false),
   disguise('boss_disguise_suit'), disguise('boss_disguise_granny'), disguise('boss_disguise_shopper'),
@@ -193,10 +221,11 @@ export const SHEETS: SheetDef[] = [
   prop('prop_car', 128, 56, 'bottom'),
   // ─── ステージ2(docs/STAGE2.md)───
   // 小物(腕章、タオル、バンダナ、ヘアバンド、スカーフ)は KEY_ACCESSORY の色で描き、ゲームの中で人ごとの色に塗り替える
-  person('guard_civ', false), person('guard_bad', true),
-  person('mechanic_civ', false), person('mechanic_bad', true),
-  person('clubber_civ', false), person('clubber_bad', true),
-  person('officelady_civ', false), person('officelady_bad', true),
+  // 小物の形の出し分け(ネクタイ、キャップなど)も、同じ赤紫で描く
+  ...withTells(person('guard_civ', false), person('guard_bad', true)),
+  ...withTells(person('mechanic_civ', false), person('mechanic_bad', true)),
+  ...withTells(person('clubber_civ', false), person('clubber_bad', true)),
+  ...withTells(person('officelady_civ', false), person('officelady_bad', true)),
   disguise('boss2_disguise_guard'), disguise('boss2_disguise_mechanic'), disguise('boss2_disguise_officelady'),
   BOSS2,
   propN('prop_van', 128, 64, 4, '0:止まっている、1〜2:走る、3:壊れた'),
@@ -207,10 +236,11 @@ export const SHEETS: SheetDef[] = [
   prop('prop_extinguisher', 16, 24, 'center'),
   // ─── ステージ3(docs/STAGE3.md)───
   // 宇宙人の行0〜5は、同じ見た目の市民とまったく同じ絵。違うのは行6と行7だけ
-  person('mascot_civ', false), alien('mascot_bad'),
-  person('clerk_civ', false), alien('clerk_bad'),
-  person('dancer_civ', false), alien('dancer_bad'),
-  person('uncle_civ', false), alien('uncle_bad'),
+  // 宇宙人は、くずれの出方の出し分け(頭が浮く、おでこの目など)も同じ8行
+  person('mascot_civ', false), ...withTells(alien('mascot_bad')),
+  person('clerk_civ', false), ...withTells(alien('clerk_bad')),
+  person('dancer_civ', false), ...withTells(alien('dancer_bad')),
+  person('uncle_civ', false), ...withTells(alien('uncle_bad')),
   disguise('boss3_disguise_clerk'), disguise('boss3_disguise_uncle'), disguise('boss3_disguise_mascot'),
   BOSS3,
   propN('prop_ufo', 64, 32, 4, '0〜1:飛ぶ、2:吸い上げる(下のふたが開いて光る)、3:落ちた'),

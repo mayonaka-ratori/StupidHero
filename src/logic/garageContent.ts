@@ -11,6 +11,7 @@ import type {
   GangLook, GarageDisguise, OperatorFace, OperatorHint, Speech, WaveNo
 } from './types';
 import { hero, hint, op } from './speech';
+import { tellsFor } from './tells';
 
 
 // ─── プロフィール ─────────────────────────────────
@@ -321,8 +322,14 @@ export const ordinalName = (index: number): string => `${index + 1}人目`;
  * つながりの文を作る。targetIndex は相手の波の中の番号(0始まり)、look はこの文が出る人の見た目(小物の呼び名に使う)。
  * 例:linkText(LINK_HINTS[6].text, 0, 'clubber') → '1人目と同じ色の\nヘアバンド…？'
  */
-export function linkText(template: string, targetIndex: number, look: GangLook): string {
-  return template.replace('{n}', ordinalName(targetIndex)).replace('{item}', LINK_ITEM_NOUN[look]);
+export function linkText(template: string, targetIndex: number, look: GangLook, tell?: string): string {
+  return template.replace('{n}', ordinalName(targetIndex)).replace('{item}', linkItemNoun(look, tell));
+}
+
+/** つながりの文で小物を指す言葉。小物の形(tell)があればその名前、なければ見た目のいつもの呼び名 */
+function linkItemNoun(look: GangLook, tell?: string): string {
+  const def = tellsFor(look, 'civ').find((d) => d.id === tell);
+  return def ? (def.noun ?? def.item?.civ ?? LINK_ITEM_NOUN[look]) : LINK_ITEM_NOUN[look];
 }
 
 /** ひな形に番号と見た目を全部入れた文(文字数の確かめとフォントの読みこみ用) */
@@ -330,7 +337,10 @@ export function allLinkTexts(): string[] {
   const out = new Set<string>();
   for (const t of [...LINK_HINTS, ...LINK_PROFILES]) {
     for (let i = 0; i < MAX_ORDINAL; i++) {
-      for (const look of Object.keys(LINK_ITEM_NOUN) as GangLook[]) out.add(linkText(t.text, i, look));
+      for (const look of Object.keys(LINK_ITEM_NOUN) as GangLook[]) {
+        out.add(linkText(t.text, i, look));
+        for (const d of tellsFor(look, 'civ')) out.add(linkText(t.text, i, look, d.id));
+      }
     }
   }
   return [...out];

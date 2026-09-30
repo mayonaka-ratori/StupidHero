@@ -5,6 +5,7 @@ import { pickFresh } from './pick';
 import type { Rng } from './rng';
 import { MISCHIEF_BY_LOOK } from './rules';
 import { STAGES, sheetKeyFor } from './stages';
+import { fitsTell, tellSheetKey, tellsFor, type TellDef } from './tells';
 import type { DisguiseLook, Look, OperatorHint, Person, StageId, Truth, WaveNo } from './types';
 
 /** 名前と文の使い回しを避けるための記録(ステージ全体で1つ) */
@@ -59,4 +60,31 @@ export function makePerson(
   if (truth === 'boss') person.disguise = look as DisguiseLook;
   if (truth === 'bad') person.mischief = MISCHIEF_BY_LOOK[look];
   return person;
+}
+
+/**
+ * 手がかりの出し分けを選んで、tell と絵のキーを入れる(tells.ts)。出し分けのない人(ボス、モヒカン、おばあさん、
+ * ステージ4の人)は何もしない。rng は tellRngFor で作った、ステージとは別の乱数。
+ * プロフィールと一言はもう選んであるので、その文と食いちがわない手がかりから選ぶ
+ * (「黄色い物がちらっと見えた」の人は、黄色い物を持っている)。どれとも合わないときは一言に合わせ、
+ * プロフィールを合う文から選び直す
+ */
+export function giveTell(rng: Rng, used: UsedTexts, p: PersonDraft): TellDef | undefined {
+  const defs = tellsFor(p.look, p.truth);
+  if (defs.length === 0) return undefined;
+  const fits = (d: TellDef, text: string) => fitsTell(text, p.look, p.truth, d.id);
+  let ok = defs.filter((d) => fits(d, p.profile.line) && fits(d, p.hint.text));
+  if (ok.length === 0) {
+    ok = defs.filter((d) => fits(d, p.hint.text));
+    if (ok.length === 0) ok = [...defs];
+  }
+  const def = rng.pick(ok);
+  if (!fits(def, p.profile.line)) {
+    const t = p.truth === 'bad' ? 'bad' : 'civ';
+    const lines = (PROFILE_LINES[p.look][t] ?? []).filter((l) => fits(def, l));
+    if (lines.length > 0) p.profile = { ...p.profile, line: pickFresh(rng, lines, used.texts, (l) => l) };
+  }
+  p.tell = def.id;
+  p.sheetKey = tellSheetKey(p.sheetKey, def);
+  return def;
 }

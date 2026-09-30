@@ -1,6 +1,7 @@
 // ステージ3の人(着ぐるみのバイト、寝不足の店員、ロボットダンスの学生、買い物客のおじさん)と、親玉の化けた姿。
 // 宇宙人は同じ見た目の市民とまったく同じ絵(行0〜5)で、ぎこちない動き(sortIdle)も同じ。
 // 違うのは、行6の「空へ合図を送る」と、行7の「くずれ」だけ。くずれの色は黄緑(GLITCH)。
+// くずれの出方は見た目ごとに2つある(logic/tells.ts)。2つ目は `${look}_bad_${名前}` の絵で、行7だけが違う。
 import { md, PixelGrid } from '../lib';
 import {
   type Build, HAND_R, type HairStyle, HAIR_SHORT, type Look, type Pose,
@@ -22,6 +23,14 @@ interface P3 extends Pose {
   spin?: number;
   /** 合図の光(1:小さい、2:大きい) */
   flash?: 1 | 2;
+  /**
+   * くずれの2つ目の出方(logic/tells.ts の出し分け)のコマ(0〜3)。
+   * 着ぐるみ:頭が浮いて首から黄緑の光('pop')、店員:おでこに3つ目の目('eye3')、
+   * 学生:肩から3本目の腕('arm3')、おじさん:おなかがぱかっと開く('hatch')
+   */
+  alt?: number;
+  /** 着ぐるみの頭が浮く高さ(ドット) */
+  lift?: number;
 }
 const P = (p: Pose): P3 => p as P3;
 const tag = (p: Pose, extra: Partial<P3>): P3 => Object.assign(clonePose(p), extra) as P3;
@@ -62,14 +71,23 @@ export function signalRow(base: Pose): P3[] {
   return [f0, f1, f2, f3];
 }
 
-/** 市民の6行、宇宙人の8行 */
-interface Pair { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[]; base: Pose }
+/** 市民の6行、宇宙人の8行。alt はくずれの2つ目の出方の宇宙人(行7だけ違う) */
+interface Pair { civ: PixelGrid[][]; bad: PixelGrid[][]; alt: PixelGrid[][]; civSort: Pose[]; base: Pose }
 
-function pairSheets(look: Look, base: Pose, civSort: Pose[], glitch: PixelGrid[], opts: { walk?: Pose[] } = {}): Pair {
+function pairSheets(look: Look, base: Pose, civSort: Pose[], glitch: PixelGrid[], glitch2: PixelGrid[], opts: { walk?: Pose[] } = {}): Pair {
   const civ = civRows(look, base, civSort, { walk: opts.walk });
   // 宇宙人の行0〜5は市民と同じ絵
-  const bad = [...civ, signalRow(base).map((p) => drawPerson(look, p)), glitch];
-  return { civ, bad, civSort, base };
+  const signal = signalRow(base).map((p) => drawPerson(look, p));
+  const bad = [...civ, signal, glitch];
+  return { civ, bad, alt: [...civ, signal, glitch2], civSort, base };
+}
+
+/** 黄緑の光の柱(着ぐるみの首、おじさんのおなか)。x0〜x1、y0〜y1 を塗り、まんなかの列を明るく、ふちを濃く */
+function glowRect(Pn: Painter, x0: number, x1: number, y0: number, y1: number): void {
+  const cx = Math.round((x0 + x1) / 2);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    Pn.px(x, y, x === cx ? GLITCH[0] : x === x0 || x === x1 ? GLITCH[2] : GLITCH[1]);
+  }
 }
 
 /** 見た目の Look に、合図の光を足す */
@@ -113,11 +131,12 @@ function mascotHead(pose: P3, antenna: boolean): { g: PixelGrid; nx: number; ny:
     Pn.rect(6, 1, 2, 2, GLITCH[1]).px(6, 1, GLITCH[0]).rect(10, 1, 2, 2, GLITCH[1]).px(10, 1, GLITCH[0]);
   }
   const spin = pose.spin ?? 0;
-  if (!spin) return { g: Pn.g, nx: MH_NX, ny: MH_NY };
+  const lift = pose.lift ?? 0;
+  if (!spin) return { g: Pn.g, nx: MH_NX, ny: MH_NY + lift };
   // 首の上で頭だけ回す(頭の真ん中は動かさない)
   const S = 26, c = 13;
   const g = rotateGrid(Pn.g, spin, MH_CX, MH_CY, c, c, S, S);
-  return { g, nx: Math.round(c - (MH_CX - MH_NX)), ny: Math.round(c + (MH_NY - MH_CY)) };
+  return { g, nx: Math.round(c - (MH_CX - MH_NX)), ny: Math.round(c + (MH_NY - MH_CY)) + lift };
 }
 
 function mascotLook(antenna = false): Look {
@@ -139,6 +158,13 @@ function mascotLook(antenna = false): Look {
       Pn.px(bx - 2, by, PINK).px(bx + 1, by, PINK);
     },
     front(Pn, pose) {
+      // くずれの2つ目:頭が浮いて、首から黄緑の光の柱
+      const lift = P(pose).lift ?? 0;
+      if (lift > 0) {
+        const [hx, hy] = R(pose.head);
+        glowRect(Pn, hx - 2, hx + 2, hy - lift - 1, hy);
+        return;
+      }
       // くずれ:首の継ぎ目から黄緑がもれる
       const k = P(pose).glitch;
       if (k === undefined || k > 2) return;
@@ -179,7 +205,9 @@ function mascotSheets(): Pair {
   // くずれ:着ぐるみの首が一回転する(90度ずつ回り、4コマ目はほぼ戻る)
   const glitch = [Math.PI / 2, Math.PI, Math.PI * 1.5, Math.PI * 1.85].map((spin, k) =>
     drawPerson(look, tag(f1, { spin, glitch: k })));
-  return pairSheets(look, base, civSort, glitch);
+  // くずれの2つ目:着ぐるみの頭がすぽっと浮いて、首から黄緑の光がもれる
+  const glitch2 = [3, 5, 5, 3].map((lift, k) => drawPerson(look, tag(f1, { lift, alt: k, spin: k === 2 ? 0.15 : 0 })));
+  return pairSheets(look, base, civSort, glitch, glitch2);
 }
 
 // =====================================================================
@@ -205,6 +233,7 @@ function clerkEyes(g: PixelGrid, pose: P3, top: number): void {
   const y = (r: number) => top + r + d;
   // 目の下のくま(それぞれの目の下)
   if (pose.face !== 'ko' && pose.face !== 'surprised') g.px(7, y(6), SKIN[1]).px(8, y(6), SKIN[1]).px(11, y(6), SKIN[1]);
+  if (pose.alt !== undefined) { thirdEye(g, pose.alt, y); return; }
   const k = pose.glitch;
   if (k === undefined) return;
   // ふつうの目とまゆを消す(髪は残す)
@@ -231,6 +260,22 @@ function clerkEyes(g: PixelGrid, pose: P3, top: number): void {
   }
   // 目の上のふち(まぶたのきわ)。閉じたコマは縦の線だけを見せる
   if (k !== 2) for (const x of [6, 7, 8, 10, 11]) g.px(x, y(2), O);
+}
+
+/**
+ * くずれの2つ目:前髪の上(おでこ)に、縦に3つ目の目が開く。k=0 細い線、1 半分、2 いちばん大きく黄緑のひとみ、3 閉じかけ
+ */
+function thirdEye(g: PixelGrid, k: number, y: (r: number) => number): void {
+  const O = OUTLINE, W = WHITE[0], G = GLITCH[1], L = GLITCH[0], S = SKIN[1];
+  const rows: (string | null)[][] = [
+    [[S, O, S], [S, O, S], [S, O, S]],
+    [[S, O, S], [O, G, O], [S, O, S]],
+    [[O, W, O], [W, L, W], [O, G, O]],
+    [[S, O, S], [O, G, O], [S, O, S]]
+  ][k];
+  // 前髪の上の2列ぶん、まわりを肌の色でふさいで、目だけが浮かないようにする
+  for (let r = 0; r <= 2; r++) for (let x = 7; x <= 11; x++) g.px(x, y(r - 1), SKIN[0]);
+  rows.forEach((row, j) => row.forEach((c, i) => { if (c) g.px(8 + i, y(j - 1), c); }));
 }
 
 /** 名札(白い札に店の色の帯)。flip で逆さ(親玉) */
@@ -280,7 +325,9 @@ function clerkSheets(): Pair {
   const civSort = [f0, f1, f2, f3];
   // くずれ:まばたきが横に閉じる。体はまぶたの重いコマのまま
   const glitch = [0, 1, 2, 3].map((k) => drawPerson(look, tag(withFace(base, 'normal'), { glitch: k })));
-  return pairSheets(look, base, civSort, glitch);
+  // くずれの2つ目:おでこに3つ目の目が開く
+  const glitch2 = [0, 1, 2, 3].map((k) => drawPerson(look, tag(withFace(base, 'normal'), { alt: k })));
+  return pairSheets(look, base, civSort, glitch, glitch2);
 }
 
 // =====================================================================
@@ -318,6 +365,23 @@ function armSeam(Pn: Painter, pose: Pose): void {
   for (let k = -2; k <= 2; k++) Pn.px(Math.round(m[0] + px * k), Math.round(m[1] + py * k), k === 0 ? GLITCH[0] : GLITCH[1]);
   const m2 = mix(sF, e, 0.75);
   for (let k = -1; k <= 1; k++) Pn.px(Math.round(m2[0] + px * k), Math.round(m2[1] + py * k), GLITCH[2]);
+}
+
+/**
+ * くずれの2つ目:胸から3本目の細い黄緑の腕が生えて動く(つけねに明るい継ぎ目)。
+ * k=0 生えはじめ、1 上へのびる、2 前へのびる、3 引っこみかけ
+ */
+function thirdArm(Pn: Painter, pose: Pose, k: number): void {
+  const n = pose.neck;
+  const root: Pt = [n[0] + 2, n[1] + 6];
+  const tips: Pt[] = [[root[0] + 3, root[1] - 2], [root[0] + 5, root[1] - 8], [root[0] + 10, root[1] - 4], [root[0] + 4, root[1] - 3]];
+  const tip = tips[k];
+  const arm = Pn.mask().capsule(root, tip, 1.2);
+  // 正体の腕なので黄緑(くずれの色)
+  Pn.fill(arm, [GLITCH[0], GLITCH[1], GLITCH[2]], { sep: 'outline', hi: 0.4, lo: 0.7 });
+  if (k === 1 || k === 2) Pn.fill(Pn.mask().ellipse(tip[0], tip[1], 1.6, 1.6), [GLITCH[0], GLITCH[1], GLITCH[2]], { sep: 'outline' });
+  // つけねの継ぎ目
+  for (const [dx, dy] of [[-1, -1], [0, 0], [-1, 1], [0, -1], [1, 1]] as const) Pn.px(root[0] + dx, root[1] + dy, dx === 0 && dy === 0 ? GLITCH[0] : GLITCH[1]);
 }
 
 /**
@@ -369,6 +433,8 @@ export function dancerLook(thinArm = false): Look {
       // ジャージの脚の白い線
       Pn.line(R([pose.hip[0] - 1, pose.hip[1] + 0.5]), R([pose.lF.k[0] + 1, pose.lF.k[1]]), WHITE[0]);
       if (P(pose).glitch !== undefined) armSeam(Pn, pose);
+      const a3 = P(pose).alt;
+      if (a3 !== undefined) thirdArm(Pn, pose, a3);
     }
   };
 }
@@ -402,7 +468,9 @@ function dancerSheets(): Pair {
     drawPerson(thin, reach([n[0] + 13, n[1] + 4], [n[0] + 28, n[1] + 1], 2)),
     drawPerson(thin, reach([n[0] + 9, n[1] + 3], [n[0] + 19, n[1] + 3], 3))
   ];
-  return pairSheets(look, base, civSort, glitch);
+  // くずれの2つ目:胸の横から3本目の腕が生える
+  const glitch2 = [0, 1, 2, 3].map((k) => drawPerson(look, tag(withFace(base, k === 2 ? 'grin' : 'normal'), { alt: k })));
+  return pairSheets(look, base, civSort, glitch, glitch2);
 }
 
 // =====================================================================
@@ -442,6 +510,15 @@ function uncleLook(pointyEar = false): Look {
       Pn.px(X(1, 0), n[1], WHITE[0]).px(X(2, 1), n[1] + 1, WHITE[0]).px(X(4, 0), n[1], WHITE[0]).px(X(3, 1), n[1] + 1, SLACKS[0]);
       for (let dy = 2; dy <= 17; dy++) Pn.px(X(3, dy), n[1] + dy, CARDI[2]);
       for (const dy of [5, 9, 13]) Pn.px(X(4, dy), n[1] + dy, WHITE[0]);
+      // くずれの2つ目:おなかの前の合わせが、ぱかっと開いて黄緑に光る
+      const k = P(pose).alt;
+      if (k !== undefined) {
+        const half = [0, 1, 2, 0][k];
+        const [y0, y1] = k === 3 ? [7, 13] : [5, 15];
+        const cx = X(3, 10);
+        for (let dy = y0 - 1; dy <= y1 + 1; dy++) { Pn.px(cx - half - 1, n[1] + dy, OUTLINE).px(cx + half + 1, n[1] + dy, OUTLINE); }
+        glowRect(Pn, cx - half, cx + half, n[1] + y0, n[1] + y1);
+      }
     },
     mid(Pn, pose) {
       // 奥の手に下げた白いレジ袋
@@ -503,7 +580,9 @@ function uncleSheets(): Pair {
     rub(withFace(moveUpper(base, 0, 1), 'normal'), 4)
   ];
   const glitch = [0, 1, 2, 3].map((k) => flicker(drawPerson(look, civSort[0]), k));
-  return pairSheets(look, base, civSort, glitch, { walk: walkFrames(base).map(withBag) });
+  // くずれの2つ目:おなかがぱかっと開いて黄緑に光る
+  const glitch2 = [0, 1, 2, 3].map((k) => drawPerson(look, tag(civSort[0], { alt: k })));
+  return pairSheets(look, base, civSort, glitch, glitch2, { walk: walkFrames(base).map(withBag) });
 }
 
 // =====================================================================
@@ -520,21 +599,21 @@ export function buildPeople3(skip: Set<string>): Record<string, PixelGrid[][]> {
   const need = (...k: string[]) => k.some((x) => !skip.has(x));
   if (need('mascot_civ', 'mascot_bad', 'boss3_disguise_mascot')) {
     const s = mascotSheets();
-    out.mascot_civ = s.civ; out.mascot_bad = s.bad;
+    out.mascot_civ = s.civ; out.mascot_bad = s.bad; out.mascot_bad_pop = s.alt;
     out.boss3_disguise_mascot = disguise(mascotLook(true), s.base, s.civSort, 1.02);
   }
   if (need('clerk_civ', 'clerk_bad', 'boss3_disguise_clerk')) {
     const s = clerkSheets();
-    out.clerk_civ = s.civ; out.clerk_bad = s.bad;
+    out.clerk_civ = s.civ; out.clerk_bad = s.bad; out.clerk_bad_eye3 = s.alt;
     out.boss3_disguise_clerk = disguise(clerkLook(true), s.base, s.civSort);
   }
   if (need('dancer_civ', 'dancer_bad')) {
     const s = dancerSheets();
-    out.dancer_civ = s.civ; out.dancer_bad = s.bad;
+    out.dancer_civ = s.civ; out.dancer_bad = s.bad; out.dancer_bad_arm3 = s.alt;
   }
   if (need('uncle_civ', 'uncle_bad', 'boss3_disguise_uncle')) {
     const s = uncleSheets();
-    out.uncle_civ = s.civ; out.uncle_bad = s.bad;
+    out.uncle_civ = s.civ; out.uncle_bad = s.bad; out.uncle_bad_hatch = s.alt;
     const withBag = (p: Pose): Pose => { const q = clonePose(p); q.aB = { e: [q.neck[0] + 7, q.neck[1] + 9], h: [q.neck[0] + 9, q.neck[1] + 15] }; return q; };
     out.boss3_disguise_uncle = disguise(uncleLook(true), s.base, s.civSort, 1.1, walkFrames(s.base).map(withBag));
   }

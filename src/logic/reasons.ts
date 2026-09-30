@@ -1,5 +1,6 @@
 // 答え合わせの画面で出す「決め手」の文。その人がワルか市民かを見分けられた手がかりを、短く1行で言う。
 // 手がかりの中身は、絵(src/art/world/people.ts、world2/people.ts、world3/people.ts、world4/people.ts)の小物と、
+// 人ごとの手がかりの出し分け(tells.ts。ステージ1と3は、出し分けごとの決め手の文が tells.ts にある)と、
 // content.ts、garageContent.ts、mallContent.ts、towerContent.ts のプロフィールと一言に合わせてある(絵や文を変えたら、ここも合わせる)。
 // ショッピングモールの宇宙人は動きのくずれ、市民はぎこちない動きの理由、親玉は化けた姿のおかしい所を言う。
 // 高層ビルのヴィランはもれの出方、紛らわしい市民はもれに見えたものの理由、ほかの市民は見た目ごとの文、
@@ -12,6 +13,7 @@
 // 返す文には {#rrggbb}…{/} の色の書き方が入ることがある(小物の色)。字の数は stripReasonMarkup で数える。
 
 import { ACCESSORY_COLORS } from './rules';
+import { tellDef } from './tells';
 import type {
   AlleyDisguise, AlleyLook, GarageDisguise, MallDisguise, MallLook, Person, RushTally, TowerDecoy, TowerDisguise, TowerLook, Truth, Wave
 } from './types';
@@ -19,7 +21,7 @@ import type {
 /** 1行に入る字の数(全角) */
 export const REASON_MAX = 14;
 
-/** 路地裏の見た目と正体ごとの決め手(出てこない組み合わせは書かない) */
+/** 路地裏の見た目と正体ごとの決め手(出てこない組み合わせは書かない)。手がかりの出し分け(person.tell)がある人は tells.ts の文を使う */
 const ALLEY_REASONS: Readonly<Record<AlleyLook, Partial<Record<'bad' | 'civ', string>>>> = {
   // ワル:後ろのポケットから黄色いナイフの柄。市民:同じ場所に茶色い財布
   hoodie: { bad: 'ポケットに黄色いナイフの柄', civ: 'ポケットの茶色い物は財布' },
@@ -45,7 +47,7 @@ const GARAGE_BOSS_REASONS: Readonly<Record<GarageDisguise, string>> = {
   officelady: 'ギラギラの金の腕輪とスカーフ'
 };
 
-/** ショッピングモールの見た目と正体ごとの決め手。宇宙人はくずれ、市民はぎこちない動きの理由 */
+/** ショッピングモールの見た目と正体ごとの決め手。宇宙人はくずれ、市民はぎこちない動きの理由。くずれの出し分け(person.tell)がある宇宙人は tells.ts の文を使う */
 export const MALL_REASONS: Readonly<Record<MallLook, Record<'bad' | 'civ', string>>> = {
   mascot: { bad: '着ぐるみの首が一回転', civ: '前が見えずにふらついた' },
   clerk: { bad: 'まばたきが横に閉じた', civ: '寝不足でかくっとなった' },
@@ -144,6 +146,8 @@ function garageReason(p: Person, wave: Pick<Wave, 'groups'> | undefined): string
 /** その人の決め手の文 */
 export function reasonFor(p: Person, wave?: Pick<Wave, 'groups'>): string {
   if (p.truth === 'boss') return BOSS_REASONS[p.disguise ?? p.look] ?? '背が高く、どこかおかしい';
+  const tell = tellDef(p.look, p.truth, p.tell)?.reason;
+  if (tell) return tell;
   const alley = (ALLEY_REASONS as Record<string, Partial<Record<Truth, string>>>)[p.look];
   if (alley) return alley[p.truth] ?? '';
   const mall = (MALL_REASONS as Record<string, Partial<Record<Truth, string>>>)[p.look];
