@@ -153,20 +153,23 @@ export class GangPart {
     const group = currentWave(this.s.run).groups.find((g) => g.id === person.group);
     const spot = this.gathers.get(person.id)
       ?? { groupId: person.group!, whistlerId: person.id, x: a.x + 76, y: 192, vanX: a.x + 116, vanY: VAN_Y };
-    // フリープレイはワゴンを止めておかず、右から走ってくる
-    const van = this.vans.get(spot.groupId) ?? (this.s.free ? this.vanArrive(spot) : this.addVan(spot));
     const ids = gatherMembers(group?.memberIds ?? [person.id], (id) => this.goneFromGang(id));
     const mates = ids.filter((id) => id !== person.id).map((id) => this.s.actorOf(id)).filter((m): m is Actor => !!m);
     const members = [a, ...mates];
     for (const m of members) m.called = true;
     // 仲間がもう倒されている(または待てで止めた)ときは、口笛を吹いても誰も来ない。組にはならない
+    // (フリープレイでは、組の1人を素通りの前に行けで倒したとき)
     const alone = members.length < GANG.groupSize.min;
+    // フリープレイはワゴンを止めておかず、右から走ってくる(1人のときは乗らないので、呼ばない)
+    const van = this.vans.get(spot.groupId) ?? (this.s.free ? (alone ? null : this.vanArrive(spot)) : this.addVan(spot));
     const slots = this.gatherSlots(spot, members.length);
     h.play('idle');
     // カメラ:ヒーローと、集まる場所と、ワゴンが1つの画面に入るように(1人のときはワゴンに乗らないので、ヒーローについて行く)
     const half = layout.W / 2;
-    const vanRight = van.x + 64;
-    if (!alone) this.s.camFocus = Phaser.Math.Clamp((h.x + vanRight) / 2 - 8, vanRight + 6 - half, h.x - 24 + half);
+    if (!alone && van) {
+      const vanRight = van.x + 64;
+      this.s.camFocus = Phaser.Math.Clamp((h.x + vanRight) / 2 - 8, vanRight + 6 - half, h.x - 24 + half);
+    }
 
     // 前へ出て、口笛
     a.showTag(true);
@@ -181,7 +184,7 @@ export class GangPart {
     h.pose('oops', 1);
     this.s.heroSay(this.s.line('mischiefHero', this.s.rng), 1300);
     await waitMs(this.s, GANG.whistleSec * 1000);
-    if (alone) {
+    if (alone || !van) {
       // 1人のときは、行けの合図が出て終わるまで前ぶれのまま(合図が出た瞬間に、覚えている行けが効く)
       await this.s.aloneWhistle(a);
       this.whistler = null;

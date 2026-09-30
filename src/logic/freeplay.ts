@@ -255,15 +255,17 @@ export class DryPress {
    * 効いたら 'hit'。マークがない(空押し)なら 'dry'、マークがあっても効かない間なら 'locked' で、
    * どちらもそこから効かない時間を数え直す(効かない間にマークなしで押したのも 'dry')。
    * マークが消えた直後の遅れた押しは 'late'(空押しに数えず、効かない時間も始めない)。
-   * マークがなく前ぶれの間なら 'armed'(空押しに数えず、効かない時間も始めず、覚えておく)
+   * マークがなく前ぶれの間なら 'armed'(空押しに数えず、効かない時間も始めず、覚えておく)。
+   * 前ぶれの間は、マークが消えた直後でも 'armed' にする(素通りの行けのマークが消えた直後に、
+   * そのワルが悪さへ走り出すので、少し遅れた押しをそのワルの悪さのマークに効かせる)
    */
   tap(nowMs: number, hasMark: boolean, warning = false): PressResult {
-    if (this.late(nowMs, hasMark)) return 'late';
     const locked = nowMs < this.lockUntil;
     if (!hasMark && warning && !locked) {
       this.armedPress = true;
       return 'armed';
     }
+    if (this.late(nowMs, hasMark)) return 'late';
     // 前ぶれの間の押しは、効かない間でも空押しには数えない(効かない時間は数え直す)
     if (locked || !hasMark) {
       this.lockUntil = nowMs + this.lockMs;

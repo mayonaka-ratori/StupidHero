@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { allTexts } from './content';
 import {
-  FREE_ATTACK, FREE_DECLARES, FREE_DRY_PRESS, FREE_INTRO, FREE_ITEM_ATTACK, FREE_OP, FREE_OP_GRANNY_HIT, FREE_OP_GRANNY_RULE,
+  FREE_ATTACK, FREE_DECLARES, FREE_DRY_PRESS, FREE_GO_CIV, FREE_GO_EARLY, FREE_INTRO, FREE_TEACH_PASS_GO, FREE_ITEM_ATTACK, FREE_OP, FREE_OP_GRANNY_HIT, FREE_OP_GRANNY_RULE,
   FREE_OP_PASS_VILLAIN, FREE_PASS, freeOpContextLines,
   FREE_REDECLARE_HERO, FREE_REDECLARE_OP, FREE_STUBBORN, FREE_TOLD_YOU, allFreeSpeechTexts, allFreeTexts,
   createFreeLines, declareList, freeOpTier, type FreeOpContext, type FreeOpKey
@@ -88,9 +88,13 @@ describe('フリープレイの文の数', () => {
   });
 
   it('ヒーローのそのほかの一言と、言い直しは5通り以上', () => {
-    for (const list of [FREE_STUBBORN, FREE_TOLD_YOU, FREE_DRY_PRESS, FREE_REDECLARE_HERO, FREE_REDECLARE_OP]) {
+    for (const list of [FREE_STUBBORN, FREE_TOLD_YOU, FREE_DRY_PRESS, FREE_REDECLARE_HERO, FREE_REDECLARE_OP, FREE_GO_EARLY, FREE_GO_CIV]) {
       expect(list.length).toBeGreaterThanOrEqual(5);
     }
+    // 素通りしかけた相手への行け:ヒーローの一言。行けの使い方はオペレーター
+    for (const s of [...FREE_GO_EARLY, ...FREE_GO_CIV]) expect(s.who).toBe('hero');
+    expect(FREE_TEACH_PASS_GO.who).toBe('operator');
+    expect(FREE_TEACH_PASS_GO.text).toContain('行け');
     expect(FREE_TOLD_YOU.some((s) => s.text.replace('\n', '') === 'ほら、やっぱりワルじゃん！')).toBe(true);
     expect(FREE_STUBBORN.some((s) => s.text === 'でもルール通りだし！')).toBe(true);
     expect(FREE_DRY_PRESS.some((s) => s.text === '？')).toBe(true);
@@ -164,6 +168,8 @@ describe('createFreeLines は同じ文を続けて出さない', () => {
       checkRun('stubborn', () => lines.heroStubborn().text);
       checkRun('toldYou', () => lines.heroToldYou().text);
       checkRun('dryPress', () => lines.heroDryPress().text);
+      checkRun('goEarly', () => lines.heroGoEarly().text);
+      checkRun('goCiv', () => lines.heroGoCiv().text);
       for (const id of FREE_STAGE_IDS) for (const rule of FREE_RULES) checkRun(`declare ${id}`, () => lines.declare(id, rule).hero.text);
       checkRun('redeclare', () => lines.redeclare('balloon', 'hat').hero.text);
       for (const key of OP_KEYS) {

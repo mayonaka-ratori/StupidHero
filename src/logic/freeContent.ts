@@ -11,6 +11,8 @@
 //   lines.heroAttack(person.look, rule)          // 殴りかかるときの一言(波3は小物の名前が入る)
 //   lines.heroPass(person.look)                  // 素通りするときの一言(ワルには、おバカな見落とし)
 //   lines.heroStubborn() / heroToldYou() / heroDryPress()
+//   lines.heroGoEarly() / heroGoCiv()            // 素通りしかけた相手に行けを押された(ワルなら殴りに行く、市民なら殴ったあとの言いわけ)
+//   FREE_TEACH_PASS_GO                           // その回で初めて、素通りしかけたワルに行けのマークが出たとき(オペレーター)
 //   lines.op(key, count, { look, item })         // オペレーターの一言。count はその場面が何回目か(1始まり)
 //                                                // 3つ目は省略できる。渡すと、その人や小物に合った文を半分くらいまぜる
 // 文字の確かめとフォントの読みこみ用に、全部の文を allFreeTexts() で返す(content.ts の allTexts() に入れてある)。
@@ -488,6 +490,24 @@ export const FREE_TOLD_YOU: readonly Speech[] = [
   hero('smug', '止めなくて\nよかったのに！')
 ];
 
+/** 素通りしかけたワルに行けを押された:悪さの前に殴りに行く(気づいていなかったのに、知っていた顔をする) */
+export const FREE_GO_EARLY: readonly Speech[] = [
+  hero('smug', 'えっ、ワルなの！？\nよし、まかせて！'),
+  hero('smug', 'いい人だと\n思ったのに！'),
+  hero('smug', '行けって？\n了解、ぶっとばす！'),
+  hero('smug', 'ぼくも今\n気づいたところ！'),
+  hero('smug', '知ってた！\nワルだって知ってた！')
+];
+
+/** 素通りしかけた市民に行けを押されて、殴ってしまった:謝らずに言いわけする */
+export const FREE_GO_CIV: readonly Speech[] = [
+  hero('smug', '行けって\n言われたもん！'),
+  hero('smug', '合図が出たから\n行っただけ！'),
+  hero('smug', '押したの、\nぼくじゃないし！'),
+  hero('smug', '行けは\n行けだもん！'),
+  hero('smug', 'ぼくは\n悪くないもん！')
+];
+
 /** 空押しで振り向いたとき */
 export const FREE_DRY_PRESS: readonly Speech[] = [
   hero('smile', '？'),
@@ -508,7 +528,9 @@ export type FreeOpKey =
   | 'idle'         // 押さない時間が続く(だんだんあきらめる)
   | 'goDone'       // 行けで決めた
   | 'escaped'      // 逃がした
-  | 'recovered';   // ワルに待てを押したあと、行けで倒した
+  | 'recovered'    // ワルに待てを押したあと、行けで倒した
+  | 'goEarly'      // 素通りしかけたワルを、悪さの前に行けで倒した
+  | 'goCiv';       // 素通りしかけた市民に行けを押して、殴ってしまった
 
 /**
  * オペレーターの一言。場面ごとに3段:1回目、2回目から、何度も(ふつうは5回目から、idle は4回目から)。
@@ -559,8 +581,21 @@ export const FREE_OP: Readonly<Record<FreeOpKey, readonly [readonly Speech[], re
     [op('hype', '取り返した！\nセーフ！'), op('hype', 'ギリギリ\n間に合った！')],
     [op('hype', 'よく気づいた！'), op('hype', 'よく見てた！'), op('hype', '待てのあとの行け、\nうまい！')],
     [op('normal', '止めてから\n倒すの、得意だね'), op('deadpan', 'もう作戦でしょ'), op('hype', '取り返しの名人！')]
+  ],
+  goEarly: [
+    [op('hype', '見れば分かる\nよね！'), op('hype', '悪さの前に\n止めた！')],
+    [op('hype', '先に止めるの、\nいいね！'), op('hype', '手を振る前に\n止めた！'), op('normal', '見た目どおりの\nワルだもんね')],
+    [op('hype', '先回りの名人！'), op('deadpan', 'もうヒーロー\nいらなくない？'), op('hype', '悪さする\nひまもないね')]
+  ],
+  goCiv: [
+    [op('panic', 'その人、市民！\n行けじゃない！'), op('panic', '今のは市民！\n押しちゃダメ！')],
+    [op('panic', 'また市民に\n行け！？'), op('deadpan', '素通りで\nよかったのに…'), op('deadpan', '手を振る相手\nだったよ！？')],
+    [op('deadpan', '行けは\nワルにだけ！'), op('deadpan', 'ねえ、わざと？'), op('deadpan', '市民にまで\n行け…')]
   ]
 };
+
+/** その回で初めて、素通りしかけたワルに行けのマークが出たとき(行けの使い方。オペレーター) */
+export const FREE_TEACH_PASS_GO: Speech = op('panic', 'どう見てもワル！\n行けで止めて！');
 
 /** op に渡せる、その場面の人と小物 */
 export interface FreeOpContext {
@@ -659,6 +694,10 @@ export interface FreeLines {
   heroToldYou(): Speech;
   /** 空押しで振り向いたとき(「?」) */
   heroDryPress(): Speech;
+  /** 素通りしかけたワルに行けを押され、殴りに行くとき(「えっ、ワルなの!?」) */
+  heroGoEarly(): Speech;
+  /** 素通りしかけた市民に行けを押され、殴ってしまったあとの言いわけ(「行けって言われたもん!」) */
+  heroGoCiv(): Speech;
   /**
    * count はその場面が何回目か(1始まり)。回数で言い方を変える。
    * ctx(省略できる)を渡すと、hitCivRule はおばあさんや小物の文、passBadRule は一目で分かるワルの文、
@@ -722,6 +761,12 @@ export function createFreeLines(rng: Rng): FreeLines {
     heroDryPress() {
       return say('heroDryPress', FREE_DRY_PRESS);
     },
+    heroGoEarly() {
+      return say('heroGoEarly', FREE_GO_EARLY);
+    },
+    heroGoCiv() {
+      return say('heroGoCiv', FREE_GO_CIV);
+    },
     op(key, count, ctx) {
       const special = freeOpContextLines(key, ctx);
       const list = special.length > 0 && rng.chance(FREE_OP_CTX_CHANCE) ? special : FREE_OP[key][freeOpTier(key, count)];
@@ -760,6 +805,9 @@ export function allFreeSpeechTexts(): string[] {
   add(FREE_STUBBORN);
   add(FREE_TOLD_YOU);
   add(FREE_DRY_PRESS);
+  add(FREE_GO_EARLY);
+  add(FREE_GO_CIV);
+  add([FREE_TEACH_PASS_GO]);
   for (const key of Object.keys(FREE_OP) as FreeOpKey[]) for (const tier of FREE_OP[key]) add(tier);
   add(FREE_OP_GRANNY_RULE);
   for (const item of FREE_ITEMS) for (const s of FREE_OP_ITEM_RULE[item]) out.push(fillItems(s.text, { item }));

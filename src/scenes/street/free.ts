@@ -13,6 +13,12 @@
 // 波3のモヒカンの悪さだけは、ヒーローが待たずに歩き続ける。行けのマークが2つ出ていたら、先に出たほうに効く。
 // ヒーローが待てのマークの最中(ため)なら、行けはその場から光の拳を飛ばして倒す(ためは続く)。
 //
+// 素通りの行け(待てのマークと同じ形):素通りする相手には、ヒーローが歩き出してから手を振って通りすぎるまで、
+// 行けのマークを出す(passWin。市民にも出す。画面の端の点滅は出さない)。この間に行けを押すと、ワルなら悪さの前に
+// 殴って倒し(行けで決めた。悪さは起きない)、市民なら殴ってしまう(市民のけが。3秒足す)。
+// 行けは、悪さのマーク(mischiefTarget)を先に、なければ素通りの相手に効く。悪さの前ぶれの間は、素通りのマークがあっても
+// 押した行けを覚えて、悪さのマークに効かせる。
+//
 // 待てと行けのボタンは、マークがないときも押せる(空押し。DryPress)。空押しのあと1秒は効かない(ボタンを暗くする)。
 // オペレーターの一言は毎回は言わず、1つの波で4回くらいにする(opEvent)。
 // 時計は run.free.clockMs に積み上げる(決めつけと言い直しの間、一時停止の間、画面が切りかわる間は足さない)。
@@ -24,8 +30,8 @@ import { animKey } from '../../art/sheets';
 import { accessorySheet } from '../../art/recolor';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
 import {
-  ACCESSORY_COLORS, DryPress, FREE, MARK, STAGES, createFreeLines, formatClearTime, freeRoleOf, freeTiming, freeWaveScene, heroChoice,
-  ruleAt, shout, type AttackKind, type FreeItem, type FreeLines, type FreeOpContext, type FreeOpKey, type FreeRule, type FreeTiming,
+  ACCESSORY_COLORS, DryPress, FREE, FREE_TEACH_PASS_GO, MARK, STAGES, createFreeLines, formatClearTime, freeRoleOf, freeTiming,
+  freeWaveScene, heroChoice, ruleAt, sceneForCivHit, shout, type AttackKind, type FreeItem, type FreeLines, type FreeOpContext, type FreeOpKey, type FreeRule, type FreeTiming,
   type FreeWave, type GangCallOptions, type Look, type Person, type StageDef, type StageId
 } from '../../logic';
 import { currentFreeWave, currentWave, nextAfterFreeStreet, setSort, type GameRun } from '../../run';
@@ -36,7 +42,7 @@ import { Actor, HEAD } from './actor';
 import { ATTACK_GAP, JUDGE_RISE, RUN } from './common';
 import { FreeItems } from './freeItems';
 import { buttonPulse, pulseButton } from './panel';
-import { THREAT_DX, planFree, type PasserLook, type StreetPlan } from './plan';
+import { THREAT_DX, UFO_DX, planFree, type PasserLook, type StreetPlan } from './plan';
 import { RuleSign } from './ruleSign';
 
 /** ヒーローが今何をしているか(行けで走って殴れるか、光の拳を飛ばすかを決める) */
@@ -55,8 +61,18 @@ interface Threat {
   resolve: () => void;
 }
 
-/** 行けが効く相手(モヒカンの悪さ、ギャングの組、UFO)。since の小さいほうから効く */
+/** 行けが効く相手(モヒカンの悪さ、ギャングの組、UFO、素通りの相手)。悪さは since の小さいほうから効く */
 interface GoTarget { since: number; fire: () => void }
+
+/** 素通りの行けのマークが出ている相手(歩き出してから、手を振って通りすぎるまで) */
+interface PassWindow {
+  a: Actor;
+  since: number;
+  /** 行けで殴りに行った(手は振らず、悪さも起きない)。殴り終わったら解決する */
+  hit: Promise<void> | null;
+  /** この相手で、行けの使い方を言った(素通りのツッコミを重ねない) */
+  taught: boolean;
+}
 
 /** 1つの波で、オペレーターの一言(フリープレイの場面)を言う回数のめやす */
 const OP_PER_WAVE = 4;
@@ -83,8 +99,13 @@ const linesOf = new WeakMap<GameRun, FreeLines>();
 const spokenOf = new WeakMap<GameRun, Set<string>>();
 /** その回で行けの使い方をもう言ったか */
 const taughtGo = new WeakSet<GameRun>();
-/** 開発用:その回で場面が何回起きたか(光の拳、走って殴る、ギリギリセーフ、行けのマークが2つ、ワルに待て) */
-interface Seen { fist: number; runHit: number; closeCall: number; twoGo: number; recover: number; early: number }
+/** その回で、素通りしかけたワルへの行けの使い方をもう言ったか */
+const taughtPassGo = new WeakSet<GameRun>();
+/**
+ * 開発用:その回で場面が何回起きたか(光の拳、走って殴る、ギリギリセーフ、行けのマークが2つ、ワルに待て、前ぶれの行け、
+ * 素通りしかけたワルに行け、素通りしかけた市民に行け)
+ */
+interface Seen { fist: number; runHit: number; closeCall: number; twoGo: number; recover: number; early: number; passGo: number; goCiv: number }
 const seenOf = new WeakMap<GameRun, Seen>();
 
 /** 開いているステージの市民の絵(悪さの相手)。地下駐車場の市民の小物はオレンジか紫 */
@@ -135,6 +156,8 @@ export class FreeStreet {
   private runners = new Set<Actor>();
   /** 行けで殴りに行っている途中の数(走って殴る、光の拳) */
   private pendingGo = 0;
+  /** 素通りの行けのマークが出ている相手(なければ null) */
+  private passWin: PassWindow | null = null;
   /** 一時停止の間は進まない時計(ミリ秒)。空押しの効かない間を数える */
   private playMs = 0;
   /** 言い直しで止めている間 true(悪さの時計も止める。押した待てと行けは覚えておき、止めが終わったら効かせる) */
@@ -162,7 +185,7 @@ export class FreeStreet {
     if (!lines) { lines = createFreeLines(run.rng); linesOf.set(run, lines); }
     this.lines = lines;
     let seen = seenOf.get(run);
-    if (!seen) { seen = { fist: 0, runHit: 0, closeCall: 0, twoGo: 0, recover: 0, early: 0 }; seenOf.set(run, seen); }
+    if (!seen) { seen = { fist: 0, runHit: 0, closeCall: 0, twoGo: 0, recover: 0, early: 0, passGo: 0, goCiv: 0 }; seenOf.set(run, seen); }
     this.seen = seen;
     this.items = new FreeItems(s);
     this.timing = freeTiming(this.fw.no, settings.slowMode);
@@ -273,10 +296,11 @@ export class FreeStreet {
     if (this.hadGo && !goMark) this.dryGo.markGone(this.playMs);
     this.hadStop = stopMark;
     this.hadGo = goMark;
-    // 前ぶれの間に押して覚えている行けは、マークが出た瞬間に効かせる(言い直しで止めている間は、止めが終わってから)
+    // 前ぶれの間に押して覚えている行けは、悪さのマークが出た瞬間に効かせる(言い直しで止めている間は、止めが終わってから)。
+    // 素通りのマークには効かせない(前ぶれの間の押しは、悪さを見て押したものなので)
     if (!this.inputOpen) this.dryGo.disarm();
-    else if (!this.held && this.dryGo.settle(goMark, this.goWarning())) {
-      const t = this.goTarget();
+    else if (!this.held && this.dryGo.settle(this.mischiefTarget() !== null, this.goWarning())) {
+      const t = this.mischiefTarget();
       if (t) { this.seen.early++; this.fireGo(t); }
     }
     // 逃がしたワル、市民のけが、ワルへの待ての分(1つ3秒)も足した時間を出す。増えたら「+3」を飛ばす
@@ -347,8 +371,9 @@ export class FreeStreet {
 
   pressGo(): void {
     if (!this.inputOpen) return;
-    const t = this.goTarget();
     const warning = this.goWarning();
+    // 悪さのマークが先。悪さの前ぶれの間は、素通りのマークがあっても前ぶれを先にする(押した行けは覚えておく)
+    const t = this.mischiefTarget() ?? (warning ? null : this.goTarget());
     // 言い直しの間は、マークが出ていれば覚えておき、止めが終わったら効かせる。前ぶれの間なら、マークが出たら効かせる
     if (this.held) {
       if (t) this.queued.go = true;
@@ -374,14 +399,29 @@ export class FreeStreet {
     return this.windupEv && !this.windupEv.hasDispatched ? this.windupEv.getProgress() : null;
   }
 
-  /** 行けが効く相手のうち、いちばん先にマークが出たもの */
-  goTarget(): GoTarget | null {
+  /** 悪さの行けのマーク(モヒカンの悪さ、ギャングの組、UFO)のうち、いちばん先に出たもの */
+  mischiefTarget(): GoTarget | null {
     const s = this.s;
     const list: GoTarget[] = this.threats.map((t) => ({ since: t.since, fire: () => this.hitThreat(t) }));
     const h = s.goHandler;
     if (h) list.push({ since: s.goSince, fire: h });
     if (list.length === 0) return null;
     return list.reduce((a, b) => (b.since < a.since ? b : a));
+  }
+
+  /** 素通りの行けのマークが出ている相手(なければ null。開発用にも使う) */
+  get passTarget(): Actor | null {
+    const w = this.passWin;
+    return w && !w.hit && w.a.standing ? w.a : null;
+  }
+
+  /** 行けが効く相手。悪さのマークが先で、なければ素通りの相手 */
+  goTarget(): GoTarget | null {
+    const m = this.mischiefTarget();
+    if (m) return m;
+    const w = this.passWin;
+    if (!w || !this.passTarget) return null;
+    return { since: w.since, fire: () => this.hitPass(w) };
   }
 
   /** 行けを押した(2つ出ていたら数えておく) */
@@ -467,6 +507,11 @@ export class FreeStreet {
 
   /** UFOに連れ去られた */
   ufoEscaped(look?: Look): void {
+    this.miss('escaped', { look });
+  }
+
+  /** 1人で口笛を吹いたギャング(組の1人を先に行けで倒したとき)に逃げられた */
+  escapedAlone(look?: Look): void {
     this.miss('escaped', { look });
   }
 
@@ -761,24 +806,34 @@ export class FreeStreet {
     h.play('idle');
   }
 
-  /** 素通り:笑顔で手を振る。ワルなら、そのあと見た目ごとの悪さ */
+  /**
+   * 素通り:笑顔で手を振る。ワルなら、そのあと見た目ごとの悪さ。
+   * 歩き出してから手を振って通りすぎるまでは、その人に行けのマークを出す(素通りの行け)。この間に行けを押すと、
+   * 手は振らずに殴る(hitPass。ワルなら悪さは起きない)
+   */
   private async passOne(a: Actor): Promise<void> {
     const s = this.s;
     const look = a.look!;
     this.auraKind = 'pass';
+    const w = this.openPass(a);
     await this.walkTo(a.x - 22, s.passLane(a));
-    if (!a.standing) { this.auraKind = null; return; }
-    s.passGreet(a, this.lines.heroPass(look), a.civ);
-    if (!a.civ) {
-      this.opEvent('passBadRule', { look });
-      // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)
-      if (look !== 'fp_gang' && s.stats.reportFreeScene(freeWaveScene(look))) {
-        s.shootWorst(120);
+    if (!w.hit && a.standing) {
+      s.passGreet(a, this.lines.heroPass(look), a.civ);
+      if (!a.civ) {
+        // 行けの使い方を言ったばかりの相手には、素通りのツッコミを重ねない(次のワルで言う)
+        if (!w.taught) this.opEvent('passBadRule', { look });
+        // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)
+        if (look !== 'fp_gang' && s.stats.reportFreeScene(freeWaveScene(look))) {
+          s.shootWorst(120);
+        }
       }
+      await s.passOn(a);
     }
-    await s.passOn(a);
+    this.closePass(w);
     this.auraKind = null;
-    if (a.civ) return;
+    // 行けで殴りに行ったら、殴り終わるまで待って次の人へ(悪さは起きない)
+    if (w.hit) { await w.hit; return; }
+    if (!a.standing || a.civ) return;
     if (look === 'fp_gang' && a.person?.group) {
       this.heroMode = 'waitMech';
       await s.gangPart.gangCall(a);
@@ -787,6 +842,116 @@ export class FreeStreet {
       await s.ufoPart.ufoCall(a);
     } else await this.threatenFlow(a, false);
     this.heroMode = 'busy';
+  }
+
+  /**
+   * 素通りの行けのマークを出す(画面の端の点滅は出さない)。その回で初めてワルに出たときは、行けの使い方を言う
+   * (オペレーターの一言の回数には入れない。teachGo と同じ)
+   */
+  private openPass(a: Actor): PassWindow {
+    const s = this.s;
+    const w: PassWindow = { a, since: s.time.now, hit: null, taught: false };
+    this.passWin = w;
+    a.showMark('go');
+    if (!a.civ && !taughtPassGo.has(this.run)) {
+      taughtPassGo.add(this.run);
+      w.taught = true;
+      s.opSay(FREE_TEACH_PASS_GO, true, true);
+      this.lastOpAt = s.time.now;
+    }
+    return w;
+  }
+
+  /** 素通りの行けのマークを消す(手を振って通りすぎた、または行けで殴りに行った) */
+  private closePass(w: PassWindow): void {
+    if (this.passWin === w) this.passWin = null;
+    if (!w.hit) w.a.hideMark();
+  }
+
+  /**
+   * 素通りの行けが効いた。歩いて向かっている途中なら走って殴り、そうでなければ(手を振っている、通りすぎている、
+   * ほかの動きの最中)その場から光の拳を飛ばす。ワルなら行けで決めた(悪さの相手の市民は、巻きぞえにしない)。
+   * 市民なら殴ってしまう(市民のけが。ヒーローは言いわけし、オペレーターがツッコむ)
+   */
+  private hitPass(w: PassWindow): void {
+    const s = this.s;
+    const a = w.a;
+    if (this.passWin !== w || w.hit || !a.standing) return;
+    a.hideMark();
+    this.auraKind = null;
+    audio.sfx('go');
+    const civ = a.civ;
+    const canRun = this.heroMode === 'walk' && a.x - ATTACK_GAP >= s.hero.x - 2;
+    if (canRun) this.seen.runHit++;
+    else this.seen.fist++;
+    let victim: Actor | null = null;
+    if (civ) {
+      this.seen.goCiv++;
+      s.stats.freeGoCiv();
+    } else {
+      this.seen.passGo++;
+      this.hit('goEarly');
+      // 悪さの相手になるはずだった市民は、この先も巻きぞえにしない(悪さは起きない)
+      victim = this.plannedVictim(a);
+      if (victim) s.makeSafe(victim);
+    }
+    a.pose('surprised');
+    const onFist = (): void => {
+      if (!civ) { s.stats.defeatBad('go', false, a.person?.group); return; }
+      s.stats.hurtCiv('hero', a.look);
+      s.report(sceneForCivHit(a.look!, 'punch'), 'punch');
+    };
+    w.hit = (async () => {
+      if (canRun) await this.passRunHit(a, civ);
+      else {
+        s.heroSay(civ ? s.line('go', s.rng) : this.lines.heroGoEarly(), 900);
+        await this.fistShot(a, onFist);
+      }
+      if (civ) { await this.afterGoCiv(); return; }
+      await this.afterAttack();
+      const v = victim;
+      if (v?.standing) {
+        void s.arc(v, v.x, 6, 220);
+        s.fx('fx_sparkle', v.x, v.y - HEAD - 4, { depth: 960 });
+      }
+    })();
+  }
+
+  /** 素通りの相手へ、歩くのをやめて走って殴る(passOne の歩きは終わったことにする。手は振らない) */
+  private async passRunHit(a: Actor, civ: boolean): Promise<void> {
+    const s = this.s;
+    const w = s.walker;
+    s.walker = null;
+    w?.resolve();
+    this.heroMode = 'busy';
+    s.heroSay(civ ? s.line('go', s.rng) : this.lines.heroGoEarly(), 800);
+    await s.runTo(a.x - ATTACK_GAP, { speed: RUN * 3, y: a.y });
+    const k = s.pickAttack();
+    s.heroSay(shout(k, s.rng), 900);
+    await s.attack(a, k, civ ? 'civ' : 'go');
+  }
+
+  /** 素通りしかけた市民を行けで殴ったあと:謝らずに言いわけする(「行けって言われたもん!」)。オペレーターがツッコむ */
+  private async afterGoCiv(): Promise<void> {
+    const s = this.s;
+    const h = s.hero;
+    // 当たった市民の数えはもう済んでいる(巻きぞえがいても、この言いわけにまとめる)
+    s.civHits = [];
+    s.civCried = null;
+    await waitMs(s, 250);
+    h.play('win_arms', true);
+    audio.sfx('okay');
+    s.heroSay(this.lines.heroGoCiv(), 1100);
+    this.opEvent('goCiv');
+    await waitMs(s, 900);
+    h.play('idle');
+  }
+
+  /** 並べ方が、このワルの悪さの相手として置いた市民(モヒカンは THREAT_DX 先、宇宙人は UFO_DX 先。いなければ null) */
+  private plannedVictim(a: Actor): Actor | null {
+    const dx = a.look === 'fp_mohawk' ? THREAT_DX : a.look === 'fp_alien' ? UFO_DX : null;
+    if (dx === null) return null;
+    return this.s.passers.find((p) => p.standing && Math.abs(p.x - (a.x + dx)) < 6) ?? null;
   }
 
   /** モヒカンの悪さ。波3はヒーローが待たずに歩き続ける。波1と波2は終わるまで待つ */
@@ -847,13 +1012,13 @@ export class FreeStreet {
     });
   }
 
-  /** 行けのマークが1つもなくなったら、画面の端の点滅を止める */
+  /** 悪さの行けのマークが1つもなくなったら、画面の端の点滅を止める(素通りのマークでは点滅させない) */
   private endThreat(t: Threat): void {
     this.threats = this.threats.filter((x) => x !== t);
     t.timer?.remove();
     t.timer = null;
     t.a.hideMark();
-    if (!this.goTarget()) this.s.goAlarm.stop();
+    if (!this.mischiefTarget()) this.s.goAlarm.stop();
   }
 
   /** 行けを押さなかった:財布を奪って逃げる(逃がした、市民のけが) */
@@ -888,7 +1053,8 @@ export class FreeStreet {
     else this.seen.fist++;
     // 殴り終わるまでを数える(波の終わりの歩きと重ならないように)
     this.pendingGo++;
-    void (canRun ? this.runAndHit(t) : this.fistShot(t)).then(() => {
+    const fist = (): Promise<void> => this.fistShot(t.a, () => s.stats.defeatBad('go', t.recovered));
+    void (canRun ? this.runAndHit(t) : fist()).then(() => {
       this.pendingGo--;
       const v = t.victim;
       if (v.standing) {
@@ -921,11 +1087,10 @@ export class FreeStreet {
     s.walker = { ...saved, fromX: h.x, fromY: h.y };
   }
 
-  /** その場から光の拳を飛ばして倒す(ためは続ける。ヒーローの動きは変えない) */
-  private fistShot(t: Threat): Promise<void> {
+  /** その場から光の拳を飛ばして倒す(ためは続ける。ヒーローの動きは変えない)。onHit は当たって倒れたときの数え方 */
+  private fistShot(a: Actor, onHit: () => void): Promise<void> {
     const s = this.s;
     const h = s.hero;
-    const a = t.a;
     const dir = a.x >= h.x ? 1 : -1;
     const x0 = h.x + 16 * dir;
     const y0 = h.y - h.lift - 30;
@@ -946,7 +1111,7 @@ export class FreeStreet {
           impact(s, 'small');
           if (a.standing) {
             s.knock(a, 60, 26, dir);
-            s.stats.defeatBad('go', t.recovered);
+            onHit();
           }
           s.time.delayedCall(300, () => resolve());
         }
