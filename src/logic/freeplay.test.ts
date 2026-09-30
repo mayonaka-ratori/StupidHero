@@ -415,8 +415,17 @@ describe('時間と空押し', () => {
     expect(d.tap(0, true, true)).toBe('hit');
     expect(d.armed).toBe(false);
     d.markGone(1000);
-    expect(d.tap(1100, false, true)).toBe('late');
     expect(d.tap(1100, false)).toBe('late');
     expect(d.armed).toBe(false);
+    expect(d.locked(1100)).toBe(false);
+  });
+
+  it('マークが消えた直後でも、前ぶれの間なら覚える(素通りのマークが消えてすぐ、そのワルが悪さへ走り出すため)', () => {
+    const d = new DryPress();
+    d.markGone(1000);
+    expect(d.tap(1100, false, true)).toBe('armed');
+    expect(d.armed).toBe(true);
+    expect(d.locked(1100)).toBe(false);
+    expect(d.settle(true, true)).toBe(true);
   });
 });

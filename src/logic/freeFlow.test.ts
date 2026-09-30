@@ -108,6 +108,69 @@ describe('フリープレイの数え方', () => {
     expect(f.fixedRight).toBe(27);
   });
 
+  it('素通りしかけたワルを悪さの前に行けで倒しても、行けで決めたに数える。ギャングの組は2人を別々に倒しても1場面', () => {
+    const stats = new StatsTracker(PLAN.stage.villainTotal, PLAN.stage.id);
+    stats.startFree(PLAN);
+    let goPeople = 0;
+    PLAN.stage.waves.forEach((w, i) => {
+      for (const p of w.people) {
+        const role = freeRoleOf(PLAN.waves[i], p);
+        if (role === 'stop') stats.stopped('civ');
+        else if (role === 'heroBad') stats.defeatBad('sort');
+        else if (role === 'go') {
+          // 組の人は2人とも、組の id を渡して倒す
+          goPeople++;
+          stats.defeatBad('go', false, p.group);
+        }
+      }
+    });
+    stats.finishFree(90);
+    const s = stats.snapshot();
+    const f = s.free!;
+    expect(PLAN.stage.waves.some((w) => w.groups.length > 0)).toBe(true);
+    expect(goPeople).toBeGreaterThan(8);
+    expect(f).toMatchObject({ goScenes: 8, fixedRight: 27, recovered: 0, goCivHits: 0, clearSec: 90 });
+    expect(f.effectiveGos).toBe(goPeople);
+    expect(s.escaped).toBe(0);
+    expect(s.allDefeated).toBe(true);
+    expect(decideTitle(s).id).toBe('heroSitter');
+  });
+
+  it('ギャングの組の1人を先に倒し、残った1人に逃げられたら、行けで決めた1回と逃げきった場面1つ', () => {
+    const stats = new StatsTracker(3, 'garage');
+    stats.startFree(PLAN);
+    stats.defeatBad('go', false, 'w2-g1');
+    stats.escaped();
+    const s = stats.snapshot();
+    expect(s.free!.goScenes).toBe(1);
+    expect(s.escaped).toBe(1);
+    expect(s.free!.fixedRight).toBe(26);
+    // 別の組なら、それぞれ数える
+    stats.defeatBad('go', false, 'w3-g1');
+    expect(stats.snapshot().free!.goScenes).toBe(2);
+  });
+
+  it('素通りしかけた市民に行けを押して殴ると、市民のけが(なぐった)に数えて3秒足す。お守り役もなすがままも取れない', () => {
+    const stats = play(PLAN, 'perfect');
+    stats.hurtCiv('hero', 'suit');
+    stats.freeGoCiv();
+    const s = stats.snapshot();
+    const f = s.free!;
+    expect(s.civHurtByHero).toBe(1);
+    expect(f).toMatchObject({ goCivHits: 1, goScenes: 8, clearSec: 103, fixedRight: 26 });
+    expect(decideTitle(s).id).toBe('heroInterpreter');
+    // 何も押さなかった回でも、市民に行けを押していれば、なすがままにしない
+    const hands = play(PLAN, 'handsOff');
+    hands.hurtCiv('hero', 'suit');
+    hands.freeGoCiv();
+    expect(hands.snapshot().free!.effectiveGos).toBe(1);
+    expect(decideTitle(hands.snapshot()).id).not.toBe('letItBe');
+    // ステージでは何もしない
+    const st = new StatsTracker(3, 'alley');
+    st.freeGoCiv();
+    expect(st.snapshot().free).toBeNull();
+  });
+
   it('待てで止めたワルが最後に逃げたら、そのときに逃がしたに数える', () => {
     const stats = new StatsTracker(3, 'alley');
     stats.startFree(PLAN);

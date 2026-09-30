@@ -3,11 +3,16 @@
 //   node tools/free_play.mjs [サーバーかURL] [出力フォルダ] [押し方] [種] [開いているステージ]
 // サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/free_play.mjs - - good 7 alley)
 // 押し方(書かなければ both):
-//   good  市民への待てのマークと、行けのマーク(悪さのワル、ギャングの組、UFO)だけを、出たらすぐ押す。
-//         波1の始めに1回だけ、マークのないときに待てを押す(空押し。ヒーローが振り向き、空押しに1回数えるか)
+//   good  市民への待てのマークと、ワルへの行けのマークだけを、出たらすぐ押す。行けは、素通りしかけたワルのマーク
+//         (悪さの前に倒す)と、悪さのマーク(悪さのワル、ギャングの組、UFO)。素通りしかけた市民のマークには押さない。
+//         波1の始めに1回だけ、マークのないときに待てを押す(空押し。ヒーローが振り向き、空押しに1回数えるか)。
+//         素通りしかけたワルが、どれも悪さの前に倒れたかも見る
+//   civgo good と同じに押し、ほかに、最初に素通りしかけた市民のマークに1回だけ行けを押す。
+//         市民のけが(なぐった)に1人数え、クリアまでの時間に3秒足すかを見る
 //   none  何も押さない(ヒーローにまかせる)
 //   late  市民への待ては、ためのいちばん最後(ギリギリセーフ)に押す。最初に殴りかかられるワルにも1回だけ待てを押し、
-//         悪さを始めたら行けで取り返す。行けのマークは出たらすぐ指で押す(待ては、遅れないようにページの中から押す)
+//         悪さを始めたら行けで取り返す。行けは悪さのマークだけに、出たらすぐ指で押す(素通りのマークには押さない。
+//         待ては、遅れないようにページの中から押す)
 //   two   行けのマークが2つ同時に出る場面をわざと作る。波3から始め、モヒカンが逃げるまでを開発用に8秒にのばす(?threat=8)。
 //         種は、波3で素通りされるモヒカンのすぐあと(3人以内)に、もう1つ行けの場面がある種を、指定した種から探す。
 //         (a) 行けのマークが2つあるときに行けを押し、先に出たほうだけに効くか
@@ -15,9 +20,11 @@
 //         (c) 言い直しで止めている間に行けのマークがあれば行けを押し、止めが終わってから効くか(空押しに数えないか)
 //   early 行けを、マークが出る前の前ぶれで押す。モヒカンが相手の所へ走り出したら、ギャングの口笛が鳴ったら、
 //         宇宙人がUFOに合図を送り始めたら、すぐ行けを押す(ページの中から、ボタンと同じ pressGo を呼ぶ)。
-//         マークが出てからは行けを押さない。市民への待ては good と同じに押す。
-//         前ぶれの間に押した行けが覚えられ、マークが出た瞬間に全部効き、空押しが0かを見る
-//   both  good と none を続けて(all は good、none、late、two、early)
+//         素通りのマークと悪さのマークが出てからは行けを押さない(素通りのマークで押すと、悪さが起きないため)。
+//         市民への待ては good と同じに押す。
+//         前ぶれの間に押した行けが覚えられ、悪さのマークが出た瞬間に全部効き、空押しが0かを見る
+//         (波3で、素通りのマークが出ている間に前ぶれが始まっても、素通りの相手ではなく悪さに効くか)
+//   both  good と none を続けて(all は good、civgo、none、late、two、early)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
@@ -27,8 +34,9 @@ import { checker, gameUrl, openBrowser, openPage, serverUrl, shotsDir, touchPad 
 const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
 const outDir = shotsDir(outArg);
-const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? ['good', 'none', 'late', 'two', 'early'] : [policyArg];
-if (policies.some((p) => !['good', 'none', 'late', 'two', 'early'].includes(p))) { console.error(`押し方は good、none、late、two、early、both、all のどれか(${policyArg})`); process.exit(2); }
+const POLICIES = ['good', 'civgo', 'none', 'late', 'two', 'early'];
+const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? POLICIES : [policyArg];
+if (policies.some((p) => !POLICIES.includes(p))) { console.error(`押し方は ${POLICIES.join('、')}、both、all のどれか(${policyArg})`); process.exit(2); }
 const browser = await openBrowser();
 const { check, done } = checker();
 
@@ -50,6 +58,9 @@ const peek = () => {
     stopId: marked?.person?.id ?? null,
     windup: f.windupProgress,
     go: f.goTarget() !== null,
+    // 行けのマークの種類:悪さ(mischief)、素通りしかけたワル(passBad)、素通りしかけた市民(passCiv)
+    goKind: f.mischiefTarget() !== null ? 'mischief' : f.passTarget ? (f.passTarget.civ ? 'passCiv' : 'passBad') : null,
+    passId: f.passTarget?.person?.id ?? null,
     stopLocked: f.dryStop.locked(sd.time.now),
     goLocked: f.dryGo.locked(sd.time.now),
     redeclared: f.redeclared,
@@ -130,7 +141,7 @@ const earlyWatcher = () => {
       for (const [key, kind] of starts) {
         if (seen.has(key)) continue;
         seen.add(key);
-        if (f.goTarget() !== null) r.markUp++;
+        if (f.mischiefTarget() !== null) r.markUp++;
         f.pressGo();
         r.presses++;
         r.kinds[kind] = (r.kinds[kind] ?? 0) + 1;
@@ -174,6 +185,7 @@ async function play(policy) {
   let dryTurned = null;
   let reached = false;
   let villainStopped = false;
+  let civGoId = null;
   let declareShotAt = 0;
   while (Date.now() - t0 < 360000) {
     const st = await page.evaluate(peek);
@@ -189,7 +201,7 @@ async function play(policy) {
     if (policy === 'late' && s.open && !s.leaving) {
       // 待ては、ページの中の見張り(lateWatcher)が押す。行けのマークは出たらすぐ指で押す
       if (s.stopMark && !s.stopCiv) await shot('late_villainstop');
-      if (s.go && !s.goLocked && Date.now() - pressedGoAt > 250) {
+      if (s.goKind === 'mischief' && !s.goLocked && Date.now() - pressedGoAt > 250) {
         pressedGoAt = Date.now();
         await pad.tap(s.goBtn.x, s.goBtn.y);
         continue;
@@ -197,7 +209,8 @@ async function play(policy) {
       await page.waitForTimeout(30);
       continue;
     }
-    if ((policy === 'good' || policy === 'early') && s.open && !s.leaving) {
+    const goodLike = policy === 'good' || policy === 'civgo';
+    if ((goodLike || policy === 'early') && s.open && !s.leaving) {
       // 波1の始め、マークのないときに1回だけ空押し(early はしない)
       if (policy === 'good' && !dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
         dryDone = true;
@@ -212,8 +225,11 @@ async function play(policy) {
         await pad.tap(s.stopBtn.x, s.stopBtn.y);
         continue;
       }
-      if (policy === 'good' && s.go && !s.goLocked && Date.now() - pressedGoAt > 250) {
+      // 行けはワルにだけ(素通りしかけたワルと、悪さ)。civgo は、最初に素通りしかけた市民にも1回だけ押す
+      const civGo = policy === 'civgo' && s.goKind === 'passCiv' && (civGoId === null || civGoId === s.passId);
+      if (goodLike && (s.goKind === 'mischief' || s.goKind === 'passBad' || civGo) && !s.goLocked && Date.now() - pressedGoAt > 250) {
         pressedGoAt = Date.now();
+        if (civGo) { civGoId = s.passId; await shot('civgo_press'); }
         await pad.tap(s.goBtn.x, s.goBtn.y);
         continue;
       }
@@ -238,16 +254,26 @@ async function play(policy) {
     check(`[${policy}] 時計が進んで止まった`, f.rawSec !== null && f.rawSec > 30 && f.rawSec < 400, String(f.rawSec));
     check(`[${policy}] クリアの時間は、逃がしたワル、市民のけが、ワルへの待て1つにつき3秒を足す`,
       Math.abs(f.clearSec - (f.rawSec + (snap.escaped + snap.civHurt + snap.badSparedByStop) * 3)) < 1e-6);
-    check(`[${policy}] 待てと行けのチャンスは巻きぞえで消えない(ヒーローが殴った市民と守った市民で9人)`,
-      snap.civHurtByHero + f.stopSaved === 9, `${snap.civHurtByHero}+${f.stopSaved}`);
+    check(`[${policy}] 待てと行けのチャンスは巻きぞえで消えない(ヒーローが殴った市民は、守れなかった市民と行けで殴った市民)`,
+      snap.civHurtByHero - f.goCivHits + f.stopSaved === 9, `${snap.civHurtByHero}-${f.goCivHits}+${f.stopSaved}`);
     if (policy === 'good') {
       check('[good] 待てで市民を全員守った', f.stopSaved === 9, String(f.stopSaved));
       check('[good] 行けを全部決めた', f.goScenes === 8, String(f.goScenes));
+      check('[good] 素通りしかけたワルは、どれも悪さの前に行けで倒した', seen?.passGo === exp.goPeople, `${seen?.passGo}/${exp.goPeople}`);
+      check('[good] 市民には行けを押していない', f.goCivHits === 0 && seen?.goCiv === 0, String(f.goCivHits));
       check('[good] 空押しは1回(波1の始め)', f.dryPresses === 1, String(f.dryPresses));
       check('[good] 空押しでヒーローが振り向いた', dryTurned === true);
       check('[good] ヒーローが殴った市民はいない', snap.civHurtByHero === 0, String(snap.civHurtByHero));
       check('[good] 逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
       check('[good] 直したあとは全部当たり(巻きぞえのほかは)', f.fixedRight === f.units, `${f.fixedRight}/${f.units}`);
+    } else if (policy === 'civgo') {
+      check('[civgo] 素通りしかけた市民に1回だけ行けを押した', civGoId !== null && seen?.goCiv === 1 && f.goCivHits === 1, `${civGoId} ${seen?.goCiv} ${f.goCivHits}`);
+      check('[civgo] 市民のけが(なぐった)に1人数えた', snap.civHurtByHero === 1, String(snap.civHurtByHero));
+      check('[civgo] クリアまでの時間に、その市民の分の3秒を足した', snap.civHurt >= 1 && Math.abs(f.clearSec - f.rawSec - (snap.escaped + snap.civHurt + snap.badSparedByStop) * 3) < 1e-6,
+        `けが ${snap.civHurt}、足した ${(f.clearSec - f.rawSec).toFixed(1)}秒`);
+      check('[civgo] 直したあとの当たりが1つ減った', f.fixedRight === f.units - 1, `${f.fixedRight}/${f.units}`);
+      check('[civgo] いちばんひどい場面は市民を殴った場面', ['civHit', 'specialOnCiv'].includes(snap.worstScene), String(snap.worstScene));
+      check('[civgo] 待てと行けはほかは全部決めた', f.stopSaved === 9 && f.goScenes === 8, `${f.stopSaved} ${f.goScenes}`);
     } else if (policy === 'early') {
       const early = await page.evaluate(() => window.__early);
       console.log(`[early] 前ぶれで押した ${JSON.stringify(early)}`);

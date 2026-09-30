@@ -492,9 +492,9 @@ export class StreetScene extends Phaser.Scene {
     });
   }
 
-  /** 行けの合図の、画面の端の点滅を止める(フリープレイでは、ほかの行けのマークが残っていれば止めない) */
+  /** 行けの合図の、画面の端の点滅を止める(フリープレイでは、ほかの悪さの行けのマークが残っていれば止めない) */
   stopGoAlarm(): void {
-    if (this.free?.goTarget()) return;
+    if (this.free?.mischiefTarget()) return;
     this.goAlarm.stop();
   }
 
@@ -959,7 +959,8 @@ export class StreetScene extends Phaser.Scene {
       if (!this.free) this.civCry(this.civLineKey(k));
       this.report(sceneForCivHit(t.look!, k), k);
     } else {
-      this.stats.defeatBad(mode === 'go' || mode === 'recover' ? 'go' : 'sort', mode === 'recover');
+      // ギャングの組の人は組の id も渡す(フリープレイで、組を「行けで決めた」に2回数えないように)
+      this.stats.defeatBad(mode === 'go' || mode === 'recover' ? 'go' : 'sort', mode === 'recover', t.person?.group);
     }
   }
 
@@ -1225,6 +1226,8 @@ export class StreetScene extends Phaser.Scene {
       audio.sfx('go');
       this.heroSay(this.line('go', this.rng), 800);
       this.opSay(this.line('goOp', this.rng));
+      // フリープレイ:ギャングの組の1人を先に行けで倒していて、残った1人が口笛を吹いたとき
+      this.free?.goDone(false);
       a.pose('surprised');
       await this.runTo(a.x - ATTACK_GAP, { speed: RUN * 3, y: a.y });
       const k = this.pickAttack();
@@ -1237,6 +1240,7 @@ export class StreetScene extends Phaser.Scene {
     this.runAway(a);
     this.stats.escaped();
     this.opSay(this.line('escaped', this.rng));
+    this.free?.escapedAlone(a.look);
     h.play('idle');
     await waitMs(this, 500);
   }

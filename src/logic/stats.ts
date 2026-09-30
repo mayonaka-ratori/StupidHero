@@ -44,7 +44,11 @@
 //   待てが効いた:stats.stopped(person.truth)。ワルを止めても、すぐには「逃がした」に数えない(取り返し)。
 //     そのワルが悪さを始め、行けで倒したら stats.defeatBad('go', true)(UFOなら stats.ufoDowned(true))。
 //     逃げたら、ふつうと同じく stats.escaped() など(そのとき「逃がした」に数える)
-//   行けで決めた:stats.defeatBad('go')、stats.groupWiped(n)、stats.vanStopped(n)、stats.ufoDowned()(どれも1場面)
+//   行けで決めた:stats.defeatBad('go')、stats.groupWiped(n)、stats.vanStopped(n)、stats.ufoDowned()(どれも1場面)。
+//     素通りしかけたワルを、悪さの前に行けで倒したときも stats.defeatBad('go')(同じ「行けで決めた」)。
+//     ギャングの組の人は stats.defeatBad('go', false, person.group) と組の id を渡す(組は1場面なので、
+//     1人目を先に倒し、2人目もあとで行けで倒したときに、2回に数えない)
+//   素通りしかけた市民に行けを押して殴った:stats.hurtCiv('hero', look)(市民のけが。なぐった)と stats.freeGoCiv()
 //   モヒカンが財布を奪って逃げた:stats.escaped(true)(逃がしたに数え、市民のけが(ワルにやられた)も数える)
 //   空押し:stats.dryPress()
 //   いちばんひどい場面:ステージの場面は今まで通り stats.reportScene(...)。
@@ -117,6 +121,10 @@ interface FreeState {
   effectiveGos: number;
   /** 逃げきったワルの場面の数(ギャングの組は1つ) */
   escapedScenes: number;
+  /** 素通りしかけた市民に行けを押して殴った数 */
+  goCivHits: number;
+  /** 行けで決めたに数えたギャングの組の id(組は1場面なので、2人目を倒しても数えない) */
+  goGroups: Set<string>;
   rawSec: number | null;
   slow: boolean;
   rule: FreeRule | null;
@@ -201,12 +209,13 @@ export class StatsTracker {
 
   /**
    * ワルを倒した。how:'sort' は仕分けで殴った(フリープレイではヒーローが殴った)、'go' は行けで追い打ちした。
-   * recovered はフリープレイだけ:待てで止めたワルを、行けで倒して取り返した(「行けで決めた」には数えない)
+   * recovered はフリープレイだけ:待てで止めたワルを、行けで倒して取り返した(「行けで決めた」には数えない)。
+   * group もフリープレイだけ:ギャングの組の人なら組の id(同じ組を「行けで決めた」に2回数えない)
    */
-  defeatBad(how: 'sort' | 'go', recovered = false): void {
+  defeatBad(how: 'sort' | 'go', recovered = false, group?: string): void {
     if (how === 'go') {
       this.defeatedByGo++;
-      this.freeGo(recovered);
+      this.freeGo(recovered, group);
     } else this.defeatedBySort++;
   }
 
@@ -453,7 +462,7 @@ export class StatsTracker {
     const c = plan.chances;
     this.free = {
       stopChances: c.stop, goChances: c.go, scenes: c.scenes, heroRight: c.heroRight,
-      goScenes: 0, recovered: 0, dryPresses: 0, effectiveStops: 0, effectiveGos: 0, escapedScenes: 0,
+      goScenes: 0, recovered: 0, dryPresses: 0, effectiveStops: 0, effectiveGos: 0, escapedScenes: 0, goCivHits: 0, goGroups: new Set(),
       rawSec: null, slow, rule: null, worst: null, worstRule: null
     };
   }
@@ -496,13 +505,27 @@ export class StatsTracker {
     return true;
   }
 
-  /** フリープレイで行けが効いた(recovered なら取り返し) */
-  private freeGo(recovered: boolean): void {
+  /**
+   * フリープレイで、素通りしかけた市民に行けを押して殴った。効いた行けに数える(なすがままにしない)。
+   * けがは画面が別に hurtCiv('hero', look) で数える(市民のけが。クリアまでの時間に3秒足す)
+   */
+  freeGoCiv(): void {
+    const f = this.free;
+    if (!f) return;
+    f.effectiveGos++;
+    f.goCivHits++;
+  }
+
+  /** フリープレイで行けが効いた(recovered なら取り返し)。group はギャングの組の id(組は1場面) */
+  private freeGo(recovered: boolean, group?: string): void {
     const f = this.free;
     if (!f) return;
     f.effectiveGos++;
     if (recovered) f.recovered++;
-    else f.goScenes++;
+    else if (!group || !f.goGroups.has(group)) {
+      f.goScenes++;
+      if (group) f.goGroups.add(group);
+    }
   }
 
   // ─── 仕分けの答え合わせ ───
@@ -616,6 +639,7 @@ export class StatsTracker {
       dryPresses: f.dryPresses,
       effectiveStops: f.effectiveStops,
       effectiveGos: f.effectiveGos,
+      goCivHits: f.goCivHits,
       units: f.scenes,
       heroRight: f.heroRight,
       fixedRight,
