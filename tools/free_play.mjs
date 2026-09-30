@@ -27,8 +27,13 @@
 //   gang1 good と同じに押すが、ギャングの組は、素通りしかけた1人目にだけ行けを押し、2人目には押さない。
 //         2人目は1人で口笛を吹くので、その行けのマークで押す。組が1つの場面として数えられ、逃がしたワルがいないかを見る
 //   gang1x gang1 と同じだが、1人で口笛を吹いた2人目にも押さない。組ごとに逃がしたワル1人と数え、
-//         その組を「行けで決めた」に数えないか(行けで決めた場面が8から組の数だけ減るか)を見る
-//   both  good と none を続けて(all は good、civgo、none、late、two、early、gang1、gang1x)
+//         その組を「行けで決めた」に数えないか(行けで決めた場面が8から組の数だけ減るか)を見る。
+//         1人で口笛を吹いた2人目が、行けのマークが出てからフリープレイの時間(ゆっくりモードは長い)で逃げるか、
+//         逃げたときに「手を振って見送った」場面になるかも見る
+//   wavego good と同じに押すが、素通りしかけたワルへの行けは、ヒーローが手を振り始めてから(通りすぎる間に)押す。
+//         光の拳で倒れ、手を振った場面(いちばんひどい場面の候補)にならないか、ヒーローが歩きながら
+//         待機や腕組みの格好ですべらないかを見る
+//   both  good と none を続けて(all は good、civgo、none、late、two、early、gang1、gang1x、wavego)
 // 開いているステージは alley,garage,mall のように書く(書かなければ3つとも)。
 // 環境変数 SLOW=1 でゆっくりモード、REDUCE=1 で「光と揺れを弱くする」をオンにして始める(設定を先に入れておく)。
 // 場面ごとに画面を撮る(波の始めの決めつけ、最初の待てと行けのマーク、波3の言い直し、結果画面)。
@@ -38,7 +43,7 @@ import { checker, gameUrl, openBrowser, openPage, serverUrl, shotsDir, touchPad 
 const [urlArg, outArg, policyArg = 'both', seed = '7', unlocked = 'alley,garage,mall'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
 const outDir = shotsDir(outArg);
-const POLICIES = ['good', 'civgo', 'none', 'late', 'two', 'early', 'gang1', 'gang1x'];
+const POLICIES = ['good', 'civgo', 'none', 'late', 'two', 'early', 'gang1', 'gang1x', 'wavego'];
 const policies = policyArg === 'both' ? ['good', 'none'] : policyArg === 'all' ? POLICIES : [policyArg];
 if (policies.some((p) => !POLICIES.includes(p))) { console.error(`押し方は ${POLICIES.join('、')}、both、all のどれか(${policyArg})`); process.exit(2); }
 const browser = await openBrowser();
@@ -70,6 +75,7 @@ const peek = () => {
     goLocked: f.dryGo.locked(sd.time.now),
     redeclared: f.redeclared,
     heroFlip: sd.hero.sprite.flipX,
+    heroAnim: sd.hero.anim,
     stopBtn: btn(sd.stopBtn),
     goBtn: btn(sd.goBtn),
     clock: run.free.clockMs,
@@ -158,6 +164,40 @@ const earlyWatcher = () => {
   requestAnimationFrame(tick);
 };
 
+/**
+ * どの押し方でも毎コマ見張る:
+ * - ヒーローが動かされているのに(歩きの途中。空押しで立ち止まっている間は除く)、待機か腕組みの格好でいるコマの数(すべり)
+ * - 1人で口笛を吹いたギャング(組にならず、行けのマークが1つ出る)の、マークが出てから消えるまでの時間
+ */
+const commonWatcher = () => {
+  const r = { slide: 0, slideAnims: {}, alone: [], freeScenes: [] };
+  window.__common = r;
+  let aloneSince = null;
+  const tick = () => {
+    const sd = window.streetDev;
+    const f = sd?.free;
+    // フリープレイの場面を伝えた回を、すべて覚える(ステージの場面が先に起きて、場面にならなかった回も)
+    if (sd?.stats && !sd.stats.__wrapped) {
+      const st = sd.stats;
+      const orig = st.reportFreeScene.bind(st);
+      st.reportFreeScene = (scene) => { if (scene) r.freeScenes.push(scene); return orig(scene); };
+      st.__wrapped = true;
+    }
+    if (f && sd.sys.isActive()) {
+      const anim = sd.hero.anim;
+      if (sd.walker && sd.holdMs <= 0 && (anim === 'idle' || anim === 'win_arms')) {
+        r.slide++;
+        r.slideAnims[anim] = (r.slideAnims[anim] ?? 0) + 1;
+      }
+      const lone = sd.goHandler !== null && !sd.gangPart.gang && !sd.ufoPart.ufo;
+      if (lone && aloneSince === null) aloneSince = sd.time.now;
+      if (!lone && aloneSince !== null) { r.alone.push(Math.round(sd.time.now - aloneSince)); aloneSince = null; }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
 async function play(policy) {
   const errors = [];
   const page = await openPage(browser, { errors });
@@ -173,6 +213,7 @@ async function play(policy) {
   await page.waitForFunction(() => window.streetDev && window.streetDev.free, null, { timeout: 30000 });
   const pad = await touchPad(page);
   const exp = await page.evaluate(expected);
+  await page.evaluate(commonWatcher);
   if (policy === 'late') await page.evaluate(lateWatcher);
   if (policy === 'early') await page.evaluate(earlyWatcher);
   console.log(`[${policy}] 待てのチャンス ${exp.stop}、行けの場面 ${exp.goScenes}(ワル ${exp.goPeople}人)、場面 ${exp.chances.scenes}`);
@@ -217,7 +258,18 @@ async function play(policy) {
       continue;
     }
     const gangLike = policy === 'gang1' || policy === 'gang1x';
-    const goodLike = policy === 'good' || policy === 'civgo' || gangLike;
+    const goodLike = policy === 'good' || policy === 'civgo' || policy === 'wavego' || gangLike;
+    // wavego:素通りしかけたワルへの行けは、ヒーローが手を振り始めるまで待つ
+    if (policy === 'wavego' && s.open && !s.leaving && s.goKind === 'passBad' && s.heroAnim !== 'pass') {
+      if (s.stopMark && s.stopCiv && pressedStop !== s.stopId && !s.stopLocked) {
+        pressedStop = s.stopId;
+        await pad.tap(s.stopBtn.x, s.stopBtn.y);
+        continue;
+      }
+      await page.waitForTimeout(20);
+      continue;
+    }
+    if (policy === 'wavego' && s.goKind === 'passBad') await shot('wavego_press');
     if ((goodLike || policy === 'early') && s.open && !s.leaving) {
       // 波1の始め、マークのないときに1回だけ空押し(early はしない)
       if (policy === 'good' && !dryDone && st.wave === 0 && !s.stopMark && !s.go && s.clock > 800) {
@@ -264,6 +316,10 @@ async function play(policy) {
       `空押し ${f.dryPresses}、逃がした ${snap.escaped}、けが ${snap.civHurt}(ヒーロー ${snap.civHurtByHero})、` +
       `当たり ${f.heroRight}→${f.fixedRight}/${f.units}、時計 ${f.rawSec?.toFixed(1)}秒、クリア ${f.clearSec?.toFixed(1)}秒${f.slow ? '(ゆっくり)' : ''}`);
     console.log(`[${policy}] 起きた場面: ${JSON.stringify(seen)}`);
+    const common = await page.evaluate(() => window.__common);
+    const hasShot = await page.evaluate(() => !!window.__game.registry.get('run').worstShot);
+    console.log(`[${policy}] すべったコマ ${common.slide} ${JSON.stringify(common.slideAnims)}、1人の口笛の行けのマーク ${JSON.stringify(common.alone)}ミリ秒、` +
+      `いちばんひどい場面 ${snap.worstScene ?? '-'}/${f.worst ?? '-'}(写真 ${hasShot ? 'あり' : 'なし'})、伝えたフリープレイの場面 ${JSON.stringify(common.freeScenes)}`);
     check(`[${policy}] チャンスの数(待て9、行け8、場面27)`, f.stopChances === 9 && f.goChances === 8 && f.units === 27 && exp.stop === 9 && exp.goScenes === 8);
     check(`[${policy}] ゆっくりモードの印`, f.slow === slow, String(f.slow));
     check(`[${policy}] 時計が進んで止まった`, f.rawSec !== null && f.rawSec > 30 && f.rawSec < 400, String(f.rawSec));
@@ -297,7 +353,26 @@ async function play(policy) {
       check(`[${policy}] 行けで決めた場面は ${goWant}(組は1つの場面。2人目を逃がした組は数えない)`, f.goScenes === goWant, String(f.goScenes));
       check(`[${policy}] 待てで市民を全員守った`, f.stopSaved === 9, String(f.stopSaved));
       if (policy === 'gang1') check('[gang1] 1人で口笛を吹いた2人目も行けで倒し、逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
-      else check('[gang1x] 組ごとに2人目を逃がした', snap.escaped === gangPairs, `${snap.escaped}/${gangPairs}`);
+      else {
+        check('[gang1x] 組ごとに2人目を逃がした', snap.escaped === gangPairs, `${snap.escaped}/${gangPairs}`);
+        // 行けのマークが出ている時間は、フリープレイの時間(ふつう3秒、ゆっくりモード4.5秒)
+        const want = slow ? 4500 : 3000;
+        check(`[gang1x] 1人で口笛を吹いた2人目は、行けのマークから約${want / 1000}秒で逃げた`,
+          common.alone.length === gangPairs && common.alone.every((ms) => Math.abs(ms - want) < 300), JSON.stringify(common.alone));
+        // ステージの場面(市民のけがなど)が起きていなければ、手を振って見送った場面になる
+        check('[gang1x] 2人目に逃げられたら、手を振って見送った場面を伝える(ステージの場面がなければ、その場面で写真つき)',
+          common.freeScenes.filter((x) => x === 'waveGang').length === gangPairs && (snap.worstScene !== null || (f.worst === 'waveGang' && hasShot)),
+          `${JSON.stringify(common.freeScenes)} ${snap.worstScene}/${f.worst} ${hasShot}`);
+      }
+    } else if (policy === 'wavego') {
+      check('[wavego] 行けを全部決めた', f.goScenes === 8, String(f.goScenes));
+      check('[wavego] 素通りしかけたワルは、どれも手を振ったあと悪さの前に倒した', seen?.passGo === exp.goPeople, `${seen?.passGo}/${exp.goPeople}`);
+      check('[wavego] 手を振ったあとの行けは光の拳', (seen?.fist ?? 0) >= exp.goPeople, `${seen?.fist}/${exp.goPeople}`);
+      check('[wavego] 逃がしたワルはいない', snap.escaped === 0, String(snap.escaped));
+      check('[wavego] 行けで倒したワルは、手を振った場面にならない(場面を伝えもしない)', f.worst === null && common.freeScenes.length === 0,
+        `${f.worst} ${JSON.stringify(common.freeScenes)}`);
+      check('[wavego] ヒーローが歩きながら待機や腕組みの格好ですべらない', common.slide === 0, JSON.stringify(common.slideAnims));
+      check('[wavego] 待てで市民を全員守った', f.stopSaved === 9, String(f.stopSaved));
     } else if (policy === 'early') {
       const early = await page.evaluate(() => window.__early);
       console.log(`[early] 前ぶれで押した ${JSON.stringify(early)}`);
