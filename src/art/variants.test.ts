@@ -8,6 +8,7 @@ import { ART_SETS } from './sets';
 import { colorsOf, rgbOf } from './testColors';
 import { COLOR_VARIANTS, VARIANTS_PER_LOOK, hasVariants, recolorGrid, rgbInt, variantSwap } from './variants';
 import { BAG_RED, BLADE, GOLD, KNIFE_YELLOW, TATTOO, WALLET_BROWN } from './world/palette';
+import { buildItemlessPeople } from './world/people';
 import { GLITCH } from './world3/palette';
 import { PSY, WEAK } from './world4/palette';
 
@@ -42,6 +43,12 @@ const stageOfLook = new Map<string, StageId>();
 for (const id of STAGE_IDS) for (const l of STAGES[id].looks) stageOfLook.set(l, id);
 
 const entries = Object.entries(COLOR_VARIANTS);
+
+/**
+ * 小物のドットを比べるときに見ない行(吹っ飛ぶ、のびている)。このコマは絵全体の置き場所を人の形から決めるので、
+ * 小物の大きさで絵全体がずれ、服のドットまで違って見える。小物は同じ描き方なので、ほかの行を見れば色がわかる
+ */
+const SHIFTED_ROWS: readonly number[] = [4, 5];
 const variants = Array.from({ length: VARIANTS_PER_LOOK - 1 }, (_, i) => i + 1);
 
 describe('服の色ちがい', () => {
@@ -166,6 +173,50 @@ describe('服の色ちがい', () => {
         for (const c of own) expect(swap.map.has(rgbInt(c)), `${tellKey} ${c}`).toBe(false);
       }
     }
+  });
+
+  it('ステージ1の手がかりの小物のドットは、服の置きかえる色を、置きかえの前もあとも使わない(小物が塗り替わったり、服の色ちがいにとけこんだりしない)', () => {
+    // 小物のドットは、小物を描かない絵と比べて取り出す(小物が服と同じ色だと、出し分けの絵だけの色を見てもわからない)
+    const itemless = buildItemlessPeople();
+    const bad: string[] = [];
+    for (const [base, bare] of Object.entries(itemless)) {
+      const v = entries.find(([, e]) => e.sheets.includes(base))![1];
+      const cloth = new Set(v.swaps.flatMap((s) => [...s.from, ...s.to.flat()]));
+      for (const key of [base, ...Object.keys(TELL_BASE).filter((k) => TELL_BASE[k] === base)]) {
+        const found = new Set<string>();
+        SHEETS_BUILT[key].forEach((frames, r) => frames.forEach((g, i) => {
+          if (SHIFTED_ROWS.includes(r)) return;
+          for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+            const c = g.cells[y][x];
+            if (c && c !== bare[r][i].cells[y][x] && cloth.has(c)) found.add(c);
+          }
+        }));
+        for (const c of found) bad.push(`${key} ${c}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('手がかりの出し分けの絵で元の絵と違うドットは、服の置きかえる色で服の上に描いていない(小物が塗り替わらない)', () => {
+    // 元の絵で服(置きかえる色)か何もない所に、置きかえる色のドットがあれば、小物を服の色で描いている。
+    // 元の小物があった所に服が見えるのはよい(元の絵のドットは服の色でない)。
+    // ステージ3の宇宙人のくずれ(浮いた頭、3本目の腕、開いたおなか)は体の一部なので、服といっしょに塗り替わってよい。見ない
+    const bad: string[] = [];
+    for (const [tellKey, base] of Object.entries(TELL_BASE)) {
+      if (sheetByKey(base).rows.length === 8) continue;
+      const from = new Set(entries.find(([, e]) => e.sheets.includes(base))![1].swaps.flatMap((s) => s.from));
+      const found = new Set<string>();
+      SHEETS_BUILT[tellKey].forEach((frames, r) => frames.forEach((g, i) => {
+        if (SHIFTED_ROWS.includes(r)) return;
+        const b = SHEETS_BUILT[base][r][i];
+        for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+          const c = g.cells[y][x], o = b.cells[y][x];
+          if (c && c !== o && from.has(c) && (o === null || from.has(o))) found.add(`行${r} ${c}`);
+        }
+      }));
+      for (const c of found) bad.push(`${tellKey} ${c}`);
+    }
+    expect(bad).toEqual([]);
   });
 
   describe.each(entries)('%s', (_look, v) => {

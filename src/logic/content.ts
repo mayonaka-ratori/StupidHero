@@ -776,7 +776,7 @@ export function tsukkomi(nth: number, rng?: Rng): Speech {
 
 /**
  * ワルにした人に向かうときのヒーローの決めつけ。見た目が分からなければ say('judge') と同じ。
- * person を渡すと、その人の手がかり(person.tell)と食いちがう文(ネクタイの人に「腕章があやしい!」)を外す
+ * person を渡すと、その人の手がかり(person.tell)と食いちがう文(肩章の人に「腕章があやしい!」)を外す
  */
 export function judgeLine(look: Look | undefined, rng?: Rng, person?: Pick<Person, 'look' | 'truth' | 'tell'>): Speech {
   const all = look ? JUDGE_LINES[look] : undefined;

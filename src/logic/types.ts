@@ -163,7 +163,7 @@ export interface Person {
   profile: Profile;
   hint: OperatorHint;
   /**
-   * 見分ける手がかりの出し分けの id(tells.ts の TELLS。例 'knife'、'banana'、'tie'、'pop')。
+   * 見分ける手がかりの出し分けの id(tells.ts の TELLS。例 'knife'、'banana'、'epaulette'、'pop')。
    * ステージ1〜3の組の見た目の市民とワル(ステージ3は宇宙人だけ)にある。sheetKey はもうこれに合わせた絵のキーになっている
    */
   tell?: string;
