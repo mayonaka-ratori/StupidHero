@@ -3,6 +3,8 @@
 //   例: node tools/artsheet.mjs hero 4 shots/art
 //       node tools/artsheet.mjs civ_hoodie,bad_hoodie,bg_alley_far 3
 //       node tools/artsheet.mjs tw_,bg_tower 3   (表にないキーは、その頭で始まるキーを全部書き出す)
+//       node tools/artsheet.mjs variants 3       (服の色ちがいの見本。見た目ごとに variants_<見た目>.png)
+//       node tools/artsheet.mjs variants:hoodie,guard 3
 // キーは src/art/sheets.ts のシートと背景の名前。省くと all、倍率は 4、出力フォルダは shots/art。
 // コマの境目には細い線を引く(絵の外の色なので、絵とまぎれない)。
 import { mkdirSync } from 'node:fs';
@@ -29,7 +31,8 @@ try {
   const images = { ...WORLD_BGS, ...WORLD2_IMAGES, ...WORLD3_IMAGES, ...WORLD4_IMAGES };
   const allKeys = [...Object.keys(sheets), ...Object.keys(images)];
   const byHead = (k) => { const hit = allKeys.filter((x) => x.startsWith(k)); return hit.length ? hit : [k]; };
-  const want = keysArg === 'all' ? allKeys : keysArg.split(',').flatMap((k) => (sheets[k] || images[k] ? [k] : byHead(k)));
+  if (keysArg.startsWith('variants')) await writeVariants(keysArg.split(':')[1]?.split(','), sheets, await load('/src/art/variants.ts'));
+  const want = keysArg.startsWith('variants') ? [] : keysArg === 'all' ? allKeys : keysArg.split(',').flatMap((k) => (sheets[k] || images[k] ? [k] : byHead(k)));
   for (const key of want) {
     if (sheets[key]) writePng(`${outDir}/${key}.png`, { ...sheetPixels(sheets[key]), scale });
     else if (images[key]) writePng(`${outDir}/${key}.png`, { ...gridPixels(images[key]()), scale });
@@ -38,6 +41,31 @@ try {
   }
 } finally {
   await server.close();
+}
+
+/**
+ * 服の色ちがい(src/art/variants.ts)の見本。見た目ごとに1枚で、行が色ちがい0〜3、
+ * 列はシートごとに、待機、歩く、仕分けの動き、驚く、吹っ飛ぶ、のびている(ボスの化けた姿は待機と仕分けの動き2コマ)
+ */
+function writeVariants(looks, sheets, V) {
+  for (const name of looks ?? Object.keys(V.COLOR_VARIANTS)) {
+    const def = V.COLOR_VARIANTS[name];
+    if (!def) { console.warn(`ない: ${name}`); continue; }
+    const rows = [];
+    for (let v = 0; v < V.VARIANTS_PER_LOOK; v++) {
+      const row = [];
+      for (const key of def.sheets) {
+        const s = sheets[key];
+        const pick = s.length > 3 ? [[0, 0], [1, 1], [2, 0], [3, 0], [4, 1], [5, 0]] : [[0, 0], [2, 0], [2, 2]];
+        const swap = V.variantSwap(key, v);
+        for (const [r, i] of pick) row.push(swap ? V.recolorGrid(s[r][i], swap) : s[r][i]);
+      }
+      rows.push(row);
+    }
+    const path = `${outDir}/variants_${name}.png`;
+    writePng(path, { ...sheetPixels(rows), scale });
+    console.log(path);
+  }
 }
 
 /** 1枚の格子を、背景の色で埋めた画素の表にする */

@@ -11,6 +11,7 @@
 
 import Phaser from 'phaser';
 import { audio } from '../../audio';
+import { passerSheet } from '../../art/recolor';
 import { animKey } from '../../art/sheets';
 import { PSY as PSY_COLORS } from '../../art/world4/palette';
 import {
@@ -292,7 +293,7 @@ export class PsyPart {
     const no = currentWave(this.s.run)?.no ?? 1;
     const looks = (FLOOR_LOOKS[no - 1] ?? FLOOR_LOOKS[0]).filter((l) => l !== u.villain.look);
     const look: Look = this.s.rng.pick(looks.length > 0 ? looks : FLOOR_LOOKS[3]);
-    const v = new Actor(this.s, sheetKeyFor(look, 'civ', 'tower'), this.s.L.right + 24, PSY_ROWS.victim);
+    const v = new Actor(this.s, passerSheet(this.s, sheetKeyFor(look, 'civ', 'tower')), this.s.L.right + 24, PSY_ROWS.victim);
     v.look = look; v.civ = true;
     v.faceLeft(true).play('walk', true);
     this.s.passers.push(v);

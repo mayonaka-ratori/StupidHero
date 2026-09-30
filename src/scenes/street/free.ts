@@ -21,7 +21,7 @@ import Phaser from 'phaser';
 import { UI } from '../../config';
 import { audio } from '../../audio';
 import { animKey } from '../../art/sheets';
-import { accessorySheet } from '../../art/recolor';
+import { passerSheet } from '../../art/recolor';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
 import {
   ACCESSORY_COLORS, DryPress, FREE, MARK, STAGES, createFreeLines, formatClearTime, freeRoleOf, freeTiming, freeWaveScene, heroChoice,
@@ -241,7 +241,7 @@ export class FreeStreet {
   makePasser(x: number, y: number): Actor {
     const s = this.s;
     const l = this.passerLook();
-    const a = new Actor(s, accessorySheet(s, l.key, l.color), x, y);
+    const a = new Actor(s, passerSheet(s, l.key, l.color), x, y);
     a.look = l.look; a.civ = true;
     a.faceLeft(true).play('idle');
     s.passers.push(a);

@@ -174,7 +174,9 @@ describe('ステージ1〜3は高層ビルを足す前と同じ', () => {
       const s = createStage(seed, id as StageId);
       const sale = saleRushOf(s);
       const rush = sale ? (({ kind: _kind, ...rest }) => rest)(sale) : s.rush;
-      expect(hashSeed(JSON.stringify({ waves: s.waves, rush, seed: s.seed })), key).toBe(BEFORE[key]);
+      // あとから足した服の色ちがい(colorVariant)は別の乱数で決めるので、ここでは取りのぞいて比べる
+      const noVariant = (k: string, v: unknown): unknown => (k === 'colorVariant' ? undefined : v);
+      expect(hashSeed(JSON.stringify({ waves: s.waves, rush, seed: s.seed }, noVariant)), key).toBe(BEFORE[key]);
     }
   });
 });

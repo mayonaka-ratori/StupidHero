@@ -17,7 +17,7 @@
 | `src/logic/` | ルール、数字、文章、記録。Phaserを使わないので、テストはここに集まっている |
 | `src/scenes/` | 場面ごとの画面。大きい場面は小文字のフォルダに部品を分けている(`sort/`、`street/`、`boss/`、`review/`、`result/`、`stageselect/`、`elevator/`)。結果発表のギャング、UFO、タイムセールラッシュ、念力は`street/gang.ts`、`street/ufo.ts`、`street/rush.ts`、`street/psychic.ts`(並べ方は`street/plan.ts`の`planTower`)、フリープレイの流れは`street/free.ts`。高層ビルの仕分けの画面の照明と机ともれは`sort/towerDesk.ts`、波の間の階の数字の場面は`Floor.ts`、エレベーターラッシュは`Elevator.ts`と`elevator/plan.ts` |
 | `src/ui/` | ボタン、吹き出し、カットイン、字、一時停止のメニュー(`pause.ts`)、画面の切り替え(`transition.ts`)、光と揺れ(`fx.ts`)、煙や光の粒(`particles.ts`。動きの計算は`flow.ts`)などの画面の部品 |
-| `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3、`world4/`がステージ4、`free/`がフリープレイ。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`(高層ビルの照明と机と小物の場所、「まわり」の窓の四角、もれの見せ方は`towerSpots.ts`)、ステージ2の小物の塗り替えは`recolor.ts` |
+| `src/art/` | 絵。いまは全部コードで描いている。`hero/`がヒーローと顔とエフェクト、`world/`がステージ1、`world2/`がステージ2、`world3/`がステージ3、`world4/`がステージ4、`free/`がフリープレイ。シートの表は`sheets.ts`、「持ち物」の窓の四角は`clueSpots.ts`(高層ビルの照明と机と小物の場所、「まわり」の窓の四角、もれの見せ方は`towerSpots.ts`)、人の絵の塗り替え(服の色ちがいとステージ2の小物の色)は`recolor.ts`、服の色ちがいの表は`variants.ts` |
 | `src/audio/` | 曲と効果音。Web Audioでその場で作る |
 | `src/dev/`、`dev/` | 開発用のページ(絵、音、UI、文字の一覧)。公開するゲームには入らない |
 | `tools/` | ブラウザでゲームを動かして確かめるスクリプト |
@@ -114,7 +114,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 
 - 数字:`rules.ts`(ステージごとの違いは`stages.ts`)
 - 文章:`content.ts`(ステージ2の文は`garageContent.ts`、ステージ3の文は`mallContent.ts`、ステージ4の文は`towerContent.ts`)
-- 人の並び:`stage.ts`(ステージ2は`garage.ts`、ステージ3は`mall.ts`、ステージ4は`tower.ts`)
+- 人の並び:`stage.ts`(ステージ2は`garage.ts`、ステージ3は`mall.ts`、ステージ4は`tower.ts`)。服の色ちがいは`colorVariants.ts`
 - ステージ2のギャングの組:`gang.ts`。ステージ3のUFO:`ufo.ts`。ステージ4の念力(時間の流れ、並べ方、落ちた所で何が壊れるか):`psychic.ts`。UFOと念力の段階の進め方と順番待ちは`timedCall.ts`で共通
 - ボス戦:`boss.ts`。ステージ4の念力の選択(3秒、待てと行け、押さなかった分の数え方):`bossChoice.ts`
 - 称号:`titles.ts`
@@ -223,7 +223,7 @@ npm run typecheck   # tsc
 
 pushするたびに、GitHub Actions(`.github/workflows/test.yml`)で同じ2つが動きます。
 
-`src/art/artRules.test.ts`は、コードで描いた絵の全部(ヒーロー、ステージ1〜4、フリープレイ)が`docs/ART_SPEC.md`の色の決まりを守っているかを見るテストです。1枚15色まで、8段階の色だけ、明るい緑なし、赤紫はステージ2の人の小物だけ、黄緑の3色はステージ3だけ(フリープレイの宇宙人はよい)、超能力の紫はステージ4のもれと念力と親玉の光だけ、背景は奥の絵1枚と組む壁と床で45色まで、奥の背景に透明なし、を確かめます。ステージ4の絵は`src/art/world4/world4.test.ts`でも見ます(人の7行、照明と小物の紫、手品師のつえの先)。絵を描き足したり直したりしたら、これが通るかを見ます。フリープレイの絵は、`src/art/free/free.test.ts`でも見ます(小物と札の色、紙袋の大きさ、小物を付ける場所が絵と合うか、小物でワルの目印が隠れないか、ヒーローの光の形)。
+`src/art/artRules.test.ts`は、コードで描いた絵の全部(ヒーロー、ステージ1〜4、フリープレイ)が`docs/ART_SPEC.md`の色の決まりを守っているかを見るテストです。1枚15色まで、8段階の色だけ、明るい緑なし、赤紫はステージ2の人の小物だけ、黄緑の3色はステージ3だけ(フリープレイの宇宙人はよい)、超能力の紫はステージ4のもれと念力と親玉の光だけ、背景は奥の絵1枚と組む壁と床で45色まで、奥の背景に透明なし、を確かめます。ステージ4の絵は`src/art/world4/world4.test.ts`でも見ます(人の7行、照明と小物の紫、手品師のつえの先)。絵を描き足したり直したりしたら、これが通るかを見ます。フリープレイの絵は、`src/art/free/free.test.ts`でも見ます(小物と札の色、紙袋の大きさ、小物を付ける場所が絵と合うか、小物でワルの目印が隠れないか、ヒーローの光の形)。服の色ちがいの表は`src/art/variants.test.ts`で見ます(手がかりの色を使わないか、服の色のドットだけが変わるか。くわしくは`docs/ART_SPEC.md`の「服の色ちがい」)。
 
 `src/logic/published.test.ts`は、公開した版とステージ1の中身が変わっていないかを比べるテストです。答えは`src/logic/fixtures/`のJSONに入っています。このJSONは作り直さないでください。ステージ1の中身をわざと変えたときだけ、理由を書いて作り直します。仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えたので、JSONは作り直さずに、それらを比べる項目から外してあります。
 
@@ -261,7 +261,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 | `stageselect_scroll.mjs` | | ステージを選ぶ画面を高さ384と468で開いて撮り、4枚のカードがあるか、NEW!のカードが見えているか、指で上下にずらせるか、はじくとすべって端で止まるか、8ドットまでの動きならカードを選ぶか、開いたばかりの高層ビルまで自動でずれるかを見る |
 | `timeshots.mjs` | URLで決める | 決めた時間ごとに画面を撮る。`w=`で幅、`full`でページ全体を撮る(1枚だけ撮るときもこれを使う) |
 | `dashboard.mjs` | | 開発のダッシュボードを作る(下の「開発のダッシュボード」) |
-| `artsheet.mjs` | | コードで描いた絵のシートと背景を、ブラウザもサーバーもなしでPNGに書き出す(例:`node tools/artsheet.mjs hero 4`で`shots/art/hero.png`)。コマの境目に線を入れる。絵を描き直すときに見比べる用 |
+| `artsheet.mjs` | | コードで描いた絵のシートと背景を、ブラウザもサーバーもなしでPNGに書き出す(例:`node tools/artsheet.mjs hero 4`で`shots/art/hero.png`)。コマの境目に線を入れる。絵を描き直すときに見比べる用。`node tools/artsheet.mjs variants 3`で、服の色ちがいの見本を見た目ごとに書き出す(`shots/art/variants_<見た目>.png`) |
 | `lib.mjs` | | 上のスクリプトで共通に使う部品 |
 | `png.mjs` | | PNGを書き出す部品(`artsheet.mjs`が使う) |
 

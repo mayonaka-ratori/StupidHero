@@ -4,22 +4,22 @@
 
 import type Phaser from 'phaser';
 import { UI } from '../../config';
-import { accessorySheet } from '../../art/recolor';
+import { personSheet } from '../../art/recolor';
 import type { Person } from '../../logic';
 
 /** 絵の上のすきま(頭のてっぺんから何ドット上から切るか) */
 const TOP_PAD = 1;
 
-/** 切り抜いたテクスチャのキー(シーンをまたいで使い回す) */
+/** 切り抜いたテクスチャのキー(シーンをまたいで使い回す。色を塗ったシートの分は、recolor.ts の purgePersonSheets で消える) */
 const thumbKey = (sheet: string, w: number, h: number): string => `review_thumb:${sheet}:${w}x${h}`;
 
 /**
- * 人の絵(ステージ2は小物の色を塗ったもの)の最初のコマから、頭と胴を w×h で切り抜いたテクスチャを作ってキーを返す。
+ * 人の絵(服の色ちがいと、ステージ2の小物の色を塗ったもの)の最初のコマから、頭と胴を w×h で切り抜いたテクスチャを作ってキーを返す。
  * 頭のてっぺんを上にそろえ、横は絵の真ん中にそろえる。ぼかさない
  */
-export function personThumb(scene: Phaser.Scene, p: Pick<Person, 'sheetKey' | 'accessory'>, w: number, h: number): string | null {
+export function personThumb(scene: Phaser.Scene, p: Pick<Person, 'sheetKey' | 'accessory' | 'colorVariant'>, w: number, h: number): string | null {
   if (!scene.textures.exists(p.sheetKey)) return null;
-  const sheet = accessorySheet(scene, p.sheetKey, p.accessory?.color);
+  const sheet = personSheet(scene, p);
   const key = thumbKey(sheet, w, h);
   if (scene.textures.exists(key)) return key;
   const f = scene.textures.getFrame(sheet, 0);

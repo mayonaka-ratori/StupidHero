@@ -21,7 +21,7 @@ import { audio } from '../audio';
 import { settings } from '../settings';
 import { animKey, originFor } from '../art/sheets';
 import { CALM_LOOK, TOWER_DESK, TOWER_LAMP, deskRect, leakLook } from '../art/towerSpots';
-import { accessorySheet } from '../art/recolor';
+import { personSheet } from '../art/recolor';
 import {
   HURRY_AT_SEC, bgForWave, glitchCount, glitchShowing, leakSpots, say, waveIntroFor, type Person, type SortChoice, type Speech
 } from '../logic';
@@ -402,8 +402,8 @@ export class SortScene extends Phaser.Scene {
     this.glitching = false;
     this.glitchStarts = 0;
     this.tweens.killTweensOf(s);
-    // ステージ2の人は、小物(腕章、首の布など)をその人の色に塗った絵にする
-    const key = accessorySheet(this, p.sheetKey, p.accessory?.color);
+    // 服の色ちがいと、ステージ2の小物(腕章、首の布など)の色を、その人の色に塗った絵にする
+    const key = personSheet(this, p);
     s.setTexture(key).setOrigin(...originFor(p.sheetKey)).setAngle(0).setDepth(Z.actor);
     const sx = from === 'right' ? CX + 64 : CX - 64;
     s.setPosition(sx, FEET_Y).setVisible(true).setFlipX(from === 'right');

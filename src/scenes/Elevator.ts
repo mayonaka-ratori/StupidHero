@@ -16,6 +16,7 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
+import { personSheet } from '../art/recolor';
 import { animKey } from '../art/sheets';
 import { LIFT_LAYOUT } from '../art/world4/backgrounds';
 import {
@@ -392,7 +393,7 @@ export class ElevatorScene extends Phaser.Scene {
 
   /** 扉の口から乗ってくる。ヴィランは頭の上に小物が浮き、そばのボタンが紫に光る */
   private stepIn(m: LiftMan): void {
-    const a = new Actor(this, m.r.sheetKey, LIFT_SPOT.door.x, LIFT_SPOT.door.y);
+    const a = new Actor(this, personSheet(this, m.r), LIFT_SPOT.door.x, LIFT_SPOT.door.y);
     a.look = m.r.look;
     a.civ = m.r.truth === 'civ';
     a.faceLeft(true).play('walk', true, 1.5);

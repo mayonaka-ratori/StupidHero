@@ -28,7 +28,7 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey } from '../art/sheets';
-import { accessorySheet } from '../art/recolor';
+import { passerSheet, personSheet, purgePersonSheets } from '../art/recolor';
 import {
   FLOOR_LOOKS, MARK, MISCHIEF_BY_LOOK, PSY, bgForWave, propsForWave, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
   mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
@@ -162,6 +162,8 @@ export class StreetScene extends Phaser.Scene {
     this.stats = this.run.stats;
     this.rng = this.run.rng;
     this.holdMs = 0;
+    // フリープレイの「もう一回」は掛け合い(Intro)を通らないので、波1の始めに前の回の人の塗り替えたシートを消す
+    if (this.run.mode === 'free' && this.run.waveIndex === 0) purgePersonSheets(this);
     // フリープレイ:背景と置く物は波ごとの背景のステージ。仕分けはヒーローの決めつけ(FreeStreet が入れる)
     this.free = this.run.mode === 'free' && this.run.free ? new FreeStreet(this) : null;
     if (this.free) this.def = this.free.bgDef;
@@ -237,13 +239,13 @@ export class StreetScene extends Phaser.Scene {
       if (van) this.gangPart.vans.set(g.groupId, van);
     }
     for (const s of plan.passers) {
-      const a = new Actor(this, accessorySheet(this, s.key, s.color), s.x, s.y);
+      const a = new Actor(this, passerSheet(this, s.key, s.color), s.x, s.y);
       a.look = s.look; a.civ = true;
       a.faceLeft(true).play('idle');
       this.passers.push(a);
     }
     for (const s of plan.people) {
-      const a = new Actor(this, accessorySheet(this, s.person.sheetKey, s.person.accessory?.color), s.x, s.y);
+      const a = new Actor(this, personSheet(this, s.person), s.x, s.y);
       a.person = s.person; a.look = s.person.look; a.civ = s.person.truth === 'civ';
       a.faceLeft(true).play('idle');
       a.sprite.anims.setProgress(this.rng.float(0, 1));
@@ -1176,7 +1178,7 @@ export class StreetScene extends Phaser.Scene {
     // 悪さの相手
     let victim = this.passers.find((p) => p.standing && p.x > a.x + 24 && p.x < a.x + 96);
     if (!victim) {
-      victim = new Actor(this, 'suit_civ', a.x + 72, a.y < 192 ? 204 : 178);
+      victim = new Actor(this, passerSheet(this, 'suit_civ'), a.x + 72, a.y < 192 ? 204 : 178);
       victim.look = 'suit'; victim.civ = true;
       victim.faceLeft(true).play('idle');
       this.passers.push(victim);

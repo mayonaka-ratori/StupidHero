@@ -11,6 +11,7 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
+import { purgePersonSheets } from '../art/recolor';
 import { animKey, originFor } from '../art/sheets';
 import { FREE_INTRO, bgForWave, introFor, markFreeIntroSeen, markIntroSeen, needsFreeIntro, needsIntro, type StageId } from '../logic';
 import { currentWave, getRun } from '../run';
@@ -49,6 +50,8 @@ export class IntroScene extends Phaser.Scene {
     this.skipped = false;
     const free = run.mode === 'free';
     this.nextScene = free ? SCENES.street : SCENES.sort;
+    // 新しい回が始まるので、前の回の人の塗り替えたシートを消す(「もう一回」をくり返しても増え続けないように)
+    purgePersonSheets(this);
     // もう見たステージなら、何も出さずに仕分けへ(ワイプで隠れている間に切り替わる)
     if (!run.debug && !(free ? needsFreeIntro() : needsIntro(run.stage.id))) {
       this.skipped = true;
