@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { sheetByKey } from '../art/sheets';
 import { AGES, NAMES } from './content';
 import { BOSS2_AGES, ordinalName } from './garageContent';
-import { GANG, GANG_COLOR_IDS } from './rules';
+import { ACCESSORY_ITEM, GANG, GANG_COLOR_IDS } from './rules';
 import { createStage, findBoss } from './stage';
-import type { Person, Stage } from './types';
+import { baseSheetKey, tellDef } from './tells';
+import type { GangLook, Person, Stage } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 1);
 const stages: Stage[] = SEEDS.map((s) => createStage(s, 'garage'));
@@ -88,10 +89,20 @@ describe('createStage(seed, "garage")', () => {
     expect(same / civs).toBeLessThan(0.36);
   });
 
-  it('小物の名前は見た目と正体で決まる(整備士は市民がタオル、ギャングがバンダナ)', () => {
-    for (const p of everyone(stages[1])) {
-      if (p.look === 'mechanic') expect(p.accessory!.item).toBe(p.truth === 'bad' ? 'バンダナ' : 'タオル');
-      if (p.look === 'guard') expect(p.accessory!.item).toBe('腕章');
+  it('小物の名前は小物の形(tell)で決まる(整備士の首の布は、市民がタオル、ギャングがバンダナ)。女ボスはいつもの小物', () => {
+    for (const s of stages.slice(0, 40)) {
+      for (const p of everyone(s)) {
+        if (p.truth === 'boss') {
+          expect(p.tell).toBeUndefined();
+          expect(p.accessory!.item).toBe(ACCESSORY_ITEM[p.look as GangLook].civ);
+          continue;
+        }
+        const def = tellDef(p.look, p.truth, p.tell)!;
+        expect(def, `${p.look} ${p.tell}`).toBeDefined();
+        expect(p.accessory!.item).toBe(def.item![p.truth === 'bad' ? 'bad' : 'civ']);
+        if (p.look === 'mechanic' && p.tell === 'neck') expect(p.accessory!.item).toBe(p.truth === 'bad' ? 'バンダナ' : 'タオル');
+        if (p.look === 'guard' && p.tell === 'armband') expect(p.accessory!.item).toBe('腕章');
+      }
     }
   });
 
@@ -134,7 +145,7 @@ describe('createStage(seed, "garage")', () => {
       for (const p of everyone(s)) {
         looks.add(p.look);
         expect(() => sheetByKey(p.sheetKey)).not.toThrow();
-        if (p.truth !== 'boss') expect(p.sheetKey).toBe(`${p.look}_${p.truth}`);
+        if (p.truth !== 'boss') expect(baseSheetKey(p.sheetKey)).toBe(`${p.look}_${p.truth}`);
         expect(p.profile.age).toBeGreaterThan(0);
       }
     }

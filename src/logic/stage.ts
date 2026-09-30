@@ -9,16 +9,18 @@
 //
 // 路地裏の決まり:SPECの波の表の通り。1つの波のワルは2〜3人。波1にはモヒカンを必ず1人。波3にはボスが1人紛れる。
 // 同じ見た目の市民とワルがなるべく同じ波に両方出るようにし、名前と文は同じものを2回出さない。
+// パーカー、スーツ、買い物袋の人は、手がかりの小物を人ごとに選ぶ(tells.ts。person.tell と絵のキー)。
 // 地下駐車場の決まりは garage.ts、ショッピングモールの決まりは mall.ts、高層ビルの決まりは tower.ts。
 
 import { buildGarageWaves } from './garage';
 import { buildMallWaves, buildRush } from './mall';
 import { buildLift, buildTowerWaves } from './tower';
-import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
+import { giveTell, makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { leastUsed, zeroCounts } from './pick';
 import { createRng, randomSeed, type Rng } from './rng';
 import { BAD_PER_WAVE, WAVES } from './rules';
 import { BOSS1_DISGUISES, STAGES } from './stages';
+import { tellRngFor } from './tells';
 import type { LiftPlan, Look, PairLook, Person, RushPlan, Stage, StageId, Wave, WaveNo } from './types';
 
 const PAIR_LOOKS: readonly PairLook[] = ['hoodie', 'suit', 'shopper'];
@@ -65,6 +67,8 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
   // おばあさんをステージのどこかに必ず1人入れる(「おばあちゃんの敵」を取れるように)
   const grannyWave = rng.int(1, WAVES.length) as WaveNo;
   const bossDisguise = rng.pick(BOSS1_DISGUISES);
+  // 手がかりの出し分けは別の乱数で選ぶ(ステージの乱数の引き方を変えない。tells.ts)
+  const tellRng = tellRngFor(rng);
 
   return WAVES.map((plan) => {
     const waveBad = rng.int(BAD_PER_WAVE.min, BAD_PER_WAVE.max);
@@ -95,6 +99,7 @@ function buildAlleyWaves(rng: Rng, used: UsedTexts): Wave[] {
       ...civs.map((l) => makePerson(rng, used, 'alley', plan.no, l, 'civ'))
     ];
     if (plan.boss) drafts.push(makePerson(rng, used, 'alley', plan.no, bossDisguise, 'boss'));
+    for (const d of drafts) giveTell(tellRng, used, d);
 
     const people = shufflePeople(rng, plan.no, drafts);
     return { no: plan.no, seconds: plan.seconds, people, badCount: waveBad, hasBoss: plan.boss, groups: [] };

@@ -41,9 +41,9 @@ const okLevel = (c: string): boolean => rgbOf(c)?.every((v) => (LEVELS as readon
 /** 超能力の紫を使ってよい絵(もれと念力のエフェクト、親玉の光、念力で浮くシャンデリア) */
 const mayUsePsy = (key: string): boolean => key.startsWith('fx_psy_') || key === 'boss4' || key === 'prop_chandelier';
 
-/** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人と、その見た目に化けた女ボスだけ */
+/** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人(小物の形の出し分けも)と、その見た目に化けた女ボスだけ */
 const mayUseAccessory = (key: string): boolean =>
-  /^(guard|mechanic|clubber|officelady)_(civ|bad)$/.test(key) || key.startsWith('boss2_disguise_');
+  /^(guard|mechanic|clubber|officelady)_(civ|bad)(_[a-z0-9]+)?$/.test(key) || key.startsWith('boss2_disguise_');
 
 /** 決まった絵にしか使わない色の決まり。colors の色は、may が true の絵にしか使わない。skip の担当では確かめない */
 interface ColorRule { name: string; colors: readonly string[]; may: (key: string) => boolean; skip?: string }

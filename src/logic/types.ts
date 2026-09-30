@@ -160,6 +160,11 @@ export interface Person {
   sheetKey: string;
   profile: Profile;
   hint: OperatorHint;
+  /**
+   * 見分ける手がかりの出し分けの id(tells.ts の TELLS。例 'knife'、'banana'、'tie'、'pop')。
+   * ステージ1〜3の組の見た目の市民とワル(ステージ3は宇宙人だけ)にある。sheetKey はもうこれに合わせた絵のキーになっている
+   */
+  tell?: string;
   /** ボスのときだけ:化けた姿の種類 */
   disguise?: DisguiseLook;
   /** ワルのときだけ:結果発表で見逃したときにする悪さ(ギャングは 'whistle') */

@@ -4,6 +4,7 @@ import { buildRush, glitchCount, glitchShowing, rollGlitch, rushGlitchShowing, r
 import { createRng } from './rng';
 import { GLITCH, RUSH } from './rules';
 import { createStage } from './stage';
+import { baseSheetKey } from './tells';
 import { MALL_LOOKS, STAGES } from './stages';
 import type { GlitchTiming, MallLook, Person, Stage } from './types';
 
@@ -22,7 +23,10 @@ describe('createStage(seed, "mall")', () => {
         if (!MALL_LOOKS.includes(p.look as MallLook)) bad.push(`${s.seed} ${p.id} 見た目 ${p.look}`);
         seen.add(p.look);
         const key = p.truth === 'boss' ? `boss3_disguise_${p.disguise}` : `${p.look}_${p.truth}`;
-        if (p.sheetKey !== key) bad.push(`${s.seed} ${p.id} 絵のキー ${p.sheetKey}`);
+        // 宇宙人はくずれの出し分け(tells.ts)で、絵のキーの後ろに名前がつくことがある('mascot_bad_pop')
+        if (baseSheetKey(p.sheetKey) !== key) bad.push(`${s.seed} ${p.id} 絵のキー ${p.sheetKey}`);
+        if (p.truth === 'bad' && !p.tell) bad.push(`${s.seed} ${p.id} くずれの出し分けがない`);
+        if (p.truth !== 'bad' && p.tell) bad.push(`${s.seed} ${p.id} 宇宙人でないのに出し分けがある`);
       }
     }
     expect(bad).toEqual([]);

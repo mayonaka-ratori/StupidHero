@@ -4,6 +4,8 @@
 // 公開版からある項目だけを比べる。ステージ2で増えた項目(groups、accessory、link など)は比べない。
 // 仕分けの見直しで、波の時間、プロフィールの一文、オペレーターの一言はわざと変えた(下の asPublished を見る)。
 // fixture は作り直さず、比べる項目からそれらを外した。
+// 手がかりの出し分け(tells.ts)で、パーカー、スーツ、買い物袋の人の絵のキーは 'hoodie_bad_knuckles' のように
+// 後ろに名前がつくようになった。出し分けは別の乱数で選ぶので、誰がどの順で出るかは変わらない。絵のキーは元の絵のキーに直して比べる。
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import alleyV1 from './fixtures/alley-v1.json';
@@ -15,6 +17,7 @@ import {
 } from './content';
 import { clearRecords, isStageUnlocked, loadRecords, saveResult } from './records';
 import { createStage } from './stage';
+import { baseSheetKey } from './tells';
 import { StatsTracker } from './stats';
 import { MemStorage } from './testHelpers';
 import { decideTitle, titlesFor } from './titles';
@@ -40,7 +43,7 @@ const asPublished = (s: Stage) => ({
   waves: s.waves.map((w) => ({
     ...pick(w, ['no', 'badCount', 'hasBoss']),
     people: w.people.map((p: Person) => ({
-      ...pick(p, PERSON_KEYS),
+      ...pick({ ...p, sheetKey: baseSheetKey(p.sheetKey) }, PERSON_KEYS),
       profile: pick(p.profile, ['name', 'age'])
     }))
   }))

@@ -6,6 +6,7 @@
 //   宇宙人と同じ見た目の市民をなるべく同じ波に出す(ぎこちない動きだけでは分からないように)
 // - 宇宙人には人ごとのくずれの時間(person.glitch)をつける。初めてくずれるまで3〜6秒を0.5秒きざみ、そのあと3秒おきに0.2秒。
 //   波1には練習用の宇宙人を1人(1.5秒で初めてくずれ、そのあと2秒おきに0.3秒)。市民と親玉にはつけない(親玉はくずれない)
+//   くずれの出方(着ぐるみなら首が一回転か頭が浮くか)は、見た目ごとに2つから人ごとに選ぶ(tells.ts。person.tell と絵のキー)
 // - 親玉は波3に1人。化けた姿は寝不足の店員、買い物客のおじさん、着ぐるみのバイトから
 // - タイムセールラッシュ(stage.rush):8人、宇宙人は3人か4人(半々)。最初の2人は市民1人と宇宙人1人(順はランダム)
 //
@@ -14,11 +15,12 @@
 //   ラッシュ:stage.rush.runners を spawnSec の順に出す。ゆっくりモードは rushSpawnSec(i, true)
 //            宇宙人のくずれは rushGlitchShowing(sec)(0.3秒に1回。sec はラッシュが始まってからの秒数でよい)
 
-import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
+import { giveTell, makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
 import { includeLook, leastUsed, rushLineup, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { GLITCH, RUSH } from './rules';
 import { BOSS3_DISGUISES, MALL_LOOKS, STAGES, sheetKeyFor } from './stages';
+import { tellRngFor } from './tells';
 import type { GlitchTiming, MallLook, RushPlan, RushRunner, Wave } from './types';
 
 // ─── 動きのくずれ ─────────────────────────────────
@@ -53,6 +55,8 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
   const badCount = zeroCounts(MALL_LOOKS);
   const civCount = zeroCounts(MALL_LOOKS);
   const bossDisguise = rng.pick(BOSS3_DISGUISES);
+  // くずれの出方は別の乱数で選ぶ(ステージの乱数の引き方を変えない。tells.ts)
+  const tellRng = tellRngFor(rng);
 
   return def.waves.map((plan) => {
     if (!plan.aliens) throw new Error(`mall の波${plan.no}に aliens がない`);
@@ -79,6 +83,7 @@ export function buildMallWaves(rng: Rng, used: UsedTexts): Wave[] {
     const drafts: PersonDraft[] = alienLooks.map((look, i) => {
       const p = makePerson(rng, used, 'mall', plan.no, look, 'bad');
       p.glitch = rollGlitch(rng, plan.practiceAlien === true && i === 0);
+      giveTell(tellRng, used, p);
       return p;
     });
     for (const look of civLooks) drafts.push(makePerson(rng, used, 'mall', plan.no, look, 'civ'));

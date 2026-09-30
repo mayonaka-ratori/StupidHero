@@ -35,9 +35,10 @@ import { ANALOGY_UNITS } from './format';
 import { allFreeTexts } from './freeContent';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
+import { TELLS, fitsTell } from './tells';
 import type { Rng } from './rng';
 import type {
-  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, FreeVillainLook, Look, OperatorHint, RushTally, Speech, StageId,
+  AlleyDisguise, AlleyLook, AttackKind, DisguiseLook, FreeVillainLook, Look, OperatorHint, Person, RushTally, Speech, StageId,
   TitleId, WaveNo
 } from './types';
 import { hero, hint, op } from './speech';
@@ -141,7 +142,7 @@ export const BOTH_PROFILE_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper', 
  */
 export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad?: readonly string[] }>> = {
   hoodie: {
-    // 市民:ポケットに財布。ポケットに手を入れて待つ
+    // 市民:ポケットに財布、バナナ、カギ(tells.ts)。ポケットに手を入れて待つ
     civ: [
       'ポケットの中身は\n今月の全財産',
       '人を待っている。\n相手はまだ来ない',
@@ -151,7 +152,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       'バイト帰り。\n今日は給料日',
       ...BOTH_PROFILE_LINES.hoodie
     ],
-    // ワル:ポケットからナイフの柄。ポケットを押さえてキョロキョロ
+    // ワル:ポケットからナイフの柄、メリケンサック、スタンガン(tells.ts)。ポケットを押さえてキョロキョロ
     bad: [
       'ポケットの中身は\n見せたくない',
       '待ち合わせ中。\n相手は決めてない',
@@ -163,7 +164,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
     ]
   },
   suit: {
-    // 市民:腕時計を見てあせる
+    // 市民:腕時計、スマホ、新幹線の切符を見てあせる(tells.ts)
     civ: [
       '会議に遅れそう。\n走るしかない',
       '時間には\nうるさい方',
@@ -173,7 +174,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '路地裏は近道。\n急いでいる',
       ...BOTH_PROFILE_LINES.suit
     ],
-    // ワル:女物のバッグを抱えている。バッグを抱え直して後ろを気にする
+    // ワル:女物のバッグ、ピンクのがま口、真珠の首飾りを抱えている(tells.ts)。抱え直して後ろを気にする
     bad: [
       '急ぐ理由は\n人に言えない',
       '後ろが\n気になる性分',
@@ -185,7 +186,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
     ]
   },
   shopper: {
-    // 市民:袋から米袋がのぞく。袋を持ち直す
+    // 市民:袋から米袋、長ねぎ、フランスパンがのぞく(tells.ts)。袋を持ち直す
     civ: [
       '今日は特売日。\n買いすぎた',
       '袋の中身は\n家族の一週間分',
@@ -195,7 +196,7 @@ export const PROFILE_LINES: Readonly<Record<Look, { civ?: readonly string[]; bad
       '袋は二重にする派',
       ...BOTH_PROFILE_LINES.shopper
     ],
-    // ワル:袋から財布や腕時計がのぞく。袋の口を手でふさぐ
+    // ワル:袋から金色の財布、人の腕時計、何台ものスマホがのぞく(tells.ts)。袋の口を手でふさぐ
     bad: [
       '今日は大漁。\n持ちきれない',
       '袋の中身は\nひみつ',
@@ -286,6 +287,8 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '誰かを\n待ってるみたい'),
       hint('deadpan', '落ち着いてる…\nように見える'),
       hint('normal', '茶色い物が\nちらっと見えた'),
+      hint('normal', '黄色い物が\nちらっと見えた'),
+      hint('normal', '銀色の物が\nちらっと見えた'),
       hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ],
     bad: [
@@ -294,6 +297,8 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', 'さっきから\nキョロキョロしてる'),
       hint('deadpan', '落ち着きが\nないような…'),
       hint('normal', '黄色い物が\nちらっと見えた'),
+      hint('normal', '銀色の物が\nちらっと見えた'),
+      hint('normal', '黒い物が\nちらっと見えた'),
       hint('panic', 'ポケットの中、\n何が入ってるの！？')
     ]
   },
@@ -303,6 +308,7 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '時計ばっかり\n見てる'),
       hint('panic', 'すごく\nあせってるね'),
       hint('normal', '金色の物が\nちらっと見えた'),
+      hint('normal', '白い物が\nちらっと見えた'),
       hint('deadpan', '汗びっしょり…')
     ],
     bad: [
@@ -310,6 +316,7 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '後ろばっかり\n気にしてる'),
       hint('panic', 'すごく\nあせってるね'),
       hint('normal', '赤い物が\nちらっと見えた'),
+      hint('normal', '白い物が\nちらっと見えた'),
       hint('deadpan', '荷物を\n大事そうに抱えてる')
     ]
   },
@@ -318,6 +325,7 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '袋がやけに\n重そう'),
       hint('normal', '袋を何度も\n持ち直してる'),
       hint('normal', '白い物が\nのぞいてる'),
+      hint('normal', '緑の物が\nのぞいてる'),
       hint('normal', '買い物帰り\nかな？'),
       hint('deadpan', '袋、\nはち切れそう'),
       hint('panic', '袋から何か\n落ちそう！')
@@ -326,6 +334,7 @@ export const OPERATOR_HINTS: Readonly<Record<Look, { civ?: readonly OperatorHint
       hint('normal', '袋がやけに\n重そう'),
       hint('normal', '袋の口を\n押さえてるね'),
       hint('normal', '金色の物が\nのぞいてる'),
+      hint('normal', '黒い物が\nのぞいてる'),
       hint('normal', '買い物帰り…\nなのかな？'),
       hint('deadpan', '袋、\nはち切れそう'),
       hint('panic', '袋から何か\n落ちそう！')
@@ -765,9 +774,14 @@ export function tsukkomi(nth: number, rng?: Rng): Speech {
   return say(nth <= 1 ? 'tsukkomi' : 'tsukkomiShort', rng);
 }
 
-/** ワルにした人に向かうときのヒーローの決めつけ。見た目が分からなければ say('judge') と同じ */
-export function judgeLine(look: Look | undefined, rng?: Rng): Speech {
-  const list = look ? JUDGE_LINES[look] : undefined;
+/**
+ * ワルにした人に向かうときのヒーローの決めつけ。見た目が分からなければ say('judge') と同じ。
+ * person を渡すと、その人の手がかり(person.tell)と食いちがう文(ネクタイの人に「腕章があやしい!」)を外す
+ */
+export function judgeLine(look: Look | undefined, rng?: Rng, person?: Pick<Person, 'look' | 'truth' | 'tell'>): Speech {
+  const all = look ? JUDGE_LINES[look] : undefined;
+  const fit = person && all ? all.filter((s) => fitsTell(s.text, person.look, person.truth, person.tell)) : all;
+  const list = fit && fit.length > 0 ? fit : all;
   return list && list.length > 0 ? pickSpeech(list, rng) : say('judge', rng);
 }
 
@@ -884,6 +898,7 @@ export function allTexts(): string[] {
   // 小物の色と名前(プロフィールの横などに出すとき用)
   for (const c of Object.values(ACCESSORY_COLORS)) out.push(c.name);
   for (const i of Object.values(ACCESSORY_ITEM)) out.push(i.civ, i.bad);
+  for (const byTruth of Object.values(TELLS)) for (const d of byTruth?.civ ?? []) if (d.item) out.push(d.item.civ, d.item.bad);
   // フリープレイ(freeContent.ts)
   out.push(...allFreeTexts());
   return out;

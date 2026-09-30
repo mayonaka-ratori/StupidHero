@@ -16,6 +16,8 @@
 //   ステージ3の4人:くずれる場所(着ぐるみは頭、店員は目、学生は腕のつけね、おじさんは胴)。市民のぎこちない動きも同じ四角に入る。
 //   親玉は、着ぐるみの触角は入る。店員の逆さの名札とおじさんのとがった耳は入らない(見た目で見分ける)
 
+import { TELL_BASE } from './sheets';
+
 /** 窓で見せる四角の大きさ(コマのドット)。窓の中では3倍にする */
 export const CLUE_W = 16;
 export const CLUE_H = 14;
@@ -39,8 +41,8 @@ const CLERK = r(31, 7);
 const DANCER = r(27, 14);
 const UNCLE = r(23, 23);
 
-/** 仕分けに出るシート → 四角 */
-export const CLUE_SPOTS: Readonly<Record<string, ClueRect>> = {
+/** 元の絵の四角(手がかりの出し分けの絵は、下で元の絵と同じ四角を足す) */
+const BASE_SPOTS: Readonly<Record<string, ClueRect>> = {
   hoodie_civ: HOODIE,
   hoodie_bad: HOODIE,
   suit_civ: SUIT,
@@ -74,6 +76,15 @@ export const CLUE_SPOTS: Readonly<Record<string, ClueRect>> = {
   uncle_civ: UNCLE,
   uncle_bad: UNCLE,
   boss3_disguise_uncle: UNCLE
+};
+
+/**
+ * 仕分けに出るシート → 四角。手がかりの出し分けの絵(sheets.ts の TELL_SHEETS。'hoodie_bad_knuckles' など)は、
+ * 元の絵と同じ四角(映る場所で、どの出し分けかも正体も分からないように)
+ */
+export const CLUE_SPOTS: Readonly<Record<string, ClueRect>> = {
+  ...BASE_SPOTS,
+  ...Object.fromEntries(Object.entries(TELL_BASE).map(([key, base]) => [key, BASE_SPOTS[base]]))
 };
 
 /** そのシートの四角(色を塗り替えたシートのキー 'guard_civ#ff0000' でもよい)。表にないときは胸のあたり */

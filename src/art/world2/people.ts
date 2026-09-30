@@ -166,11 +166,31 @@ function drawArmband(Pn: Painter, pose: Pose, look: Look): void {
   Pn.fill(m, KEY, { sep: 'none', flat: true });
 }
 
-/** 首の布:整備士のタオル/バンダナ('towel')と、会社員の女性のスカーフ('scarf') */
-function drawNeckCloth(Pn: Painter, pose: Pose, kind: 'towel' | 'scarf'): void {
+/**
+ * 肩章:手前の肩の上にのせる、ふちつきの板(腕章と同じく腕の上に描くので、腕を上げても見える)。
+ * 肩から少し腕の方へずらし、腕の向きに合わせて置く
+ */
+function drawEpaulette(Pn: Painter, pose: Pose, look: Look): void {
+  const k = look.build.scale ?? 1;
+  const { sF } = shoulders(pose, k);
+  const e = pose.aF.e;
+  const dx = e[0] - sF[0], dy = e[1] - sF[1], L = Math.hypot(dx, dy) || 1;
+  const c: Pt = [sF[0] + (dx / L) * 0.5, sF[1] + (dy / L) * 0.5 - 1.2];
+  const m = Pn.mask().capsule([c[0] - 2.4, c[1]], [c[0] + 2.4, c[1]], 1.3);
+  Pn.fill(m, KEY, { sep: 'outline', flat: true });
+  Pn.px(Math.round(c[0] + 2), Math.round(c[1]), GOLD[1]);
+}
+
+/** 首の布:整備士のタオル/バンダナ('towel')、会社員の女性のスカーフ('scarf')とリボン('ribbon') */
+function drawNeckCloth(Pn: Painter, pose: Pose, kind: 'towel' | 'scarf' | 'ribbon'): void {
   const [nx, ny] = R(pose.neck);
   const m = Pn.mask();
-  if (kind === 'towel') {
+  if (kind === 'ribbon') {
+    // えりもとの大きなリボン(左右の輪と、下がる2本の端)
+    m.ellipse(nx + 1.5, ny + 1, 2.2, 1.6).union(Pn.mask().ellipse(nx + 6, ny + 1, 2.2, 1.6));
+    m.rect(nx + 3, ny, 2, 3);
+    m.set(nx + 3, ny + 3).set(nx + 2, ny + 4).set(nx + 5, ny + 3).set(nx + 6, ny + 4);
+  } else if (kind === 'towel') {
     m.ellipse(nx + 1, ny + 0.6, 4.8, 1.7);
     m.rect(nx + 3, ny + 1, 3, 7);
     m.rect(nx - 4, ny + 1, 2, 3);
@@ -186,8 +206,27 @@ function drawNeckCloth(Pn: Painter, pose: Pose, kind: 'towel' | 'scarf'): void {
   Pn.fill(m, KEY, { sep: 'outline', flat: true });
   // 結び目の影(ふち色の線。塗り替える面は KEY 一色のまま)
   if (kind === 'towel') { if (m.has(nx + 3, ny + 2)) Pn.px(nx + 3, ny + 2, OUTLINE); }
+  else if (kind === 'ribbon') { for (const [x, y] of [[nx + 2, ny + 1], [nx + 5, ny + 1]] as const) if (m.has(x, y)) Pn.px(x, y, OUTLINE); }
   else if (m.has(nx + 4, ny + 1)) Pn.px(nx + 4, ny + 1, OUTLINE);
 }
+
+/** 胸に出す小さな四角(ハンカチ)。k は KEY、o はふち色。まわりにもふち */
+function keyPatch(Pn: Painter, x: number, y: number, rows: string[]): void {
+  const m = Pn.mask();
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') m.set(x + i, y + j); });
+  Pn.fill(m, KEY, { sep: 'outline', flat: true });
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === 'o') Pn.px(x + i, y + j, OUTLINE); });
+}
+
+/**
+ * 小物の形(logic/tells.ts の出し分け。名前は絵のキーの後ろにつける名前と同じ)。
+ * 警備員:腕章('armband')、肩章('epaulette')。整備士:首の布('neck')、胸ポケットのハンカチ('hanky')。
+ * 派手な若者:ヘアバンド('headband')、キャップ('cap')、ヘッドホン('phones')。会社員の女性:スカーフ('scarf')、リボン('ribbon')
+ */
+export type GuardItem = 'armband' | 'epaulette';
+export type MechItem = 'neck' | 'hanky';
+export type ClubItem = 'headband' | 'cap' | 'phones';
+export type OlItem = 'scarf' | 'ribbon';
 
 // ---------------------------------------------------------------------
 // 共通の動き
@@ -257,7 +296,7 @@ function guardCap(g: PixelGrid): void {
   g.px(9, 2, GOLD[1]).px(11, 3, NAVY[0]);
 }
 
-function guardLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) => void): Look {
+function guardLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) => void, item: GuardItem = 'armband'): Look {
   const look: Look = {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_UNDER_CAP,
     top: G_SHIRT, sleeve: 'long', bottom: NAVY, legs: 'pants', shoes: [NAVY[2], OUTLINE, OUTLINE], sole: OUTLINE,
@@ -290,15 +329,16 @@ function guardLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose)
   };
   const prev = look.front;
   look.front = (Pn, pose) => {
-    drawArmband(Pn, pose, look);
+    if (item === 'armband') drawArmband(Pn, pose, look);
+    else drawEpaulette(Pn, pose, look);
     prev?.(Pn, pose);
     finish(Pn, pose);
   };
   return look;
 }
 
-function guardSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
-  const look = guardLook();
+function guardSheets(item: GuardItem = 'armband'): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
+  const look = guardLook({}, undefined, item);
   const base = STAND;
   const n = base.neck;
   // 市民:あくび(手を口に当てて、体をのばす)
@@ -332,7 +372,7 @@ const OVERALL: Ramp = [md(5, 5, 3), md(4, 4, 2), md(3, 2, 1)];
 const BOOTS: Ramp = [SKIN[2], HAIR[1], OUTLINE];
 const MECH_BUILD: Build = { sh: 8.5, wa: 6.5, arm: 2.5, thigh: 3.2, shin: 2.6, hem: 1, chest: 1 };
 
-function mechLook(extra: Partial<Look> = {}): Look {
+function mechLook(extra: Partial<Look> = {}, item: MechItem = 'neck'): Look {
   const look: Look = {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_SHORT,
     top: OVERALL, sleeve: 'rolled', bottom: OVERALL, legs: 'pants', shoes: BOOTS, sole: OUTLINE,
@@ -353,6 +393,8 @@ function mechLook(extra: Partial<Look> = {}): Look {
       // 胸ポケットと名札(白、文字なし)
       for (let dx = -2; dx <= 1; dx++) Pn.px(X(dx, 6), n[1] + 6, OVERALL[2]);
       Pn.px(X(-2, 7), n[1] + 7, OVERALL[2]).px(X(1, 7), n[1] + 7, OVERALL[2]);
+      // 胸からのぞくハンカチ(名札の上。左の胸ポケットは手前の腕で隠れるので、右に出す)
+      if (item === 'hanky') keyPatch(Pn, X(4, 0), n[1] + 1, ['k.k.', 'kkkk', 'kkkk', 'oooo']);
       Pn.px(X(5, 5), n[1] + 5, WHITE[0]).px(X(6, 5), n[1] + 5, WHITE[0]).px(X(7, 5), n[1] + 5, WHITE[0]);
       // 腰のベルト(同じ布)
       for (let x = -7; x <= 7; x++) {
@@ -367,15 +409,15 @@ function mechLook(extra: Partial<Look> = {}): Look {
     // ひざの油じみ
     const k = R(pose.lF.k);
     Pn.px(k[0] - 1, k[1] + 1, OVERALL[2]).px(k[0], k[1] + 2, OVERALL[2]);
-    drawNeckCloth(Pn, pose, 'towel');
+    if (item === 'neck') drawNeckCloth(Pn, pose, 'towel');
     prev?.(Pn, pose);
     finish(Pn, pose);
   };
   return look;
 }
 
-function mechSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
-  const look = mechLook();
+function mechSheets(item: MechItem = 'neck'): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
+  const look = mechLook({}, item);
   const base = STAND;
   // 市民:腰の後ろに手を当てて、背中をのばす
   const back = (p: Pose, up = 0): Pose => armTo(p, [p.hip[0] - 7, p.hip[1] - 6 - up], [p.neck[0] - 6, p.neck[1] + 8]);
@@ -425,6 +467,32 @@ export const HAIR_SPIKE: HairStyle = {
   ]
 };
 
+/** キャップのときの髪:帽子に隠れる上の3行(逆立てた先)を消す */
+const HAIR_UNDER_CLUB_CAP: HairStyle = { ...HAIR_SPIKE, rows: HAIR_SPIKE.rows.map((r, i) => (i < 3 ? '.'.repeat(r.length) : r)) };
+
+/** キャップ(つばは前) */
+function clubCap(g: PixelGrid): void {
+  const t = HAIR_SPIKE.top;
+  const rows = [
+    '...kkkkk.....',
+    '..kkkkkkk....',
+    '.kkkkkkkkk...',
+    '.kkkkkkkkkoo.',
+    '.kkkkkkkkkkkk',
+    '...........oo'
+  ];
+  rows.forEach((r, j) => { for (let x = 0; x < r.length; x++) if (r[x] !== '.') g.px(x, t - 3 + j, r[x] === 'k' ? KEY : OUTLINE); });
+}
+
+/** ヘッドホン(頭の上を通るバンドと、耳をおおう大きな耳あて) */
+function clubPhones(g: PixelGrid): void {
+  const t = HAIR_SPIKE.top;
+  for (let y = t - 2; y <= t + 4; y++) g.px(5, y, KEY).px(6, y, KEY);
+  g.px(4, t - 2, OUTLINE).px(7, t - 2, OUTLINE).px(5, t - 3, OUTLINE).px(6, t - 3, OUTLINE);
+  const cup = ['.oooo.', 'okkkko', 'okkkko', 'okkkko', 'okkkko', '.oooo.'];
+  cup.forEach((r, j) => { for (let x = 0; x < r.length; x++) if (r[x] !== '.') g.px(3 + x, t + 4 + j, r[x] === 'k' ? KEY : OUTLINE); });
+}
+
 function headband(g: PixelGrid): void {
   const t = HAIR_SPIKE.top;
   for (let x = 1; x <= 11; x++) g.px(x, t + 1, KEY).px(x, t + 2, KEY);
@@ -433,17 +501,19 @@ function headband(g: PixelGrid): void {
   g.px(0, t + 1, KEY).px(0, t + 2, KEY).px(0, t + 3, KEY);
 }
 
-export function clubLook(extra: Partial<Look> = {}): Look {
+export function clubLook(extra: Partial<Look> = {}, item: ClubItem = 'headband'): Look {
   const look: Look = {
-    skin: SKIN, hair: HAIR, hairStyle: HAIR_SPIKE,
+    skin: SKIN, hair: HAIR, hairStyle: item === 'cap' ? HAIR_UNDER_CLUB_CAP : HAIR_SPIKE,
     top: SILVER, sleeve: 'long', bottom: BLACK, legs: 'pants', shoes: KICKS, sole: WHITE[0],
     build: CLUB_BUILD,
     headExtra(g, pose) {
-      headband(g);
+      if (item === 'headband') headband(g);
+      else if (item === 'cap') clubCap(g);
       mouthExtra(g, P(pose), HAIR_SPIKE.top);
-      // 金のピアス(耳たぶから下がる輪)
+      // 金のピアス(耳たぶから下がる輪)。ヘッドホンのときは耳あてで隠れる
       const t = HAIR_SPIKE.top;
-      g.px(5, t + 7, GOLD[0]).px(5, t + 8, GOLD[1]);
+      if (item === 'phones') clubPhones(g);
+      else g.px(5, t + 7, GOLD[0]).px(5, t + 8, GOLD[1]);
     },
     torso(Pn, pose) {
       const n = pose.neck, p = pose.hip;
@@ -472,8 +542,8 @@ export function clubLook(extra: Partial<Look> = {}): Look {
   return look;
 }
 
-function clubSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][] } {
-  const look = clubLook();
+function clubSheets(item: ClubItem = 'headband'): { civ: PixelGrid[][]; bad: PixelGrid[][] } {
+  const look = clubLook({}, item);
   const base = STAND;
   // 市民:うつむいてスマホを見る(手は胸の前。ギャングの「頭の横で指をトントン」とは形がまったく違う)
   const phone = (p: Pose, d: number): Pose => armTo(p, [p.neck[0] + 8, p.neck[1] + 8 - d], [p.neck[0] + 2, p.neck[1] + 12]);
@@ -523,7 +593,7 @@ const HAIR_BOB: HairStyle = {
   ]
 };
 
-function olLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) => void): Look {
+function olLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) => void, item: OlItem = 'scarf'): Look {
   const look: Look = {
     skin: SKIN, hair: HAIR, hairStyle: HAIR_BOB,
     top: BLAZER, sleeve: 'long', bottom: SKIN, legs: 'pants', shoes: PUMPS,
@@ -562,15 +632,15 @@ function olLook(extra: Partial<Look> = {}, headMore?: (g: PixelGrid, p: Pose) =>
     const dx = a.e[0] - a.h[0], dy = a.e[1] - a.h[1], L = Math.hypot(dx, dy) || 1;
     const w = R([a.h[0] + (dx / L) * 2.4, a.h[1] + (dy / L) * 2.4]);
     Pn.px(w[0], w[1], GOLD[1]);
-    drawNeckCloth(Pn, pose, 'scarf');
+    drawNeckCloth(Pn, pose, item);
     prev?.(Pn, pose);
     finish(Pn, pose);
   };
   return look;
 }
 
-function olSheets(): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
-  const look = olLook();
+function olSheets(item: OlItem = 'scarf'): { civ: PixelGrid[][]; bad: PixelGrid[][]; civSort: Pose[] } {
+  const look = olLook({}, undefined, item);
   const base = STAND;
   const n = base.neck;
   // 市民:腕時計を見る
@@ -678,5 +748,17 @@ export function buildPeople2(skip: Set<string>): Record<string, PixelGrid[][]> {
     out.officelady_civ = s.civ; out.officelady_bad = s.bad;
     out.boss2_disguise_officelady = disguiseOL(s.civSort);
   }
+  // 小物の形の出し分け(市民とギャングで同じ形。絵のキーは `${元の絵}_${形}`)
+  const tells = <T extends string>(look: string, items: readonly T[], build: (item: T) => { civ: PixelGrid[][]; bad: PixelGrid[][] }): void => {
+    for (const item of items) {
+      if (!need(`${look}_civ_${item}`, `${look}_bad_${item}`)) continue;
+      const v = build(item);
+      out[`${look}_civ_${item}`] = v.civ; out[`${look}_bad_${item}`] = v.bad;
+    }
+  };
+  tells<GuardItem>('guard', ['epaulette'], guardSheets);
+  tells<MechItem>('mechanic', ['hanky'], mechSheets);
+  tells<ClubItem>('clubber', ['cap', 'phones'], clubSheets);
+  tells<OlItem>('officelady', ['ribbon'], olSheets);
   return out;
 }
