@@ -40,8 +40,8 @@ export interface WavePlan {
   villains?: readonly [number, number];
   /** ステージ4だけ:もれが2か所とも出る練習用のヴィランを1人入れるか(波1) */
   practiceLeak?: boolean;
-  /** ステージ4だけ:紛らわしい市民の人数 */
-  decoys?: number;
+  /** ステージ4だけ:紛らわしい市民の人数 [最小, 最大] */
+  decoys?: readonly [number, number];
 }
 
 /**
@@ -81,10 +81,10 @@ export const MALL_WAVES: readonly WavePlan[] = [
  * 時間は1人あたり4〜6秒(もれはいつも出ているので、待つ必要はない)
  */
 export const TOWER_WAVES: readonly WavePlan[] = [
-  { no: 1, people: 4, seconds: 26, mohawk: false, boss: false, villains: [1, 2], practiceLeak: true, decoys: 0 },
-  { no: 2, people: 5, seconds: 24, mohawk: false, boss: false, villains: [2, 3], decoys: 1 },
-  { no: 3, people: 6, seconds: 26, mohawk: false, boss: false, villains: [2, 3], decoys: 1 },
-  { no: 4, people: 6, seconds: 30, mohawk: false, boss: true, villains: [2, 2], decoys: 1 }
+  { no: 1, people: 4, seconds: 26, mohawk: false, boss: false, villains: [1, 2], practiceLeak: true, decoys: [0, 0] },
+  { no: 2, people: 5, seconds: 24, mohawk: false, boss: false, villains: [2, 3], decoys: [1, 2] },
+  { no: 3, people: 6, seconds: 26, mohawk: false, boss: false, villains: [2, 3], decoys: [1, 2] },
+  { no: 4, people: 6, seconds: 30, mohawk: false, boss: true, villains: [2, 2], decoys: [1, 2] }
 ];
 
 /** 1つの波のワルの数(ボスは含まない。ステージ1) */
@@ -650,16 +650,24 @@ export const LEAK = {
   /** 2か所とも出る確率(残りは1か所だけ) */
   bothChance: 0.5,
   /** 1か所だけのとき、それが照明になる確率(残りは机の小物) */
-  lightOnlyChance: 0.5
+  lightOnlyChance: 0.5,
+  /**
+   * 照明か小物に何か出ている人(もれのあるヴィランと、紛らわしい市民)の一言を、見えている物のことを言う一言
+   * (TOWER_SPOT_HINTS)に替える確率。ヴィランと紛らわしい市民で同じにする(一言だけで決められないように)
+   */
+  spotHintChance: 0.5
 } as const;
 
 /**
  * 紛らわしい市民の出せる見た目(STAGE4「紛らわしい市民」の表)。
- * 切れかけの蛍光灯はどの見た目でも、手品の糸は手品師だけ、風船は花屋の店員、配達員、ウェイター
+ * 切れかけの蛍光灯と紫のセロハンの照明はどの見た目でも、手品の糸と手品の紫の煙は手品師だけ、
+ * 紫の風船は花屋の店員、配達員、ウェイター
  */
 export const DECOY_LOOKS: Readonly<Record<TowerDecoy, readonly TowerLook[] | 'any'>> = {
   flicker: 'any',
+  cellophane: 'any',
   thread: ['magician'],
+  smoke: ['magician'],
   balloon: ['florist', 'courier', 'waiter']
 };
 

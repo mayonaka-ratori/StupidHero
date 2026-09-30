@@ -1,5 +1,6 @@
 // ステージ4(高層ビル)の仕分けの画面の、左上の照明と左下の机と小物。もれ(紫の光、浮いた小物)と、
-// 紛らわしい市民の理由(切れかけの蛍光灯、手品の糸、風船)をここで出す(docs/STAGE4.md の「もれ」「紛らわしい市民」)。
+// 紛らわしい市民の理由(切れかけの蛍光灯、紫のセロハン、手品の糸、手品の紫の煙、紫の風船)をここで出す
+// (docs/STAGE4.md の「もれ」「紛らわしい市民」)。紫はもれにも紛らわしい市民にも出る。もれにだけあるのは火花と、小物を包むもや。
 //   const desk = new TowerDesk(this, { floor: wave.no, lamp: TOWER_LAMP, desk: TOWER_DESK, depth: Z.dim + 0.6 });
 //   desk.setLook(leakLook(leakSpots(person)), caneTip);   // 人が出た瞬間に。caneTip は手品の糸を引くつえの先(なければ省く)
 //   desk.setLook(CALM_LOOK);                              // 人がいないときと中断中
@@ -20,10 +21,13 @@ import { settings } from '../../settings';
 /** 手品の糸と風船のひもの色(うすい灰色。紫にしない)と、その右下の影(明るい床の上でも見えるように) */
 const THREAD = 0xd0d0dc;
 const THREAD_SHADOW = 0x3c3848;
-/** 風船の色(赤。紫と黄緑は使わない)。明るい所、ふち、ひも */
-const BALLOON = 0xe8404c;
-const BALLOON_HI = 0xffa0a8;
-const BALLOON_DARK = 0xa01e30;
+/**
+ * 超能力の紫の3色(src/art/world4/palette.ts の PSY。明るい所、ふつう、濃い所)。
+ * 紫の風船と手品の煙にも使う(紫だけで、もれと決められないように)
+ */
+const PURPLE_HI = 0xffdbff;
+const PURPLE = 0xdb6dff;
+const PURPLE_DARK = 0x9224db;
 const OUTLINE = 0x240024;
 /** 浮いた小物の上下のゆれ(1往復のミリ秒) */
 const BOB_MS = 1400;
@@ -80,12 +84,14 @@ export class TowerDesk {
   private itemSpark: Phaser.GameObjects.Sprite;
   private thread: Phaser.GameObjects.Graphics;
   private balloon: Phaser.GameObjects.Graphics;
+  private smoke: Phaser.GameObjects.Graphics;
   private look: LeakLook = CALM_LOOK;
   private tip: CaneTip | null = null;
   private restY: number;
   private spotX: number;
   private reduce = settings.reduceFx;
   private lastThread = '';
+  private lastSmoke = '';
   /** 手品の糸を吊る点の高さ。つえの先がいちばん高かったときに合わせる(コマごとに上下させない) */
   private hangY = Infinity;
 
@@ -113,12 +119,14 @@ export class TowerDesk {
     this.itemSpark = add(scene.add.sprite(this.spotX + 7, this.restY - FLOAT_PX - 6, 'fx_psy_spark', 1).setDepth(d + 0.3));
     this.thread = add(scene.add.graphics().setDepth(opt.threadDepth ?? d + 0.3));
     this.balloon = add(scene.add.graphics().setDepth(d + 0.3));
+    // 手品の煙は小物の後ろ(小物の形が見えるように)
+    this.smoke = add(scene.add.graphics().setDepth(d + 0.1));
     this.apply();
   }
 
-  /** 画面に置いたもの(「まわり」の窓に映すもの) */
+  /** 画面に置いたもの(掛け合いのお手本で、まとめて小さな画面の形に切り取るため) */
   get objects(): Phaser.GameObjects.GameObject[] {
-    return [this.lamp, ...this.lampSparks, this.desk, ...this.items, this.haze, this.itemSpark, this.thread, this.balloon];
+    return [this.lamp, ...this.lampSparks, this.desk, ...this.items, this.haze, this.itemSpark, this.thread, this.balloon, this.smoke];
   }
 
   /** いまの見せ方 */
@@ -129,6 +137,7 @@ export class TowerDesk {
     this.look = look;
     this.tip = tip;
     this.lastThread = '';
+    this.lastSmoke = '';
     this.hangY = Infinity;
     this.apply();
   }
@@ -136,11 +145,12 @@ export class TowerDesk {
   private apply(): void {
     const L = this.look;
     this.lamp.setFrame(L.lampFrame);
-    for (const s of this.lampSparks) s.setVisible(L.lampSparks);
+    this.lampSparks.forEach((s, i) => s.setVisible(i < L.lampSparks));
     this.haze.setVisible(L.haze);
     this.itemSpark.setVisible(L.haze);
     this.balloon.setVisible(L.balloon);
     this.thread.setVisible(L.thread);
+    this.smoke.setVisible(L.smoke);
     this.reduce = !settings.reduceFx;   // 次の update で火花の動きを決め直す
     this.update(this.scene.time.now);
   }
@@ -166,6 +176,7 @@ export class TowerDesk {
     if (item.y !== y) item.setY(y);
     if (L.haze && this.haze.y !== y) { this.haze.setY(y); this.itemSpark.setY(y - 6); }
     if (L.balloon) this.drawBalloon(y);
+    if (L.smoke) this.drawSmoke(y);
     if (L.thread) this.drawThread(y);
   }
 
@@ -175,7 +186,7 @@ export class TowerDesk {
     return y - TOWER_ITEM_SIZE / 2 + TOWER_ITEM_ROWS[spot].top;
   }
 
-  /** 小物の上に、ひもで結んだ小さな赤い風船 */
+  /** 小物の上に、ひもで結んだ小さな紫の風船 */
   private drawBalloon(y: number): void {
     const key = `b${y}`;
     if (this.lastThread === key) return;
@@ -190,13 +201,38 @@ export class TowerDesk {
     // 風船(7×8の玉と、下の結び口)
     const bx = x - 3, by = top - 18;
     const rows = ['..ooo..', '.orrro.', 'orhrrro', 'orhrrro', 'orrrrdo', 'orrrrdo', '.orrdo.', '..ooo..', '...k...'];
-    const col: Record<string, number> = { o: OUTLINE, r: BALLOON, h: BALLOON_HI, d: BALLOON_DARK, k: BALLOON_DARK };
+    const col: Record<string, number> = { o: OUTLINE, r: PURPLE, h: PURPLE_HI, d: PURPLE_DARK, k: PURPLE_DARK };
     rows.forEach((row, j) => {
       for (let i = 0; i < row.length; i++) {
         const c = col[row[i]];
         if (c !== undefined) g.fillStyle(c, 1).fillRect(bx + i, by + j, 1, 1);
       }
     });
+  }
+
+  /**
+   * 手品の紫の煙。小物の左に小さな煙のかたまりを2つ(4×3と2×2)、右下に1つ(2×2)。
+   * もれのもやのように小物を輪で包まず、火花も出さない。高さは小物に合わせる(浮いた小物のゆれについていく)
+   */
+  private drawSmoke(y: number): void {
+    const key = `s${y}`;
+    if (this.lastSmoke === key) return;
+    this.lastSmoke = key;
+    const g = this.smoke.clear();
+    const x = this.spotX;
+    const col: Record<string, number> = { h: PURPLE_HI, p: PURPLE, d: PURPLE_DARK };
+    const puff = (px: number, py: number, rows: readonly string[]): void => {
+      rows.forEach((row, j) => {
+        for (let i = 0; i < row.length; i++) {
+          const c = col[row[i]];
+          if (c !== undefined) g.fillStyle(c, 1).fillRect(px + i, py + j, 1, 1);
+        }
+      });
+    };
+    // 十字にすると火花に見えるので、横長の丸いかたまりにする
+    puff(x - 10, y - 1, ['.pp.', 'phpp', '.dd.']);
+    puff(x - 11, y - 5, ['pd', 'dd']);
+    puff(x + 5, y + 1, ['pp', 'dp']);
   }
 
   /**

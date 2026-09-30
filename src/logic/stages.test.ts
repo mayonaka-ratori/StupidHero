@@ -180,8 +180,8 @@ describe('ステージ4(高層ビル)の定義', () => {
   });
 
   it('波、もれ、念力、エレベーター、ボス戦の数字', () => {
-    expect(TOWER_WAVES.map((w) => [w.people, w.seconds, w.villains, w.boss, w.decoys ?? 0]))
-      .toEqual([[4, 26, [1, 2], false, 0], [5, 24, [2, 3], false, 1], [6, 26, [2, 3], false, 1], [6, 30, [2, 2], true, 1]]);
+    expect(TOWER_WAVES.map((w) => [w.people, w.seconds, w.villains, w.boss, w.decoys ?? [0, 0]]))
+      .toEqual([[4, 26, [1, 2], false, [0, 0]], [5, 24, [2, 3], false, [1, 2]], [6, 26, [2, 3], false, [1, 2]], [6, 30, [2, 2], true, [1, 2]]]);
     expect(TOWER_WAVES[0].practiceLeak).toBe(true);
     expect(LEAK.bothChance).toBe(0.5);
     expect([PSY.raiseSec, PSY.liftSec, PSY.carrySec, PSY.dropSec, PSY.victimDistance, PSY.dropWindowPx]).toEqual([0.6, 0.8, 3, 0.4, 90, 20]);

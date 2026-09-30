@@ -75,15 +75,19 @@ export const TOWER_CIV_REASONS: Readonly<Record<TowerLook, string>> = {
 /** 高層ビルの紛らわしい市民の決め手(もれに見えたものの理由) */
 export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
   flicker: '蛍光灯が切れかけだった',
+  cellophane: '照明に紫のセロハンだった',
   thread: '手品の糸で吊っていた',
-  balloon: '風船がのっていただけ'
+  smoke: '手品の煙と糸だった',
+  balloon: '紫の風船がのっていただけ'
 };
 
-/** 高層ビルのヴィランの決め手(もれの出方) */
+/**
+ * 高層ビルのヴィランの決め手(もれの出方)。紫は紛らわしい市民にも出るので、もれにしかない火花ともやで言う
+ */
 export const TOWER_LEAK_REASONS = {
-  both: '照明も小物も変だった',
-  light: '照明が紫に光っていた',
-  item: '机の小物が浮いていた'
+  both: '照明にも小物にも火花',
+  light: '照明に火花が出ていた',
+  item: '小物が紫のもやと火花'
 } as const;
 
 /** 高層ビルの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE4.md) */

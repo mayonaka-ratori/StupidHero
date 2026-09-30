@@ -1,19 +1,17 @@
-// ステージ4(高層ビル)の仕分けの画面の、照明と机と小物の場所。「まわり」の窓で大きく見せる四角もここに書く
-// (docs/STAGE4.md の「仕分けの画面の背景」「もれ」「まわり」の窓)。src/art/clueSpots.ts と同じ形の表にしてある。
+// ステージ4(高層ビル)の仕分けの画面の、照明と机と小物の場所と、もれの見せ方
+// (docs/STAGE4.md の「仕分けの画面の背景」「もれ」「紛らわしい市民」)。
 //
 // 使い方:
-//   const d = towerDeskFor(wave.no);            // { items: [...], rect }(机の下の真ん中からのずれと、窓の四角)
-//   const look = leakLook(leakSpots(person));   // 照明のコマ、火花、小物を浮かせるか、もや、糸、風船
-//   deskRect(d, deskX, deskY)                   // 窓の四角を、画面の座標にする
+//   const d = towerDeskFor(wave.no);            // { items: [...] }(机の下の真ん中からのずれ)
+//   const look = leakLook(leakSpots(person));   // 照明のコマ、火花の数、小物を浮かせるか、もや、糸、煙、風船
 //
 // 照明と机は、どの階も同じ場所に置く(TOWER_LAMP、TOWER_DESK)。人の絵(2倍)と重ならないように、
 // 照明は頭の上、机は人の左の細い所に置く。机の上の小物は階ごとに2つ(1階は名刺とペン、18階はペンとマグカップ、
 // 35階はグラスとナプキン、最上階はグラスとキャンドル)。もれや紛らわしい市民の理由が出るのは、1つ目(spot)だけ。
-// 窓の四角は、1つ目の小物が浮いたときの紫のもや(16×14)と同じ場所にする。浮く前の小物と、机の天板の端も入る。
+// 大きく映す窓はない(前は「まわり」の窓があったが、やさしすぎたのでやめた)。プレイヤーは仕分けの画面の机と照明をじかに見る。
 
 import type { LeakSpots } from '../logic/tower';
 import type { WaveNo } from '../logic/types';
-import { CLUE_H, CLUE_W, type ClueRect } from './clueSpots';
 import { sheetByKey } from './sheets';
 
 /** fx_psy_items のコマ */
@@ -47,7 +45,7 @@ export const FLOAT_PX = 3;
 
 /**
  * 仕分けの画面の照明(fx_psy_lamp の上の真ん中)。頭の上の、左上の字(STAGE、人数、時間)の右。
- * 照明は窓に映さないので、画面の左上に大きく(2倍で)出す。机と小物は背景と同じ1倍(小さい所は「まわり」の窓で見る)
+ * 照明は画面の左上に大きく(2倍で)出す。机と小物は背景と同じ1倍
  */
 export const TOWER_LAMP = { x: 94, y: 0, scale: 2 } as const;
 /** fx_psy_lamp の大きさ */
@@ -59,8 +57,8 @@ export const TOWER_DESK = { x: 38, y: 204 } as const;
 /** 机の上の小物1つ。dx は机の真ん中から小物のコマの真ん中までのずれ */
 interface DeskItem { item: TowerItem; dx: number }
 
-/** 1つの階の机。items[0] がもれの出る小物(spot)。rect は窓の四角(机の下の真ん中からのずれ) */
-export interface TowerDeskSpot { items: readonly [DeskItem, DeskItem]; rect: ClueRect }
+/** 1つの階の机。items[0] がもれの出る小物(spot) */
+export interface TowerDeskSpot { items: readonly [DeskItem, DeskItem] }
 
 /** 1つ目の小物は机の右寄り(人の側。手品の糸がつえから届く側)、2つ目は左寄り */
 const SPOT_DX = 9;
@@ -72,18 +70,11 @@ export function itemRestDy(item: TowerItem): number {
   return bottomY - TOWER_ITEM_ROWS[item].bottom + TOWER_ITEM_SIZE / 2;
 }
 
-/** 1つ目の小物が浮いたときのもや(16×14)の四角 = 窓の四角 */
-function spotRect(item: TowerItem): ClueRect {
-  const cy = itemRestDy(item) - FLOAT_PX;
-  return { x: SPOT_DX - CLUE_W / 2, y: cy - CLUE_H / 2, w: CLUE_W, h: CLUE_H };
-}
-
 const floor = (spot: TowerItem, other: TowerItem): TowerDeskSpot => ({
-  items: [{ item: spot, dx: SPOT_DX }, { item: other, dx: OTHER_DX }],
-  rect: spotRect(spot)
+  items: [{ item: spot, dx: SPOT_DX }, { item: other, dx: OTHER_DX }]
 });
 
-/** 階ごと(波1から順に、1階、18階、35階、最上階)の机の上の小物と、窓の四角 */
+/** 階ごと(波1から順に、1階、18階、35階、最上階)の机の上の小物 */
 export const TOWER_DESKS: readonly TowerDeskSpot[] = [
   floor('card', 'pen'),
   floor('pen', 'cup'),
@@ -96,35 +87,40 @@ export function towerDeskFor(no: WaveNo): TowerDeskSpot {
   return TOWER_DESKS[Math.min(TOWER_DESKS.length, Math.max(1, no)) - 1];
 }
 
-/** 窓の四角を、机を (deskX, deskY)(下の真ん中)に置いたときの座標にする */
-export function deskRect(d: TowerDeskSpot, deskX: number, deskY: number): ClueRect {
-  return { x: deskX + d.rect.x, y: deskY + d.rect.y, w: d.rect.w, h: d.rect.h };
-}
+/** fx_psy_lamp のコマ(src/art/world4/fx.ts の lamp) */
+export const LAMP_FRAMES = { normal: 0, leak: 1, flicker: 2, flickerDark: 3, cellophane: 4 } as const;
 
 /** 照明と小物の見せ方(leakSpots の答えを絵にするときの決まり) */
 export interface LeakLook {
-  /** fx_psy_lamp のコマ(0:ふつう、1:もれ(紫)、2:切れかけ) */
-  lampFrame: 0 | 1 | 2;
-  /** 照明のまわりに火花を2つ出す */
-  lampSparks: boolean;
-  /** 1つ目の小物を浮かせる(もれ、手品の糸、風船) */
+  /** fx_psy_lamp のコマ(0:ふつう、1:もれ(紫)、2:切れかけ、4:紫のセロハン) */
+  lampFrame: 0 | 1 | 2 | 4;
+  /** 照明のまわりに出す火花の数(もれだけ。2か所とももれていれば2つ、照明だけなら1つ) */
+  lampSparks: 0 | 1 | 2;
+  /** 1つ目の小物を浮かせる(もれ、手品の糸、手品の紫の煙、紫の風船) */
   itemFloat: boolean;
   /** 浮いた小物を紫のもやで包み、火花を1つ出す(もれ) */
   haze: boolean;
-  /** つえの先から小物へ糸を引く(手品の糸) */
+  /** つえの先から小物へ糸を引く(手品の糸、手品の紫の煙) */
   thread: boolean;
-  /** 小物に風船をひもで結ぶ(風船) */
+  /** 小物のそばに紫の煙を出す(手品の紫の煙) */
+  smoke: boolean;
+  /** 小物に紫の風船をひもで結ぶ(紫の風船) */
   balloon: boolean;
 }
 
 /** leakSpots の答えから、照明と小物の見せ方を決める。親玉とふつうの市民は全部ふつう */
 export function leakLook(s: LeakSpots): LeakLook {
+  const lampFrame = s.light === 'leak' ? LAMP_FRAMES.leak
+    : s.light === 'flicker' ? LAMP_FRAMES.flicker
+      : s.light === 'cellophane' ? LAMP_FRAMES.cellophane : LAMP_FRAMES.normal;
   return {
-    lampFrame: s.light === 'leak' ? 1 : s.light === 'flicker' ? 2 : 0,
-    lampSparks: s.light === 'leak',
+    lampFrame,
+    // もれが照明だけのときは、火花を1つにして少し見つけにくくする
+    lampSparks: s.light !== 'leak' ? 0 : s.item === 'leak' ? 2 : 1,
     itemFloat: s.item !== null,
     haze: s.item === 'leak',
-    thread: s.item === 'thread',
+    thread: s.item === 'thread' || s.item === 'smoke',
+    smoke: s.item === 'smoke',
     balloon: s.item === 'balloon'
   };
 }

@@ -43,7 +43,9 @@ function haze(w: number, h: number, n: number): PixelGrid[] {
 
 /**
  * 仕分けの画面の左上の照明 40×24(天井につけた蛍光灯と、下へこぼれる光)。
- * 0:ふつう(白)、1:もれ(紫)、2:切れかけ(うすい黄色で端が黒い)、3:切れかけの暗いほう
+ * 0:ふつう(白)、1:もれ(紫)、2:切れかけ(うすい黄色で端が黒い)、3:切れかけの暗いほう、
+ * 4:紫のセロハン(紛らわしい市民。光はもれと同じ紫だが、まわりの粒はない。管の左の端はセロハンが届かず白いまま、
+ * 右の端はセロハンがめくれて3段たれ下がる)
  */
 function lamp(w: number, h: number, n: number): PixelGrid[] {
   const METAL = [md(5, 5, 5), md(4, 4, 5), md(3, 3, 4)];
@@ -54,16 +56,22 @@ function lamp(w: number, h: number, n: number): PixelGrid[] {
     // 本体(金属の箱)
     P.fill(P.mask().rect(3, 2, 34, 4), [METAL[0], METAL[1], METAL[2]], { sep: 'outline', hi: 0.3, lo: 0.8 });
     // 光る管
-    const tube = [[W0, md(7, 7, 6)], [PSY[0], PSY[1]], [WEAK[0], WEAK[1]], [WEAK[1], WEAK[2]]][i];
+    const tube = [[W0, md(7, 7, 6)], [PSY[0], PSY[1]], [WEAK[0], WEAK[1]], [WEAK[1], WEAK[2]], [PSY[0], PSY[1]]][i];
     P.rect(4, 6, 32, 2, tube[1]).rect(6, 6, 28, 1, tube[0]);
-    if (i >= 2) {
+    if (i === 2 || i === 3) {
       // 切れかけ:管の両端が黒い
       P.rect(4, 6, 4, 2, OUTLINE).rect(32, 6, 4, 2, OUTLINE);
+    }
+    if (i === 4) {
+      // セロハン:左の端の2列は白い管のまま。右の端はめくれたセロハンが下へたれる(4×3の三角)
+      P.rect(4, 6, 2, 2, W0);
+      P.rect(32, 8, 4, 1, PSY[1]).rect(33, 9, 3, 1, PSY[2]).rect(35, 10, 1, 1, PSY[2]);
+      P.px(35, 8, PSY[0]);
     }
     P.outline();
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = P.g.get(x, y); if (c) g.px(x, y, c); }
     // 下へこぼれる光(市松。下ほど広く、まばらに)
-    const spill = [md(6, 6, 6), PSY[2], WEAK[2], null][i];
+    const spill = [md(6, 6, 6), PSY[2], WEAK[2], null, PSY[2]][i];
     if (!spill) return;
     for (let y = 10; y < h; y++) {
       const half = 14 + (y - 10) * 0.45;

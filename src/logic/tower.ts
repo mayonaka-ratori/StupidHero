@@ -7,21 +7,25 @@
 // - 1つの波のヴィランは、波1が1〜2人、波2と3が2〜3人、波4が2人。見た目は波の中で重ならない。
 //   ヴィランと同じ見た目の市民を、なるべく同じ波に出す
 // - ヴィランにはもれ(person.leak)をつける。2か所とも出るか1か所だけか(半々)。波1の1人目は練習用で2か所とも
-// - 波2から、紛らわしい市民(person.decoy)を1人ずつ入れる。種類ごとに出せる見た目が決まっている(DECOY_LOOKS)
+// - 波2から、紛らわしい市民(person.decoy)を1〜2人ずつ入れる(TOWER_WAVES の decoys)。1つの波の中では種類を重ねない。
+//   種類ごとに出せる見た目が決まっている(DECOY_LOOKS)
+// - 照明か小物に何か出ている人(もれのあるヴィランと紛らわしい市民)は、半々で、オペレーターの一言を
+//   見えている物のことを言う一言(TOWER_SPOT_HINTS)に替える。ヴィランと紛らわしい市民で同じ確率にする
 // - 親玉は波4に1人。化けた姿はドレスの女性、手品師、ウェイターから。同じ見た目の市民を波4に入れる。親玉はもれない
 // - エレベーターラッシュ(stage.rush、kind は 'elevator'):6人、ヴィランは2人か3人(半々)。
 //   最初の2人は市民1人とヴィラン1人(順はランダム)。見た目は8種類から、前の人と続けて同じにしない
 //
 // 画面の担当が使うもの:
-//   仕分け:leakSpots(person)   // 照明と机の小物に、何を出すか('leak' は紫のもれ、ほかは紛らわしい市民の理由)
+//   仕分け:leakSpots(person)   // 照明と机の小物に、何を出すか('leak' は火花の出るもれ、ほかは紛らわしい市民の理由)
 //   ラッシュ:stage.rush.riders を順に。1人ぶんの時間は liftTiming(slow)
 
 import { makePerson, shufflePeople, type PersonDraft, type UsedTexts } from './people';
-import { leastUsed, rushLineup, zeroCounts } from './pick';
+import { leastUsed, pickFresh, rushLineup, zeroCounts } from './pick';
 import type { Rng } from './rng';
 import { DECOY_LOOKS, LEAK, LIFT } from './rules';
 import { BOSS4_DISGUISES, STAGES, TOWER_LOOKS, sheetKeyFor } from './stages';
-import type { Leak, LiftPlan, LiftRider, Person, TowerDecoy, TowerLook, Wave } from './types';
+import { TOWER_SPOT_HINTS } from './towerContent';
+import type { Leak, LiftPlan, LiftRider, OperatorHint, Person, TowerDecoy, TowerLook, Wave } from './types';
 
 /** 波ごと(階ごと)に出る見た目。上の階には下の階の人も上がってくる */
 export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
@@ -35,7 +39,7 @@ export const FLOOR_LOOKS: readonly (readonly TowerLook[])[] = [
 const TOP_FLOOR_LOOKS: readonly TowerLook[] = ['lady', 'magician'];
 
 /** 紛らわしい市民の種類 */
-const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'thread', 'balloon'];
+const TOWER_DECOYS: readonly TowerDecoy[] = ['flicker', 'cellophane', 'thread', 'smoke', 'balloon'];
 
 // ─── もれと紛らわしい市民 ─────────────────────────
 
@@ -54,25 +58,54 @@ export function canDecoy(look: TowerLook, decoy: TowerDecoy): boolean {
 
 /** 仕分けの画面の決まった2か所(左上の照明、左下の机の小物)に出すもの */
 export interface LeakSpots {
-  /** 'leak' は紫の光と火花、'flicker' は切れかけの蛍光灯(うすい黄色)。null はふつう */
-  light: 'leak' | 'flicker' | null;
-  /** 'leak' は浮いて紫のもやに包まれる、'thread' は手品の糸で吊られて浮く、'balloon' は風船がのっている。null はふつう */
-  item: 'leak' | 'thread' | 'balloon' | null;
+  /**
+   * 'leak' は紫の光と火花、'flicker' は切れかけの蛍光灯(うすい黄色)、'cellophane' は紫のセロハンを貼った照明
+   * (紫の光だが火花はない)。null はふつう
+   */
+  light: 'leak' | 'flicker' | 'cellophane' | null;
+  /**
+   * 'leak' は浮いて紫のもやと火花に包まれる、'thread' は手品の糸で吊られて浮く、'smoke' は手品の糸で吊られて浮き、
+   * そばに紫の煙が出る、'balloon' は紫の風船がひもで結ばれて浮く。null はふつう
+   */
+  item: 'leak' | 'thread' | 'smoke' | 'balloon' | null;
 }
+
+/** 紛らわしい市民の種類が、照明と小物のどちらに出るか */
+const DECOY_SPOT: Readonly<Record<TowerDecoy, 'light' | 'item'>> = {
+  flicker: 'light', cellophane: 'light', thread: 'item', smoke: 'item', balloon: 'item'
+};
 
 /** その人が出ている間、照明と机の小物に何を出すか(ヴィランはもれ、紛らわしい市民はもれに見えるもの、親玉と市民は何もなし) */
 export function leakSpots(p: Pick<Person, 'leak' | 'decoy'>): LeakSpots {
   const out: LeakSpots = { light: null, item: null };
   if (p.leak?.light) out.light = 'leak';
   if (p.leak?.item) out.item = 'leak';
-  if (p.decoy === 'flicker') out.light = 'flicker';
-  if (p.decoy === 'thread' || p.decoy === 'balloon') out.item = p.decoy;
+  if (p.decoy && DECOY_SPOT[p.decoy] === 'light') out.light = p.decoy as LeakSpots['light'];
+  if (p.decoy && DECOY_SPOT[p.decoy] === 'item') out.item = p.decoy as LeakSpots['item'];
   return out;
 }
 
-/** 波の市民の見た目から、紛らわしい市民の種類と、なる人(civLooks の中の番号)を選ぶ。出せなければ null */
-function pickDecoy(rng: Rng, civLooks: readonly TowerLook[]): { decoy: TowerDecoy; index: number } | null {
-  const kinds = TOWER_DECOYS.filter((d) => civLooks.some((l) => canDecoy(l, d)));
+/**
+ * 照明と小物に見えている物のことを言う一言の候補(TOWER_SPOT_HINTS から、その人に本当に当てはまるものだけ)。
+ * 何も出ていなければ空。もれか紛らわしい市民の理由かは言わない(どちらにも同じ文が出る)
+ */
+export function spotHintsFor(s: LeakSpots): OperatorHint[] {
+  const out: OperatorHint[] = [];
+  if (s.light) out.push(...TOWER_SPOT_HINTS.lightOdd);
+  if (s.light === 'leak' || s.light === 'cellophane') out.push(...TOWER_SPOT_HINTS.lightPurple);
+  if (s.item) out.push(...TOWER_SPOT_HINTS.itemFloat);
+  if (s.item === 'leak' || s.item === 'smoke' || s.item === 'balloon') out.push(...TOWER_SPOT_HINTS.itemPurple);
+  return out;
+}
+
+/**
+ * 波の市民の見た目から、紛らわしい市民の種類と、なる人(civLooks の中の番号)を選ぶ。出せなければ null。
+ * skip に入れた種類は選ばない(1つの波の中で同じ種類を重ねないため)
+ */
+function pickDecoy(
+  rng: Rng, civLooks: readonly TowerLook[], skip: ReadonlySet<TowerDecoy>
+): { decoy: TowerDecoy; index: number } | null {
+  const kinds = TOWER_DECOYS.filter((d) => !skip.has(d) && civLooks.some((l) => canDecoy(l, d)));
   if (kinds.length === 0) return null;
   const decoy = rng.pick(kinds);
   const candidates = civLooks.map((l, i) => ({ l, i })).filter(({ l }) => canDecoy(l, decoy));
@@ -119,12 +152,23 @@ export function buildTowerWaves(rng: Rng, used: UsedTexts): Wave[] {
       return p;
     });
     const civDrafts = civLooks.map((look) => makePerson(rng, used, 'tower', plan.no, look, 'civ'));
-    for (let n = 0; n < (plan.decoys ?? 0); n++) {
+    const [dMin, dMax] = plan.decoys ?? [0, 0];
+    const decoyTotal = rng.int(dMin, dMax);
+    const kindsUsed = new Set<TowerDecoy>();
+    for (let n = 0; n < decoyTotal; n++) {
       const free = civDrafts.filter((d) => !d.decoy);
-      const chosen = pickDecoy(rng, free.map((d) => d.look as TowerLook));
-      if (chosen) free[chosen.index].decoy = chosen.decoy;
+      const chosen = pickDecoy(rng, free.map((d) => d.look as TowerLook), kindsUsed);
+      if (!chosen) break;
+      free[chosen.index].decoy = chosen.decoy;
+      kindsUsed.add(chosen.decoy);
     }
     drafts.push(...civDrafts);
+    // 照明か小物に何か出ている人は、半々で一言を「見えている物」のことにする(ヴィランも紛らわしい市民も同じ)
+    for (const d of drafts) {
+      const spotHints = spotHintsFor(leakSpots(d));
+      if (spotHints.length === 0 || !rng.chance(LEAK.spotHintChance)) continue;
+      d.hint = { ...pickFresh(rng, spotHints, used.texts, (h) => h.text) };
+    }
     if (plan.boss) drafts.push(makePerson(rng, used, 'tower', plan.no, bossDisguise, 'boss'));
 
     const people = shufflePeople(rng, plan.no, drafts);

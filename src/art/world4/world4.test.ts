@@ -34,10 +34,14 @@ describe('ステージ4の絵', () => {
     }
   });
 
-  it('照明:ふつうと切れかけは紫を使わず、もれだけが紫', () => {
-    const [normal, leak, weak, weak2] = sheets.fx_psy_lamp[0];
+  it('照明:ふつうと切れかけは紫を使わず、もれと紫のセロハンが紫。セロハンは、もれと違う所(めくれ)がある', () => {
+    const [normal, leak, weak, weak2, cellophane] = sheets.fx_psy_lamp[0];
+    expect(sheets.fx_psy_lamp[0]).toHaveLength(5);
     expect(hasPsy(leak)).toBe(true);
+    expect(hasPsy(cellophane)).toBe(true);
     for (const g of [normal, weak, weak2]) expect(hasPsy(g)).toBe(false);
+    // めくれ(管の下にたれる紫)と、管の左の端の白が、見てわかる大きさ(4ドット以上)で違う
+    expect(diff(leak, cellophane)).toBeGreaterThan(4);
   });
 
   it('机と会場の小物は8つとも3×3ドット以上で、紫を使わない(もやはコードで重ねる)', () => {

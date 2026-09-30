@@ -25,8 +25,9 @@ export function demoKindFor(text: string): DemoKind | null {
   const t = text.replace(/\n/g, '');
   // ステージ4(高層ビル)の、照明と机、紫のもれ、手品の糸、念力で運ぶ物。「見た目」で手がかりのお手本を出さないように先に見る
   if (/周り/.test(t)) return 'surround';
-  if (/紫/.test(t)) return 'psyLeak';
+  // 「手品や風船の紫」は紫より先に見る(紫の煙の手品を見せる)
   if (/手品|風船/.test(t)) return 'thread';
+  if (/紫/.test(t)) return 'psyLeak';
   if (/念力/.test(t)) return 'psyCarry';
   // ステージ3(ショッピングモール)の、動きのくずれ、ぎこちない市民、UFO。「待てない」で待てのお手本を出さないように先に見る
   if (/くずれ/.test(t)) return 'glitch';
@@ -242,8 +243,8 @@ export class IntroDemo {
         this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx + 20);
         this.person.play(animKey(key, 'sortIdle'));
         if (kind === 'psyLeak') this.desk.setLook(leakLook({ light: 'leak', item: 'leak' }));
-        if (thread) this.desk.setLook(leakLook({ light: null, item: 'thread' }), caneTipOf(this.person, 1));
-        this.caption.setText(kind === 'surround' ? '照明と机' : kind === 'psyLeak' ? '紫に光った！' : '糸で吊ってる');
+        if (thread) this.desk.setLook(leakLook({ light: null, item: 'smoke' }), caneTipOf(this.person, 1));
+        this.caption.setText(kind === 'surround' ? '照明と机' : kind === 'psyLeak' ? '火花が出た！' : '手品の煙と糸');
         break;
       }
       case 'psyCarry': {

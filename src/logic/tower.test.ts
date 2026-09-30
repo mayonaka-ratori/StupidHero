@@ -4,7 +4,8 @@ import { createRng, hashSeed } from './rng';
 import { DECOY_LOOKS, LIFT } from './rules';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { TOWER_LOOKS, sheetKeyFor } from './stages';
-import { FLOOR_LOOKS, buildLift, canDecoy, leakSpots, rollLeak } from './tower';
+import { FLOOR_LOOKS, buildLift, canDecoy, leakSpots, rollLeak, spotHintsFor } from './tower';
+import { TOWER_SPOT_HINTS } from './towerContent';
 import type { LiftPlan, Person, Stage, StageId, TowerLook } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 5);
@@ -68,10 +69,20 @@ describe('createStage(seed, "tower")', () => {
     }
   });
 
-  it('紛らわしい市民は、波1は0人、波2から1人ずつ。種類ごとに出せる見た目が決まっている(3種類とも出る)', () => {
+  it('紛らわしい市民は、波1は0人、波2から1〜2人ずつ(どちらも出る)。1つの波で種類は重ならない。種類ごとに出せる見た目が決まっている(5種類とも出る)', () => {
     const kinds = new Set<string>();
+    const counts = new Set<number>();
     for (const s of stages) {
-      expect(s.waves.map((w) => w.people.filter((p) => p.decoy).length)).toEqual([0, 1, 1, 1]);
+      s.waves.forEach((w, i) => {
+        const decoys = w.people.filter((p) => p.decoy).map((p) => p.decoy);
+        const at = `seed ${s.seed} 波${i + 1}`;
+        if (i === 0) expect(decoys, at).toEqual([]);
+        else {
+          expect(decoys.length >= 1 && decoys.length <= 2, at).toBe(true);
+          expect(new Set(decoys).size, at).toBe(decoys.length);
+          counts.add(decoys.length);
+        }
+      });
       for (const p of everyone(s)) {
         if (!p.decoy) continue;
         expect(p.truth, p.id).toBe('civ');
@@ -79,8 +90,10 @@ describe('createStage(seed, "tower")', () => {
         kinds.add(p.decoy);
       }
     }
-    expect([...kinds].sort()).toEqual(['balloon', 'flicker', 'thread']);
+    expect([...kinds].sort()).toEqual(['balloon', 'cellophane', 'flicker', 'smoke', 'thread']);
+    expect([...counts].sort()).toEqual([1, 2]);
     expect(DECOY_LOOKS.thread).toEqual(['magician']);
+    expect(DECOY_LOOKS.smoke).toEqual(['magician']);
   });
 
   it('照明と机の小物に出すもの(leakSpots)', () => {
@@ -90,8 +103,35 @@ describe('createStage(seed, "tower")', () => {
     expect(leakSpots({ decoy: 'flicker' })).toEqual({ light: 'flicker', item: null });
     expect(leakSpots({ decoy: 'thread' })).toEqual({ light: null, item: 'thread' });
     expect(leakSpots({ decoy: 'balloon' })).toEqual({ light: null, item: 'balloon' });
+    expect(leakSpots({ decoy: 'cellophane' })).toEqual({ light: 'cellophane', item: null });
+    expect(leakSpots({ decoy: 'smoke' })).toEqual({ light: null, item: 'smoke' });
     expect(leakSpots({})).toEqual({ light: null, item: null });
     expect(rollLeak(createRng(1), true)).toEqual({ light: true, item: true });
+  });
+
+  it('見えている物のことを言う一言は、照明か小物に何か出ている人にだけ、本当に見えている物のことを言う。ヴィランと紛らわしい市民で同じくらい出る', () => {
+    const spotTexts = new Set(Object.values(TOWER_SPOT_HINTS).flat().map((h) => h.text));
+    const rate = { bad: [0, 0], decoy: [0, 0] };
+    for (const s of stages) {
+      for (const p of everyone(s)) {
+        const has = spotTexts.has(p.hint.text);
+        const allowed = spotHintsFor(leakSpots(p)).map((h) => h.text);
+        if (allowed.length === 0) { expect(has, p.id).toBe(false); continue; }
+        if (has) expect(allowed, p.id).toContain(p.hint.text);
+        const r = p.truth === 'bad' ? rate.bad : rate.decoy;
+        r[1]++;
+        if (has) r[0]++;
+      }
+    }
+    for (const [n, total] of Object.values(rate)) {
+      expect(n / total).toBeGreaterThan(0.4);
+      expect(n / total).toBeLessThan(0.6);
+    }
+    // 紫の照明はもれにもセロハンにも、浮いた小物はもれにも手品にも風船にも、同じ一言が出る
+    expect(spotHintsFor({ light: 'leak', item: null })).toEqual(spotHintsFor({ light: 'cellophane', item: null }));
+    expect(spotHintsFor({ light: null, item: 'leak' })).toEqual(spotHintsFor({ light: null, item: 'balloon' }));
+    expect(spotHintsFor({ light: null, item: 'leak' })).toEqual(spotHintsFor({ light: null, item: 'smoke' }));
+    expect(spotHintsFor({ light: null, item: null })).toEqual([]);
   });
 
   it('親玉にはもれも紛らわしさもない。年齢と名前は化けた姿の幅と一覧から', () => {
