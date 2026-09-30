@@ -3,7 +3,7 @@
 // 人ごとの手がかりの出し分け(tells.ts。ステージ1と3は、出し分けごとの決め手の文が tells.ts にある)と、
 // content.ts、garageContent.ts、mallContent.ts、towerContent.ts のプロフィールと一言に合わせてある(絵や文を変えたら、ここも合わせる)。
 // ショッピングモールの宇宙人は動きのくずれ、市民はぎこちない動きの理由、親玉は化けた姿のおかしい所を言う。
-// 高層ビルのヴィランはもれの出方、紛らわしい市民はもれに見えたものの理由、ほかの市民は見た目ごとの文、
+// 高層ビルのヴィランはもれの出方(もれを隠すヴィランは、隠していたことと、プロフィールと一言が変だったこと)、紛らわしい市民はもれに見えたものの理由、ほかの市民は見た目ごとの文、
 // 親玉は化けた姿のおかしい所を言う(docs/STAGE4.md「答え合わせ」)。
 // 1行は全角14文字まで(答え合わせの画面の幅)。半角スペースとエムダッシュは使わない。
 //
@@ -77,19 +77,21 @@ export const TOWER_CIV_REASONS: Readonly<Record<TowerLook, string>> = {
 /** 高層ビルの紛らわしい市民の決め手(もれに見えたものの理由) */
 export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
   flicker: '蛍光灯が切れかけだった',
-  cellophane: '照明に紫のセロハンだった',
+  cellophane: '照明は紫のセロハンだった',
   thread: '手品の糸で吊っていた',
   smoke: '手品の煙と糸だった',
   balloon: '紫の風船がのっていただけ'
 };
 
 /**
- * 高層ビルのヴィランの決め手(もれの出方)。紫は紛らわしい市民にも出るので、もれにしかない火花ともやで言う
+ * 高層ビルのヴィランの決め手(もれの出方)。紫は紛らわしい市民にも出るので、もれにしかない火花ともやで言う。
+ * hidden はもれを隠すヴィラン(照明にも小物にも何も出ない)。プロフィールがふしぎで、一言も疑っていた
  */
 export const TOWER_LEAK_REASONS = {
   both: '照明にも小物にも火花',
   light: '照明に火花が出ていた',
-  item: '小物が紫のもやと火花'
+  item: '小物が紫のもやと火花',
+  hidden: '力を隠した。話も一言も変'
 } as const;
 
 /** 高層ビルの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE4.md) */
@@ -112,6 +114,7 @@ function towerReason(p: Person): string {
   if (p.truth === 'bad') {
     const leak = p.leak ?? { light: true, item: true };
     if (leak.light && leak.item) return TOWER_LEAK_REASONS.both;
+    if (!leak.light && !leak.item) return TOWER_LEAK_REASONS.hidden;
     return leak.light ? TOWER_LEAK_REASONS.light : TOWER_LEAK_REASONS.item;
   }
   if (p.decoy) return TOWER_DECOY_REASONS[p.decoy];

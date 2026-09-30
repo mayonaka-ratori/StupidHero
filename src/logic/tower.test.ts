@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { AGES, NAMES } from './content';
 import { createRng, hashSeed } from './rng';
-import { DECOY_LOOKS, LIFT } from './rules';
+import { DECOY_LOOKS, LEAK, LIFT } from './rules';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { TOWER_LOOKS, sheetKeyFor } from './stages';
-import { FLOOR_LOOKS, buildLift, canDecoy, leakSpots, rollLeak, spotHintsFor } from './tower';
-import { TOWER_SPOT_HINTS } from './towerContent';
+import { FLOOR_LOOKS, buildLift, canDecoy, isDoubtHint, isOddLine, leakSpots, rollLeak, spotHintsFor } from './tower';
+import { TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_SPOT_HINTS } from './towerContent';
 import type { LiftPlan, Person, Stage, StageId, TowerLook } from './types';
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 5);
 const stages: Stage[] = SEEDS.map((s) => createStage(s, 'tower'));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
+/** もれを隠すヴィラン(照明にも小物にも出ない) */
+const isHidden = (p: Person): boolean => p.truth === 'bad' && !p.leak!.light && !p.leak!.item;
 
 describe('createStage(seed, "tower")', () => {
   // id と名前、波の人数と時間、波ごとのヴィランの数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
@@ -47,7 +49,7 @@ describe('createStage(seed, "tower")', () => {
           continue;
         }
         const l = p.leak!;
-        expect(l.light || l.item, p.id).toBe(true);
+        if (isHidden(p)) continue;
         if (l.light && l.item) both++;
         else if (l.light) light++;
         else item++;
@@ -60,6 +62,76 @@ describe('createStage(seed, "tower")', () => {
     expect(light).toBeGreaterThan(0);
     expect(item).toBeGreaterThan(0);
     expect(Math.abs(light - item) / (light + item)).toBeLessThan(0.15);
+  });
+
+  it('もれを隠すヴィランは、波3と波4に1人ずつ(親玉は数えない)。波ごとのヴィランの数は変わらない', () => {
+    expect(LEAK.hiddenPerWave).toEqual([0, 0, 1, 1]);
+    const counts = new Set<number>();
+    for (const s of stages) {
+      s.waves.forEach((w, i) => {
+        const hidden = w.people.filter(isHidden);
+        expect(hidden.length, `seed ${s.seed} 波${i + 1}`).toBe(LEAK.hiddenPerWave[i]);
+        // ほかにもれのあるヴィランが1人以上いる(波4は2人のうち1人、波3は2〜3人のうち1〜2人)
+        const bad = w.people.filter((p) => p.truth === 'bad');
+        expect(bad.length - hidden.length, `seed ${s.seed} 波${i + 1}`).toBeGreaterThanOrEqual(1);
+        expect(w.badCount).toBe(bad.length);
+        if (i === 2) counts.add(bad.length);
+      });
+    }
+    expect([...counts].sort()).toEqual([2, 3]);
+  });
+
+  it('もれを隠すヴィランは、プロフィールがふしぎに聞こえる文で、一言は疑う一言。市民はこの2つがそろわない(両方あやしい人だけがヴィラン)', () => {
+    let civOdd = 0;
+    let civDoubt = 0;
+    for (const s of stages) {
+      for (const p of everyone(s)) {
+        if (p.truth === 'boss') continue;
+        const look = p.look as TowerLook;
+        const odd = isOddLine(look, p.profile.line);
+        const doubt = isDoubtHint(look, p.hint);
+        if (isHidden(p)) {
+          expect(TOWER_ODD_LINES[look].bad, p.id).toContain(p.profile.line);
+          expect(p.hint, p.id).toEqual(TOWER_DOUBT_HINTS[look]);
+        }
+        if (p.truth === 'civ') {
+          expect(odd && doubt, `${p.id} ${p.profile.line} ${p.hint.text}`).toBe(false);
+          if (odd) civOdd++;
+          if (doubt) civDoubt++;
+        }
+      }
+    }
+    // 市民にも、ふしぎに聞こえる文と疑う一言が、それぞれ出る(片方だけでは決められない)
+    expect(civOdd).toBeGreaterThan(100);
+    expect(civDoubt).toBeGreaterThan(100);
+  });
+
+  it('あきれ顔の一言は、どれも市民にも出る(ヴィランにだけ出る一言はない)。疑う一言も市民に出る', () => {
+    const seen = new Map<string, { civ: number; bad: number }>();
+    for (const s of stages) {
+      for (const p of everyone(s)) {
+        if (p.truth === 'boss' || p.hint.face !== 'deadpan') continue;
+        const c = seen.get(p.hint.text) ?? { civ: 0, bad: 0 };
+        c[p.truth === 'bad' ? 'bad' : 'civ']++;
+        seen.set(p.hint.text, c);
+      }
+    }
+    const deadpan = new Set(TOWER_LOOKS.flatMap((l) => TOWER_OPERATOR_HINTS[l].bad.filter((h) => h.face === 'deadpan').map((h) => h.text)));
+    for (const text of deadpan) {
+      const c = seen.get(text);
+      expect(c, text).toBeDefined();
+      expect(c!.civ, text).toBeGreaterThan(0);
+    }
+    // 疑う一言を聞いた人のうち、市民の割合(1つだけで決まらないように、半分くらいが市民。2000の種で0.497だった)
+    let civ = 0;
+    let all = 0;
+    for (const look of TOWER_LOOKS) {
+      const c = seen.get(TOWER_DOUBT_HINTS[look].text)!;
+      civ += c.civ;
+      all += c.civ + c.bad;
+    }
+    expect(civ / all).toBeGreaterThan(0.4);
+    expect(civ / all).toBeLessThan(0.6);
   });
 
   it('波1には2か所とももれる練習用のヴィランがかならずいる', () => {
@@ -115,7 +187,7 @@ describe('createStage(seed, "tower")', () => {
     for (const s of stages) {
       for (const p of everyone(s)) {
         const has = spotTexts.has(p.hint.text);
-        const allowed = spotHintsFor(leakSpots(p)).map((h) => h.text);
+        const allowed = spotHintsFor(leakSpots(p), p.wave).map((h) => h.text);
         if (allowed.length === 0) { expect(has, p.id).toBe(false); continue; }
         if (has) expect(allowed, p.id).toContain(p.hint.text);
         const r = p.truth === 'bad' ? rate.bad : rate.decoy;
@@ -132,6 +204,12 @@ describe('createStage(seed, "tower")', () => {
     expect(spotHintsFor({ light: null, item: 'leak' })).toEqual(spotHintsFor({ light: null, item: 'balloon' }));
     expect(spotHintsFor({ light: null, item: 'leak' })).toEqual(spotHintsFor({ light: null, item: 'smoke' }));
     expect(spotHintsFor({ light: null, item: null })).toEqual([]);
+    // 「グラスが浮いてる!?」は、浮いている小物がグラスの階(波3と波4)だけ
+    const glass = TOWER_SPOT_HINTS.glassFloat[0];
+    for (const [wave, has] of [[1, false], [2, false], [3, true], [4, true]] as const) {
+      expect(spotHintsFor({ light: null, item: 'thread' }, wave).includes(glass), `波${wave}`).toBe(has);
+      expect(spotHintsFor({ light: 'leak', item: null }, wave).includes(glass), `波${wave}`).toBe(false);
+    }
   });
 
   it('親玉にはもれも紛らわしさもない。年齢と名前は化けた姿の幅と一覧から', () => {

@@ -232,7 +232,7 @@ describe('createStage:どのステージにも共通の決まり', () => {
         if (p.profile.age < lo || p.profile.age > hi) bad.push(`${p.id} 年齢 ${p.profile.age}`);
         if (p.truth === 'boss') continue;
         if (!PROFILE_LINES[p.look][p.truth]!.includes(p.profile.line)) bad.push(`${p.id} 文 ${p.profile.line}`);
-        const hints = [...OPERATOR_HINTS[p.look][p.truth]!, ...(id === 'tower' ? spotHintsFor(leakSpots(p)) : [])];
+        const hints = [...OPERATOR_HINTS[p.look][p.truth]!, ...(id === 'tower' ? spotHintsFor(leakSpots(p), p.wave) : [])];
         if (!hints.some((h) => h.text === p.hint.text && h.face === p.hint.face)) bad.push(`${p.id} 一言 ${p.hint.text}`);
       }
     }

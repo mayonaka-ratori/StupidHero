@@ -2,7 +2,8 @@
 //   const demo = new IntroDemo(this, 118, 34, 94, 118);   // 6つ目に人の絵のキーを渡すと、ふつうのお手本の人がその人になる
 //   demo.show(demoKindFor(line.text));   // セリフの言葉から、何を見せるか決める(なければ隠す)
 //   demo.update(delta);                  // シーンの update から毎フレーム呼ぶ
-// ステージ4(高層ビル)の4つ(surround、psyLeak、thread、psyCarry)は、仕分けの画面と同じ照明と机(towerDesk.ts)を小さく置いて見せる。
+// ステージ4(高層ビル)の4つ(surround、psyLeak、decoy、psyCarry)は、仕分けの画面と同じ照明と机(towerDesk.ts)を小さく置いて見せる。
+// decoy は、紫でも火花が出ない紛らわしい市民(手品の紫の煙、紫の風船、紫のセロハン)を順に見せる。
 import Phaser from 'phaser';
 import { UI } from '../../config';
 import { animKey, originFor } from '../../art/sheets';
@@ -11,6 +12,7 @@ import { ACCESSORY_COLORS } from '../../logic';
 import { Button, FS, PixelText, TimeBar, WindowFrame } from '../../ui';
 import { makeStamp } from './stamp';
 import { CALM_LOOK, leakLook } from '../../art/towerSpots';
+import type { LeakSpots } from '../../logic/tower';
 import { TowerDesk, caneTipOf } from './towerDesk';
 
 /** 念力で運ぶ物のふち(超能力の紫のまん中の色。src/art/world4/palette.ts の PSY[1]) */
@@ -18,15 +20,15 @@ const PSY_EDGE = 0xdb6dff;
 
 export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go'
   | 'match' | 'signal' | 'whistle' | 'van' | 'glitch' | 'awkward' | 'ufo'
-  | 'surround' | 'psyLeak' | 'thread' | 'psyCarry';
+  | 'surround' | 'psyLeak' | 'decoy' | 'psyCarry';
 
 /** セリフの言葉から、お手本の種類を決める */
 export function demoKindFor(text: string): DemoKind | null {
   const t = text.replace(/\n/g, '');
   // ステージ4(高層ビル)の、照明と机、紫のもれ、手品の糸、念力で運ぶ物。「見た目」で手がかりのお手本を出さないように先に見る
   if (/周り/.test(t)) return 'surround';
-  // 「手品や風船の紫」は紫より先に見る(紫の煙の手品を見せる)
-  if (/手品|風船/.test(t)) return 'thread';
+  // 「手品や風船の紫」は紫より先に見る(紫でも火花が出ない紛らわしい市民を見せる)
+  if (/手品|風船/.test(t)) return 'decoy';
   if (/紫/.test(t)) return 'psyLeak';
   if (/念力/.test(t)) return 'psyCarry';
   // ステージ3(ショッピングモール)の、動きのくずれ、ぎこちない市民、UFO。「待てない」で待てのお手本を出さないように先に見る
@@ -50,6 +52,17 @@ export function demoKindFor(text: string): DemoKind | null {
   if (/行け/.test(t)) return 'go';
   return null;
 }
+
+/**
+ * decoy のお手本で順に見せる、紫でも火花が出ない紛らわしい市民(1つを DECOY_MS ずつ)。
+ * 手品の紫の煙(手品師)、紫の風船(配達員)、紫のセロハン(新人の会社員)
+ */
+const DECOY_DEMO: readonly { key: string; spots: LeakSpots; caption: string; cane?: boolean }[] = [
+  { key: 'tw_magician', spots: { light: null, item: 'smoke' }, caption: '手品の煙', cane: true },
+  { key: 'tw_courier', spots: { light: null, item: 'balloon' }, caption: '紫の風船' },
+  { key: 'tw_newbie', spots: { light: 'cellophane', item: null }, caption: 'セロハン' }
+];
+const DECOY_MS = 1800;
 
 /** 指さしの手(白い手袋)。1が白、2が黒のふち */
 const HAND = [
@@ -96,6 +109,8 @@ export class IntroDemo {
   private desk?: TowerDesk;
   /** 念力で運ばれる観葉植物と、その紫のふち(psyCarry) */
   private carry?: { plant: Phaser.GameObjects.Image; edges: Phaser.GameObjects.Image[]; spark: Phaser.GameObjects.Sprite };
+  /** decoy でいま見せている紛らわしい市民(DECOY_DEMO の番号) */
+  private decoyIndex = -1;
   private kind: DemoKind | null = null;
   private t = 0;
   private readonly cx: number;
@@ -140,6 +155,7 @@ export class IntroDemo {
     this.desk?.destroy();
     this.desk = undefined;
     this.carry = undefined;
+    this.decoyIndex = -1;
     if (!kind) { this.root.setVisible(false); return; }
     this.root.setVisible(true);
     // 開くときに縦に広がる(3コマ)
@@ -154,7 +170,8 @@ export class IntroDemo {
     this.stampBad.setVisible(false);
     this.stampCiv.setVisible(false);
     for (const a of this.arrows) a.setVisible(kind === 'swipe');
-    this.caption.setText('');
+    // 前のお手本の点滅(cluesStep)で消えたままにならないように、見える状態にもどす
+    this.caption.setText('').setVisible(true);
     const sc = this.scene;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.root.add(o); this.extras.push(o); return o; };
     const bw = this.w - 16;
@@ -234,17 +251,22 @@ export class IntroDemo {
         break;
       }
       case 'surround':
-      case 'psyLeak':
-      case 'thread': {
+      case 'psyLeak': {
         // 仕分けの画面と同じ、左上の照明と左下の机(小さく)。人は右に立つ
-        const thread = kind === 'thread';
-        this.desk = this.makeDesk(thread ? 1 : 2);
-        const key = thread ? 'tw_magician' : 'tw_newbie';
+        this.desk = this.makeDesk(2);
+        const key = 'tw_newbie';
         this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx + 20);
         this.person.play(animKey(key, 'sortIdle'));
         if (kind === 'psyLeak') this.desk.setLook(leakLook({ light: 'leak', item: 'leak' }));
-        if (thread) this.desk.setLook(leakLook({ light: null, item: 'smoke' }), caneTipOf(this.person, 1));
-        this.caption.setText(kind === 'surround' ? '照明と机' : kind === 'psyLeak' ? '火花が出た！' : '手品の煙と糸');
+        this.caption.setText(kind === 'surround' ? '照明と机' : '火花が出た！');
+        break;
+      }
+      case 'decoy': {
+        // 同じ照明と机で、紫でも火花が出ない紛らわしい市民を順に見せる(decoyStep)。右上に「火花なし」
+        this.desk = this.makeDesk(1);
+        this.person.setX(this.cx + 20);
+        add(new PixelText(sc, this.w - 5, 5, '火花なし', { size: FS.small, color: UI.gold, outline: true }).setOrigin(1, 0));
+        this.decoyStep();
         break;
       }
       case 'psyCarry': {
@@ -332,8 +354,8 @@ export class IntroDemo {
       case 'awkward': this.glitchStep(); break;
       case 'ufo': this.ufoStep(); break;
       case 'surround': this.cluesStep(); this.desk?.update(this.scene.time.now); break;
-      case 'psyLeak':
-      case 'thread': this.desk?.update(this.scene.time.now); break;
+      case 'psyLeak': this.desk?.update(this.scene.time.now); break;
+      case 'decoy': this.decoyStep(); this.desk?.update(this.scene.time.now); break;
       case 'psyCarry': this.carryStep(); break;
       default: break;
     }
@@ -448,6 +470,18 @@ export class IntroDemo {
     u.civ.y = Math.round(this.feetY - lift * (this.feetY - 72));
     u.civ.setVisible(lift < 0.8 || (lift < 1 && Math.floor(this.t / 50) % 2 === 0));
     this.cluesStep();
+  }
+
+  /** 紛らわしい市民を DECOY_MS ごとに替える(人の絵、照明と小物、下の字) */
+  private decoyStep(): void {
+    const i = Math.floor(this.t / DECOY_MS) % DECOY_DEMO.length;
+    if (i === this.decoyIndex || !this.desk) return;
+    this.decoyIndex = i;
+    const d = DECOY_DEMO[i];
+    this.person.setTexture(d.key).setOrigin(...originFor(d.key));
+    this.person.play(animKey(d.key, 'sortIdle'));
+    this.desk.setLook(leakLook(d.spots), d.cane ? caneTipOf(this.person, 1) : null);
+    this.caption.setText(d.caption);
   }
 
   /** 仕分けの画面と同じ照明と机を、小さな画面の左に置く。floor は小物を決める階(1は名刺とペン、2はペンとマグカップ) */
