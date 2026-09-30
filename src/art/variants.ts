@@ -14,6 +14,7 @@
 // モヒカンの髪だけは服と同じ扱いにする(ワルだけの見た目で、髪の色が見た目の中心なので)。
 
 import { PixelGrid, md } from './lib';
+import { TELL_BASE } from './sheets';
 
 type Colors = readonly string[];
 
@@ -325,8 +326,18 @@ const LOOK_OF_SHEET: ReadonlyMap<string, string> = new Map(
   Object.entries(COLOR_VARIANTS).flatMap(([look, v]) => v.sheets.map((s) => [s, look] as [string, string]))
 );
 
+/**
+ * シートのキーから見た目の名前を引く。塗り替えたシートのキー 'guard_civ#ff0000' でもよい。
+ * 手がかりの出し分けの絵('hoodie_bad_knuckles')は元の絵('hoodie_bad')と同じ表を使う
+ * (出し分けの絵だけいまの色のままだと、色でワルが分かってしまうため)
+ */
+const lookOfSheet = (sheetKey: string): string | undefined => {
+  const key = sheetKey.split('#')[0];
+  return LOOK_OF_SHEET.get(TELL_BASE[key] ?? key);
+};
+
 /** そのシートに色ちがいがあるか(塗り替えたシートのキー 'guard_civ#ff0000' でもよい) */
-export const hasVariants = (sheetKey: string): boolean => LOOK_OF_SHEET.has(sheetKey.split('#')[0]);
+export const hasVariants = (sheetKey: string): boolean => lookOfSheet(sheetKey) !== undefined;
 
 /** 'rgb(R,G,B)' → 0xRRGGBB */
 export const rgbInt = (c: string): number => {
@@ -344,7 +355,7 @@ export interface VariantSwap {
 /** そのシートの色ちがいの置きかえ。0、表にないシート、範囲の外の番号は null(いまの色のまま) */
 export function variantSwap(sheetKey: string, variant: number | undefined): VariantSwap | null {
   if (!variant || variant < 1 || variant >= VARIANTS_PER_LOOK) return null;
-  const look = LOOK_OF_SHEET.get(sheetKey.split('#')[0]);
+  const look = lookOfSheet(sheetKey);
   if (!look) return null;
   const def = COLOR_VARIANTS[look];
   const map = new Map<number, number>();

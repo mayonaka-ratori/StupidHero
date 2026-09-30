@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACCESSORY_COLORS, COLOR_VARIANT_COUNT, STAGES, STAGE_IDS, sheetKeyFor, type Look, type StageId } from '../logic';
 import { LEVELS, type PixelGrid, md } from './lib';
-import { KEY_ACCESSORY, sheetByKey } from './sheets';
+import { KEY_ACCESSORY, TELL_BASE, sheetByKey } from './sheets';
 import { ART_SETS } from './sets';
 import { colorsOf, rgbOf } from './testColors';
 import { COLOR_VARIANTS, VARIANTS_PER_LOOK, hasVariants, recolorGrid, rgbInt, variantSwap } from './variants';
@@ -150,6 +150,21 @@ describe('服の色ちがい', () => {
     for (const look of STAGES.tower.looks) for (const s of COLOR_VARIANTS[look].swaps) for (const t of s.to) for (const c of t) {
       const { hue, sat } = hueSat(c);
       expect(sat > 0.3 && hue >= 255 && hue <= 340, `${look} ${c}`).toBe(false);
+    }
+  });
+
+  it('手がかりの出し分けの絵も元の絵と同じ色ちがいになり、出し分けの小物だけの色は置きかえない', () => {
+    // 出し分けの絵だけいまの色のままだと、色でワルが分かってしまう
+    for (const [tellKey, base] of Object.entries(TELL_BASE)) {
+      expect(hasVariants(tellKey), tellKey).toBe(true);
+      const baseColors = colorsOf(SHEETS_BUILT[base].flat());
+      const own = [...colorsOf(SHEETS_BUILT[tellKey].flat())].filter((c) => !baseColors.has(c));
+      for (const variant of variants) {
+        const swap = variantSwap(tellKey, variant)!;
+        expect(swap, `${tellKey} ${variant}`).not.toBeNull();
+        expect(swap.map, `${tellKey} ${variant}`).toEqual(variantSwap(base, variant)!.map);
+        for (const c of own) expect(swap.map.has(rgbInt(c)), `${tellKey} ${c}`).toBe(false);
+      }
     }
   });
 
