@@ -298,7 +298,7 @@ function drawPurse(P: Painter, pose: Pose, at?: Pt): void {
 /** ワル:真珠の首飾り。抱えた手から、白い玉の輪が下がる */
 function drawPearls(P: Painter, pose: Pose, at?: Pt): void {
   const [x, y] = R(at ?? [pose.hip[0] - 2, pose.hip[1] - 8]);
-  rampSprite(P, x - 3, y - 1, [
+  rampSprite(P, x - 3, y - 3, [
     'w.....w',
     'g.....g',
     '.w...w.',
