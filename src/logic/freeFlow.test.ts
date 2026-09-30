@@ -381,7 +381,7 @@ describe('フリープレイの共有の文', () => {
     expect(ruleQuote({ kind: 'allCiv' })).toBe('みんないい人!');
     expect(ruleQuote({ kind: 'item', item: 'hat' })).toBe('帽子の人はワル!');
     const f = { worst: 'waveGang' as const, worstRule: { kind: 'allCiv' as const } };
-    expect(freeShareCaption({ worstScene: null, caption: '', free: f, titleName: 'なすがまま' })).toBe('『みんないい人!』でギャングの車に手を振って見送った!');
+    expect(freeShareCaption({ worstScene: null, caption: '', free: f, titleName: 'なすがまま' })).toBe('『みんないい人!』でギャングに手を振って見送った!');
     expect(freeShareCaption({ worstScene: 'bossDefeated', caption: 'ボスを倒した!', free: f, titleName: 'x' }))
       .toBe(`『みんないい人!』で${FREE_WORST_CAPTION.waveGang}`);
     expect(freeShareCaption({ worstScene: 'civHit', caption: '市民をなぐった!', free: { worst: null, worstRule: { kind: 'allBad' } }, titleName: 'x' }))

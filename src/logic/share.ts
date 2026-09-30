@@ -83,7 +83,7 @@ export function xPostUrl(text: string): string {
 /** フリープレイだけの、いちばんひどい場面の見出し(ワルごとに変える) */
 export const FREE_WORST_CAPTION: Readonly<Record<FreeWorstScene, string>> = {
   waveKnife: 'ナイフ男に笑顔で手を振った!',
-  waveGang: 'ギャングの車に手を振って見送った!',
+  waveGang: 'ギャングに手を振って見送った!',
   waveUfo: 'UFOに手を振った!',
   closeCall: 'ギリギリセーフ!'
 };

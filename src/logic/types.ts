@@ -466,7 +466,7 @@ export interface StageStats {
 /**
  * フリープレイだけの、いちばんひどい場面の候補(ボスがいないので足した)。
  * ステージの場面(WorstScene)のどれよりも弱い。上ほどひどい。
- * waveKnife:ナイフ男に笑顔で手を振った / waveGang:ギャングの車に手を振って見送った / waveUfo:UFOに手を振った /
+ * waveKnife:ナイフ男に笑顔で手を振った / waveGang:ギャングに手を振って見送った(車で逃げた組と、1人で逃げた人) / waveUfo:UFOに手を振った /
  * closeCall:拳が当たる寸前に待てで止めた(ギリギリセーフ)
  */
 export type FreeWorstScene = 'waveKnife' | 'waveGang' | 'waveUfo' | 'closeCall';
