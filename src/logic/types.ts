@@ -136,10 +136,12 @@ export interface Leak {
 /**
  * ステージ4の紛らわしい市民(周りのせいで、もれに見える)。もれと同じ場所の1か所だけに出る。
  * flicker:切れかけの蛍光灯(左上の照明がうすい黄色。どの見た目でも)。
+ * cellophane:紫のセロハンを貼った照明(左上の照明が紫になるが、火花は出ない。端のセロハンのめくれが見える。どの見た目でも)。
  * thread:手品の糸(左下の小物が糸で吊られて浮く。手品師だけ)。
- * balloon:風船(左下の小物に風船がのっている。花屋の店員、配達員、ウェイター)
+ * smoke:手品の紫の煙(小物が糸で吊られて浮き、そばに紫の煙が出る。火花は出ない。手品師だけ)。
+ * balloon:紫の風船(左下の小物に紫の風船がひもで結ばれている。花屋の店員、配達員、ウェイター)
  */
-export type TowerDecoy = 'flicker' | 'thread' | 'balloon';
+export type TowerDecoy = 'flicker' | 'cellophane' | 'thread' | 'smoke' | 'balloon';
 
 /** 波の番号。ステージ1〜3は3つ、ステージ4は4つ */
 export type WaveNo = 1 | 2 | 3 | 4;

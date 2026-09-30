@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createStage } from '../logic/stage';
 import { leakSpots } from '../logic/tower';
-import { CLUE_H, CLUE_W } from './clueSpots';
 import { sheetByKey } from './sheets';
 import { FX4 } from './world4/fx';
 import {
   CALM_LOOK, DESK_TOP_ROW, FLOAT_PX, PARTY_FOOD_FRAMES, TOWER_DESK, TOWER_DESK_H, TOWER_DESK_W, TOWER_DESKS, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS,
-  TOWER_ITEM_SIZE, TOWER_LAMP, TOWER_LAMP_H, TOWER_LAMP_W, deskRect, itemRestDy, leakLook, towerDeskFor, type TowerItem
+  TOWER_ITEM_SIZE, TOWER_LAMP, TOWER_LAMP_H, TOWER_LAMP_W, itemRestDy, leakLook, towerDeskFor, type TowerItem
 } from './towerSpots';
 
 /** 仕分けの画面の人(2倍)がいる所。足もと (108, 204)、コマ 64×64 の絵のある所はおよそ x=20〜44 */
@@ -51,25 +50,6 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
     }
   });
 
-  it('窓の四角は16×14で、1つ目の小物が浮く前も浮いたあとも入る', () => {
-    for (const d of TOWER_DESKS) {
-      const r = d.rect;
-      expect([r.w, r.h]).toEqual([CLUE_W, CLUE_H]);
-      const { item, dx } = d.items[0];
-      const rows = TOWER_ITEM_ROWS[item];
-      for (const lift of [0, FLOAT_PX, FLOAT_PX + 1]) {
-        const cy = itemRestDy(item) - lift;
-        const top = cy - TOWER_ITEM_SIZE / 2 + rows.top;
-        const bottom = cy - TOWER_ITEM_SIZE / 2 + rows.bottom;
-        expect(top >= r.y && bottom < r.y + r.h, `${item} ${lift}`).toBe(true);
-        // 小物の横の真ん中も四角の真ん中
-        expect(dx - r.x).toBe(CLUE_W / 2);
-      }
-      // 机の天板の端も少し映る
-      expect(r.y + r.h > -TOWER_DESK_H + DESK_TOP_ROW).toBe(true);
-    }
-  });
-
   it('照明と机は画面に入り、人の絵と重ならない(照明は頭の上、机は人の左)', () => {
     const lampHalf = (TOWER_LAMP_W / 2) * TOWER_LAMP.scale;
     // 左上の字(STAGE、人数、時間。右の端は x=52 くらい)の右で、右上のボタン(x=170から)の左、頭より上
@@ -79,32 +59,38 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
     const deskRight = TOWER_DESK.x + TOWER_DESK_W / 2;
     // 左の端の赤い光(いちばん強くて17ドット)と、人の間
     expect(deskLeft >= 17 && deskRight <= PERSON.left).toBe(true);
+    // 浮いた小物(もやを含む)も、人の左に収まる
     for (const d of TOWER_DESKS) {
-      const r = deskRect(d, TOWER_DESK.x, TOWER_DESK.y);
-      expect(r.x >= 0 && r.x + r.w <= PERSON.left && r.y >= 0 && r.y + r.h <= 214).toBe(true);
+      const { item, dx } = d.items[0];
+      const cx = TOWER_DESK.x + dx;
+      const cy = TOWER_DESK.y + itemRestDy(item) - FLOAT_PX;
+      expect(cx - 8 >= 0 && cx + 8 <= PERSON.left && cy - 7 >= 0, item).toBe(true);
     }
   });
 });
 
 describe('もれの見せ方(leakLook)', () => {
-  it('照明:もれは紫と火花2つ、切れかけの蛍光灯はうすい黄色(火花なし)', () => {
-    expect(leakLook({ light: 'leak', item: null })).toMatchObject({ lampFrame: 1, lampSparks: true, itemFloat: false });
-    expect(leakLook({ light: 'flicker', item: null })).toMatchObject({ lampFrame: 2, lampSparks: false, itemFloat: false });
+  it('照明:もれは紫と火花(2か所とももれていれば2つ、照明だけなら1つ)。切れかけの蛍光灯はうすい黄色、紫のセロハンは紫だが火花なし', () => {
+    expect(leakLook({ light: 'leak', item: 'leak' })).toMatchObject({ lampFrame: 1, lampSparks: 2 });
+    expect(leakLook({ light: 'leak', item: null })).toMatchObject({ lampFrame: 1, lampSparks: 1, itemFloat: false });
+    expect(leakLook({ light: 'flicker', item: null })).toMatchObject({ lampFrame: 2, lampSparks: 0, itemFloat: false });
+    expect(leakLook({ light: 'cellophane', item: null })).toMatchObject({ lampFrame: 4, lampSparks: 0, itemFloat: false });
   });
 
-  it('小物:もれはもや、手品は糸、風船は風船。どれも小物が浮く', () => {
-    expect(leakLook({ light: null, item: 'leak' })).toMatchObject({ lampFrame: 0, itemFloat: true, haze: true, thread: false, balloon: false });
-    expect(leakLook({ light: null, item: 'thread' })).toMatchObject({ itemFloat: true, haze: false, thread: true, balloon: false });
-    expect(leakLook({ light: null, item: 'balloon' })).toMatchObject({ itemFloat: true, haze: false, thread: false, balloon: true });
+  it('小物:もれはもや、手品は糸、手品の煙は糸と煙、風船は風船。どれも小物が浮く。もやはもれだけ', () => {
+    expect(leakLook({ light: null, item: 'leak' })).toMatchObject({ lampFrame: 0, itemFloat: true, haze: true, thread: false, smoke: false, balloon: false });
+    expect(leakLook({ light: null, item: 'thread' })).toMatchObject({ itemFloat: true, haze: false, thread: true, smoke: false, balloon: false });
+    expect(leakLook({ light: null, item: 'smoke' })).toMatchObject({ itemFloat: true, haze: false, thread: true, smoke: true, balloon: false });
+    expect(leakLook({ light: null, item: 'balloon' })).toMatchObject({ itemFloat: true, haze: false, thread: false, smoke: false, balloon: true });
   });
 
-  it('親玉とふつうの市民は何も出ない。ヴィランはかならずどこかに紫が出る', () => {
+  it('親玉とふつうの市民は何も出ない。ヴィランはかならず火花が出る。紛らわしい市民には火花ももやも出ない', () => {
     for (let seed = 1; seed <= 60; seed++) {
       for (const w of createStage(seed, 'tower').waves) for (const p of w.people) {
         const look = leakLook(leakSpots(p));
         if (p.truth === 'boss' || (p.truth === 'civ' && !p.decoy)) expect(look, p.id).toEqual(CALM_LOOK);
-        if (p.truth === 'bad') expect(look.lampFrame === 1 || look.haze, p.id).toBe(true);
-        if (p.decoy) expect(look.lampFrame !== 1 && !look.haze, p.id).toBe(true);
+        if (p.truth === 'bad') expect(look.lampSparks > 0 || look.haze, p.id).toBe(true);
+        if (p.decoy) expect(look.lampSparks === 0 && look.lampFrame !== 1 && !look.haze, p.id).toBe(true);
       }
     }
   });

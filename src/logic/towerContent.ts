@@ -38,23 +38,24 @@ export const TOWER_AGES: Readonly<Record<TowerLook, readonly [number, number]>> 
 
 /**
  * プロフィールの一文。嘘は書かないが、どちらとも取れる。市民とヴィランで似た言い回しを並べ、
- * どちらにも出る文も2つずつ入れる(それぞれの一覧の最後の2つ)。ヴィランの文は「力をかくしきれていない」くらいにとどめる
+ * どちらにも出る文も2つずつ入れる(それぞれの一覧の最後の2つ)。ヴィランの文は「力をかくしきれていない」くらいにとどめる。
+ * 市民にも、ふしぎに聞こえるがふつうの理由がある文(「なぜか」「いつの間にか」など)を入れ、1つの文だけで決められないようにする
  */
 export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly string[]; bad: readonly string[] }>> = {
   florist: {
     civ: [
       '重いバケツで\n腕がパンパン',
-      '花びらが\nよく服につく',
+      '花びらが\nなぜか髪につく',
       '朝は市場で\n花を仕入れる',
       '好きな花は\nひまわり',
       '店の電球が\nちかちかする',
-      '休みの日は\n植物園',
+      '休みの日は\n屋上の花壇',
       '花束を作るのが\n得意',
       '店は1階の\n入口のそば'
     ],
     bad: [
-      '重いバケツも\nまったく平気',
-      '花びらが\nよく宙に舞う',
+      '重いバケツも\n苦にならない',
+      '花びらが\nよく床に散る',
       '朝は市場で\n花を選ぶ',
       '好きな花は\nかすみ草',
       '近くの電球が\nちかちかする',
@@ -67,7 +68,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     civ: [
       'この辺りの担当に\nなって三年',
       '荷物は\n両手で運ぶ',
-      'エレベーターが\nいつも混んでいる',
+      'エレベーターは\nなぜか空いている',
       '重い荷物で\n腰が痛い',
       'ハンコを\nもらい忘れがち',
       '好物は\nおにぎり',
@@ -77,9 +78,9 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     bad: [
       'この辺りの担当に\nなって三日',
       '荷物は\n手で運ぶことが多い',
-      'エレベーターは\nなぜか空いている',
-      '重い荷物も\n軽く感じる',
-      'ハンコは\nいつの間にかもらえる',
+      'エレベーターは\nあまり使わない',
+      '重い荷物も\n慣れっこ',
+      'ハンコは\nすぐにもらえる',
       '食事は\nあまりとらない',
       '帽子は\n会社の支給',
       '配達は\n時間通り'
@@ -87,22 +88,22 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
   },
   newbie: {
     civ: [
-      '書類を\nよく落とす',
-      'コピー機の\n使い方を覚えた',
-      '朝は\n満員電車で来る',
+      '書類が\nよく机から落ちる',
+      'コピー機が\nなぜか動かない',
+      '朝は\nいつの間にか着いている',
       '緊張すると\n手がふるえる',
       '昼は\n社員食堂',
-      '席は\n窓ぎわ',
+      '席は\n照明の真下',
       '入社して\nまだ一か月',
       '先輩に\nよく怒られる'
     ],
     bad: [
-      '書類が\nよく机から落ちる',
-      'コピー機が\nなぜか言うことを聞く',
-      '朝は\nいつの間にか着いている',
+      '書類は\nあまり落とさない',
+      'コピー機とは\n相性がいい',
+      '朝は\n誰よりも早く来る',
       '緊張すると\nペンがふるえる',
       '昼は\n屋上で一人',
-      '席は\n照明の真下',
+      '席は\n窓ぎわ',
       '入社して\nまだ一か月',
       '先輩に\nよく怒られる'
     ]
@@ -111,7 +112,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     civ: [
       'このビルで\n二十年働いている',
       '夜中のビルは\n少しこわい',
-      '切れた電球を\nよく取りかえる',
+      '行く先の電球が\nなぜかよく切れる',
       'モップは\n自分で選んだ',
       '腰が\n少し痛い',
       '休みは\n家族と過ごす',
@@ -121,7 +122,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     bad: [
       'このビルで\n働き始めたばかり',
       '夜中のビルは\n静かで好き',
-      'いる所の電球が\nよく切れる',
+      '電球の交換は\n苦手',
       'モップは\nあまり使わない',
       '腰は\n痛くない',
       '休みは\nひとりで過ごす',
@@ -131,20 +132,20 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
   },
   chef: {
     civ: [
-      'なべは\n両手で持つ',
+      'なべは\n片手で軽々',
       '包丁を\n毎日研ぐ',
       '湯気で\nめがねがくもる',
-      '火加減が\nむずかしい',
+      '火加減は\n思いのまま',
       '休みの日は\n料理の研究',
       '得意料理は\nオムライス',
       'この店の\n料理長',
       '味見は\n何度もする'
     ],
     bad: [
-      'なべは\n片手で軽々',
-      '包丁は\n研がなくても切れる',
-      '湯気が\n自分をよけていく',
-      '火加減は\n思いのまま',
+      'なべは\n自分で運ばない',
+      '包丁は\nめったに研がない',
+      '湯気は\nあまり気にしない',
+      '火加減は\n目を閉じても分かる',
       '休みの日は\nビルをながめる',
       '得意料理は\nふわふわのスフレ',
       'この店の\n料理長',
@@ -155,7 +156,7 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
     civ: [
       'お盆は\n片手で持てる',
       'グラスを\n割ったことがある',
-      'お客さんの顔は\nすぐ覚える',
+      'お客さんの注文は\nなぜか先に分かる',
       '立ちっぱなしで\n足が痛い',
       '夢は\n自分の店を持つこと',
       '静かに\n歩くのが得意',
@@ -163,9 +164,9 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
       '蝶ネクタイは\n自分で結ぶ'
     ],
     bad: [
-      'お盆は\n手を放しても平気',
+      'お盆は\n指一本で持てる',
       'グラスを\n割ったことがない',
-      'お客さんの考えは\nすぐ分かる',
+      'お客さんの顔は\nすぐ覚える',
       '立ちっぱなしでも\n足は痛くない',
       '夢は\nこのビルを持つこと',
       '足音が\nほとんどしない',
@@ -176,19 +177,19 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
   lady: {
     civ: [
       'ヒールで\n足が痛い',
-      'グラスは\nしっかり持つ',
+      'グラスが\nいつの間にか空',
       '夜景が\n大好き',
-      '羽の髪飾りは\n祖母の形見',
+      '羽の髪飾りが\nよくゆれる',
       'お酒は\n弱い',
       'オーナーとは\n初対面',
       'パーティには\nよく招かれる',
       'ドレスは\n今日のために新調'
     ],
     bad: [
-      'ヒールでも\nまったく疲れない',
-      'グラスは\n持たなくても平気',
+      'ヒールには\n慣れている',
+      'グラスは\n手にしていない',
       '夜景を\n見下ろすのが好き',
-      '羽の髪飾りは\nひとりでにゆれる',
+      '羽の髪飾りは\nお気に入り',
       'お酒は\n飲まない',
       'オーナーとは\n古い知り合い',
       'パーティには\nよく招かれる',
@@ -197,9 +198,9 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
   },
   magician: {
     civ: [
-      'タネも\nしかけもある',
+      'タネも\nしかけもない',
       'カードを\nよく落とす',
-      'シルクハットから\nハトを出す',
+      'シルクハットから\n何でも出せる',
       '糸はいつも\nポケットに',
       '失敗すると\n笑ってごまかす',
       'つえは\n手作り',
@@ -207,10 +208,10 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
       'パーティに\n呼ばれて来た'
     ],
     bad: [
-      'タネも\nしかけもない',
+      'タネは\n教えない',
       'カードを\n落としたことがない',
-      'シルクハットから\n何でも出せる',
-      '糸は\n持っていない',
+      'シルクハットから\nハトを出す',
+      '糸は\nたまに使う',
       '失敗は\nしたことがない',
       'つえは\nもらい物',
       '手品歴は\nけっこう長い',
@@ -221,8 +222,10 @@ export const TOWER_PROFILE_LINES: Readonly<Record<TowerLook, { civ: readonly str
 
 /**
  * オペレーターの一言。嘘はつかないが、どちらとも取れる。同じ見た目の市民とヴィランで、
- * あわてた顔(panic)とあきれ顔(deadpan)の数をそろえる。ヴィランにだけある一言は、もれのことを小さく言う。
- * 市民にだけある一言も同じ数だけ入れる。手品師の「カードが浮いてる!?」は、市民にもヴィランにも出す
+ * あわてた顔(panic)とあきれ顔(deadpan)の数をそろえる。
+ * 4つ目は「周りを見て」と言う一言で、市民とヴィランで同じ文にする(どちらにも本当のことなので、これでは決められない)。
+ * 照明や小物に見えている物のことは、この一覧ではなく TOWER_SPOT_HINTS で言う(tower.ts が、もれのあるヴィランと
+ * 紛らわしい市民に同じ確率で出す)。手品師の「カードが浮いてる!?」は、市民にもヴィランにも出す
  */
 export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly OperatorHint[]; bad: readonly OperatorHint[] }>> = {
   florist: {
@@ -230,7 +233,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '花屋さんだ'),
       hint('normal', '花束を\n持ってる'),
       hint('deadpan', 'いい香り…'),
-      hint('normal', 'バケツが\n重そう'),
+      hint('normal', '机の上も\n見ておいて'),
       hint('normal', '花びらが\n舞ってる'),
       hint('panic', 'こっちを\n見てる！')
     ],
@@ -238,7 +241,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '花屋さんだ'),
       hint('normal', '花束を\n持ってる'),
       hint('deadpan', 'いい香り…？'),
-      hint('normal', '周り、なんか\n変じゃない？'),
+      hint('normal', '机の上も\n見ておいて'),
       hint('normal', '花びらが\n舞ってる'),
       hint('panic', 'こっちを\n見てる！')
     ]
@@ -248,7 +251,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '配達の人だ'),
       hint('normal', '段ボールを\nかかえてる'),
       hint('deadpan', '重そう…'),
-      hint('normal', '伝票を\n見てる'),
+      hint('normal', '周りも\nよく見てね'),
       hint('normal', '帽子を\n直してる'),
       hint('panic', '急いでる？')
     ],
@@ -256,7 +259,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '配達の人だ'),
       hint('normal', '段ボールを\nかかえてる'),
       hint('deadpan', '軽そう…？'),
-      hint('normal', '今、何か\n浮かなかった？'),
+      hint('normal', '周りも\nよく見てね'),
       hint('normal', '帽子を\n直してる'),
       hint('panic', '急いでる？')
     ]
@@ -266,7 +269,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '新人さんかな'),
       hint('normal', '書類が\nいっぱい'),
       hint('deadpan', '緊張してる…'),
-      hint('normal', '社員証を\nさげてる'),
+      hint('normal', '照明と机、\n見比べて'),
       hint('normal', '時計を\n気にしてる'),
       hint('panic', '書類、\n落としそう！')
     ],
@@ -274,7 +277,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '新人さんかな'),
       hint('normal', '書類が\nいっぱい'),
       hint('deadpan', '緊張…\nしてるのかな'),
-      hint('normal', '机のペン、\n動いた？'),
+      hint('normal', '照明と机、\n見比べて'),
       hint('normal', '時計を\n気にしてる'),
       hint('panic', '書類、\n落としそう！')
     ]
@@ -284,7 +287,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '清掃員さんだ'),
       hint('normal', 'モップを\nかけてる'),
       hint('deadpan', 'ていねい…'),
-      hint('normal', '蛍光灯を\n見上げてる'),
+      hint('normal', '上の明かりも\n忘れずに'),
       hint('normal', '休まず\n働いてる'),
       hint('panic', 'こっちに\n来る！')
     ],
@@ -292,7 +295,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '清掃員さんだ'),
       hint('normal', 'モップを\nかけてる'),
       hint('deadpan', 'ていねい…\nかな？'),
-      hint('normal', '照明が…\n紫っぽい？'),
+      hint('normal', '上の明かりも\n忘れずに'),
       hint('normal', '休まず\n働いてる'),
       hint('panic', 'こっちに\n来る！')
     ]
@@ -302,7 +305,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'シェフだ'),
       hint('normal', '味見してる'),
       hint('deadpan', 'おいしそう…'),
-      hint('normal', '湯気が\n出てる'),
+      hint('normal', '机のあたり、\n見てみて'),
       hint('normal', 'コック帽が\n高い'),
       hint('panic', 'おたまを\nふり回してる！')
     ],
@@ -310,7 +313,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'シェフだ'),
       hint('normal', '味見してる'),
       hint('deadpan', 'おいしそう…？'),
-      hint('normal', '湯気が…\nよけてる？'),
+      hint('normal', '机のあたり、\n見てみて'),
       hint('normal', 'コック帽が\n高い'),
       hint('panic', 'おたまを\nふり回してる！')
     ]
@@ -320,7 +323,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'ウェイターさんだ'),
       hint('normal', 'お盆に\nグラス'),
       hint('deadpan', '手なれてる…'),
-      hint('normal', '注文を\n聞いてる'),
+      hint('normal', '明かりも\n見ておいてね'),
       hint('normal', '蝶ネクタイ、\n決まってる'),
       hint('panic', 'こっち見て\nにやっとした！')
     ],
@@ -328,7 +331,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'ウェイターさんだ'),
       hint('normal', 'お盆に\nグラス'),
       hint('deadpan', '手なれすぎ…？'),
-      hint('normal', 'グラスが\n浮いてない？'),
+      hint('normal', '明かりも\n見ておいてね'),
       hint('normal', '蝶ネクタイ、\n決まってる'),
       hint('panic', 'こっち見て\nにやっとした！')
     ]
@@ -338,7 +341,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'ドレスの\nお客さんだ'),
       hint('normal', '羽の髪飾り'),
       hint('deadpan', 'セレブだ…'),
-      hint('normal', '夜景を\n見てる'),
+      hint('normal', '周りに\n気をつけて'),
       hint('normal', '香水の\nにおいがする'),
       hint('panic', '目が合った！')
     ],
@@ -346,7 +349,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', 'ドレスの\nお客さんだ'),
       hint('normal', '羽の髪飾り'),
       hint('deadpan', 'セレブ…\nなのかな'),
-      hint('normal', 'まわりの物、\n動いてない？'),
+      hint('normal', '周りに\n気をつけて'),
       hint('normal', '香水の\nにおいがする'),
       hint('panic', '目が合った！')
     ]
@@ -356,7 +359,7 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '手品師さんだ'),
       hint('normal', 'つえを\n持ってる'),
       hint('deadpan', '手品かな…'),
-      hint('normal', 'ハトが\n出てきた'),
+      hint('normal', '机の上、\nちゃんと見た？'),
       hint('normal', 'シルクハットが\nおしゃれ'),
       hint('panic', 'カードが\n浮いてる！？')
     ],
@@ -364,11 +367,27 @@ export const TOWER_OPERATOR_HINTS: Readonly<Record<TowerLook, { civ: readonly Op
       hint('normal', '手品師さんだ'),
       hint('normal', 'つえを\n持ってる'),
       hint('deadpan', '手品…\nだよね？'),
-      hint('normal', '糸、\n見えないけど…'),
+      hint('normal', '机の上、\nちゃんと見た？'),
       hint('normal', 'シルクハットが\nおしゃれ'),
       hint('panic', 'カードが\n浮いてる！？')
     ]
   }
+};
+
+/**
+ * 照明と小物に見えている物のことを言う一言(docs/STAGE4_TEXT.md「見えている物のことを言う一言」)。
+ * もれのあるヴィランと紛らわしい市民に、同じ確率(LEAK.spotHintChance)で、見た目ごとの一言の代わりに出す。
+ * どれも見えている物をそのまま言うだけで、もれか紛らわしい市民の理由かは言わない(tower.ts の spotHintsFor)。
+ *   lightOdd:照明に何か出ている(もれ、切れかけの蛍光灯、紫のセロハン)
+ *   lightPurple:照明が紫(もれ、紫のセロハン)
+ *   itemFloat:小物が浮いている(もれ、手品の糸、手品の紫の煙、紫の風船)
+ *   itemPurple:小物のあたりが紫(もれ、手品の紫の煙、紫の風船)
+ */
+export const TOWER_SPOT_HINTS: Readonly<Record<'lightOdd' | 'lightPurple' | 'itemFloat' | 'itemPurple', readonly OperatorHint[]>> = {
+  lightOdd: [hint('normal', '照明、なんか\n変じゃない？'), hint('normal', '明かりの色、\nいつもと違う？')],
+  lightPurple: [hint('normal', '照明が…\n紫っぽい？')],
+  itemFloat: [hint('normal', '今、何か\n浮かなかった？'), hint('normal', '机の上の物、\n浮いてない？')],
+  itemPurple: [hint('normal', '机のあたりが\n紫っぽい？')]
 };
 
 // ─── 親玉(化けた姿) ───────────────────────────────
@@ -430,7 +449,7 @@ export const TOWER_INTRO: readonly Speech[] = [
   hero('smug', '最後は高層ビル！\n超能力者退治だ！'),
   op('normal', '見た目は普通の人。\n周りをよく見て'),
   op('deadpan', '明かりが紫になったり、\n物が浮いたりする'),
-  op('normal', '手品や風船の人も\nいるよ。よく見て'),
+  op('normal', '手品や風船の紫も\nあるよ。よく見て'),
   op('panic', '見逃すと念力で\n物を運んでくる！')
 ];
 

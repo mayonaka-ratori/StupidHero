@@ -3,6 +3,7 @@ import { sheetByKey } from '../art/sheets';
 import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { STAGES } from './stages';
+import { leakSpots, spotHintsFor } from './tower';
 import type { Person, Stage, StageId } from './types';
 
 /** 400個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
@@ -219,7 +220,7 @@ describe('createStage:どのステージにも共通の決まり', () => {
   it.each([
     { id: 'mall', count: 100 },
     { id: 'tower', count: 200 }
-  ] as const)('$id:名前、年齢、文、一言はその見た目と正体の一覧から。名前と id はステージの中で重ならない(はじめの $count 個の種)', ({ id, count }) => {
+  ] as const)('$id:名前、年齢、文、一言はその見た目と正体の一覧から(高層ビルは、照明と小物に見えている物のことを言う一言もある)。名前と id はステージの中で重ならない(はじめの $count 個の種)', ({ id, count }) => {
     const bad: string[] = [];
     for (const s of BY_ID[id].slice(0, count)) {
       const people = everyone(s);
@@ -231,7 +232,8 @@ describe('createStage:どのステージにも共通の決まり', () => {
         if (p.profile.age < lo || p.profile.age > hi) bad.push(`${p.id} 年齢 ${p.profile.age}`);
         if (p.truth === 'boss') continue;
         if (!PROFILE_LINES[p.look][p.truth]!.includes(p.profile.line)) bad.push(`${p.id} 文 ${p.profile.line}`);
-        if (!OPERATOR_HINTS[p.look][p.truth]!.some((h) => h.text === p.hint.text && h.face === p.hint.face)) bad.push(`${p.id} 一言 ${p.hint.text}`);
+        const hints = [...OPERATOR_HINTS[p.look][p.truth]!, ...(id === 'tower' ? spotHintsFor(leakSpots(p)) : [])];
+        if (!hints.some((h) => h.text === p.hint.text && h.face === p.hint.face)) bad.push(`${p.id} 一言 ${p.hint.text}`);
       }
     }
     expect(bad).toEqual([]);

@@ -28,8 +28,8 @@ import {
 import {
   BOSS4_HINTS, BOSS4_PROFILE_LINES, LIFT_BAND, LIFT_INTRO_AGAIN, LIFT_INTRO_FIRST, TOWER_AGES, TOWER_ENDING, TOWER_ENDING_SKIP,
   TOWER_FLOOR_LABELS, TOWER_GARAGE_OVERRIDES, TOWER_INTRO, TOWER_JUDGE_LINES, TOWER_NAMES, TOWER_OPERATOR_HINTS, TOWER_OVERRIDES,
-  TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_STREET_TEXTS, TOWER_TITLE_COMMENTS, TOWER_TITLE_COMMENT_OVERRIDES, TOWER_WAVE_INTRO,
-  type TowerReactionKey
+  TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_SPOT_HINTS, TOWER_STREET_TEXTS, TOWER_TITLE_COMMENTS, TOWER_TITLE_COMMENT_OVERRIDES,
+  TOWER_WAVE_INTRO, type TowerReactionKey
 } from './towerContent';
 import { ANALOGY_UNITS } from './format';
 import { allFreeTexts } from './freeContent';
@@ -869,6 +869,7 @@ export function allTexts(): string[] {
   // ステージ4
   addList(TOWER_INTRO);
   for (const list of Object.values(TOWER_WAVE_INTRO)) addList(list);
+  for (const list of Object.values(TOWER_SPOT_HINTS)) addList(list);
   for (const k of Object.keys(TOWER_REACTIONS) as TowerReactionKey[]) addList(TOWER_REACTIONS[k]);
   for (const l of Object.values(TOWER_OVERRIDES)) addList(l);
   for (const l of Object.values(TOWER_GARAGE_OVERRIDES)) addList(l);

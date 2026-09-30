@@ -7,12 +7,12 @@
 // プロフィールと一言は1文字ずつ出し、出している間は時計を止める(読む速さで不利にならないように)。
 // 止まっている間は、時間の下に「時計ストップ中」の札を出す。
 // 上の右:音と中断のボタン(ほかの画面と同じ位置)。その下(ステージ2だけ)に、その波で見た人の小物の色の札。
-// 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts)。
+// 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts。ステージ4にはない)。
 // ステージ3の宇宙人(person.glitch がある人)は、その人が出てから進んだ時計の秒数で、ときどき動きがくずれる
 // (glitchShowing。文字送りの間と一時停止の間は時計と一緒に止まる)。「持ち物」の窓も同じコマを映すので、くずれが窓にも出る。
 // ステージ4(def.mechanic が 'psychic')は、人の後ろにその階の壁と、左上の照明、左下の机と小物を置く(sort/towerDesk.ts)。
 // ヴィランのもれと紛らわしい市民の理由(leakSpots(person))は、人が出た瞬間から出して、その人の間は変えない。
-// 「持ち物」の窓は「まわり」の窓にして、机の小物のあたり(src/art/towerSpots.ts)を3倍で映す。中断中は、もれも消す。
+// ステージ4では「持ち物」の窓を出さない(机と照明をこの画面でじかに見る)。中断中は、もれも消す。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -20,7 +20,7 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { settings } from '../settings';
 import { animKey, originFor } from '../art/sheets';
-import { CALM_LOOK, TOWER_DESK, TOWER_LAMP, deskRect, leakLook } from '../art/towerSpots';
+import { CALM_LOOK, TOWER_DESK, TOWER_LAMP, leakLook } from '../art/towerSpots';
 import { accessorySheet } from '../art/recolor';
 import {
   HURRY_AT_SEC, bgForWave, glitchCount, glitchShowing, leakSpots, say, waveIntroFor, type Person, type SortChoice, type Speech
@@ -58,6 +58,9 @@ const ZOOM_Y = 90;
 /** 「見た小物」の左上(左の時間の列の右) */
 const STRIP_X = 72;
 const STRIP_Y = 21;
+
+/** 手品の糸を引く人か(手品の糸と、手品の紫の煙の紛らわしい市民) */
+const hasThread = (p: Person): boolean => leakLook(leakSpots(p)).thread;
 
 type State = 'intro' | 'play' | 'timeup' | 'done';
 
@@ -103,7 +106,8 @@ export class SortScene extends Phaser.Scene {
   private lineText!: PixelText;
   private profTyper!: Typer;
   private remark!: RemarkRow;
-  private zoom!: ClueZoom;
+  /** 「持ち物」の窓(ステージ4では作らない) */
+  private zoom?: ClueZoom;
   private strip?: SeenStrip;
   /** ステージ4の照明と机(ほかのステージでは作らない) */
   private desk?: TowerDesk;
@@ -198,7 +202,7 @@ export class SortScene extends Phaser.Scene {
   private buildAction(W: number): void {
     // 暗くしたステージの背景と、真ん中のスポットライト
     const wave = currentWave(this.run);
-    const bg = drawStageBg(this, bgForWave(this.run.stage.def, wave.no));
+    drawStageBg(this, bgForWave(this.run.stage.def, wave.no));
     this.add.image(0, 0, spotlightDim(this, CX, FEET_Y)).setOrigin(0).setDepth(Z.dim);
     const pool = this.add.graphics().setDepth(Z.dim + 0.5);
     drawLightPool(pool, CX, FEET_Y + 1, 46, 7);
@@ -208,12 +212,14 @@ export class SortScene extends Phaser.Scene {
       new PixelText(this, x, 140, text, { size: FS.body, color, outline: true, align: 'center', lineSpacing: 1 }).setOrigin(ox, 0.5).setDepth(Z.glow + 1);
     this.edgeLabels = [lbl(5, '◀\nワ\nル', 0xff8a80, 0), lbl(W - 5, '▶\n市\n民', 0x9ac4ff, 1)];
 
-    // 「持ち物」の窓。人より奥に置く(モヒカンのナイフの先が少しかかっても、人を隠さないように)
-    this.zoom = new ClueZoom(this, ZOOM_X, ZOOM_Y, Z.glow + 0.5);
-    // ステージ4:照明と机は暗くする網目より前(明るく見せる)、人より奥。手品の糸は人より前(つえの先から見えるように)
+    // ステージ4:照明と机は暗くする網目より前(明るく見せる)、人より奥。手品の糸は人より前(つえの先から見えるように)。
+    // 「持ち物」の窓は出さない(机と照明を、この画面でじかに見て決める。docs/STAGE4.md「仕分けの画面の背景」)
     if (this.run.stage.def.mechanic === 'psychic') {
+      this.zoom = undefined;
       this.desk = new TowerDesk(this, { floor: wave.no, lamp: TOWER_LAMP, desk: TOWER_DESK, depth: Z.dim + 0.6, threadDepth: Z.actor + 0.5 });
-      this.zoom.setSurround(deskRect(this.desk.spot, TOWER_DESK.x, TOWER_DESK.y), [bg.far, bg.wall, bg.ground, ...this.desk.objects]);
+    } else {
+      // 「持ち物」の窓。人より奥に置く(モヒカンのナイフの先が少しかかっても、人を隠さないように)
+      this.zoom = new ClueZoom(this, ZOOM_X, ZOOM_Y, Z.glow + 0.5);
     }
 
     // 人(2人ぶん用意して、出ていく人と入ってくる人を入れ替えて使う)
@@ -296,7 +302,7 @@ export class SortScene extends Phaser.Scene {
   /** 中断から戻るときの手品の糸のつえの先(いまの人が手品の糸の市民なら) */
   private pausedTip(): CaneTip | null {
     const p = this.people[this.idx];
-    return p?.decoy === 'thread' ? caneTipOf(this.card, SCALE) : null;
+    return p && hasThread(p) ? caneTipOf(this.card, SCALE) : null;
   }
 
   /** 中断中に見せないもの(人、影、ハンコの見本、手、プロフィール、一言、持ち物、見た小物)を隠す/戻す */
@@ -304,7 +310,7 @@ export class SortScene extends Phaser.Scene {
     if (hide) {
       const objs: Phaser.GameObjects.Components.Visible[] = [
         ...this.cards, this.shadow, this.preview.bad, this.preview.civ, this.nameText, this.lineText,
-        ...this.remark.objects, ...this.zoom.objects, ...(this.strip?.objects ?? [])
+        ...this.remark.objects, ...(this.zoom?.objects ?? []), ...(this.strip?.objects ?? [])
       ];
       if (this.guideHand) objs.push(this.guideHand);
       this.hiddenForPause = objs.map((o) => ({ o, v: o.visible }));
@@ -409,8 +415,8 @@ export class SortScene extends Phaser.Scene {
     s.setPosition(sx, FEET_Y).setVisible(true).setFlipX(from === 'right');
     s.play(animKey(key, 'walk'));
     this.shadow.setVisible(true).setX(sx);
-    this.zoom.setPerson(key, p.sheetKey);
-    this.desk?.setLook(leakLook(leakSpots(p)), p.decoy === 'thread' ? caneTipOf(s, SCALE) : null);
+    this.zoom?.setPerson(key, p.sheetKey);
+    this.desk?.setLook(leakLook(leakSpots(p)), hasThread(p) ? caneTipOf(s, SCALE) : null);
     this.strip?.show(this.people, i);
     if (this.state === 'timeup') this.showProfile(p);
     else void this.typeProfile(p);
@@ -525,7 +531,7 @@ export class SortScene extends Phaser.Scene {
     this.tweens.killTweensOf(s);
     this.idle = false;
     this.glitching = false;
-    this.zoom.clear();
+    this.zoom?.clear();
     this.desk?.setLook(CALM_LOOK);
     const stamp = makeStamp(this, choice, FS.big, mark).setDepth(Z.stamp);
     stamp.setPosition(Math.round(s.x), STAMP_Y);
@@ -550,7 +556,7 @@ export class SortScene extends Phaser.Scene {
 
   override update(_t: number, dt: number): void {
     this.drawGlow();
-    this.zoom.sync(this.card, this.idle);
+    this.zoom?.sync(this.card, this.idle);
     this.desk?.update(this.time.now);
     const stopped = this.clockStopped() && this.idx < this.people.length;
     if (this.stopTag.visible !== stopped) this.stopTag.setVisible(stopped);
@@ -598,7 +604,7 @@ export class SortScene extends Phaser.Scene {
       return;
     }
     // 「持ち物」の窓も、このコマから同じ絵にする(次のコマまで待つと、1コマずれる)
-    this.zoom.sync(this.card, this.idle);
+    this.zoom?.sync(this.card, this.idle);
   }
 
   /** 残り5秒:端が赤く点滅し、オペレーターが急かす。少ししたら今の人の一言に戻す */

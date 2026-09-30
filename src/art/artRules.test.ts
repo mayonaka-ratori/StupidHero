@@ -38,7 +38,10 @@ const GREEN = 'rgb(0,255,0)';
 /** 8段階の色(md で作れる色)だけか */
 const okLevel = (c: string): boolean => rgbOf(c)?.every((v) => (LEVELS as readonly number[]).includes(v)) ?? false;
 
-/** 超能力の紫を使ってよい絵(もれと念力のエフェクト、親玉の光、念力で浮くシャンデリア) */
+/**
+ * 超能力の紫を使ってよい絵(もれと念力のエフェクト、親玉の光、念力で浮くシャンデリア)。
+ * 仕分けの画面の紛らわしい市民の紫のセロハンは、照明の絵(fx_psy_lamp)の1コマなので、ここに入る
+ */
 const mayUsePsy = (key: string): boolean => key.startsWith('fx_psy_') || key === 'boss4' || key === 'prop_chandelier';
 
 /** 赤紫(小物の塗り替え用の色)を使ってよいのは、ステージ2の人と、その見た目に化けた女ボスだけ */
@@ -49,7 +52,7 @@ const mayUseAccessory = (key: string): boolean =>
 interface ColorRule { name: string; colors: readonly string[]; may: (key: string) => boolean; skip?: string }
 const COLOR_RULES: ColorRule[] = [
   { name: '赤紫(R255 G0 B255)はステージ2の人の小物だけ', colors: [KEY_ACCESSORY], may: mayUseAccessory },
-  { name: '超能力の紫(濃いほうの2色)は、ステージ4のもれ、念力、親玉の光だけ', colors: PSY_ONLY, may: mayUsePsy },
+  { name: '超能力の紫(濃いほうの2色)は、ステージ4のもれ、念力、親玉の光、紫のセロハンの照明だけ', colors: PSY_ONLY, may: mayUsePsy },
   {
     name: '黄緑の3色(くずれと合図の色)はステージ3だけ(フリープレイの宇宙人の触角と合図はよい)',
     colors: GLITCH, may: (key) => key === 'fp_alien', skip: 'world3'
