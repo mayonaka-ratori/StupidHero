@@ -10,6 +10,7 @@
 
 import Phaser from 'phaser';
 import { audio } from '../../audio';
+import { personSheet } from '../../art/recolor';
 import { animKey } from '../../art/sheets';
 import {
   RUSH, RUSH_BAND, hasSeenRush, rushAfter, markRushSeen, rushEndLine, rushGlitchShowing, rushIntroFor, rushSpawnSec, saleRushOf,
@@ -194,7 +195,7 @@ export class RushPart {
   /** 右から走ってくる */
   private rushSpawn(m: RushMan): void {
     const y = this.s.hero.y + this.s.rng.int(-3, 3);
-    const a = new Actor(this.s, m.r.sheetKey, this.s.L.right + 24, y);
+    const a = new Actor(this.s, personSheet(this.s, m.r), this.s.L.right + 24, y);
     a.look = m.r.look;
     a.civ = m.r.truth === 'civ';
     a.faceLeft(true).play('walk', true, 2);

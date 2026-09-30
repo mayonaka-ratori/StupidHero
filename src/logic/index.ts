@@ -76,6 +76,7 @@ export * from './ufo';
 export * from './psychic';
 export * from './tower';
 export * from './stage';
+export * from './colorVariants';
 export * from './stats';
 export * from './titles';
 export * from './boss';

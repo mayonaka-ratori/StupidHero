@@ -38,6 +38,7 @@
 // - 波3の言い直しは「前の半分の人数」のあと(ふつうは6人目のあと。ギャングの組が前の半分にいれば7人目のあと)
 // - ギャングの組の小物の色(GangGroup.accessory)は使わないが、型を満たすために緑を入れておく
 
+import { rollColorVariants } from './colorVariants';
 import { accessoryFor } from './garage';
 import { FREE_ITEMS, FREE_NAME } from './freeNames';
 import { makePerson, type PersonDraft, type UsedTexts } from './people';
@@ -583,5 +584,7 @@ export function createFreePlay(seed: number | string = randomSeed(), unlocked: r
     peopleTotal: stageWaves.reduce((n, w) => n + w.people.length, 0),
     rush: null
   };
+  // 市民の服の色ちがい(一目で分かるワルはいつも0)。並びを決め終わってから別の乱数で決める
+  rollColorVariants(stage);
   return { waves, stage, unlocked: open, chances: countChances(waves, stageWaves) };
 }

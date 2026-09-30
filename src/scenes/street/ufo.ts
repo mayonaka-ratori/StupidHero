@@ -9,6 +9,7 @@
 import Phaser from 'phaser';
 import { layout } from '../../layout';
 import { audio } from '../../audio';
+import { passerSheet } from '../../art/recolor';
 import { animKey, originFor } from '../../art/sheets';
 import { UfoQueue, formatYen, mischiefLine, MALL_PROP_SIZE, type UfoEvent } from '../../logic';
 import { HermiteSparks, hitStop, impact, shake, waitMs } from '../../ui';
@@ -180,7 +181,7 @@ export class UfoPart {
     if (this.s.free) s = this.s.free.makePasser(this.s.L.right + 20, sy);
     else {
       const look = this.s.rng.pick(this.s.def.looks.filter((l) => l !== a.look));
-      s = new Actor(this.s, `${look}_civ`, this.s.L.right + 20, sy);
+      s = new Actor(this.s, passerSheet(this.s, `${look}_civ`), this.s.L.right + 20, sy);
       s.look = look; s.civ = true;
       s.faceLeft(true);
       this.s.passers.push(s);

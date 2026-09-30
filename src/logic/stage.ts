@@ -11,6 +11,7 @@
 // 同じ見た目の市民とワルがなるべく同じ波に両方出るようにし、名前と文は同じものを2回出さない。
 // 地下駐車場の決まりは garage.ts、ショッピングモールの決まりは mall.ts、高層ビルの決まりは tower.ts。
 
+import { rollColorVariants } from './colorVariants';
 import { buildGarageWaves } from './garage';
 import { buildMallWaves, buildRush } from './mall';
 import { buildLift, buildTowerWaves } from './tower';
@@ -37,7 +38,7 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
   const bossTotal = waves.filter((w) => w.hasBoss).length;
   // ラッシュの並びは波を作ったあとに決める(ラッシュのないステージの乱数の引き方は変わらない)
   const rush = def.rush?.kind === 'sale' ? buildRush(rng) : def.rush?.kind === 'elevator' ? buildLift(rng) : null;
-  return {
+  const stage: Stage = {
     id: stageId,
     def,
     name: def.name,
@@ -47,6 +48,9 @@ export function createStage(seed: number | string = randomSeed(), stageId: Stage
     peopleTotal: waves.reduce((sum, w) => sum + w.people.length, 0),
     rush
   };
+  // 服の色ちがいは、並びを決め終わってから別の乱数で決める(ここまでの乱数の引き方は変わらない)
+  rollColorVariants(stage);
+  return stage;
 }
 
 /** ステージごとの波の作り方 */

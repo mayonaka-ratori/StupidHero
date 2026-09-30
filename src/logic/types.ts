@@ -180,6 +180,8 @@ export interface Person {
   leak?: Leak;
   /** ステージ4の紛らわしい市民だけ:もれに見えるものの種類 */
   decoy?: TowerDecoy;
+  /** 服の色ちがい(0〜3。0 はいまの色)。見た目だけで、ワルかどうかとは関係なく決まる(colorVariants.ts) */
+  colorVariant?: number;
 }
 
 /** ステージ2のギャングの組 */
@@ -226,6 +228,8 @@ export interface RushRunner {
   sheetKey: string;
   /** ラッシュが始まってから画面の右に出てくるまでの秒数(ふつうの速さ。ゆっくりモードは rushSpawnSec で) */
   spawnSec: number;
+  /** 服の色ちがい(Person と同じ) */
+  colorVariant?: number;
 }
 
 /** タイムセールラッシュの並び(ステージ3の stage.rush。ラッシュのないステージは null) */
@@ -249,6 +253,8 @@ export interface LiftRider {
   sheetKey: string;
   /** 扉が開く階(35と50の間。上がっていく順) */
   floor: number;
+  /** 服の色ちがい(Person と同じ) */
+  colorVariant?: number;
 }
 
 /** エレベーターラッシュの並び(ステージ4の stage.rush) */

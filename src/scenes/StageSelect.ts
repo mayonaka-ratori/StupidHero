@@ -20,7 +20,7 @@ import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
-import { purgeAccessorySheets } from '../art/recolor';
+import { purgePersonSheets } from '../art/recolor';
 import { freeSelectInfo, loadRecords, randomSeed, say, stageSelectInfo, type StageId, type StageSelectEntry } from '../logic';
 import { startFreeRun, startRun } from '../run';
 import { settings } from '../settings';
@@ -92,7 +92,7 @@ export class StageSelectScene extends Phaser.Scene {
     this.covers = [];
     this.downAt = null;
     // ステージ2で人ごとに塗り替えた絵を捨てる(このあとカードの絵の分だけ作り直す)
-    purgeAccessorySheets(this);
+    purgePersonSheets(this);
     unlockOnTap(this);
     audio.playBgm('title');
 

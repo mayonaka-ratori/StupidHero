@@ -9,7 +9,7 @@ import { SCENES, UI } from '../config';
 import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
-import { purgeAccessorySheets } from '../art/recolor';
+import { purgePersonSheets } from '../art/recolor';
 import { hasAnyRecord, loadRecords, randomSeed, TITLE_COUNT } from '../logic';
 import { startRun } from '../run';
 import { FS, PixelText, ditherTexture, flash, gotoWhenFree, shake, spawnFx } from '../ui';
@@ -34,7 +34,7 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     this.started = false;
     // ステージ2で人ごとに塗り替えた絵を捨てる(遊ぶたびにたまり続けないように)
-    purgeAccessorySheets(this);
+    purgePersonSheets(this);
     const { W, H } = layout;
     this.top = Math.max(0, H - 214 - BOTTOM_H);
     this.feetY = this.top + 204;
