@@ -73,6 +73,12 @@ export class RuleSign {
     t.setScrollFactor(0).setDepth(DEPTH + 1);
   }
 
+  /** 札の四角(画面の座標。出ていなければ null)。頭の上のマークが札に重なるかを見るのに使う */
+  rect(): Phaser.Geom.Rectangle | null {
+    if (!this.box.visible || this.bgW === 0) return null;
+    return new Phaser.Geom.Rectangle(this.box.x, this.box.y, this.bgW, this.h);
+  }
+
   /** 撮るときに隠すもの */
   get shotHidden(): Phaser.GameObjects.Components.Visible[] {
     return [this.box];

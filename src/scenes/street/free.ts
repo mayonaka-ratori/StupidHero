@@ -39,7 +39,7 @@ import { settings } from '../../settings';
 import { banner, impact, waitMs } from '../../ui';
 import type { StreetScene } from '../Street';
 import { Actor, HEAD } from './actor';
-import { ATTACK_GAP, JUDGE_RISE, RUN } from './common';
+import { ATTACK_GAP, JUDGE_RISE, RUN, type CivHit } from './common';
 import { FreeItems } from './freeItems';
 import { buttonPulse, pulseButton } from './panel';
 import { THREAT_DX, UFO_DX, planFree, type PasserLook, type StreetPlan } from './plan';
@@ -60,6 +60,9 @@ interface Threat {
   /** 行けで倒されたか、逃げたあとの動きが終わったら呼ぶ */
   resolve: () => void;
 }
+
+/** 先に撮っておく写真。場面が決まったら(commitShot)、いちばんひどい場面の写真にする */
+interface PendingShot { img: HTMLImageElement | null; want: boolean }
 
 /** 行けが効く相手(モヒカンの悪さ、ギャングの組、UFO、素通りの相手)。悪さは since の小さいほうから効く */
 interface GoTarget { since: number; fire: () => void }
@@ -172,6 +175,10 @@ export class FreeStreet {
   private offSettings: (() => void) | null = null;
   /** ためを数えている時計(ためのときだけ) */
   private windupEv: Phaser.Time.TimerEvent | null = null;
+  /** 行けで走って殴っている途中の数(runAndHit。光の拳の言いわけで、ヒーローの動きを変えないため) */
+  private runningHits = 0;
+  /** ギャングの車を見送る瞬間の写真(車に逃げきられたら、いちばんひどい場面の写真にする) */
+  private gangShot: PendingShot | null = null;
   /** 開発用:その回で場面が何回起きたか(tools/free_play.mjs が見る) */
   readonly seen: Seen;
 
@@ -510,37 +517,57 @@ export class FreeStreet {
     this.miss('escaped', { look });
   }
 
-  /** 1人で口笛を吹いたギャング(組の1人を先に行けで倒したとき)に逃げられた */
+  /**
+   * 1人で口笛を吹いたギャング(組の1人を先に行けで倒したとき)に逃げられた:ヒーローは笑顔で手を振って見送る。
+   * 車に逃げきられたときと同じく、手を振って見送った場面にする
+   */
   escapedAlone(look?: Look): void {
+    const s = this.s;
+    this.waveOff();
+    if (look === 'fp_gang' && s.stats.reportFreeScene('waveGang')) s.shootWorst(250);
     this.miss('escaped', { look });
   }
 
-  /** ギャングの車が走り出した:ヒーローは笑顔で手を振って見送る(その場面を先に撮っておく) */
-  gangDrive(): void {
+  /** 右へ去っていくワルに、ヒーローが笑顔で手を振る(きらきら) */
+  private waveOff(): void {
     const s = this.s;
     const h = s.hero;
     h.faceLeft(false).play('pass', true);
     audio.sfx('sparkle');
     for (let i = 0; i < 3; i++) s.time.delayedCall(i * 110, () => s.fx('fx_sparkle', h.x + 12, h.y - 48 + i * 4, { depth: 960 }));
-    this.gangShot = 'pending';
-    s.time.delayedCall(250, () => s.shoot(0, (img) => {
-      if (this.gangShot === 'want') this.run.worstShot = img;
-      else this.gangShot = img;
-    }));
   }
 
-  private gangShot: HTMLImageElement | 'pending' | 'want' | null = null;
+  /** ギャングの車が走り出した:ヒーローは笑顔で手を振って見送る(その場面を先に撮っておく) */
+  gangDrive(): void {
+    this.waveOff();
+    this.gangShot = this.shootPending(250);
+  }
 
   /** ギャングの車に逃げきられた:手を振って見送った場面にする */
   gangEscaped(): void {
     const s = this.s;
     if (s.stats.reportFreeScene('waveGang')) {
-      if (this.gangShot instanceof HTMLImageElement) this.run.worstShot = this.gangShot;
-      else if (this.gangShot === 'pending') this.gangShot = 'want';
+      if (this.gangShot) this.commitShot(this.gangShot);
       else s.shootWorst();
     }
     this.gangShot = null;
     this.miss('escaped', { look: 'fp_gang' });
+  }
+
+  /** delayMs たったら通りの画面を撮っておく(まだ、いちばんひどい場面の写真にはしない) */
+  private shootPending(delayMs: number): PendingShot {
+    const p: PendingShot = { img: null, want: false };
+    this.s.time.delayedCall(delayMs, () => this.s.shoot(0, (img) => {
+      if (p.want) this.run.worstShot = img;
+      else p.img = img;
+    }));
+    return p;
+  }
+
+  /** 先に撮っておいた写真を、いちばんひどい場面の写真にする(まだ撮れていなければ、撮れたときにする) */
+  private commitShot(p: PendingShot): void {
+    if (p.img) this.run.worstShot = p.img;
+    else p.want = true;
   }
 
   // ─── 流れ ─────────────────────────────────────
@@ -734,6 +761,13 @@ export class FreeStreet {
     this.syncBubbleIcon();
   }
 
+  /** 吹き出しの横の小物の絵の四角(画面の座標。なければ null。頭の上のマークがよける) */
+  bubbleIconRect(): Phaser.Geom.Rectangle | null {
+    const c = this.bubbleIcon;
+    if (!c?.active || !c.visible) return null;
+    return new Phaser.Geom.Rectangle(c.x - 1, c.y - 1, 22 * c.scaleX, 22 * c.scaleY);
+  }
+
   /** 小物の絵を、吹き出しの左(はみ出すなら右)につける */
   private syncBubbleIcon(): void {
     const c = this.bubbleIcon;
@@ -771,39 +805,46 @@ export class FreeStreet {
     } else await this.threatenFlow(a, true);
   }
 
-  /** 殴ったあと。市民を殴っても謝らない(でもルール通りだし!)。巻きぞえだけなら「やっちまった」 */
-  private async afterAttack(): Promise<void> {
+  /**
+   * 殴ったあと。市民を殴っても謝らない(でもルール通りだし!)。巻きぞえだけなら「やっちまった」。
+   * hits を渡さなければ、当たった市民をみな引き取る(ヒーローの技のあと)。
+   * canPose が false の間は、ヒーローの動きを変えない(光の拳で、ヒーローが歩いているか、ほかの動きの最中のとき)
+   */
+  private async afterAttack(hits?: CivHit[], canPose: () => boolean = () => true): Promise<void> {
     const s = this.s;
     const h = s.hero;
-    const hits = s.civHits;
-    s.civHits = [];
-    s.civCried = null;
+    if (!hits) {
+      hits = s.civHits;
+      s.civHits = [];
+      s.civCried = null;
+    }
+    const play = (name: string, force = false): void => { if (canPose()) h.play(name, force); };
     if (hits.length === 0) {
-      h.play('idle');
+      play('idle');
       await waitMs(s, 380);
       return;
     }
     const direct = hits.find((c) => !c.collateral);
     if (direct) {
       await waitMs(s, 250);
-      h.play('win_arms', true);
+      play('win_arms', true);
       audio.sfx('okay');
       s.heroSay(this.lines.heroStubborn(), 1100);
       this.miss('hitCiv', { look: direct.look });
       await waitMs(s, 900);
-      h.play('idle');
+      play('idle');
       return;
     }
     // 巻きぞえだけ:やっちまった → まあいいか
-    h.play('oops', true);
+    play('oops', true);
     audio.sfx('oops');
     s.heroSay(s.line('oops', s.rng), 800);
     await waitMs(s, 800);
-    h.play('okay', true);
+    play('okay', true);
     audio.sfx('okay');
     s.heroSay(s.line('okay', s.rng), 700);
     await waitMs(s, 500);
-    h.play('idle');
+    play('idle');
   }
 
   /**
@@ -817,16 +858,13 @@ export class FreeStreet {
     this.auraKind = 'pass';
     const w = this.openPass(a);
     await this.walkTo(a.x - 22, s.passLane(a));
+    // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)。写真はここで撮っておき、場面にするのは
+    // 行けで倒されずに通りすぎてから(通りすぎる間に行けで倒したら、ひどい場面ではないので)
+    const scene = !a.civ && look !== 'fp_gang' ? freeWaveScene(look) : null;
+    let shot: PendingShot | null = null;
     if (!w.hit && a.standing) {
       s.passGreet(a, this.lines.heroPass(look), a.civ);
-      if (!a.civ) {
-        // 行けの使い方を言ったばかりの相手には、素通りのツッコミを重ねない(次のワルで言う)
-        if (!w.taught) this.opEvent('passBadRule', { look });
-        // ワルに笑顔で手を振った瞬間(ギャングは車を見送る瞬間にする)
-        if (look !== 'fp_gang' && s.stats.reportFreeScene(freeWaveScene(look))) {
-          s.shootWorst(120);
-        }
-      }
+      if (scene && s.stats.canReportFreeScene(scene)) shot = this.shootPending(120);
       await s.passOn(a);
     }
     this.closePass(w);
@@ -834,6 +872,9 @@ export class FreeStreet {
     // 行けで殴りに行ったら、殴り終わるまで待って次の人へ(悪さは起きない)
     if (w.hit) { await w.hit; return; }
     if (!a.standing || a.civ) return;
+    // ワルを素通りしきった。行けの使い方を言ったばかりの相手には、素通りのツッコミを重ねない(次のワルで言う)
+    if (!w.taught) this.opEvent('passBadRule', { look });
+    if (shot && s.stats.reportFreeScene(scene)) this.commitShot(shot);
     if (look === 'fp_gang' && a.person?.group) {
       this.heroMode = 'waitMech';
       await s.gangPart.gangCall(a);
@@ -901,14 +942,25 @@ export class FreeStreet {
       s.stats.hurtCiv('hero', a.look);
       s.report(sceneForCivHit(a.look!, 'punch'), 'punch');
     };
+    // この行けより前から数えている、当たった市民(ほかの技の分。この行けでは片づけない)
+    const before = new Set(s.civHits);
     w.hit = (async () => {
-      if (canRun) await this.passRunHit(a, civ);
-      else {
+      let hits: CivHit[] = [];
+      if (canRun) {
+        await this.passRunHit(a, civ);
+        // 走って殴った技で当たった市民だけを引き取る
+        hits = s.civHits.filter((c) => !before.has(c));
+        s.civHits = s.civHits.filter((c) => before.has(c));
+        s.civCried = null;
+      } else {
         s.heroSay(civ ? s.line('go', s.rng) : this.lines.heroGoEarly(), 900);
+        // 光の拳は s.civHits に足さない(数えは onFist で済む)。ほかの技の分は、その技のあとで片づける
         await this.fistShot(a, onFist);
       }
-      if (civ) { await this.afterGoCiv(); return; }
-      await this.afterAttack();
+      // 光の拳のときは、ヒーローが歩いているか、ほかの動きの最中のことがある。その間は動きを変えない(その格好ですべらないように)
+      const canPose = canRun ? () => true : () => !s.walker && this.runningHits === 0;
+      if (civ) { await this.afterGoCiv(canPose); return; }
+      await this.afterAttack(hits, canPose);
       const v = victim;
       if (v?.standing) {
         void s.arc(v, v.x, 6, 220);
@@ -932,19 +984,20 @@ export class FreeStreet {
   }
 
   /** 素通りしかけた市民を行けで殴ったあと:謝らずに言いわけする(「行けって言われたもん!」)。オペレーターがツッコむ */
-  private async afterGoCiv(): Promise<void> {
+  /**
+   * 当たった市民の数えはもう済んでいる(巻きぞえがいても、この言いわけにまとめる。この行けで当たった分は hitPass が片づける)。
+   * canPose が false の間は、ヒーローの動きを変えない
+   */
+  private async afterGoCiv(canPose: () => boolean): Promise<void> {
     const s = this.s;
     const h = s.hero;
-    // 当たった市民の数えはもう済んでいる(巻きぞえがいても、この言いわけにまとめる)
-    s.civHits = [];
-    s.civCried = null;
     await waitMs(s, 250);
-    h.play('win_arms', true);
+    if (canPose()) h.play('win_arms', true);
     audio.sfx('okay');
     s.heroSay(this.lines.heroGoCiv(), 1100);
     this.opEvent('goCiv');
     await waitMs(s, 900);
-    h.play('idle');
+    if (canPose()) h.play('idle');
   }
 
   /** 並べ方が、このワルの悪さの相手として置いた市民(モヒカンは THREAT_DX 先、宇宙人は UFO_DX 先。いなければ null) */
@@ -1074,12 +1127,14 @@ export class FreeStreet {
     s.walker = null;
     const prev = this.heroMode;
     this.heroMode = 'busy';
+    this.runningHits++;
     s.heroSay(s.line('go', s.rng), 800);
     await s.runTo(t.a.x - ATTACK_GAP, { speed: RUN * 3, y: t.a.y });
     const k = s.pickAttack();
     s.heroSay(shout(k, s.rng), 900);
     await s.attack(t.a, k, t.recovered ? 'recover' : 'go');
     await this.afterAttack();
+    this.runningHits--;
     this.heroMode = prev;
     if (!saved) return;
     if (h.x >= saved.toX) { saved.resolve(); return; }

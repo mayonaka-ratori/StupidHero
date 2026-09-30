@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import { animKey, originFor } from '../../art/sheets';
 import { audio } from '../../audio';
+import { layout } from '../../layout';
 import type { Look, Person } from '../../logic';
 import { Tag } from '../../ui';
 
@@ -15,6 +16,26 @@ const baseKey = (key: string): string => key.split('#')[0];
 
 /** 頭のてっぺん(足からの高さ)。64ドットのコマで、足は下から4ドット上 */
 export const HEAD = 50;
+
+/** 待てと行けのマークの奥行き(吹き出しの1100より手前) */
+export const MARK_DEPTH = 1200;
+/** マークがどうしても吹き出しに重なるときの奥行き(吹き出しの字を隠さない。人や火花よりは手前) */
+export const MARK_DEPTH_UNDER = 1050;
+/** マークの「!」の絵の広がり(2倍で出したとき。絵の中心から左右、上、下のドット数) */
+const MARK_HALF_W = 8;
+const MARK_UP = 14;
+const MARK_DOWN = 16;
+/** マークを画面の左右の端からこれだけ内側に置く(画面の端の点滅に重ねず、切れないように) */
+const MARK_EDGE = 8;
+
+/** マークの「!」の絵の四角(画面の座標。スクロールしない) */
+export interface MarkBox { left: number; right: number; top: number; bottom: number }
+
+/**
+ * マークの置き場所を直すシーン(Street。ヒーローの吹き出しをよける)。box はふつうに置いたときの「!」の四角。
+ * 上へずらすドット数と奥行きを返す。直さないときは null
+ */
+interface MarkHost { markPlace(box: MarkBox): { up: number; depth: number } | null }
 
 export class Actor {
   x: number;
@@ -101,7 +122,7 @@ export class Actor {
   showMark(kind: 'stop' | 'go'): void {
     this.mark?.destroy();
     const key = kind === 'stop' ? 'fx_mark_stop' : 'fx_mark_go';
-    const m = this.scene.add.sprite(this.x, this.y, key).play(animKey(key, 'play')).setScale(3).setDepth(1200);
+    const m = this.scene.add.sprite(this.x, this.y, key).play(animKey(key, 'play')).setScale(3).setDepth(MARK_DEPTH);
     this.mark = m;
     this.sync();
     this.scene.time.delayedCall(50, () => m.active && m.setScale(2));
@@ -120,8 +141,27 @@ export class Actor {
     // 高く跳ぶほど影は小さく
     this.shadow.setPosition(sx, Math.round(this.y) - 1).setVisible(this.state !== 'gone' && this.sprite.visible);
     this.shadow.setScale((this.lift > 20 ? 0.5 : this.lift > 6 ? 0.75 : 1) * this.shadowW, 1);
-    if (this.mark) this.mark.setPosition(sx, sy - HEAD - 60);
+    if (this.mark) this.placeMark(sx, sy);
     if (this.stars) this.stars.setPosition(sx + (this.sprite.flipX ? 8 : -8), Math.round(this.y) - 16);
+  }
+
+  /**
+   * マークを頭の上に置く。画面の左右の端で切れないように、画面の中へ寄せる(相手が画面の外にいても、端に出る)。
+   * ヒーローの吹き出しに重なるときは、シーン(markPlace)が上へ上げるか、吹き出しの奥に置いて字を隠さない
+   */
+  private placeMark(sx: number, sy: number): void {
+    const m = this.mark!;
+    const scrollX = this.scene.cameras.main.scrollX;
+    const lo = scrollX + MARK_EDGE + MARK_HALF_W;
+    const hi = scrollX + layout.W - MARK_EDGE - MARK_HALF_W;
+    const mx = Math.round(Phaser.Math.Clamp(sx, lo, hi));
+    let my = sy - HEAD - 60;
+    let depth = MARK_DEPTH;
+    const left = mx - scrollX - MARK_HALF_W;
+    const fix = (this.scene as Partial<MarkHost>).markPlace?.({ left, right: left + MARK_HALF_W * 2, top: my - MARK_UP, bottom: my + MARK_DOWN });
+    if (fix) { my -= fix.up; depth = fix.depth; }
+    m.setPosition(mx, my);
+    if (m.depth !== depth) m.setDepth(depth);
   }
 
   destroy(): void {

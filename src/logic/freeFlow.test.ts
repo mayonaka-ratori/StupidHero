@@ -233,6 +233,21 @@ describe('フリープレイの数え方', () => {
     // フリープレイでないときは、フリープレイの場面は伝えても何も起きない
     expect(new StatsTracker(3).reportFreeScene('waveKnife')).toBe(false);
   });
+
+  it('いちばんひどい場面になるかは、数を変えずに確かめられる(写真だけ先に撮るとき)', () => {
+    const stats = new StatsTracker(3, 'alley');
+    stats.startFree(PLAN);
+    expect(stats.canReportFreeScene('waveKnife')).toBe(true);
+    expect(stats.canReportFreeScene(null)).toBe(false);
+    // 確かめただけでは決まらない(あとで行けで倒されたら、場面にしない)
+    expect(stats.snapshot().free!.worst).toBeNull();
+    expect(stats.reportFreeScene('closeCall')).toBe(true);
+    expect(stats.canReportFreeScene('waveUfo')).toBe(true);
+    expect(stats.canReportFreeScene('closeCall')).toBe(false);
+    expect(stats.reportFreeScene('waveUfo')).toBe(true);
+    expect(stats.canReportFreeScene('waveGang')).toBe(false);
+    expect(new StatsTracker(3).canReportFreeScene('waveKnife')).toBe(false);
+  });
 });
 
 describe('フリープレイの称号', () => {

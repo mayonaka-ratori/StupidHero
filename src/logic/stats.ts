@@ -53,7 +53,8 @@
 //   空押し:stats.dryPress()
 //   いちばんひどい場面:ステージの場面は今まで通り stats.reportScene(...)。
 //     フリープレイだけの候補は stats.reportFreeScene(freeWaveScene(look))(ワルに笑顔で手を振った瞬間)と
-//     stats.reportFreeScene('closeCall')(拳が当たる寸前に待てで止めた瞬間)。true が返ったら画面を撮る
+//     stats.reportFreeScene('closeCall')(拳が当たる寸前に待てで止めた瞬間)。true が返ったら画面を撮る。
+//     手を振った場面は、先に canReportFreeScene で確かめて写真だけ撮り、そのワルが行けで倒されずに通りすぎてから伝える
 //   終わり:stats.finishFree(rawSec)(止めている時間を除いた時計)。snapshot().free に数がまとまる
 //
 //   フリープレイだけの場面を、ステージの WorstScene に足さず、FreeTally.worst に分けたわけ:
@@ -499,13 +500,22 @@ export class StatsTracker {
   }
 
   /**
+   * その場面を伝えたら、いちばんひどい場面になるか(数は変えない)。場面が決まる前に写真だけ撮っておくときに使う
+   * (素通りしたワルに手を振った瞬間を撮り、そのワルが行けで倒されずに通りすぎたら reportFreeScene で決める)
+   */
+  canReportFreeScene(scene: FreeWorstScene | null): boolean {
+    const f = this.free;
+    if (!f || !scene || this.worst !== null) return false;
+    return f.worst === null || FREE_WORST_SCENE_RANK[scene] < FREE_WORST_SCENE_RANK[f.worst];
+  }
+
+  /**
    * フリープレイだけの、いちばんひどい場面の候補を伝える。今までよりひどければ true(そのとき画面を撮る)。
    * ステージの場面(reportScene)がもう起きていれば、いつも false
    */
   reportFreeScene(scene: FreeWorstScene | null): boolean {
     const f = this.free;
-    if (!f || !scene || this.worst !== null) return false;
-    if (f.worst !== null && FREE_WORST_SCENE_RANK[scene] >= FREE_WORST_SCENE_RANK[f.worst]) return false;
+    if (!f || !scene || !this.canReportFreeScene(scene)) return false;
     f.worst = scene;
     f.worstRule = f.rule;
     return true;

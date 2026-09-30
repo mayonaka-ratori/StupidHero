@@ -41,7 +41,7 @@ import {
   CurlSmoke, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, popText, shake, spawnFx, waitMs
 } from '../ui';
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
-import { Actor, HEAD } from './street/actor';
+import { Actor, HEAD, MARK_DEPTH, MARK_DEPTH_UNDER, type MarkBox } from './street/actor';
 import { FastButton } from './street/fastButton';
 import { FreeStreet } from './street/free';
 import { Layers } from './street/layers';
@@ -333,6 +333,8 @@ export class StreetScene extends Phaser.Scene {
       }
     }
     this.syncHero();
+    // 吹き出しを先に合わせる(頭の上のマークが、吹き出しをよけるため。markPlace)
+    this.syncBubble();
     for (const a of this.queue) if (a.state !== 'gone') a.sync();
     for (const a of this.passers) if (a.state !== 'gone') a.sync();
     for (const a of this.safeWalkers) if (a.state !== 'gone') a.sync();
@@ -340,7 +342,6 @@ export class StreetScene extends Phaser.Scene {
     this.rushPart.syncNoise();
     this.hero.sync();
     this.free?.syncAfter();
-    this.syncBubble();
     this.syncPeeks();
     this.updateHud();
     this.updateButtons();
@@ -397,6 +398,35 @@ export class StreetScene extends Phaser.Scene {
     const x = Math.round(this.L.screenX(this.hero.x) + 6);
     const y = Math.round(this.hero.y - this.hero.lift - HEAD - 2 - this.heroBubbleRise);
     if (b.x !== x || b.y !== y) b.pointTo(x, y);
+  }
+
+  /**
+   * 頭の上の待てと行けのマークが、ヒーローの吹き出し(フリープレイでは横の小物の絵も)に重なるときの置き場所(Actor の placeMark が使う)。
+   * 吹き出しの上へ上げる。上の端の中断と音のボタンにかかるほど上げられないときは、吹き出しの奥に置いて字を隠さない。
+   * 上げたマークがフリープレイの左上の札に重なるときは、札より手前に出す(マークを隠さない)。重ならなければ null
+   */
+  markPlace(box: MarkBox): { up: number; depth: number } | null {
+    const b = this.heroBubble;
+    if (!b?.active || !b.visible) return null;
+    const r = b.boxRect();
+    const icon = this.free?.bubbleIconRect();
+    if (icon) Phaser.Geom.Rectangle.Union(r, icon, r);
+    const across = (o: Phaser.Geom.Rectangle): boolean => box.left < o.right && box.right > o.x;
+    const hits = (o: Phaser.Geom.Rectangle, up: number): boolean => across(o) && box.top - up < o.bottom && box.bottom - up > o.y;
+    if (!hits(r, 0)) return null;
+    // 「!」の下の端を、吹き出しの上の端の1ドット上にそろえる
+    const up = box.bottom - (Math.floor(r.y) - 1);
+    const sign = this.free?.sign;
+    let ceil = 2;
+    for (const o of this.icons) {
+      if (o === sign?.box) continue;
+      const bb = (o as unknown as { getBounds?: () => Phaser.Geom.Rectangle }).getBounds?.();
+      if (bb && across(bb)) ceil = Math.max(ceil, Math.ceil(bb.bottom) + 1);
+    }
+    if (box.top - up < ceil) return { up: 0, depth: MARK_DEPTH_UNDER };
+    const sr = sign?.rect();
+    const onSign = !!sr && hits(sr, up);
+    return { up, depth: onSign ? sign!.box.depth + 10 : MARK_DEPTH };
   }
 
   private syncPeeks(): void {
@@ -1218,11 +1248,14 @@ export class StreetScene extends Phaser.Scene {
     const h = this.hero;
     a.showMark('go');
     this.goAlarm.start();
+    // フリープレイはフリープレイの時間(ゆっくりモードは長い)。ステージは MARK.escapeSec
+    const escapeSec = this.free?.timing.escapeSec ?? MARK.escapeSec;
     const res = await new Promise<'go' | 'timeout'>((resolve) => {
-      const timer = this.time.delayedCall(MARK.escapeSec * 1000, () => { this.goHandler = null; resolve('timeout'); });
+      const timer = this.time.delayedCall(escapeSec * 1000, () => { this.goHandler = null; resolve('timeout'); });
       this.goHandler = () => { timer.remove(); this.goHandler = null; resolve('go'); };
     });
-    this.goAlarm.stop();
+    // フリープレイでは、ほかの悪さの行けのマーク(波3のモヒカン)が残っていれば、画面の端の点滅を続ける
+    this.stopGoAlarm();
     a.hideMark();
     if (res === 'go') {
       audio.sfx('go');
@@ -1242,8 +1275,9 @@ export class StreetScene extends Phaser.Scene {
     this.runAway(a);
     this.stats.escaped(false, this.free ? a.person?.group : undefined);
     this.opSay(this.line('escaped', this.rng));
-    this.free?.escapedAlone(a.look);
-    h.play('idle');
+    // フリープレイは、ヒーローが笑顔で手を振って見送る(escapedAlone がヒーローの動きを決める)
+    if (this.free) this.free.escapedAlone(a.look);
+    else h.play('idle');
     await waitMs(this, 500);
   }
 

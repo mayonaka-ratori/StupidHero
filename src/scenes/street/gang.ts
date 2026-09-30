@@ -121,12 +121,12 @@ export class GangPart {
     });
   }
 
-  /** 口笛の音符。口元から右上へ、点滅しながら上がっていく */
+  /** 口笛の音符。口元から右上へ、点滅しながら上がっていく。ヒーローの吹き出し(1100)より奥にして、字を隠さない */
   private whistleNotes(a: Actor): void {
     for (let i = 0; i < 3; i++) {
       this.s.time.delayedCall(i * 160, () => {
         if (!a.sprite.active) return;
-        const g = this.s.add.graphics().setDepth(1150);
+        const g = this.s.add.graphics().setDepth(1050);
         const dark = 0x1a1420;
         const c = i % 2 === 0 ? 0xffffff : 0xfff2b0;
         // ふち → 玉と棒と旗
