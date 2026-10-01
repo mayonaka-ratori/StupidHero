@@ -9,8 +9,8 @@ on:
       ref:
         description: 公開する版(タグかブランチかコミット)
         required: true
-        # いま公開している版(ステージ1からステージ4とフリープレイ。コード全体の見直しと、フリープレイの前ぶれの行けまで)
-        default: 30c871b91c1f44bb6de2bc45e7b304abcc9f0eb7
+        # いま公開している版(ステージ1からステージ4とフリープレイ。フリープレイの素通りの行け、ステージ4のもれを隠すヴィラン、ワルの目印の出し分け、服の色ちがいまで)
+        default: 250d56ad5db795e529c4c66debac3175073f07aa
 
 permissions:
   contents: read
