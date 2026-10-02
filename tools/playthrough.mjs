@@ -11,8 +11,11 @@
 //           念力の選択は待てと行けの両方)。random ではエレベーターと念力の選択もでたらめに押す
 //   ufo     truth と同じだが、波1のワル(宇宙人)を市民に仕分ける。1機目のUFOは行けで落とし、2機目からは押さない(さらわれる)
 //   bossciv truth と同じだが、ボスを市民に仕分ける。ufo+bossciv のように + でつなげる
+// 結果発表で待てと行けを止めて教える場面(端末で一度だけ。src/scenes/street/lesson.ts)が出たら、撮ってから教えているボタンを押す。
+// 記録は空から始めるので、random では出ることが多い(truth では市民をワルにせず、ワルも見逃さないので出ない)。
+// 同じ種類が2回出たら NG。
 // エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
-import { activeScenes, checker, clearedRecords, logicalHeight, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
+import { activeScenes, checker, clearedRecords, lessonButton, logicalHeight, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
 const [urlArg, outArg, seed = '', stage = 'alley', policy = 'random'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -67,6 +70,8 @@ const reviews = [];
 const liftHandled = new Set();
 // 答え合わせで次へを押した時刻(押したあとは波が1つ進むので、押し直すまでは波を読まない)
 let reviewTapAt = 0;
+// 止めて教えた場面(待ては 'stop'、行けは 'go')
+const lessons = [];
 let liftStops = 0, liftLog = [], choiceSeen = 0, choicePress = [], endingLines = 0, endingSeen = 0, cardVisible = null;
 while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
   const keys = await active();
@@ -143,6 +148,17 @@ while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
     if (sortPresses % 4 === 1) await shot('sort');
     continue;
   }
+  if (k === 'Street') {
+    // 待てと行けを止めて教えている間は、教えているボタンを押すまで動かない
+    const ls = await lessonButton(page);
+    if (ls) {
+      lessons.push(ls.kind);
+      await page.waitForTimeout(400); await shot(`lesson_${ls.kind}`);
+      await tap(ls.x, ls.y); if (ls.kind === 'stop') stopTaps++; else goTaps++;
+      await page.waitForTimeout(300);
+      continue;
+    }
+  }
   if (k === 'Street' && !random) {
     // 合図を見て押す。UFOは1機目だけ行けで落とす。ラッシュは市民にだけ待て。帯の説明はタップで送る
     const st = await page.evaluate(() => {
@@ -217,7 +233,7 @@ const playedStage = await page.evaluate(() => window.__game.registry.get('run')?
 const final = await page.evaluate(() => window.__game.registry.get('run')?.stats.snapshot() ?? null);
 const floors = await page.evaluate(() => window.__floorsSeen ?? []);
 const recordsAfter = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('stupidhero.records.v2')); } catch { return null; } });
-console.log('taps', { sortPresses, stopTaps, goTaps, bossTaps, ufoSeen, ufoGo, rushStops }, 'total', ((Date.now() - t0) / 1000).toFixed(1) + 's');
+console.log('taps', { sortPresses, stopTaps, goTaps, bossTaps, ufoSeen, ufoGo, rushStops, lessons: lessons.join(',') }, 'total', ((Date.now() - t0) / 1000).toFixed(1) + 's');
 if (stage === 'tower') {
   console.log('tower', JSON.stringify({ cardVisible, floors, liftStops, liftLog, choicePress, endingSeen, endingLines, endingSeenRecord: recordsAfter?.endingSeen, titles: recordsAfter?.titles }));
 }
@@ -228,6 +244,8 @@ const { check, done } = checker();
 check('エラーが出ない', errors.length === 0, errors.join('\n'));
 check('結果画面まで行った', reached, `最後は ${last || 'なし'}`);
 check('遊んだステージ', playedStage === stage, playedStage);
+check('止めて教える場面は種類ごとに1回まで', new Set(lessons).size === lessons.length, lessons.join(',') || 'なし');
+for (const kind of lessons) check(`止めて教えた記録が残る(${kind})`, (recordsAfter?.lessonSeen ?? []).includes(kind));
 check('答え合わせを波の数だけ通った', reviews.join(',') === Array.from({ length: WAVES }, (_, i) => i + 1).join(','), reviews.join(',') || 'なし');
 if (missWave1) check('UFOが来た', ufoSeen > 0);
 if (final && !random && stage === 'mall') check('タイムセールラッシュがあった', !!final.rush);

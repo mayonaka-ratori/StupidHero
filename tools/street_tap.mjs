@@ -2,7 +2,11 @@
 // 使い方: npm run dev を動かしてから
 //   node tools/street_tap.mjs [サーバーかURL] [出力フォルダ] [ステージ(alley、garage、mall、tower)] [種]
 // サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/street_tap.mjs - - mall)
-// alley :中断と再開、早送り(▶▶。合図の間はふつうの速さ)、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)
+// alley :中断と再開、早送り(▶▶。合図の間はふつうの速さ)、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)。
+//         そのあと、記録が空の端末で、待てと行けを止めて教える場面を試す(止まっている間は時計も動きも進まない、
+//         ほかのボタンやタップでは進まない、8秒で押す所を言う一言に替わる、教えたボタンで元に戻ってふつうに効く、
+//         記録に残り、読みこみ直すと2回目は出ない)
+// どのステージも、待てと行けを止めて教える場面は、上の alley の最後のほかは、教えたことにしてとばす(lib.mjs の skipLessons)
 // garage:中断と再開、見逃したギャングが仲間を呼んで集まったところで行け(まとめて吹き飛ばす)、
 //         ワゴンに乗りこんだところで行け(車ごと止める)
 // mall  :中断と再開、見逃した宇宙人が呼んだUFOを行けで殴り落とす(¥300万と真下の物)、押さずにいると買い物客が
@@ -11,7 +15,7 @@
 // tower :中断と再開、見逃したヴィランが念力で運ぶ物を、運び始めてすぐ行けで落とす(早送りでも運ぶ間はふつうの速さ)、
 //         ソファの真上で行けを押して落とす(何も壊れない)、押さずにいると市民に落ちる(写真を撮る)
 // URL に ?scene= がなければ、開発用の入口で波1から始める。NG があれば exit code 1。
-import { checker, gameUrl, openBrowser, openPage, resumeGame, serverUrl, shotsDir, touchPad } from './lib.mjs';
+import { checker, gameUrl, lessonButton, openBrowser, openPage, resumeGame, serverUrl, shotsDir, skipLessons, touchPad } from './lib.mjs';
 
 const [urlArg, outArg, stage = 'alley', seed = stage === 'garage' ? '3' : '1'] = process.argv.slice(2);
 const url = serverUrl(urlArg);
@@ -22,9 +26,10 @@ const { check, fail, done } = checker();
 const errors = [];
 
 const S = (page, fn, arg) => page.evaluate(fn, arg);
-/** 開発用の入口で Street を開く。sorts:truth / random / bad / civ */
-async function open(sorts, wave = 1) {
+/** 開発用の入口で Street を開く。sorts:truth / random / bad / civ。lessons が true なら、止めて教える場面をとばさない */
+async function open(sorts, wave = 1, { lessons = false } = {}) {
   const page = await openPage(browser, { errors });
+  if (!lessons) await skipLessons(page);
   // ?scene がもうあれば触らない(そのまま開く)
   const hasScene = new URL(url).searchParams.has('scene');
   await page.goto(hasScene ? url : gameUrl(url, { scene: 'Street', wave, sorts, seed, stage }, { keepQuery: true }));
@@ -49,6 +54,79 @@ async function pauseCheck(page, pad) {
   await resumeGame(page, pad);
   await page.waitForTimeout(300);
   check('「つづける」で再開', !(await S(page, () => window.streetDev.scene.isPaused())));
+}
+
+/** 記録が空の端末で、待てと行けを止めて教える場面を試す(alley) */
+async function lessonCheck() {
+  const lessonState = (page) => S(page, () => {
+    const d = window.streetDev; const l = d.lesson;
+    let seen = null;
+    try { seen = JSON.parse(localStorage.getItem('stupidhero.records.v2') || 'null')?.lessonSeen ?? null; } catch { /* なし */ }
+    return { kind: l?.kind ?? null, hint: l ? l.shownMs : 0, x: d.hero.x, time: d.time.timeScale, tweens: d.tweens.timeScale, cut: d.cut.line?.text ?? '', seen };
+  });
+  // 待て:全員をワルに仕分けると、市民に向かったときに待てのマークが出る
+  {
+    const { page, pad } = await open('bad', 1, { lessons: true });
+    await page.waitForFunction(() => window.streetDev.lesson, null, { timeout: 40000 }).catch(() => null);
+    const a = await lessonState(page);
+    if (a.kind !== 'stop') { fail('待てを止めて教える場面が出ない', JSON.stringify(a)); await page.close(); return; }
+    check('止めると時計と動きが止まる', a.time === 0 && a.tweens === 0, JSON.stringify(a));
+    check('止めたときの一言', a.cut.includes('待て'), a.cut);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_stop.png` });
+    const before = await stats(page);
+    // 行けのボタンとアクション部分をタップしても進まない
+    const g = await btn(page, 'goBtn');
+    await pad.tap(g.x, g.y);
+    await pad.tap(108, 100);
+    await page.waitForTimeout(1500);
+    const b = await lessonState(page);
+    check('ほかの所を押しても止まったまま', b.kind === 'stop' && b.x === a.x, JSON.stringify(b));
+    // 8秒で、押す所を言う一言に替わる
+    await page.waitForFunction(() => window.streetDev.lesson?.shownMs >= 8100, null, { timeout: 15000 }).catch(() => null);
+    await page.waitForTimeout(100);
+    const c = await lessonState(page);
+    check('8秒押さないと、押す所を言う一言に替わる', c.cut.includes('ボタン'), c.cut);
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_stop_hint.png` });
+    const s = await btn(page, 'stopBtn');
+    await pad.tap(s.x, s.y);
+    await page.waitForTimeout(250);
+    const d = await lessonState(page);
+    const after = await stats(page);
+    check('待てを押すと元に戻る', d.kind === null && d.time !== 0, JSON.stringify(d));
+    check('待てがふつうに効く(数える)', after.civSavedByStop === before.civSavedByStop + 1, `${before.civSavedByStop}→${after.civSavedByStop}`);
+    check('待てを教えたことが記録に残る', (d.seen ?? []).includes('stop') && !(d.seen ?? []).includes('go'), JSON.stringify(d.seen));
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_stop_after.png` });
+    // 読みこみ直すと、次の市民への待てのマークでは止めない
+    await page.reload();
+    await page.waitForFunction(() => window.streetDev && window.streetDev.goBtn, null, { timeout: 15000 });
+    await page.waitForFunction(() => window.streetDev.stopHandler, null, { timeout: 40000 }).catch(() => null);
+    await page.waitForTimeout(700);
+    check('2回目は止めない', (await lessonState(page)).kind === null);
+    await page.close();
+  }
+  // 行け:全員を市民に仕分けると、見逃したワルが悪さを始めて行けのマークが出る
+  {
+    const { page, pad } = await open('civ', 1, { lessons: true });
+    await page.waitForFunction(() => window.streetDev.lesson, null, { timeout: 40000 }).catch(() => null);
+    const a = await lessonState(page);
+    if (a.kind !== 'go') { fail('行けを止めて教える場面が出ない', JSON.stringify(a)); await page.close(); return; }
+    check('行けの一言', a.cut.includes('行け'), a.cut);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_go.png` });
+    // 止めている間は、悪さのワルが逃げるまでの3秒も進まない
+    await page.waitForTimeout(3500);
+    check('止めている間はワルが逃げない', (await lessonState(page)).kind === 'go' && (await stats(page)).escaped === 0);
+    const before = (await stats(page)).defeatedByGo;
+    const l = await lessonButton(page);
+    await pad.tap(l.x, l.y);
+    await page.waitForTimeout(2500);
+    const d = await lessonState(page);
+    check('行けを押すとふつうに追い打ち', d.kind === null && (await stats(page)).defeatedByGo === before + 1);
+    check('行けを教えたことが記録に残る', (d.seen ?? []).includes('go'), JSON.stringify(d.seen));
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_go_after.png` });
+    await page.close();
+  }
 }
 
 if (stage === 'alley') {
@@ -87,6 +165,8 @@ if (stage === 'alley') {
     check('行けで追い打ち', (await stats(page)).defeatedByGo === before + 1);
     await page.screenshot({ path: `${outDir}/${stage}_tap_go.png` });
   } else fail('行けの場面がない(種を変える)', `seed ${seed}`);
+  await page.close();
+  await lessonCheck();
 } else if (stage === 'mall') {
   // 1. UFOが買い物客を吸い上げているところで行け → 殴り落とす(全員を市民に仕分けて、宇宙人を見逃す)
   {

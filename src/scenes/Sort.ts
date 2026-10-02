@@ -6,6 +6,7 @@
 // 読むものはぜんぶ下の窓にまとめる:名前と年齢、プロフィール、細い線の下にオペレーターの小さな顔と一言。
 // プロフィールと一言は1文字ずつ出し、出している間は時計を止める(読む速さで不利にならないように)。
 // 止まっている間は、時間の下に「時計ストップ中」の札を出す。
+// 波の始まりには、時間の右に「◀5人ぶんの時間」の札を少しの間出す(時間が1人ずつではなく、全員で分けるものだと分かるように)。
 // 上の右:音と中断のボタン(ほかの画面と同じ位置)。その下(ステージ2だけ)に、その波で見た人の小物の色の札。
 // 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts。ステージ4にはない)。
 // ステージ3の宇宙人(person.glitch がある人)は、その人が出てから進んだ時計の秒数で、ときどき動きがくずれる
@@ -28,7 +29,7 @@ import {
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
-  addPanel, banner, flash, gotoWhenFree, panelRect, shake, waitMs
+  addPanel, banner, blink, flash, gotoWhenFree, panelRect, shake, waitMs
 } from '../ui';
 import {
   BLUE, BLUE_LIGHT, RED, Z, addMute, devHook, drawLightPool, drawStageBg, edgeGlow, spotlightDim, unlockOnTap
@@ -55,6 +56,10 @@ const REMARK_CPS = 60;
 /** 「持ち物」の窓の左上。人(右の端は x=138 くらい)と、右の端の「▶市民」(x=199から)の間 */
 const ZOOM_X = 140;
 const ZOOM_Y = 90;
+/** 「◀5人ぶんの時間」の札の左上(時間の数字の右。上の「見た小物」と下の「時計ストップ中」の札にかからない所)と、出しておく時間 */
+const SHARE_X = 44;
+const SHARE_Y = 47;
+const SHARE_MS = 4000;
 /** 「見た小物」の左上(左の時間の列の右) */
 const STRIP_X = 72;
 const STRIP_Y = 21;
@@ -374,6 +379,23 @@ export class SortScene extends Phaser.Scene {
     if (this.idx >= this.people.length) { this.finish(); return; }
     this.enter(this.idx, 0);
     if (this.run.waveIndex === 0 && this.idx === 0) this.showGuide();
+    this.showShareTag();
+  }
+
+  /**
+   * 「◀5人ぶんの時間」の札を、時間の数字の右に少しの間出す(波ごと)。初めの0.6秒は点滅させて目を引く
+   * (光と揺れを弱くする設定では点滅させない)。仕分けの時計とは別に、シーンの時計で消す
+   */
+  private showShareTag(): void {
+    const t = new PixelText(this, 4, 2, `◀${this.people.length}人ぶんの時間`, { size: FS.body, color: UIX.stopText });
+    const w = Math.ceil(t.width) + 8, h = Math.ceil(t.height) + 3;
+    const g = new Phaser.GameObjects.Graphics(this);
+    g.fillStyle(UI.black, 1).fillRect(0, 0, w, h);
+    g.fillStyle(UI.gold, 1).fillRect(1, 1, w - 2, h - 2);
+    g.fillStyle(0xfff0b0, 1).fillRect(2, 1, w - 4, 1);
+    const tag = this.add.container(SHARE_X, SHARE_Y, [g, t]).setDepth(1000);
+    if (!settings.reduceFx) blink(tag, 600);
+    this.time.delayedCall(SHARE_MS, () => tag.destroy());
   }
 
   /** 最初の1人だけ、人の上で手が左右にスワイプして見せる(何をすればいいか迷わないように) */

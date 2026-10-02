@@ -12,6 +12,8 @@
 // シャンデリアが天井へ戻るところ(市民のけがも被害額も増えない)、手が止まると¥50万ずつ増えるところ、
 // 戻ってから倒れるまで1.5秒より早くないところ、倒すとシャンパンタワー¥1,000万を足すところを確かめる。
 // nochoice では、何も押さずに3秒たつと客が落ちて(ワルにやられた市民+1)、シャンデリアが落ちる(¥3,000万)ところを確かめる。
+// どの mode でも、始まりのセリフの間に行けのボタンが押せる見た目(灰色でない)で「行けを連打!」と出ているか、
+// 連打が始まると「行け!」に戻るかを見る。rush では、セリフの間に押しても連打に数えないかも見る。
 // idle では、何も押さずに15秒で終わり、選択でも何も押さなかった分(客とシャンデリア)が数えられるかを見る。NG があれば exit code 1。
 // 端末が重くて確かめたい瞬間に間に合わなかったもの(体力が時間で減りきった、など)は SKIP と出す(NG には数えない)。
 import { activeScenes, checker, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad } from './lib.mjs';
@@ -84,8 +86,21 @@ async function mash(n, intervalMs) {
   }
 }
 
+// 始まりのセリフの間の行けのボタン(label は Button の中の字)
+const goLook = () => S(() => { const s = window.bossScene; return { phase: s.phase, en: s.go.isEnabled, label: s.go.label?.text ?? null, taps: s.fight.tapsCounted }; });
+const intro = await goLook();
+if (intro.phase === 'intro') {
+  check('セリフの間も行けは押せる見た目で「行けを連打!」', intro.en && intro.label === '行けを連打!', JSON.stringify(intro));
+  if (mode === 'rush') {
+    await pad.tap(btn.x + btn.w / 2, btn.y + btn.h / 2);
+    await wait(100);
+    const after = await goLook();
+    check('セリフの間に押しても連打に数えない', after.phase !== 'intro' || after.taps === 0, JSON.stringify(after));
+  }
+} else skip('セリフの間の行けのボタン', `もう ${intro.phase}`);
 await page.waitForFunction(() => window.bossScene.phase === 'fight', null, { timeout: 15000 });
 check('連打が始まる', true);
+check('連打が始まると「行け!」に戻る', (await goLook()).label === '行け!');
 await wait(150);
 await shot('03_mash_start');
 

@@ -9,11 +9,12 @@
 //     h=844               画面の高さ(既定844)
 //     full                fullPage で撮る(ページ全体。開発用のページなど、画面をはみ出すものを撮るとき)
 //     sheet               撮ったものを横に並べた1枚 <出力の頭>.png も作る
+//     lesson              結果発表で待てと行けを止めて教える場面を出す(書かなければ、教えたことにしてとばす。lib.mjs の skipLessons)
 // 撮ったものは <出力の頭>00.png、<出力の頭>01.png …。1枚ごとに、動いているシーンと数字(撃破、負傷、被害額など)を出す。
 // 例: node tools/timeshots.mjs "http://localhost:5173/?scene=Street&wave=1&sorts=random&seed=1" /tmp/s 1000,3000 press=stop dpr=2
 //     node tools/timeshots.mjs "http://localhost:5173/?scene=Sort&stage=garage" /tmp/sort 2500+150x3 sheet
 //     node tools/timeshots.mjs "http://localhost:5173/dev/ui.html?page=text" /tmp/a 2500 w=390 h=844 dpr=3 full
-import { activeScenes, contactSheet, openBrowser, openPage, waitForGame } from './lib.mjs';
+import { activeScenes, contactSheet, openBrowser, openPage, skipLessons, waitForGame } from './lib.mjs';
 
 const [url, prefix, times = '2000', ...rest] = process.argv.slice(2);
 if (!url || !prefix) { console.error('usage: node tools/timeshots.mjs <url> <outPrefix> <times> [press=stop|go|both] [dpr=N] [w=N] [h=N] [full] [sheet]'); process.exit(2); }
@@ -27,6 +28,7 @@ const list = at ? Array.from({ length: Number(at[3]) }, (_, i) => Number(at[1]) 
 const browser = await openBrowser();
 const page = await openPage(browser, { width: w, height: h, dpr: Number(opt.dpr ?? 1) });
 page.on('console', (m) => { if (m.text().startsWith('[shots]')) console.log(m.text()); });
+if (!opt.lesson) await skipLessons(page);
 await page.goto(url);
 // 開発用のページのうち、絵、文字、音のページにはゲームがないので、読みこみが終わるのだけ待つ
 if (/\/dev\/(?!ui\.html)/.test(new URL(url).pathname)) await page.waitForLoadState('load');

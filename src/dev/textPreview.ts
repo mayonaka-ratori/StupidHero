@@ -15,6 +15,7 @@ import Phaser from 'phaser';
 import { UI } from '../config';
 import { allTexts } from '../logic/content';
 import { FREE_ITEMS } from '../logic/freeNames';
+import { allLessonTexts } from '../logic/lesson';
 import { freeShareTexts, heroAccuracyText, ruleQuote } from '../logic/share';
 import type { FreeRule } from '../logic/types';
 import { FS, PixelText, preloadFont, stripMarkup } from '../ui';
@@ -59,7 +60,8 @@ const freeTexts = [
   ...freeShareTexts().filter((t) => !t.endsWith('』で') && !t.includes('ヒーローだけなら人')), ...freeRules.map(ruleQuote),
   heroAccuracyText({ heroRight: 10, fixedRight: 25, units: 27 })
 ];
-const contentTexts = [...allTexts(), ...freeTexts];
+// 結果発表で待てと行けを止めて教える文(lesson.ts)も入れる
+const contentTexts = [...allTexts(), ...freeTexts, ...allLessonTexts()];
 const all: { from: string; text: string }[] = [
   ...contentTexts.map((text) => ({ from: 'content', text })),
   ...sceneTexts.map((t) => ({ from: t.file, text: t.text }))
