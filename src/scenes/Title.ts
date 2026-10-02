@@ -2,7 +2,8 @@
 // 「タップしてスタート」のタップで音を鳴らし始め、ステージを選ぶ画面(StageSelect)へ。
 // まだどのステージも遊んだことがない人は、ステージを選ぶ画面をとばして、すぐ路地裏の掛け合い(Intro)へ。
 // ロゴの下に、遊び方をひとことで言う帯(タグライン)を出す。
-// 称号の数は全部のステージを合わせた数(称号5/17)。
+// 称号の数は全部のステージとフリープレイを合わせた数(称号5/24)。その数をタップすると称号の一覧(TitleList)を開く
+// (この画面は眠らせておき、もどるで起こす。数のまわりに枠と▶を足して、押せることを示す)。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -11,8 +12,9 @@ import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import { purgePersonSheets } from '../art/recolor';
 import { hasAnyRecord, loadRecords, randomSeed, TITLE_COUNT } from '../logic';
+import { openTitleList } from './TitleList';
 import { startRun } from '../run';
-import { FS, PixelText, ditherTexture, flash, gotoWhenFree, shake, spawnFx } from '../ui';
+import { DEPTH, FS, PixelText, ditherTexture, flash, gotoWhenFree, shake, spawnFx } from '../ui';
 import { Z, addMute, devHook, drawStageBg, drawLightPool, flicker } from './sort/common';
 import { entrySceneFor } from './Intro';
 
@@ -114,15 +116,44 @@ export class TitleScene extends Phaser.Scene {
 
     // 音のボタン(スタートのタップとは別)
     const mute = addMute(this, W - 13, 13);
+    // 称号の数のボタン(数の字は上で出した。そのまわりに枠と▶、押せる所を足す)
+    const listHit = this.titleListButton(`称号{gold}${got}{/}/${TITLE_COUNT}`, mid + 30);
 
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       audio.unlock();
       if (over.some((o) => o.parentContainer === mute)) return;
+      if (over.includes(listHit)) {
+        if (this.started) return;
+        audio.sfx('button');
+        openTitleList(this);
+        return;
+      }
       this.begin();
     });
     this.input.keyboard?.on('keydown-SPACE', () => { audio.unlock(); this.begin(); });
     this.input.keyboard?.on('keydown-ENTER', () => { audio.unlock(); this.begin(); });
     devHook(this, { begin: () => this.begin() });
+  }
+
+  /**
+   * 称号の数(text。真ん中寄せで y に出してある)を、押せるボタンに見せる。字のまわりに枠、右に▶を描き、押せる所を返す
+   */
+  private titleListButton(text: string, y: number): Phaser.GameObjects.Zone {
+    const { W } = layout;
+    const probe = new PixelText(this, 0, 0, text, { size: FS.body });
+    const tw = Math.ceil(probe.width);
+    probe.destroy();
+    const x0 = Math.round(W / 2 - tw / 2) - 6, x1 = Math.round(W / 2 + tw / 2) + 15;
+    const y0 = y - 3, y1 = y + 15;
+    const g = this.add.graphics().setDepth(DEPTH.panel + 50);
+    g.fillStyle(UI.black, 1).fillRect(x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2);
+    g.fillStyle(0x6a6488, 1).fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle(UI.panel, 1).fillRect(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2);
+    // 右の▶
+    g.fillStyle(UI.gold, 1);
+    for (let i = 0; i < 4; i++) g.fillRect(x1 - 9 + i, y + 2 + i, 1, 8 - i * 2);
+    // 指で押しやすいように、上下左右に少し広く
+    return this.add.zone(x0 - 4, y0 - 4, x1 - x0 + 8, y1 - y0 + 8).setOrigin(0).setInteractive();
   }
 
   /** ロゴの下の帯(上下に金の線、暗くした帯に2行) */

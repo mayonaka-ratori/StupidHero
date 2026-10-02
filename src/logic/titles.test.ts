@@ -33,9 +33,10 @@ describe('称号', () => {
   });
 
   it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
-    const s = base({ damage: 50_000_000, bossSortedCiv: true, grannyHit: true, grannyPunched: true, allDefeated: true, civHurt: 3, civHurtByHero: 3, defeated: 9 });
+    // 路地裏の歩く解体工事は¥1,500万以上
+    const s = base({ damage: 15_000_000, bossSortedCiv: true, grannyHit: true, grannyPunched: true, allDefeated: true, civHurt: 3, civHurtByHero: 3, defeated: 9 });
     expect(decideTitle(s).id).toBe('demolition');
-    expect(decideTitle({ ...s, damage: 49_990_000 }).id).toBe('bossBuddy');
+    expect(decideTitle({ ...s, damage: 14_990_000 }).id).toBe('bossBuddy');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false, grannyHit: false, grannyPunched: false }).id).toBe('runawayTrain');
   });
@@ -99,7 +100,7 @@ describe('称号の市民のけがの数え方', () => {
     const ufo = base({ stageId: 'mall', civHurt: 1, civHurtByHero: 0, civHurtByAbduction: 1, escaped: 3, escapedByUfo: 1 });
     expect(decideTitle(ufo).id).toBe('soSo');
     expect(decideTitle({ ...ufo, escaped: 4 }).id).toBe('tooKind');
-    expect(titleById('tooKind').hint).toBe('市民をなぐらず3人逃がす');
+    expect(titleById('tooKind').hint).toBe('市民をなぐらず、待てでワルを3人見のがす');
   });
 
   it('どの称号にも、条件とヒントの文がある', () => {
@@ -209,7 +210,7 @@ describe('称号(ステージ4)', () => {
     expect(ids.indexOf('sofaMaster')).toBe(ids.indexOf('ufoHunter') + 1);
     expect(titleById('topHero').hint).toBe('最後のボスを倒す');
     expect(titleById('furnitureGuide').hint).toBe('念力で市民が2人けがをする');
-    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人も間違えない');
+    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人もまちがえない');
     expect(titleById('sofaMaster').hint).toBe('ソファの上に2回落とす');
     for (const id of TOWER_ONLY) {
       expect(titleById(id).stages).toEqual(['tower']);

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markEndingSeen,
-  markIntroSeen, markRushSeen, needsEnding,
-  needsIntro, saveResult, stageSelectInfo, type RecordStorage
+  markIntroSeen, markRushSeen, markTitleListSeen, needsEnding,
+  needsIntro, saveFreeResult, saveResult, stageSelectInfo, unseenTitles, type RecordStorage
 } from './records';
 import { MemStorage, makeStats } from './testHelpers';
 import type { StageStats } from './types';
@@ -60,7 +60,7 @@ describe('records', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
     expect(loadRecords(st)).toEqual({
-      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false
+      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false, listSeen: []
     });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
@@ -272,5 +272,73 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     const old = new MemStorage();
     old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [] }));
     expect(loadRecords(old).endingSeen).toBe(false);
+  });
+
+  it('1回のプレイの称号を全部残す。初めて取った称号と、このステージで初めての称号を返す', () => {
+    const st = new MemStorage();
+    const a = saveResult('alley', stats(), ['flawless', 'realHero', 'tapProdigy'], st);
+    expect(a.titles).toEqual(['flawless', 'realHero', 'tapProdigy']);
+    expect(a.titleIsNew).toBe(true);
+    expect(a.newTitles).toEqual(['flawless', 'realHero', 'tapProdigy']);
+    expect(a.newHere).toEqual(['flawless', 'realHero', 'tapProdigy']);
+    expect(a.stage.titles).toEqual(['flawless', 'realHero', 'tapProdigy']);
+    expect(a.titlesCollected).toBe(3);
+    expect(a.stageTitlesCollected).toBe(3);
+    // 地下駐車場で同じ称号を取ると、全体では新しくないが、このステージでは初めて
+    const b = saveResult('garage', stats(), ['realHero', 'roundUp', 'realHero'], st);
+    expect(b.titles).toEqual(['realHero', 'roundUp']);
+    expect(b.titleIsNew).toBe(false);
+    expect(b.newTitles).toEqual(['roundUp']);
+    expect(b.newHere).toEqual(['realHero', 'roundUp']);
+    expect(b.titlesCollected).toBe(4);
+    expect(b.stageTitlesCollected).toBe(2);
+    expect(stageSelectInfo(loadRecords(st)).map((e) => e.titlesCollected)).toEqual([3, 2, 0, 0]);
+    // 1つだけ渡す前からの書き方も使える
+    const c = saveResult('alley', stats(), 'soSo', st);
+    expect(c.titles).toEqual(['soSo']);
+    expect(c.newHere).toEqual(['soSo']);
+  });
+
+  it('フリープレイも1回の称号を全部残す(ステージの称号の数には入れない)', () => {
+    const st = new MemStorage();
+    saveResult('alley', stats(), ['stopMaster'], st);
+    const free = makeStats({ civHurt: 0, civHurtByHero: 0 });
+    const f = saveFreeResult(free, ['heroSitter', 'heroInterpreter', 'stopMaster'], st);
+    expect(f.titles).toEqual(['heroSitter', 'heroInterpreter', 'stopMaster']);
+    expect(f.newTitles).toEqual(['heroSitter', 'heroInterpreter']);
+    expect(f.newHere).toEqual(['heroSitter', 'heroInterpreter', 'stopMaster']);
+    expect(f.free.titles).toEqual(['heroSitter', 'heroInterpreter', 'stopMaster']);
+    expect(f.titlesCollected).toBe(3);
+    expect(loadRecords(st).stages.alley?.titles).toEqual(['stopMaster']);
+  });
+
+  it('称号の一覧で見た称号:前からの記録(listSeen がない)は全部見たことにする。開いたあとに取った称号だけ NEW', () => {
+    const old = new MemStorage();
+    old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 2, clears: 1, titles: ['soSo', 'stopMaster'] } }, titles: ['soSo', 'stopMaster'] }));
+    const r = loadRecords(old);
+    expect(r.titles).toEqual(['soSo', 'stopMaster']);
+    expect(r.listSeen).toEqual(['soSo', 'stopMaster']);
+    expect(unseenTitles(r)).toEqual([]);
+    // 新しく取った称号は NEW。一覧を開いたら見たことにする
+    saveResult('alley', stats(), ['tapProdigy', 'stopMaster'], old);
+    expect(unseenTitles(loadRecords(old))).toEqual(['tapProdigy']);
+    markTitleListSeen(old);
+    expect(unseenTitles(loadRecords(old))).toEqual([]);
+    expect(loadRecords(old).listSeen).toEqual(['soSo', 'stopMaster', 'tapProdigy']);
+    // ステージ1だけの公開版(v1)の記録も、全部見たことにして読む
+    const v1 = new MemStorage();
+    v1.setItem(LEGACY_RECORDS_KEY, JSON.stringify({ version: 1, stages: { alley: { plays: 1 } }, titles: ['grannyFoe'] }));
+    expect(unseenTitles(loadRecords(v1))).toEqual([]);
+    // 知らない称号は捨てる
+    const bad = new MemStorage();
+    bad.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: ['soSo'], listSeen: ['hack', 'soSo', 3] }));
+    expect(loadRecords(bad).listSeen).toEqual(['soSo']);
+  });
+
+  it('称号の一覧で見たことを、localStorage が使えなくても、その場では覚えている', () => {
+    saveResult('alley', stats(), ['flawless'], broken);
+    expect(unseenTitles(loadRecords(broken))).toEqual(['flawless']);
+    expect(() => markTitleListSeen(broken)).not.toThrow();
+    expect(unseenTitles(loadRecords(broken))).toEqual([]);
   });
 });
