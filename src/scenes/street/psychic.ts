@@ -21,7 +21,7 @@ import {
 import { layout } from '../../layout';
 import { currentWave } from '../../run';
 import { settings } from '../../settings';
-import { hitStop, impact, shake, waitMs } from '../../ui';
+import { fxNow, hitStop, impact, shake, waitMs } from '../../ui';
 import { Actor } from './actor';
 import { PSY_ROWS, type PsySpot } from './plan';
 import { PARTY_FOOD_FRAMES, TOWER_ITEM_FRAMES } from '../../art/towerSpots';
@@ -220,7 +220,7 @@ export class PsyPart {
       u.y = u.restY + (PSY_ROWS.hover - u.restY) * e;
     } else if (c.phase === 'carry') {
       u.x = psyCarryX(u.plan, p);
-      u.y = PSY_ROWS.hover + (reduce ? 0 : Math.round(Math.sin(this.s.time.now / 160) * 1.5));
+      u.y = PSY_ROWS.hover + (reduce ? 0 : Math.round(Math.sin(fxNow(this.s) / 160) * 1.5));
       // 市民に落ちる場面の写真を、運ぶ時間の終わりのほうで先に撮っておく(落ちたときだけ使う)
       if (!u.shot && c.photoDue) this.shootDrop(u);
     } else if (c.phase === 'fall') {
@@ -634,16 +634,16 @@ export class PsyPart {
     const phase = Phaser.Math.FloatBetween(0, Math.PI * 2);
     const o = { up: 0 };
     let sparkMs = 0;
-    let last = this.s.time.now;
+    let last = fxNow(this.s);
     const place = (): void => {
       if (!sp.active) return;
-      const bob = reduce ? 0 : Math.sin(this.s.time.now / 220 + phase) * 1.5 * o.up;
+      const bob = reduce ? 0 : Math.sin(fxNow(this.s) / 220 + phase) * 1.5 * o.up;
       const y = Math.round(y0 - rise * o.up + bob);
       sp.setPosition(x, y);
       line.setPosition(x, y + 1);
       haze.setPosition(x, Math.round(y - hazeDy));
       // 火花は物のまわりを移る(光と揺れを弱くするときは、物の左上に止めておく)
-      const now = this.s.time.now;
+      const now = fxNow(this.s);
       sparkMs -= now - last;
       last = now;
       if (reduce) spark.setPosition(Math.round(x - sp.width * 0.45), Math.round(y - sp.height * 0.7));

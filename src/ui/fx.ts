@@ -12,6 +12,9 @@
 //   tapSpark(this, x, y);                // (x, y)に小さな火花を出す
 //   spawnFx(this, 'fx_hit', x, y, { depth: 700 });   // エフェクトの絵を1回流して消す
 //   await waitMs(this, 300);             // シーンの時計で0.3秒待つ(一時停止やヒットストップの間は止まる)
+//   setSceneSpeed(this, 2);              // シーンのふだんの速さ(早送り)。ヒットストップや止めが終わると、この速さに戻る
+//   holdScene(this); releaseScene(this); // 押すまで止めておく(待てと行けを止めて教える間)。ヒットストップと重なってもよい
+//   fxNow(this)                          // 止めていた間を数えない時刻(ミリ秒)。止めている間も動いて見えては困る絵に使う
 // 設定の「光と揺れを弱くする」(settings.reduceFx)がオンのときは、flash は何もせず、shake は1ドットまで
 // (小さい揺れは出さない)、jolt は半分の揺れにする。hitStop はそのまま。
 // 画面全体を光らせたり揺らしたりするときは、カメラを直接さわらず、必ずここの flash / shake / impact を使う。
@@ -122,7 +125,7 @@ export function jolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Imag
   // 光と揺れを弱くする設定では半分の揺れ
   if (settings.reduceFx) px = Math.max(1, Math.round(px / 2));
   const cur = jolting.get(target);
-  const until = scene.time.now + ms;
+  const until = fxNow(scene) + ms;
   if (cur) { cur.until = Math.max(cur.until, until); cur.px = Math.max(cur.px, px); return; }
   const st = { until, px, dx: 0, dy: 0, n: 0 };
   jolting.set(target, st);
@@ -133,7 +136,9 @@ export function jolt(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Imag
   };
   const onUpdate = (): void => {
     if (!target.active) { stop(); return; }
-    if (scene.time.now >= st.until) { apply(0, 0); stop(); return; }
+    // 押すまで止めている間は、揺れもそのまま止める
+    if (isHeld(scene)) return;
+    if (fxNow(scene) >= st.until) { apply(0, 0); stop(); return; }
     st.n++;
     // 左右に交互にずらす(上下は少しだけ)
     const dx = (st.n % 2 === 0 ? 1 : -1) * st.px;
@@ -163,10 +168,92 @@ const jolting = new WeakMap<object, { until: number; px: number; dx: number; dy:
 
 const frozen = new WeakMap<Phaser.Scene, { until: number; anims: Phaser.GameObjects.Sprite[]; timer: number }>();
 
+/**
+ * 押すまで止めておく(holdScene)の数と、止め始めた時刻と、それまでに止めていた時間の合計(どれもシーンの時計の now で数える)。
+ * シーンの時計の now は、速さを0にしても本当の時間で進むので、止めていた間を引いた時刻を fxNow で出す
+ */
+const holds = new WeakMap<Phaser.Scene, { count: number; since: number; total: number }>();
+/** シーンのふだんの速さ(setSceneSpeed で決める。決めていなければ1) */
+const speeds = new WeakMap<Phaser.Scene, number>();
+
 const cleanupSet = new WeakSet<Phaser.Scene>();
 
 /** 止まっている最中か(hitStop の間) */
 export const isFrozen = (scene: Phaser.Scene): boolean => frozen.has(scene);
+
+/** 押すまで止めている最中か(holdScene の間) */
+export const isHeld = (scene: Phaser.Scene): boolean => (holds.get(scene)?.count ?? 0) > 0;
+
+/** シーンが終わるときに、止めたままにしない(シーンは作り直しても同じものを使うので、覚えていることも消す) */
+function cleanupOnShutdown(scene: Phaser.Scene): void {
+  if (cleanupSet.has(scene)) return;
+  cleanupSet.add(scene);
+  scene.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+    const f = frozen.get(scene);
+    if (f) clearTimeout(f.timer);
+    frozen.delete(scene);
+    holds.delete(scene);
+    speeds.delete(scene);
+    scene.time.timeScale = 1;
+    scene.tweens.timeScale = 1;
+  });
+}
+
+/**
+ * 時計、動き(tween)、アニメの速さを、いまの状態に合わせる。ヒットストップか押すまでの止めの間は0、そうでなければふだんの速さ。
+ * アニメの速さはゲーム全体の設定なので、止めたか、ふだんの速さを決めたシーンだけがさわる
+ * (ヒットストップは、動いていたアニメを1つずつ止めるので、アニメの速さは変えない)
+ */
+function applyScale(scene: Phaser.Scene): void {
+  if (!scene.sys || !scene.time || !scene.tweens) return;
+  const held = isHeld(scene);
+  const base = speeds.get(scene) ?? 1;
+  const sp = held || frozen.has(scene) ? 0 : base;
+  if (scene.time.timeScale !== sp) scene.time.timeScale = sp;
+  if (scene.tweens.timeScale !== sp) scene.tweens.timeScale = sp;
+  if (held || speeds.has(scene)) {
+    const a = held ? 0 : base;
+    if (scene.anims.globalTimeScale !== a) scene.anims.globalTimeScale = a;
+  }
+}
+
+/** シーンのふだんの速さ(早送りなら2)を決める。ヒットストップや押すまでの止めの間は、終わってからこの速さになる */
+export function setSceneSpeed(scene: Phaser.Scene, speed: number): void {
+  cleanupOnShutdown(scene);
+  speeds.set(scene, speed);
+  applyScale(scene);
+}
+
+/**
+ * 押すまで止めておく(待てと行けを止めて教える間)。時計、動き、アニメを止め、揺れているカメラも止める。
+ * releaseScene を同じ数だけ呼ぶまで止めたまま。ヒットストップが途中で終わっても止めたまま
+ */
+export function holdScene(scene: Phaser.Scene): void {
+  cleanupOnShutdown(scene);
+  const h = holds.get(scene) ?? { count: 0, since: 0, total: 0 };
+  if (h.count === 0) h.since = scene.time.now;
+  h.count++;
+  holds.set(scene, h);
+  for (const cam of scene.cameras.cameras) cam.shakeEffect.reset();
+  applyScale(scene);
+}
+
+/** holdScene で止めたのを1つ戻す。全部戻して、ヒットストップの最中でもなければ、ふだんの速さで動き出す */
+export function releaseScene(scene: Phaser.Scene): void {
+  const h = holds.get(scene);
+  if (!h || h.count === 0) return;
+  h.count--;
+  if (h.count === 0) h.total += scene.time.now - h.since;
+  applyScale(scene);
+}
+
+/** 押すまで止めていた間を数えない、シーンの時刻(ミリ秒)。止めている間は進まない */
+export function fxNow(scene: Phaser.Scene): number {
+  const now = scene.time.now;
+  const h = holds.get(scene);
+  if (!h) return now;
+  return now - h.total - (h.count > 0 ? now - h.since : 0);
+}
 
 /** ほんの少しの間、時計、動き(tween)、アニメを止める。タップは受け付けたまま */
 export function hitStop(scene: Phaser.Scene, ms = 80): void {
@@ -189,16 +276,7 @@ export function hitStop(scene: Phaser.Scene, ms = 80): void {
   scene.tweens.timeScale = 0;
   const timer = window.setTimeout(() => unfreeze(scene), ms);
   frozen.set(scene, { until: performance.now() + ms, anims, timer });
-  if (!cleanupSet.has(scene)) {
-    cleanupSet.add(scene);
-    scene.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
-      const f = frozen.get(scene);
-      if (f) clearTimeout(f.timer);
-      frozen.delete(scene);
-      scene.time.timeScale = 1;
-      scene.tweens.timeScale = 1;
-    });
-  }
+  cleanupOnShutdown(scene);
 }
 
 function unfreeze(scene: Phaser.Scene): void {
@@ -206,9 +284,9 @@ function unfreeze(scene: Phaser.Scene): void {
   if (!f) return;
   frozen.delete(scene);
   // 一時停止中(画面が隠れたときなど)でも必ず戻す。戻さないと再開したあとも止まったままになる
+  // 速さは、ふだんの速さ(早送りなら2)に戻す。押すまでの止め(holdScene)の最中なら止めたまま
   if (!scene.sys) return;
-  if (scene.time) scene.time.timeScale = 1;
-  if (scene.tweens) scene.tweens.timeScale = 1;
+  applyScale(scene);
   for (const s of f.anims) if (s.active) s.anims.resume();
 }
 
@@ -222,12 +300,13 @@ export function impact(scene: Phaser.Scene, power: 'small' | 'big' | 'huge' = 'b
 /** 1コマおきに点滅させる。終わると見える状態に戻る */
 export function blink(target: Phaser.GameObjects.GameObject & { setVisible(v: boolean): unknown }, ms = 600): void {
   const scene = target.scene;
-  const end = scene.time.now + ms;
+  const end = fxNow(scene) + ms;
   let n = 0;
   const onUpdate = (): void => {
     if (!target.active) { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); return; }
+    if (isHeld(scene)) return;
     n++;
-    if (scene.time.now >= end) { target.setVisible(true); scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); return; }
+    if (fxNow(scene) >= end) { target.setVisible(true); scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); return; }
     target.setVisible(n % 2 === 0);
   };
   scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
@@ -245,11 +324,12 @@ export function popText(scene: Phaser.Scene, x: number, y: number, text: string,
   const y0 = Math.round(y);
   const hop = [-3, -5, -4, -3];
   let n = 0;
-  const start = scene.time.now;
+  const start = fxNow(scene);
   const onUpdate = (): void => {
     if (!t.active) { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); return; }
+    if (isHeld(scene)) return;
     n++;
-    const p = (scene.time.now - start) / ms;
+    const p = (fxNow(scene) - start) / ms;
     if (p >= 1) { scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate); t.destroy(); return; }
     const dy = n < hop.length ? hop[n] : -3 - Math.round((rise - 3) * p);
     t.y = y0 + dy;
@@ -288,12 +368,12 @@ export function banner(scene: Phaser.Scene, text: string, opt: BannerOptions = {
   });
 }
 
-/** 画面の左右の端を赤く点滅させる(残り時間が少ないときなど) */
+/** 画面の左右の端を赤く点滅させる(残り時間が少ないときなど)。押すまで止めている間(holdScene)は点滅も止まる */
 export class EdgeAlarm {
   private g: Phaser.GameObjects.Graphics;
   private on = false;
   private n = 0;
-  constructor(scene: Phaser.Scene, private top = 0, private bottom = layout.actionH, private color: number = UI.bad) {
+  constructor(private scene: Phaser.Scene, private top = 0, private bottom = layout.actionH, private color: number = UI.bad) {
     this.g = scene.add.graphics().setDepth(DEPTH.fx).setScrollFactor(0).setVisible(false);
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.events.off(Phaser.Scenes.Events.UPDATE, this.tick, this));
@@ -305,7 +385,8 @@ export class EdgeAlarm {
   hideNow(): void { this.g.setVisible(false); }
 
   private tick(): void {
-    if (!this.on) return;
+    // 押すまで止めている間は、点滅もそのときの見た目で止める
+    if (!this.on || isHeld(this.scene)) return;
     this.n++;
     const lit = Math.floor(this.n / 10) % 2 === 0;
     this.g.setVisible(lit);

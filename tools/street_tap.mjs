@@ -4,8 +4,10 @@
 // サーバーと出力フォルダは、省くか - にすると http://localhost:5173/ と shots/(例 node tools/street_tap.mjs - - mall)
 // alley :中断と再開、早送り(▶▶。合図の間はふつうの速さ)、待て(市民をワルに仕分けた人)、行け(見逃したワルへの追い打ち)。
 //         そのあと、記録が空の端末で、待てと行けを止めて教える場面を試す(止まっている間は時計も動きも進まない、
-//         ほかのボタンやタップでは進まない、8秒で押す所を言う一言に替わる、教えたボタンで元に戻ってふつうに効く、
-//         記録に残り、読みこみ直すと2回目は出ない)
+//         画面の端の点滅も止まる、ほかのボタンやタップでは進まない、早送りと音のボタンも効かない、
+//         ヒットストップが重なっても止めたまま、8秒で押す所を言う一言に替わる、教えたボタンで元に戻ってふつうに効く
+//         (ヒットストップの最中に押したら、それが終わってから動き出す)、記録に残り、読みこみ直すと
+//         市民に待てのマークが出ても2回目は出ない)
 // どのステージも、待てと行けを止めて教える場面は、上の alley の最後のほかは、教えたことにしてとばす(lib.mjs の skipLessons)
 // garage:中断と再開、見逃したギャングが仲間を呼んで集まったところで行け(まとめて吹き飛ばす)、
 //         ワゴンに乗りこんだところで行け(車ごと止める)
@@ -74,6 +76,34 @@ async function lessonCheck() {
     check('止めたときの一言', a.cut.includes('待て'), a.cut);
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${outDir}/${stage}_lesson_stop.png` });
+    // 画面の端の点滅も止まっている(点滅の数が進まない)
+    const alarm = () => S(page, () => { const al = window.streetDev.stopAlarm; return { n: al.n, on: al.on, vis: al.g.visible }; });
+    const al0 = await alarm();
+    await page.waitForTimeout(900);
+    const al1 = await alarm();
+    check('止めている間は画面の端の点滅も止まる', al0.on && al0.n === al1.n && al0.vis === al1.vis, `${JSON.stringify(al0)}→${JSON.stringify(al1)}`);
+    await page.screenshot({ path: `${outDir}/${stage}_lesson_stop_alarm.png` });
+    // 早送りと音のボタンは、止めている間は押しても何も変わらない
+    const icons = () => S(page, () => { const d = window.streetDev; return { fast: d.fastBtn.fo.isOn(), muted: d.muteBtn.mo.isMuted() }; });
+    const ic0 = await icons();
+    await pad.tap(160, 12);
+    await pad.tap(182, 12);
+    await page.waitForTimeout(200);
+    const ic1 = await icons();
+    check('止めている間は早送りと音のボタンが効かない', ic0.fast === ic1.fast && ic0.muted === ic1.muted, `${JSON.stringify(ic0)}→${JSON.stringify(ic1)}`);
+    // ヒットストップが重なって先に終わっても、止めたまま(シーンの時計が1コマも進まない)。
+    // fx.ts は、ゲームが読みこんだのと同じもの(開発用のサーバーは、書きかえたファイルの URL に ?t= を付ける)を使う
+    await S(page, async () => {
+      window.__fx = () => import(performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\/src\/ui\/fx\.ts(\?|$)/.test(n)) ?? '/src/ui/fx.ts');
+      const fx = await window.__fx();
+      const d = window.streetDev;
+      window.__tick = false;
+      d.time.delayedCall(1, () => { window.__tick = true; });
+      fx.hitStop(d, 120);
+    });
+    await page.waitForTimeout(500);
+    const hs = await S(page, () => ({ tick: window.__tick, time: window.streetDev.time.timeScale, lesson: !!window.streetDev.lesson }));
+    check('ヒットストップが終わっても止めたまま', !hs.tick && hs.time === 0 && hs.lesson, JSON.stringify(hs));
     const before = await stats(page);
     // 行けのボタンとアクション部分をタップしても進まない
     const g = await btn(page, 'goBtn');
@@ -89,20 +119,39 @@ async function lessonCheck() {
     check('8秒押さないと、押す所を言う一言に替わる', c.cut.includes('ボタン'), c.cut);
     await page.screenshot({ path: `${outDir}/${stage}_lesson_stop_hint.png` });
     const s = await btn(page, 'stopBtn');
+    // ヒットストップの最中に待てを押すと、教える場面は終わるが、ヒットストップが終わるまでは止まったまま
+    await S(page, async () => { const fx = await window.__fx(); fx.hitStop(window.streetDev, 700); });
     await pad.tap(s.x, s.y);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(150);
+    const mid = await lessonState(page);
+    check('ヒットストップの最中に押すと、それが終わるまでは止まったまま', mid.kind === null && mid.time === 0, JSON.stringify(mid));
+    await page.waitForTimeout(800);
     const d = await lessonState(page);
     const after = await stats(page);
     check('待てを押すと元に戻る', d.kind === null && d.time !== 0, JSON.stringify(d));
     check('待てがふつうに効く(数える)', after.civSavedByStop === before.civSavedByStop + 1, `${before.civSavedByStop}→${after.civSavedByStop}`);
     check('待てを教えたことが記録に残る', (d.seen ?? []).includes('stop') && !(d.seen ?? []).includes('go'), JSON.stringify(d.seen));
     await page.screenshot({ path: `${outDir}/${stage}_lesson_stop_after.png` });
-    // 読みこみ直すと、次の市民への待てのマークでは止めない
+    // 読みこみ直すと、次の市民への待てのマークでは止めない。
+    // 最初の待てのマークは本当のワルのこともあるので、市民に待てのマークが出るまで待ち、その間ずっと止めないことを見る
     await page.reload();
     await page.waitForFunction(() => window.streetDev && window.streetDev.goBtn, null, { timeout: 15000 });
-    await page.waitForFunction(() => window.streetDev.stopHandler, null, { timeout: 40000 }).catch(() => null);
+    await S(page, () => {
+      window.__lessonOpened = false;
+      window.__civMarks = 0;
+      let last = null;
+      setInterval(() => {
+        const d = window.streetDev;
+        if (d?.lesson) window.__lessonOpened = true;
+        const a = d?.stopHandler ? d.queue.find((q) => q.civ && q.mark?.texture.key === 'fx_mark_stop') : null;
+        if (a && a !== last) window.__civMarks++;
+        last = a ?? null;
+      }, 30);
+    });
+    const civMark = await page.waitForFunction(() => window.__civMarks > 0, null, { timeout: 40000 }).then(() => true, () => false);
     await page.waitForTimeout(700);
-    check('2回目は止めない', (await lessonState(page)).kind === null);
+    const again = await S(page, () => ({ opened: window.__lessonOpened, civMarks: window.__civMarks }));
+    check('2回目は止めない(市民に待てのマークが出ても)', civMark && !again.opened && (await lessonState(page)).kind === null, JSON.stringify(again));
     await page.close();
   }
   // 行け:全員を市民に仕分けると、見逃したワルが悪さを始めて行けのマークが出る

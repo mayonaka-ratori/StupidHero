@@ -38,7 +38,7 @@ import {
 import { currentWave, fillUnsorted, getRun, nextAfterStreet, type GameRun } from '../run';
 import {
   Bubble, Button, CutIn, EdgeAlarm, FS, IconButton, PauseControl, PixelText, Tag,
-  CurlSmoke, banner, flash, gotoWhenFree, hitStop, impact, isFrozen, popText, shake, spawnFx, waitMs
+  CurlSmoke, banner, flash, fxNow, gotoWhenFree, hitStop, impact, isFrozen, popText, setSceneSpeed, shake, spawnFx, waitMs
 } from '../ui';
 import { addMute, drawStageBg, scrollStageBg, unlockOnTap, type StageBgLayers } from './sort/common';
 import { Actor, HEAD, MARK_DEPTH, MARK_DEPTH_UNDER, type MarkBox } from './street/actor';
@@ -116,8 +116,11 @@ export class StreetScene extends Phaser.Scene {
   free: FreeStreet | null = null;
   /** 待てと行けを止めて教えている間の画面(street/lesson.ts)。教えていないときは null */
   lesson: LessonPause | null = null;
-  /** いまの合図で止めて教えることになっている種類(マークが出てから止めるまでの短い間も入る)。なければ null */
-  lessonDue: LessonKind | null = null;
+  /**
+   * いまの合図で止めて教えることになっている種類(マークが出てから止めるまでの短い間も入る)。
+   * 待てと行けは別々に持つ(両方の合図が重なっても、片方を消さないように)
+   */
+  lessonDue: Record<LessonKind, boolean> = { stop: false, go: false };
   /** 行けの合図が出ている間の、行けを押したときの動き */
   get goHandler(): (() => void) | null { return this.goFn; }
   set goHandler(fn: (() => void) | null) {
@@ -147,6 +150,8 @@ export class StreetScene extends Phaser.Scene {
   goBtn!: Button;
   icons: Phaser.GameObjects.GameObject[] = [];
   fastBtn!: FastButton;
+  /** 音のボタン(止めて教えている間は押せなくする) */
+  muteBtn?: Phaser.GameObjects.Container;
   private tDefeat!: PixelText;
   private tHurt!: PixelText;
   private tDamage!: PixelText;
@@ -172,7 +177,7 @@ export class StreetScene extends Phaser.Scene {
     this.stats = this.run.stats;
     this.rng = this.run.rng;
     this.holdMs = 0;
-    this.lesson = null; this.lessonDue = null;
+    this.lesson = null; this.lessonDue = { stop: false, go: false };
     // フリープレイの「もう一回」は掛け合い(Intro)を通らないので、波1の始めに前の回の人の塗り替えたシートを消す
     if (this.run.mode === 'free' && this.run.waveIndex === 0) purgePersonSheets(this);
     // フリープレイ:背景と置く物は波ごとの背景のステージ。仕分けはヒーローの決めつけ(FreeStreet が入れる)
@@ -297,7 +302,8 @@ export class StreetScene extends Phaser.Scene {
     this.L.inUi(() => {
       const pause = new PauseControl(this);
       this.icons.push(new IconButton(this, W - 12, 12, 'pause', () => pause.pause()));
-      this.icons.push(addMute(this, W - 34, 12));
+      this.muteBtn = addMute(this, W - 34, 12);
+      this.icons.push(this.muteBtn);
       // フリープレイは早送りを使えない(ボタンも出さない)
       if (!this.free) {
         this.fastBtn = new FastButton(this, W - 56, 12, {
@@ -317,12 +323,14 @@ export class StreetScene extends Phaser.Scene {
   // ─── 毎フレーム ───────────────────────────────
 
   override update(_t: number, delta: number): void {
-    this.frameN++;
-    // 待てと行けを止めて教えている間は、ヒットストップと同じに何も進めない(lesson が時計を止め続ける)
+    // 待てと行けを止めて教えている間は、ヒットストップと同じに何も進めない(lesson が時計を止めている)
     // (念のため:教えているボタンの合図がもう終わっていたら、止めたままにしない)
     if (this.lesson && (this.lesson.kind === 'stop' ? this.stopHandler : this.goHandler) === null) {
-      this.lesson.end(); this.lesson = null; this.lessonDue = null;
+      this.lessonDue[this.lesson.kind] = false;
+      this.lesson.end(); this.lesson = null;
     }
+    // 1コマおきの点滅(ヒーローの光など)は、止めて教えている間は進めない(そのときの見た目で止める)
+    if (!this.lesson) this.frameN++;
     this.lesson?.tick(delta);
     const frozen = isFrozen(this) || this.lesson !== null;
     if (!frozen) {
@@ -366,16 +374,15 @@ export class StreetScene extends Phaser.Scene {
 
   /**
    * 早送りの速さを、時計、動き、アニメにかける。待てと行けの合図が出ている間はふつうの速さ。
-   * ヒットストップ(fx.ts)は止めたあと速さを1に戻すので、止まっていないときに毎フレーム合わせ直す
+   * 速さは fx.ts の setSceneSpeed で決めるので、ヒットストップや止めて教える間が終わると、この速さに戻る
    */
   private applySpeed(): void {
     const deciding = this.stopHandler !== null || this.goHandler !== null;
     // タイムセールラッシュの間は早送りを切る(終わったら、覚えている fastOn に戻る)
     const sp = fastOn && !deciding && !this.rushPart.rushOn && !this.free ? FAST : 1;
     this.speed = sp;
-    if (this.time.timeScale !== sp) this.time.timeScale = sp;
-    if (this.tweens.timeScale !== sp) this.tweens.timeScale = sp;
-    if (this.anims.globalTimeScale !== sp) this.anims.globalTimeScale = sp;
+    // ヒットストップや止めて教える間に呼んでも、それが終わってからこの速さになる(fx.ts)
+    setSceneSpeed(this, sp);
   }
 
   private stepWalker(dt: number): void {
@@ -704,9 +711,11 @@ export class StreetScene extends Phaser.Scene {
     this.heroSay(judgeLine(a.person?.disguise ?? a.look, this.rng, a.person), 1600, JUDGE_RISE);
     // そのスマホで初めて市民に待てのマークが出たときは、止めて教える(street/lesson.ts)。
     // そうでなく、その回で初めての合図なら、待ての使い方を言う
+    // 止めて教えるはずが止められなかったとき(帰るところだった、など)は、ふつうの使い方の一言にする
     const teach = lessonDue({ kind: 'stop', enc, free: !!this.free, seen: !needsLesson('stop') });
-    if (this.firstTime('stop') && !teach) this.opSay(this.line('teachStop'));
-    const res = await this.markWindow(a, enc, k, teach);
+    const first = this.firstTime('stop');
+    if (first && !teach) this.opSay(this.line('teachStop'));
+    const res = await this.markWindow(a, enc, k, teach, () => this.opSay(this.line('teachStop')));
     this.markEnd(a);
     if (res === 'stop') { await this.doStop(a); return false; }
     this.heroSay(shout(k, this.rng), 900);
@@ -802,12 +811,20 @@ export class StreetScene extends Phaser.Scene {
 
   /**
    * 少ししてから(LESSON_DELAY_MS)止めて、kind のボタンの使い方を教える。open() が false になっていたら(もう押した、
-   * 合図が終わった)止めない。hole は残す所(相手のまわり)を、止める瞬間に決める
+   * 合図が終わった)止めない。hole は残す所(相手のまわり)を、止める瞬間に決める。
+   * 合図はまだ出ているのに止められないとき(帰るところだった、ほかの種類を教えている)は、fallback で
+   * ふつうの使い方の一言を言う(止めて教えるつもりで言わなかった一言)
    */
-  private dueLesson(kind: LessonKind, open: () => boolean, hole: () => Rect): void {
-    this.lessonDue = kind;
+  private dueLesson(kind: LessonKind, open: () => boolean, hole: () => Rect, fallback: () => void): void {
+    this.lessonDue[kind] = true;
     this.time.delayedCall(LESSON_DELAY_MS, () => {
-      if (this.lessonDue !== kind || !open() || this.leaving || this.lesson) return;
+      if (!this.lessonDue[kind] || !open()) return;
+      if (this.leaving || this.lesson) {
+        this.lessonDue[kind] = false;
+        fallback();
+        this.devLog(`lesson ${kind} skipped`);
+        return;
+      }
       this.lesson = new LessonPause(this, kind, hole());
       this.devLog(`lesson ${kind}`);
     });
@@ -818,10 +835,10 @@ export class StreetScene extends Phaser.Scene {
    * 教えたことを記録に残し、止めていれば元に戻す(止める前に自分で押せたときも、教えたことにする)
    */
   private lessonPressed(kind: LessonKind): void {
-    if (this.lessonDue !== kind) return;
-    this.lessonDue = null;
+    if (!this.lessonDue[kind]) return;
+    this.lessonDue[kind] = false;
     markLessonSeen(kind);
-    if (this.lesson) {
+    if (this.lesson?.kind === kind) {
       this.lesson.end();
       this.lesson = null;
       this.devLog(`lesson ${kind} pressed`);
@@ -844,8 +861,11 @@ export class StreetScene extends Phaser.Scene {
     return unionRect(rs);
   }
 
-  /** teach が true なら、少ししてから止めて待ての使い方を教える(押すまで動かない) */
-  private markWindow(a: Actor, enc: Encounter, k: AttackKind, teach = false): Promise<'stop' | 'attack'> {
+  /**
+   * teach が true なら、少ししてから止めて待ての使い方を教える(押すまで動かない)。
+   * 止められなかったときは fallback(ふつうの使い方の一言)
+   */
+  private markWindow(a: Actor, enc: Encounter, k: AttackKind, teach = false, fallback: () => void = () => {}): Promise<'stop' | 'attack'> {
     return new Promise((resolve) => {
       let done = false;
       let failShown = false;
@@ -853,7 +873,7 @@ export class StreetScene extends Phaser.Scene {
         if (done) return;
         done = true;
         this.stopHandler = null;
-        if (this.lessonDue === 'stop') this.lessonDue = null;
+        this.lessonDue.stop = false;
         // 近づいている途中なら、その歩きを終わったことにする(下の then は done を見て何もしない)
         const w = this.walker;
         this.walker = null;
@@ -865,7 +885,7 @@ export class StreetScene extends Phaser.Scene {
         // ボスには待ては効かない
         if (!failShown) { failShown = true; this.heroSay(this.line('stopFailBoss', this.rng), 900); }
       };
-      if (teach) this.dueLesson('stop', () => !done, () => this.lessonHole(a));
+      if (teach) this.dueLesson('stop', () => !done, () => this.lessonHole(a), fallback);
       void this.runTo(a.x - ATTACK_GAP, { anim: null }).then(() => {
         if (done) return;
         this.windup(k);
@@ -1329,9 +1349,10 @@ export class StreetScene extends Phaser.Scene {
       const timer = this.time.delayedCall(escapeSec * 1000, () => { open = false; this.goHandler = null; resolve('timeout'); });
       const onGo = (): void => { open = false; this.lessonPressed('go'); timer.remove(); this.goHandler = null; resolve('go'); };
       this.goHandler = onGo;
-      if (teach) this.dueLesson('go', () => open && this.goHandler === onGo, () => this.lessonHole(a));
+      // 止められなかったときは、ふつうの行けの使い方の一言(悪さのときに、止めて教えるつもりで言わなかった一言)
+      if (teach) this.dueLesson('go', () => open && this.goHandler === onGo, () => this.lessonHole(a), () => this.opSay(this.line('teachGo')));
     });
-    if (this.lessonDue === 'go') this.lessonDue = null;
+    this.lessonDue.go = false;
     // フリープレイでは、ほかの悪さの行けのマーク(波3のモヒカン)が残っていれば、画面の端の点滅を続ける
     this.stopGoAlarm();
     a.hideMark();
@@ -1399,10 +1420,10 @@ export class StreetScene extends Phaser.Scene {
       colors: smokeColors(this.def.id),
       spread: 22, rate: 110, life: [1.1, 1.9], wind: -10, embers: 0.1, max: 240
     }).stopAfter(ms);
-    const until = this.time.now + ms;
+    const until = fxNow(this) + ms;
     const ev = this.time.addEvent({
       delay: 240, loop: true, callback: () => {
-        if (this.time.now > until || !van.sprite.active) { ev.remove(); fine.stop(); return; }
+        if (fxNow(this) > until || !van.sprite.active) { ev.remove(); fine.stop(); return; }
         const x0 = van.sprite.x + this.rng.int(-30, 20);
         const y0 = van.y - top;
         const d = this.add.sprite(x0, y0, 'fx_dust').setDepth(van.y + 0.5).setTint(0x3a3448);

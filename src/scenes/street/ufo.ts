@@ -12,7 +12,7 @@ import { audio } from '../../audio';
 import { passerSheet } from '../../art/recolor';
 import { animKey, originFor } from '../../art/sheets';
 import { UfoQueue, formatYen, mischiefLine, MALL_PROP_SIZE, type UfoEvent } from '../../logic';
-import { HermiteSparks, hitStop, impact, shake, waitMs } from '../../ui';
+import { HermiteSparks, fxNow, hitStop, impact, shake, waitMs } from '../../ui';
 import { Actor, HEAD } from './actor';
 import { UFO_DX, UFO_HALF, UFO_UNDER_KINDS } from './plan';
 import type { StreetScene } from '../Street';
@@ -114,7 +114,7 @@ export class UfoPart {
     if (c.phase === 'beam') {
       // 買い物客がじわじわ浮いていく。吸い上げる音は0.5秒ごと(続けて鳴らすとつながる)
       const s = u.shopper;
-      if (s?.standing) s.lift = Math.max(0, Math.round(p * 30 + Math.sin(this.s.time.now / 90) * 1.5));
+      if (s?.standing) s.lift = Math.max(0, Math.round(p * 30 + Math.sin(fxNow(this.s) / 90) * 1.5));
       // さらわれる場面の写真は、買い物客が光の中で高く浮いたところで先に撮っておく(さらわれたときだけ使う)
       if (!u.shot && p >= ABDUCT_SHOT_AT) this.shootAbduction(u);
       u.tractorMs -= ms;

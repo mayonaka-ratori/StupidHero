@@ -1,14 +1,17 @@
 // 結果発表(Street)の部品:待てと行けを止めて教える画面(docs/SPEC.md の「待てと行けを止めて教える」)。
 // そのスマホで初めて、市民に待てのマークが出たとき(行けは悪さのワルに行けのマークが出たとき)に、Street が作る。
 //
-// - 止める:シーンの時計、動き(tween)、アニメの速さを0にする(ヒットストップと同じ止め方)。ヒーローの歩きと
-//   ステージの仕組みの時計は、Street の update が lesson を見て進めない。ための時間(WINDUP_MS)も、悪さのワルが
-//   逃げるまでの時間も、止めている間は進まない
+// - 止める:シーンの時計、動き(tween)、アニメの速さを0にする(ui/fx.ts の holdScene。ヒットストップと重なっても、
+//   先に終わったほうが相手の止めを切らない)。ヒーローの歩きとステージの仕組みの時計は、Street の update が lesson を
+//   見て進めない。ための時間(WINDUP_MS)も、悪さのワルが逃げるまでの時間も、止めている間は進まない。
+//   画面の端の点滅、揺れ、飛び出す数字、念力やUFOの物のゆれ、カメラの揺れも止まる(fx.ts の isHeld と fxNow)
+// - 早送りと音のボタンは、止めている間は押しても何もしない(中断のボタンは使える)
 // - 暗くする:相手とヒーロー(マークと吹き出しも)、オペレーターのカットイン、押すボタンの3か所を残して、網目で暗くする。
 //   残す所は金色のふちで囲み、押すボタンの上で指さしの手を上下に動かす(シーンの時計が止まっているので、
 //   動きは update から渡す本当の経過時間で決める)
 // - オペレーターの一言(LESSON_LINES)はすぐに全部出す。8秒押さないと、押す所を言う一言(LESSON_HINTS)に替える
 // - 押すボタンを押すと(合図の stopHandler、goHandler が効くと)、Street が end() を呼んで元に戻し、そのあとはふつうに押したのと同じに進む。
+//   速さは、Street が決めているふだんの速さ(合図の間なので1)に戻る。ヒットストップの最中なら、それが終わってから戻る
 //   ほかの所をタップしても何も起きない(もう片方のボタンは押せない状態のまま)。中断のボタンは使える
 //
 // 使い方(Street の中):
@@ -21,7 +24,7 @@ import { UI } from '../../config';
 import { layout } from '../../layout';
 import { settings } from '../../settings';
 import { LESSON_HINTS, LESSON_HINT_MS, LESSON_LINES, type LessonKind } from '../../logic/lesson';
-import { ditherTexture } from '../../ui';
+import { ditherTexture, holdScene, releaseScene } from '../../ui';
 import { drawHand } from '../sort/introDemo';
 import { coverRects, type Rect } from './lessonLayout';
 import type { StreetScene } from '../Street';
@@ -30,9 +33,22 @@ import type { StreetScene } from '../Street';
 const DIM_DEPTH = 1150;
 /** 残す所のまわりのすき間 */
 const PAD = 2;
+/** 開いた順の番号(開発用の確かめで、同じ場面を2回数えないように使う) */
+let serial = 0;
+
+/** 丸いボタン(IconButton)の当たりの部分の、押せる/押せないを切りかえる */
+function setIconInput(b: Phaser.GameObjects.Container | undefined, on: boolean): void {
+  if (!b?.active) return;
+  for (const c of b.list) {
+    if (!(c instanceof Phaser.GameObjects.Zone) || !c.input) continue;
+    if (on) c.setInteractive(); else c.disableInteractive();
+  }
+}
 
 export class LessonPause {
   readonly kind: LessonKind;
+  /** 開いた順の番号(1から) */
+  readonly id = ++serial;
   /** 止めてからの時間(ミリ秒。中断の間は update が呼ばれないので数えない) */
   shownMs = 0;
   private hinted = false;
@@ -42,6 +58,9 @@ export class LessonPause {
   private handAt = { x: 0, y: 0 };
   /** 残した所(画面の座標。開発用の確かめにも使う) */
   readonly holes: Rect[];
+  /** 止めている間は押せなくした丸いボタン(早送りと音) */
+  private locked: Phaser.GameObjects.Container[] = [];
+  private ended = false;
 
   constructor(private s: StreetScene, kind: LessonKind, target: Rect) {
     this.kind = kind;
@@ -56,7 +75,10 @@ export class LessonPause {
     const top = Math.max(0, t.y);
     const tgt = { x: t.x, y: top, w: t.w, h: Math.min(layout.actionH, t.y + t.h) - top };
     this.holes = [tgt, cutRect, btnRect];
-    this.freeze();
+    holdScene(s);
+    // 早送りと音のボタンは押せなくする(暗くした所にあるので。中断のボタンは使える)
+    this.locked = [s.fastBtn, s.muteBtn].filter((b): b is Phaser.GameObjects.Container => !!b?.active);
+    for (const b of this.locked) setIconInput(b, false);
     s.L.inUi(() => {
       const tex = ditherTexture(s);
       for (const r of coverRects(W, H, this.holes)) {
@@ -77,9 +99,8 @@ export class LessonPause {
     this.say(LESSON_LINES[kind]);
   }
 
-  /** 毎フレーム(Street の update から)。止めたままにして、手とふちを動かし、8秒たったら一言を替える */
+  /** 毎フレーム(Street の update から)。手とふちを動かし、8秒たったら一言を替える */
   tick(deltaMs: number): void {
-    this.freeze();
     this.shownMs += Math.min(deltaMs, 100);
     // 手は0.6秒で1回、3ドット上下する
     const bob = Math.round((1 - Math.cos((this.shownMs / 600) * Math.PI * 2)) * 1.5);
@@ -92,22 +113,15 @@ export class LessonPause {
     }
   }
 
-  /** 元に戻す(押す前に呼ぶ。速さは次のフレームで Street の applySpeed が合わせ直す) */
+  /** 元に戻す(押す前に呼ぶ)。2回呼んでも1回ぶんだけ戻す */
   end(): void {
+    if (this.ended) return;
+    this.ended = true;
     for (const o of this.objs) o.destroy();
     this.objs = [];
-    const s = this.s;
-    s.time.timeScale = 1;
-    s.tweens.timeScale = 1;
-    s.anims.globalTimeScale = 1;
-  }
-
-  /** シーンの時計、動き、アニメを止める(ヒットストップが終わって戻されても、毎フレーム止め直す) */
-  private freeze(): void {
-    const s = this.s;
-    if (s.time.timeScale !== 0) s.time.timeScale = 0;
-    if (s.tweens.timeScale !== 0) s.tweens.timeScale = 0;
-    if (s.anims.globalTimeScale !== 0) s.anims.globalTimeScale = 0;
+    for (const b of this.locked) setIconInput(b, true);
+    this.locked = [];
+    releaseScene(this.s);
   }
 
   /** オペレーターの一言をカットインにすぐ全部出す(時計が止まっているので、文字送りはしない) */

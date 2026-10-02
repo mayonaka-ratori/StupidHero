@@ -12,7 +12,7 @@
 // 使い方:
 //   import { openBrowser, openPage, touchPad, checker, serverUrl, shotsDir } from './lib.mjs';
 //   await skipLessons(page);                             // 結果発表の、待てと行けを止めて教える場面をとばす(goto の前に)
-//   await lessonButton(page);                            // 止めて教えているときの押すボタン { kind, x, y }。なければ null
+//   await lessonButton(page);                            // 止めて教えているときの押すボタン { kind, id, x, y }。なければ null
 //   const base = serverUrl(process.argv[3]);             // 'http://localhost:5173/' など
 //   const outDir = shotsDir(process.argv[2]);            // なければ作る
 //   const browser = await openBrowser();
@@ -135,13 +135,16 @@ export function skipLessons(page) {
   });
 }
 
-/** 結果発表で止めて教えている場面の、押すボタンの真ん中(論理ドット)と種類。教えていなければ null */
+/**
+ * 結果発表で止めて教えている場面の、押すボタンの真ん中(論理ドット)と種類と番号(開いた順。同じ場面を2回数えないように使う)。
+ * 教えていなければ null
+ */
 export function lessonButton(page) {
   return page.evaluate(() => {
     const d = window.streetDev; const l = d?.lesson;
     if (!l) return null;
     const b = l.kind === 'stop' ? d.stopBtn : d.goBtn;
-    return { kind: l.kind, x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    return { kind: l.kind, id: l.id, x: b.x + b.w / 2, y: b.y + b.h / 2 };
   });
 }
 
