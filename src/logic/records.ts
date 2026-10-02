@@ -13,6 +13,7 @@
 //   v2(今):キー 'stupidhero.records.v2'。
 //     { version: 2, stages: { alley: {...,titles,clears}, garage: {...}, mall: {...}, tower: {...} }, titles, introSeen, rushSeen }
 //   introSeen と rushSeen はあとから足した。ない記録は空として読む(version は2のまま)。
+//   lessonSeen(結果発表で止めて教えた待てと行け。['stop', 'go'])もあとから足した。ない記録は空として読み、空なら書かない。
 //   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
 //   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
 //   endingSeen(高層ビルの終わりの場面を見たか)もあとから足した。ない記録は、見ていないとして読む。
@@ -38,6 +39,7 @@
 //   hasSeenRush('mall')                                     // タイムセールラッシュを見たことがあるか(説明を短くする。rushIntroFor)
 //   markRushSeen('mall')                                    // ラッシュの帯を出したときに呼ぶ
 //   needsSlowHint() / markSlowHintSeen()                    // 時間切れで「ゆっくりモードにできるよ」を出すか / 出したときに呼ぶ(そのスマホで1回だけ)
+//   needsLesson('stop') / markLessonSeen('stop')            // 結果発表で待て(行けは 'go')を止めて教えるか / 教えたボタンを押したときに呼ぶ
 //
 // フリープレイ:
 //   isFreeUnlocked()                                        // 開いているか(路地裏のボスを一度倒したか)
@@ -49,6 +51,7 @@
 
 import { FREE_STAGE_IDS, STAGE_IDS, STAGES, isStageId } from './stages';
 import { TITLE_COUNT, TITLES } from './titles';
+import { LESSON_KINDS, type LessonKind } from './lesson';
 import type { StageDef } from './stages';
 import type { StageId, StageStats, TitleId } from './types';
 
@@ -105,6 +108,8 @@ export interface Records {
   introSeen: StageId[];
   /** タイムセールラッシュを見たステージ */
   rushSeen: StageId[];
+  /** 結果発表で、止めて教えた待てと行け(端末で一度だけ。lesson.ts)。あとから足したので、ないときは空として読む */
+  lessonSeen?: LessonKind[];
   /** フリープレイの記録 */
   free: FreeRecord;
   /** フリープレイの初回の掛け合いを見たか */
@@ -247,6 +252,11 @@ function sanitize(raw: unknown): Records {
   addUnique(out.titles, out.free.titles);
   out.introSeen = stageList(r.introSeen);
   out.rushSeen = stageList(r.rushSeen);
+  const lessons = (raw as { lessonSeen?: unknown }).lessonSeen;
+  if (Array.isArray(lessons)) {
+    const seen = LESSON_KINDS.filter((k) => lessons.includes(k));
+    if (seen.length) out.lessonSeen = seen;
+  }
   out.freeIntroSeen = r.freeIntroSeen === true;
   out.freeMoreHintShown = r.freeMoreHintShown === true;
   out.lastStage = isStageId(r.lastStage) ? r.lastStage : null;
@@ -368,6 +378,16 @@ export function needsSlowHint(records: Records = loadRecords()): boolean {
 /** ゆっくりモードのことを教えたことを残す。書けなくても、その場では覚えている */
 export function markSlowHintSeen(storage: RecordStorage | null = defaultStorage()): void {
   markSeen(storage, (r) => r.slowHintSeen, (r) => (r.slowHintSeen = true));
+}
+
+/** 結果発表で、待てか行けをまだ止めて教えていなければ true(端末で一度だけ教える) */
+export function needsLesson(kind: LessonKind, records: Records = loadRecords()): boolean {
+  return !(records.lessonSeen ?? []).includes(kind);
+}
+
+/** 待てか行けを止めて教えたことを残す(教えたボタンを押したときに呼ぶ)。書けなくても、その場では覚えている */
+export function markLessonSeen(kind: LessonKind, storage: RecordStorage | null = defaultStorage()): void {
+  markSeen(storage, (r) => needsLesson(kind, r) === false, (r) => { r.lessonSeen = [...(r.lessonSeen ?? []), kind]; });
 }
 
 /** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */

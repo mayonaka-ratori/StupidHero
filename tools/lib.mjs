@@ -11,6 +11,8 @@
 //
 // 使い方:
 //   import { openBrowser, openPage, touchPad, checker, serverUrl, shotsDir } from './lib.mjs';
+//   await skipLessons(page);                             // 結果発表の、待てと行けを止めて教える場面をとばす(goto の前に)
+//   await lessonButton(page);                            // 止めて教えているときの押すボタン { kind, x, y }。なければ null
 //   const base = serverUrl(process.argv[3]);             // 'http://localhost:5173/' など
 //   const outDir = shotsDir(process.argv[2]);            // なければ作る
 //   const browser = await openBrowser();
@@ -112,6 +114,35 @@ export function clearedRecords(stageIds, { stats = {}, lastStage } = {}) {
   const records = { version: 2, stages: Object.fromEntries(stageIds.map((id) => [id, rec])), titles: [], introSeen: [...stageIds], rushSeen: [] };
   if (lastStage) records.lastStage = lastStage;
   return records;
+}
+
+/**
+ * 結果発表で待てと行けを止めて教える場面(src/scenes/street/lesson.ts)を、教えたことにしてとばす。
+ * page.goto の前に呼ぶ。読みこむたびに、localStorage の記録に lessonSeen: ['stop', 'go'] を足す
+ * (記録がなければ、遊んだことのない空の記録に足すので、初めての人の流れはそのまま)。
+ * 待てと行けのほかのことを試すスクリプトが使う。止めて教える場面そのものを試すときは呼ばない
+ */
+export function skipLessons(page) {
+  return page.addInitScript(() => {
+    try {
+      const key = 'stupidhero.records.v2';
+      const r = JSON.parse(localStorage.getItem(key) || 'null') || { version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [] };
+      r.lessonSeen = ['stop', 'go'];
+      localStorage.setItem(key, JSON.stringify(r));
+    } catch {
+      // 書けなくても続ける
+    }
+  });
+}
+
+/** 結果発表で止めて教えている場面の、押すボタンの真ん中(論理ドット)と種類。教えていなければ null */
+export function lessonButton(page) {
+  return page.evaluate(() => {
+    const d = window.streetDev; const l = d?.lesson;
+    if (!l) return null;
+    const b = l.kind === 'stop' ? d.stopBtn : d.goBtn;
+    return { kind: l.kind, x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  });
 }
 
 /** 指で触る部品。座標はどれも論理ドット */

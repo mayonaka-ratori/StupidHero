@@ -290,8 +290,9 @@ export class BossScene extends Phaser.Scene {
     this.cut.hide();
     const by = cutY + CUT_H + 5;
     const bh = r.bottom - by;
-    this.go = new Button(this, r.x, by, r.w, bh, '行け!', { color: 'go', size: 32, onPress: (p) => this.onPress(p) });
-    this.go.setEnabled(false);
+    // 始まりのセリフの間も、灰色にせず押せる見た目にして「行けを連打!」と書いておく(何を押すのか迷わないように)。
+    // この間に押すとセリフを早送りするだけ(連打には数えない。onPress は戦いの前は何もしない)。連打が始まると「行け!」に戻す
+    this.go = new Button(this, r.x, by, r.w, bh, '行けを連打!', { color: 'go', size: 32, onPress: (p) => this.onPress(p) });
     this.meter = new RushMeter(this, r.x + 8, by + 6, r.w - 16);
     this.meter.setVisible(false);
     // 念力の選択のときだけ、行け!の場所に待てと行けを並べる(ふだんは隠す)
@@ -385,7 +386,7 @@ export class BossScene extends Phaser.Scene {
   private startFight(): void {
     if (this.phase !== 'intro') return;
     this.phase = 'fight';
-    this.go.setEnabled(true);
+    this.go.setEnabled(true).setLabel('行け!');
     this.meter.setVisible(true);
     this.meter.update(0);
     this.fightStartAt = this.time.now;

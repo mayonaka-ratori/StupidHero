@@ -53,6 +53,10 @@ import { GangPart } from './street/gang';
 import { UfoPart } from './street/ufo';
 import { RushPart } from './street/rush';
 import { PsyPart, psySpark } from './street/psychic';
+import { LessonPause } from './street/lesson';
+import { unionRect, type Rect } from './street/lessonLayout';
+import { lessonDue, type LessonKind } from '../logic/lesson';
+import { markLessonSeen, needsLesson } from '../logic/records';
 
 /** ヒーローの画面の中での位置(左寄り) */
 const HERO_SCREEN_X = 60;
@@ -62,6 +66,8 @@ const WINDUP_MS = 1080;
 const BANNER_TOP_Y = 46;
 /** 飛び出す金額を、ほかの金額や吹き出しと重ならないようにずらすときの段の数 */
 const POP_TRIES = 6;
+/** 待てと行けを止めて教えるとき、マークが出てから止めるまで(ミリ秒。マークが出る動きと本性ちらりを見せてから止める) */
+const LESSON_DELAY_MS = 300;
 /** 早送りの倍率 */
 const FAST = 2;
 /** 本性ちらり(ワルにした人に向かったときに一瞬見せる正体)の長さ */
@@ -108,6 +114,10 @@ export class StreetScene extends Phaser.Scene {
   holdMs = 0;
   /** フリープレイのときだけ(run.mode === 'free')。ステージのときは null */
   free: FreeStreet | null = null;
+  /** 待てと行けを止めて教えている間の画面(street/lesson.ts)。教えていないときは null */
+  lesson: LessonPause | null = null;
+  /** いまの合図で止めて教えることになっている種類(マークが出てから止めるまでの短い間も入る)。なければ null */
+  lessonDue: LessonKind | null = null;
   /** 行けの合図が出ている間の、行けを押したときの動き */
   get goHandler(): (() => void) | null { return this.goFn; }
   set goHandler(fn: (() => void) | null) {
@@ -162,6 +172,7 @@ export class StreetScene extends Phaser.Scene {
     this.stats = this.run.stats;
     this.rng = this.run.rng;
     this.holdMs = 0;
+    this.lesson = null; this.lessonDue = null;
     // フリープレイの「もう一回」は掛け合い(Intro)を通らないので、波1の始めに前の回の人の塗り替えたシートを消す
     if (this.run.mode === 'free' && this.run.waveIndex === 0) purgePersonSheets(this);
     // フリープレイ:背景と置く物は波ごとの背景のステージ。仕分けはヒーローの決めつけ(FreeStreet が入れる)
@@ -307,7 +318,13 @@ export class StreetScene extends Phaser.Scene {
 
   override update(_t: number, delta: number): void {
     this.frameN++;
-    const frozen = isFrozen(this);
+    // 待てと行けを止めて教えている間は、ヒットストップと同じに何も進めない(lesson が時計を止め続ける)
+    // (念のため:教えているボタンの合図がもう終わっていたら、止めたままにしない)
+    if (this.lesson && (this.lesson.kind === 'stop' ? this.stopHandler : this.goHandler) === null) {
+      this.lesson.end(); this.lesson = null; this.lessonDue = null;
+    }
+    this.lesson?.tick(delta);
+    const frozen = isFrozen(this) || this.lesson !== null;
     if (!frozen) {
       this.applySpeed();
       const ms = Math.min(delta, 50) * this.speed;
@@ -587,9 +604,14 @@ export class StreetScene extends Phaser.Scene {
     this.heroBubble.setScrollFactor(0).setDepth(1100);
   }
 
-  /** force はフリープレイで言うとき。フリープレイでは、ステージの流れ(ギャング、UFO など)のオペレーターの一言は出さない */
+  /**
+   * force はフリープレイで言うとき。フリープレイでは、ステージの流れ(ギャング、UFO など)のオペレーターの一言は出さない。
+   * 待てと行けのマークが出ている間は、マークを読むじゃまにならないように、急ぎでない一言(alarm でないもの)を新しく始めない。
+   * 待ての使い方(teachStop)は、合図を受け付け始める前に言うので出る
+   */
   opSay(sp: Speech, alarm = false, force = false): void {
     if (this.free && !force) return;
+    if (!this.free && !alarm && (this.stopHandler !== null || this.goHandler !== null)) return;
     this.opSeq++;
     void this.cut.say(sp.text, sp.face, { who: sp.who, alarm });
   }
@@ -680,9 +702,11 @@ export class StreetScene extends Phaser.Scene {
     // 決めつけは技を出すまで出しておく(叫びは技を出す瞬間に替える)。
     // 横に長いので相手の頭の上にかかる。札(ワル)を隠さないように、合図との間まで上げる
     this.heroSay(judgeLine(a.person?.disguise ?? a.look, this.rng, a.person), 1600, JUDGE_RISE);
-    // その回で初めての合図なら、待ての使い方を言う
-    if (this.firstTime('stop')) this.opSay(this.line('teachStop'));
-    const res = await this.markWindow(a, enc, k);
+    // そのスマホで初めて市民に待てのマークが出たときは、止めて教える(street/lesson.ts)。
+    // そうでなく、その回で初めての合図なら、待ての使い方を言う
+    const teach = lessonDue({ kind: 'stop', enc, free: !!this.free, seen: !needsLesson('stop') });
+    if (this.firstTime('stop') && !teach) this.opSay(this.line('teachStop'));
+    const res = await this.markWindow(a, enc, k, teach);
     this.markEnd(a);
     if (res === 'stop') { await this.doStop(a); return false; }
     this.heroSay(shout(k, this.rng), 900);
@@ -776,7 +800,52 @@ export class StreetScene extends Phaser.Scene {
     return true;
   }
 
-  private markWindow(a: Actor, enc: Encounter, k: AttackKind): Promise<'stop' | 'attack'> {
+  /**
+   * 少ししてから(LESSON_DELAY_MS)止めて、kind のボタンの使い方を教える。open() が false になっていたら(もう押した、
+   * 合図が終わった)止めない。hole は残す所(相手のまわり)を、止める瞬間に決める
+   */
+  private dueLesson(kind: LessonKind, open: () => boolean, hole: () => Rect): void {
+    this.lessonDue = kind;
+    this.time.delayedCall(LESSON_DELAY_MS, () => {
+      if (this.lessonDue !== kind || !open() || this.leaving || this.lesson) return;
+      this.lesson = new LessonPause(this, kind, hole());
+      this.devLog(`lesson ${kind}`);
+    });
+  }
+
+  /**
+   * 待てか行けが効いた(合図の stopHandler、goHandler の中で、押したときの動きより先に呼ぶ)。その合図で教えることになっていたら、
+   * 教えたことを記録に残し、止めていれば元に戻す(止める前に自分で押せたときも、教えたことにする)
+   */
+  private lessonPressed(kind: LessonKind): void {
+    if (this.lessonDue !== kind) return;
+    this.lessonDue = null;
+    markLessonSeen(kind);
+    if (this.lesson) {
+      this.lesson.end();
+      this.lesson = null;
+      this.devLog(`lesson ${kind} pressed`);
+    }
+  }
+
+  /**
+   * 止めて教えるときに明るく残す所(画面の座標)。相手と頭の上のマーク、本性ちらりの吹き出し、
+   * ヒーローとヒーローの吹き出し(待ての決めつけ、行けの「えっ」)
+   */
+  private lessonHole(a: Actor): Rect {
+    const sx = this.L.left;
+    const toScreen = (b: Phaser.Geom.Rectangle): Rect => ({ x: b.x - sx, y: b.y, w: b.width, h: b.height });
+    const box = (b: Phaser.Geom.Rectangle): Rect => ({ x: b.x, y: b.y, w: b.width, h: b.height });
+    const rs: Rect[] = [toScreen(a.sprite.getBounds())];
+    if (a.mark) rs.push(toScreen(a.mark.getBounds()));
+    for (const p of this.peeks) if (p.a === a && p.b.active) rs.push(box(p.b.boxRect()));
+    rs.push(toScreen(this.hero.sprite.getBounds()));
+    if (this.heroBubble?.active) rs.push(box(this.heroBubble.boxRect()));
+    return unionRect(rs);
+  }
+
+  /** teach が true なら、少ししてから止めて待ての使い方を教える(押すまで動かない) */
+  private markWindow(a: Actor, enc: Encounter, k: AttackKind, teach = false): Promise<'stop' | 'attack'> {
     return new Promise((resolve) => {
       let done = false;
       let failShown = false;
@@ -784,6 +853,7 @@ export class StreetScene extends Phaser.Scene {
         if (done) return;
         done = true;
         this.stopHandler = null;
+        if (this.lessonDue === 'stop') this.lessonDue = null;
         // 近づいている途中なら、その歩きを終わったことにする(下の then は done を見て何もしない)
         const w = this.walker;
         this.walker = null;
@@ -791,10 +861,11 @@ export class StreetScene extends Phaser.Scene {
         resolve(r);
       };
       this.stopHandler = () => {
-        if (canStop(enc)) { finish('stop'); return; }
+        if (canStop(enc)) { this.lessonPressed('stop'); finish('stop'); return; }
         // ボスには待ては効かない
         if (!failShown) { failShown = true; this.heroSay(this.line('stopFailBoss', this.rng), 900); }
       };
+      if (teach) this.dueLesson('stop', () => !done, () => this.lessonHole(a));
       void this.runTo(a.x - ATTACK_GAP, { anim: null }).then(() => {
         if (done) return;
         this.windup(k);
@@ -1232,8 +1303,9 @@ export class StreetScene extends Phaser.Scene {
     if (kind && MISCHIEF_HURTS_CIV[kind] && v.standing) this.knock(v, 30, 12, 1);
     else if (v.standing) v.pose('surprised');
 
-    // 行けの合図。その回で初めてなら、行けの使い方を言う
-    this.opSay(this.firstTime('go') ? this.line('teachGo') : mischiefLine(look, this.rng), true);
+    // 行けの合図。その回で初めてなら、行けの使い方を言う(そのスマホで初めての行けなら、合図のあと止めて教えるので言わない)
+    const teach = this.goLessonDue();
+    this.opSay(this.firstTime('go') && !teach ? this.line('teachGo') : mischiefLine(look, this.rng), true);
     h.pose('oops', 1);
     this.heroSay(this.line('mischiefHero', this.rng), 1300);
     await this.chaseOrEscape(a);
@@ -1250,10 +1322,16 @@ export class StreetScene extends Phaser.Scene {
     this.goAlarm.start();
     // フリープレイはフリープレイの時間(ゆっくりモードは長い)。ステージは MARK.escapeSec
     const escapeSec = this.free?.timing.escapeSec ?? MARK.escapeSec;
+    // そのスマホで初めての行けなら、少ししてから止めて教える(押すまで逃げる時間は進まない)
+    const teach = this.goLessonDue();
     const res = await new Promise<'go' | 'timeout'>((resolve) => {
-      const timer = this.time.delayedCall(escapeSec * 1000, () => { this.goHandler = null; resolve('timeout'); });
-      this.goHandler = () => { timer.remove(); this.goHandler = null; resolve('go'); };
+      let open = true;
+      const timer = this.time.delayedCall(escapeSec * 1000, () => { open = false; this.goHandler = null; resolve('timeout'); });
+      const onGo = (): void => { open = false; this.lessonPressed('go'); timer.remove(); this.goHandler = null; resolve('go'); };
+      this.goHandler = onGo;
+      if (teach) this.dueLesson('go', () => open && this.goHandler === onGo, () => this.lessonHole(a));
     });
+    if (this.lessonDue === 'go') this.lessonDue = null;
     // フリープレイでは、ほかの悪さの行けのマーク(波3のモヒカン)が残っていれば、画面の端の点滅を続ける
     this.stopGoAlarm();
     a.hideMark();
@@ -1279,6 +1357,11 @@ export class StreetScene extends Phaser.Scene {
     if (this.free) this.free.escapedAlone(a.look);
     else h.play('idle');
     await waitMs(this, 500);
+  }
+
+  /** 悪さのワルの行けのマークで、止めて行けを教えるか(フリープレイでは教えない) */
+  private goLessonDue(): boolean {
+    return lessonDue({ kind: 'go', free: !!this.free, seen: !needsLesson('go') });
   }
 
   /** 口笛を吹いたが、仲間が誰も来ない:きょろきょろして、1人のワルとして行けの合図(ステージ1の見逃したワルと同じ) */
