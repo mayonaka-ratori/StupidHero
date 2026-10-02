@@ -16,6 +16,7 @@
 //   free、freeIntroSeen、freeMoreHintShown もあとから足した(フリープレイ)。ない記録は、遊んでいない、見ていないとして読む。
 //   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
 //   endingSeen(高層ビルの終わりの場面を見たか)もあとから足した。ない記録は、見ていないとして読む。
+//   slowHintSeen(時間切れで、ゆっくりモードのことを教えたか)もあとから足した。ない記録は、まだ教えていないとして読む。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
@@ -36,6 +37,7 @@
 //   hasAnyRecord()                                          // どれかのステージを1回でも遊んだか(初めての人はステージ選びをとばす)
 //   hasSeenRush('mall')                                     // タイムセールラッシュを見たことがあるか(説明を短くする。rushIntroFor)
 //   markRushSeen('mall')                                    // ラッシュの帯を出したときに呼ぶ
+//   needsSlowHint() / markSlowHintSeen()                    // 時間切れで「ゆっくりモードにできるよ」を出すか / 出したときに呼ぶ(そのスマホで1回だけ)
 //
 // フリープレイ:
 //   isFreeUnlocked()                                        // 開いているか(路地裏のボスを一度倒したか)
@@ -113,6 +115,8 @@ export interface Records {
   lastStage: StageId | null;
   /** 高層ビルの終わりの場面を見たか */
   endingSeen: boolean;
+  /** 時間切れのときに、ゆっくりモードのことを教えたか */
+  slowHintSeen: boolean;
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -149,7 +153,8 @@ export const emptyFreeRecord = (): FreeRecord => ({
   bestSec: null, bestSlowSec: null, mostStopSaved: null, mostGoScenes: null, highestDamage: null, plays: 0, titles: []
 });
 const emptyRecords = (): Records => ({
-  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false
+  version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false,
+  slowHintSeen: false
 });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
@@ -198,6 +203,7 @@ function sanitize(raw: unknown): Records {
   const r = raw as {
     version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown;
     free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown; lastStage?: unknown; endingSeen?: unknown;
+    slowHintSeen?: unknown;
   };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
@@ -245,6 +251,7 @@ function sanitize(raw: unknown): Records {
   out.freeMoreHintShown = r.freeMoreHintShown === true;
   out.lastStage = isStageId(r.lastStage) ? r.lastStage : null;
   out.endingSeen = r.endingSeen === true;
+  out.slowHintSeen = r.slowHintSeen === true;
   return out;
 }
 
@@ -351,6 +358,16 @@ export function needsEnding(stageId: StageId, stats: Pick<StageStats, 'bossDefea
 /** 終わりの場面を見たことを残す(出し始めたときに呼ぶ)。書けなくても、その場では覚えている */
 export function markEndingSeen(storage: RecordStorage | null = defaultStorage()): void {
   markSeen(storage, (r) => r.endingSeen, (r) => (r.endingSeen = true));
+}
+
+/** 時間切れのときに「ゆっくりモードにできるよ」を出すか(そのスマホでまだ出していなければ true) */
+export function needsSlowHint(records: Records = loadRecords()): boolean {
+  return !records.slowHintSeen;
+}
+
+/** ゆっくりモードのことを教えたことを残す。書けなくても、その場では覚えている */
+export function markSlowHintSeen(storage: RecordStorage | null = defaultStorage()): void {
+  markSeen(storage, (r) => r.slowHintSeen, (r) => (r.slowHintSeen = true));
 }
 
 /** どれかのステージを1回でも遊んだか(結果画面まで行ったか) */

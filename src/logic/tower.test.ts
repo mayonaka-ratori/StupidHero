@@ -290,6 +290,18 @@ describe('ステージ1〜3は高層ビルを足す前と同じ', () => {
     'mall:1': 3765981201, 'mall:2': 200406602, 'mall:42': 541204094, 'mall:777': 266273746, 'mall:abc': 873646899
   };
 
+  // 表記をそろえたとき(docs/DEVELOP.md「文章を書くときの決まり」の表)と、むずかしい漢字を直したときに書きかえた文。
+  // 人の並びも選ばれる文の番号も変わっていないので、前の書き方に戻してから指紋をとる
+  const RESPELLED: readonly (readonly [string, string])[] = [
+    ['袋はいつも\nパンパン', '袋はいつも\nぱんぱん'],
+    ['周りを\n気にしてる', 'まわりを\n気にしてる'],
+    ['子どもに\n手を振ってる', '子どもに\n手をふってる'],
+    ['ベンチを\n探してる', 'ベンチを\nさがしてる'],
+    ['にしては\nオーラがありすぎ', 'にしては\n貫禄がありすぎ']
+  ];
+  const esc = (t: string): string => JSON.stringify(t).slice(1, -1);
+  const asBefore = (json: string): string => RESPELLED.reduce((s, [now, was]) => s.split(esc(now)).join(esc(was)), json);
+
   it('同じ種なら、人の並び、名前、文、ラッシュの並びが変わらない', () => {
     for (const key of Object.keys(BEFORE)) {
       const [id, raw] = key.split(':');
@@ -301,7 +313,7 @@ describe('ステージ1〜3は高層ビルを足す前と同じ', () => {
       // 路地裏のボスの小物(tells.ts の bossItemsFor)も、あとから足して別の乱数で選ぶので、元の化けた姿の絵のキーに直して比べる
       const noVariant = (k: string, v: unknown): unknown =>
         k === 'colorVariant' ? undefined : k === 'sheetKey' && typeof v === 'string' && v.startsWith('boss_disguise_') ? baseSheetKey(v) : v;
-      expect(hashSeed(JSON.stringify({ waves: s.waves, rush, seed: s.seed }, noVariant)), key).toBe(BEFORE[key]);
+      expect(hashSeed(asBefore(JSON.stringify({ waves: s.waves, rush, seed: s.seed }, noVariant))), key).toBe(BEFORE[key]);
     }
   });
 });

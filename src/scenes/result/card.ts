@@ -23,7 +23,7 @@ import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
   ABDUCTED_CAPTION, DROPPED_CAPTION, FREE_NAME, FREE_WORST_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatClearTime, formatYen, ruleSignText,
-  titleCommentFor, type AttackKind, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef,
+  titleCommentFor, type AttackKind, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef, type TitleId,
   type WorstScene
 } from '../../logic';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
@@ -64,9 +64,32 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
 /** ステージごとに言い方を変える見出し(地下駐車場とショッピングモールは「街」ではない。logic/share.ts) */
 const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = STAGE_WORST_CAPTIONS;
 
+/**
+ * 市民に当たった場面が巻きぞえだけだったときの見出し。
+ * 完全無欠のヒーローなどは巻きぞえを数えないので、「市民に必殺技!」だと称号と食いちがって見える
+ */
+const COLLATERAL_CAPTION: Partial<Record<WorstScene, string>> = {
+  grannyHit: 'おばあちゃんをまきぞえに!',
+  specialOnCiv: '市民を必殺技のまきぞえに!',
+  civHit: '市民をまきぞえに!'
+};
+
+/** 説明の文を決めるのに使う数 */
+type CaptionStats = Pick<StageStats, 'worstScene' | 'worstAttack'>
+  & Partial<Pick<StageStats, 'stageId' | 'civHurtByHero' | 'civHurtByCollateral' | 'lift'>>;
+
+/**
+ * 市民のけがが巻きぞえだけか(ヒーローが市民を直接なぐっていない)。
+ * エレベーターラッシュで市民をなぐった場面も「市民をなぐった」の場面になるが、けがには数えないので別に見る
+ */
+const hurtOnlyByCollateral = (s: CaptionStats): boolean =>
+  (s.civHurtByHero ?? 0) === 0 && (s.civHurtByCollateral ?? 0) > 0 && (s.lift?.civsHit ?? 0) === 0;
+
 /** いちばんひどい場面の説明の文 */
-export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> & Partial<Pick<StageStats, 'stageId'>>): string {
+export function worstCaption(s: CaptionStats): string {
   if (!s.worstScene) return 'ひどいことはなかった!';
+  const collateral = hurtOnlyByCollateral(s) ? COLLATERAL_CAPTION[s.worstScene] : undefined;
+  if (collateral) return collateral;
   const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
   const byStage = s.stageId ? WORST_CAPTION_BY_STAGE[s.stageId]?.[s.worstScene] : undefined;
   return byAttack ?? byStage ?? WORST_CAPTION[s.worstScene];
@@ -76,9 +99,11 @@ export function worstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack'> &
  * フリープレイのいちばんひどい場面の説明の文。ステージの場面(市民を殴ったなど)があればその文、
  * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の文
  */
-export function freeWorstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack' | 'free'> & Partial<Pick<StageStats, 'stageId'>>): string {
+export function freeWorstCaption(s: CaptionStats & Pick<StageStats, 'free'>): string {
   // 波ごとに背景が変わるので、ステージの名前で言い方を変える文(「駐車場ボロボロ!」など)は使わない
-  const plain = { worstScene: s.worstScene, worstAttack: s.worstAttack };
+  const plain = {
+    worstScene: s.worstScene, worstAttack: s.worstAttack, civHurtByHero: s.civHurtByHero, civHurtByCollateral: s.civHurtByCollateral
+  };
   if (s.worstScene) return worstCaption(plain);
   if (s.free?.worst) return FREE_WORST_CAPTION[s.free.worst];
   return worstCaption(plain);
@@ -88,8 +113,21 @@ export function freeWorstCaption(s: Pick<StageStats, 'worstScene' | 'worstAttack
 const ALL_CAPTIONS = [
   ...Object.values(WORST_CAPTION),
   ...Object.values(WORST_CAPTION_BY_STAGE).flatMap((t) => Object.values(t ?? {})),
-  ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {}))
+  ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {})),
+  ...Object.values(COLLATERAL_CAPTION)
 ];
+
+/** 巻きぞえを数えない称号(logic/titles.ts の完全無欠、街のほんものヒーロー、ヒーローのお守り役) */
+const TITLES_IGNORING_COLLATERAL: readonly TitleId[] = ['flawless', 'realHero', 'heroSitter'];
+
+/**
+ * カードの「市民のけが」の見出し。巻きぞえを数えない称号で、けがが巻きぞえだけなら「まきぞえ」にする
+ * (「完全無欠のヒーロー」の下に「市民のけが2人」と出ると、食いちがって見えるため)
+ */
+export function hurtLabel(titleId: TitleId, s: Pick<StageStats, 'civHurt' | 'civHurtByCollateral'>): string {
+  const onlyCollateral = s.civHurt > 0 && s.civHurt === s.civHurtByCollateral;
+  return onlyCollateral && TITLES_IGNORING_COLLATERAL.includes(titleId) ? 'まきぞえ' : '市民のけが';
+}
 
 export interface CardInput {
   title: TitleDef;
@@ -133,7 +171,7 @@ const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCom
 export function cardTexts(i: CardInput): string[] {
   return [
     i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
-    'ひどいことはなかった!', '悪党を倒した', '市民のけが', '逃がした', '被害額', '人', '称号', '#StupidHero',
+    'ひどいことはなかった!', '悪党を倒した', '市民のけが', 'まきぞえ', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億',
     ...(i.stats.free ? [...FREE_CARD_TEXTS, freeWorstCaption(i.stats), i.stats.free.worstRule ? ruleSignText(i.stats.free.worstRule) : ''] : [])
   ];
@@ -236,7 +274,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
   }
 
   // ─── 下:数字 ───
-  if (free) drawFreeNumbers(ctx, scene, s, MID + MID_H + 2);
+  if (free) drawFreeNumbers(ctx, scene, s, MID + MID_H + 2, hurtLabel(i.title.id, s));
   else {
     const y0 = MID + MID_H + 2;
     const rowH = 16;
@@ -255,7 +293,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
     // 並び:1行目に撃破と負傷、2行目に逃がした、3行目に被害額、4行目にたとえ(右寄せ)。
     // 金額やたとえの桁が増えても(¥1億2,000万、一軒家40軒分)、ほかの字とぶつからない
     pair(6, y0, '悪党を倒した', `${s.defeated}人`, UI.gold);
-    pair(W - 6, y0, '市民のけが', `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
+    pair(W - 6, y0, hurtLabel(i.title.id, s), `${s.civHurt}人`, s.civHurt > 0 ? UI.danger : UI.gold, true);
     pair(6, y0 + rowH, '逃がした', `${s.escaped}人`, s.escaped > 0 ? UI.danger : UI.gold);
     pair(6, y0 + rowH * 2, '被害額', formatYen(s.damage), UI.gold);
     drawText(ctx, scene, W - 6, y0 + rowH * 3, `(${damageAnalogy(s.damage, stageIdOf(i)).text})`, { size: 16, color: UI.gold, outline: true }, [1, 0]);
@@ -311,7 +349,7 @@ export function buildCard(scene: Phaser.Scene, i: CardInput): Card {
  *   逃がした 0人              被害額 ¥721万
  * 左と右がぶつかるとき(けがが2けたなど)は、左の数字の「/9」を省く
  */
-function drawFreeNumbers(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, s: StageStats, y0: number): void {
+function drawFreeNumbers(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, s: StageStats, y0: number, hurtText: string): void {
   const f = s.free!;
   const W = CARD_W;
   const rowH = 16;
@@ -335,7 +373,7 @@ function drawFreeNumbers(ctx: CanvasRenderingContext2D, scene: Phaser.Scene, s: 
   const time = f.clearSec === null ? '-' : formatClearTime(f.clearSec);
   drawText(ctx, scene, R, y0 - 3, time, { size: 32, color: UI.gold, outline: true }, [1, 0]);
   // 待てと行け(左)、市民のけがと逃がした(右)
-  const hurt = { label: '市民のけが', value: `${s.civHurt}人`, color: s.civHurt > 0 ? UI.danger : UI.gold };
+  const hurt = { label: hurtText, value: `${s.civHurt}人`, color: s.civHurt > 0 ? UI.danger : UI.gold };
   const hurtW = width(hurt.label, hurt.value);
   const long = { stop: `${f.stopSaved}/${f.stopChances}人`, go: `${f.goScenes}/${f.goChances}回` };
   const fits = L + width('行けで決めた', long.go) + 3 <= R - hurtW;

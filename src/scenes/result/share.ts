@@ -150,7 +150,7 @@ export class ShareFlow {
     row.append(save, x, close);
 
     const note = document.createElement('div');
-    note.textContent = 'ホーム画面に追加すると記録が消えにくいよ';
+    note.textContent = 'ホーム画面に追加すると称号や記録が残りやすいよ';
     Object.assign(note.style, { fontSize: '13px', color: '#c8c0e0' });
 
     o.append(img, hint, row, note);

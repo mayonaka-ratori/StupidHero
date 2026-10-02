@@ -9,7 +9,8 @@ import { UI } from '../../config';
 import { animKey, originFor } from '../../art/sheets';
 import { accessorySheet } from '../../art/recolor';
 import { ACCESSORY_COLORS } from '../../logic';
-import { Button, FS, PixelText, TimeBar, WindowFrame } from '../../ui';
+import { Button, FS, PixelText, TimeBar, UIX, WindowFrame } from '../../ui';
+import { CLUE_H, CLUE_W, clueSpotFor } from '../../art/clueSpots';
 import { makeStamp } from './stamp';
 import { CALM_LOOK, leakLook } from '../../art/towerSpots';
 import type { LeakSpots } from '../../logic/tower';
@@ -18,7 +19,7 @@ import { TowerDesk, caneTipOf } from './towerDesk';
 /** 念力で運ぶ物のふち(超能力の紫のまん中の色。src/art/world4/palette.ts の PSY[1]) */
 const PSY_EDGE = 0xdb6dff;
 
-export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'operator' | 'timeUp' | 'stop' | 'go'
+export type DemoKind = 'swipe' | 'buttons' | 'clues' | 'item' | 'operator' | 'timeUp' | 'stop' | 'go'
   | 'match' | 'signal' | 'whistle' | 'van' | 'glitch' | 'awkward' | 'ufo'
   | 'surround' | 'psyLeak' | 'decoy' | 'psyCarry';
 
@@ -35,11 +36,12 @@ export function demoKindFor(text: string): DemoKind | null {
   if (/くずれ/.test(t)) return 'glitch';
   if (/ぎこちない/.test(t)) return 'awkward';
   if (/UFO/.test(t)) return 'ufo';
+  if (/持ち物/.test(t)) return 'item';
   if (/手がかり/.test(t)) return 'clues';
   // ステージ2(地下駐車場)の手がかりと、仲間を呼ぶ、車で逃げる
   if (/おそろい|同じ色|前の人と似/.test(t)) return 'match';
   if (/合図/.test(t)) return 'signal';
-  if (/口笛/.test(t)) return 'whistle';
+  if (/口笛|仲間を呼ぶ/.test(t)) return 'whistle';
   // 「地下駐車場」の車では出さない
   if (/車[にもごで]|走り出/.test(t)) return 'van';
   if (/スワイプ|左がワル/.test(t)) return 'swipe';
@@ -111,6 +113,8 @@ export class IntroDemo {
   private carry?: { plant: Phaser.GameObjects.Image; edges: Phaser.GameObjects.Image[]; spark: Phaser.GameObjects.Sprite };
   /** decoy でいま見せている紛らわしい市民(DECOY_DEMO の番号) */
   private decoyIndex = -1;
+  /** 「持ち物」の窓のお手本の、切り出した絵(item) */
+  private zoomImg?: Phaser.GameObjects.Sprite;
   private kind: DemoKind | null = null;
   private t = 0;
   private readonly cx: number;
@@ -156,6 +160,7 @@ export class IntroDemo {
     this.desk = undefined;
     this.carry = undefined;
     this.decoyIndex = -1;
+    this.zoomImg = undefined;
     if (!kind) { this.root.setVisible(false); return; }
     this.root.setVisible(true);
     // 開くときに縦に広がる(3コマ)
@@ -258,7 +263,7 @@ export class IntroDemo {
         this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx + 20);
         this.person.play(animKey(key, 'sortIdle'));
         if (kind === 'psyLeak') this.desk.setLook(leakLook({ light: 'leak', item: 'leak' }));
-        this.caption.setText(kind === 'surround' ? '照明と机' : '火花が出た！');
+        this.caption.setText(kind === 'surround' ? '明かりと机' :'火花が出た！');
         break;
       }
       case 'decoy': {
@@ -300,6 +305,20 @@ export class IntroDemo {
       case 'clues':
         this.caption.setText('どっち？');
         break;
+      case 'item': {
+        // 仕分けの画面の「持ち物」の窓と同じ切り出し(clueSpots.ts)を3倍にして、人の右上に出す
+        this.person.setX(this.cx - 24);
+        const r = clueSpotFor(this.baseKey);
+        const zx = this.w - 6 - CLUE_W * 3, zy = 16;
+        const g = add(sc.add.graphics());
+        g.fillStyle(UI.gold, 1).fillRect(zx - 2, zy - 2, CLUE_W * 3 + 4, CLUE_H * 3 + 4);
+        g.fillStyle(UIX.faceBg, 1).fillRect(zx, zy, CLUE_W * 3, CLUE_H * 3);
+        const img = add(sc.add.sprite(zx - r.x * 3, zy - r.y * 3, this.baseKey, this.person.frame.name).setOrigin(0, 0).setScale(3));
+        img.setCrop(r.x, r.y, r.w, r.h);
+        this.zoomImg = img;
+        this.caption.setText('持ち物');
+        break;
+      }
       case 'operator': {
         this.person.setVisible(false);
         const face = add(sc.add.sprite(this.cx, 50, 'face_operator'));
@@ -343,6 +362,10 @@ export class IntroDemo {
       case 'swipe': this.swipeStep(); break;
       case 'buttons': this.buttonStep(); break;
       case 'clues': this.cluesStep(); break;
+      case 'item':
+        // 窓の絵を人と同じコマにする
+        if (this.zoomImg && this.zoomImg.frame.name !== this.person.frame.name) this.zoomImg.setFrame(this.person.frame.name);
+        break;
       case 'timeUp': this.timeStep(); break;
       case 'stop':
       case 'go': this.tapStep(); break;

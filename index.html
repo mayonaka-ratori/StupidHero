@@ -6,7 +6,10 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Stupid Hero</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-title" content="StupidHero">
   <meta property="og:title" content="Stupid Hero">
   <meta property="og:description" content="敵と味方の区別がつかないヒーローに、ワルと市民を教えて街を守れ!">
   <meta property="og:url" content="https://mayonaka-ratori.github.io/StupidHero/">
@@ -23,6 +26,11 @@
     }
     #game { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
     #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+    /* ゲームが始まるまで(スクリプトを読みこむ間)の字。src/main.ts が消す */
+    #loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #f5c542; font-family: "DotGothic16", monospace; font-size: 20px;
+    }
     #safe-probe { position: fixed; bottom: 0; left: 0; width: 0; height: env(safe-area-inset-bottom, 0px); pointer-events: none; }
     #rotate {
       display: none; position: fixed; inset: 0; z-index: 10; background: #0f0d18; color: #f5c542;
@@ -34,7 +42,7 @@
   </style>
 </head>
 <body>
-  <div id="game"></div>
+  <div id="game"><div id="loading">読みこみ中…</div></div>
   <div id="safe-probe"></div>
   <div id="rotate">スマホを縦にしてね</div>
   <script type="module" src="/src/main.ts"></script>

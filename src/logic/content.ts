@@ -66,7 +66,7 @@ const FREE_VILLAIN_AGES: Readonly<Record<FreeVillainLook, readonly [number, numb
 
 /** フリープレイのワルのプロフィールの一文(見た目で分かるワルなので、かくさない) */
 const FREE_VILLAIN_PROFILE_LINES: Readonly<Record<FreeVillainLook, { bad: readonly string[] }>> = {
-  fp_mohawk: { bad: ['ナイフを\n見せびらかしたい', '今日も\nトゲトゲ頭', '財布を\nさがしている'] },
+  fp_mohawk: { bad: ['ナイフを\n見せびらかしたい', '今日も\nトゲトゲ頭', '財布を\n探している'] },
   fp_gang: { bad: ['バットは\n野球用ではない', '顔を見られたくない', '口笛で\n仲間を呼べる'] },
   fp_alien: { bad: ['地球の\n見学に来た', '触角は\n本物', 'UFOを\n近くに止めている'] }
 };
@@ -129,7 +129,7 @@ export const BOTH_PROFILE_LINES: Readonly<Record<'hoodie' | 'suit' | 'shopper', 
     'この辺の道は\nよく知っている'
   ],
   shopper: [
-    '袋はいつも\nぱんぱん',
+    '袋はいつも\nパンパン',
     '商店街には\n毎日来る',
     '重い袋にも\nもう慣れた'
   ]
@@ -405,6 +405,7 @@ export const BOSS_HINTS: Readonly<Record<DisguiseLook, readonly OperatorHint[]>>
 export const INTRO: readonly Speech[] = [
   op('normal', '1人ずつ来るよ。ワルは左\n市民は右にスワイプ！'),
   op('normal', '手がかりは見た目、動き\nプロフィール、私の一言'),
+  op('normal', '「持ち物」の窓では\n手もとが大きく見えるよ'),
   hero('smug', '見分けるのは相棒！\n殴るのは任せて！')
 ];
 
@@ -454,6 +455,7 @@ export const ATTACK_SHOUTS: Readonly<Record<AttackKind, readonly Speech[]>> = {
 export type ReactionKey =
   | 'sortHurry'      // 残り5秒(オペレーター)
   | 'timeUp'         // 時間切れ(ヒーロー)
+  | 'slowHint'       // 初めて時間切れになったとき:ゆっくりモードがあること(オペレーター。そのスマホで1回だけ)
   | 'sortDone'       // 仕分けが終わって結果発表へ(ヒーロー)
   | 'teachStop'      // その回で初めて待ての合図が出た:待ての使い方(オペレーター)
   | 'teachGo'        // その回で初めてワルが悪さを始めた:行けの使い方(オペレーター)
@@ -495,6 +497,7 @@ export type ReactionKey =
 export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   sortHurry: [op('panic', 'あと5秒！\n急いで！'), op('panic', '時間ないよ！')],
   timeUp: [hero('smug', '時間切れ！\nあとは勘で行く！'), hero('smug', '残りは\n気分で決める！')],
+  slowHint: [op('normal', '右上の一時停止から\nゆっくりモードにできるよ')],
   sortDone: [hero('smug', '仕分け完了！\n行ってくる！'), hero('smug', 'よーし、\n出動！')],
   teachStop: [op('normal', 'ワルにした人だよ。\nちがうと思ったら待て！')],
   teachGo: [op('panic', '悪さを始めた！\n行けで追いかけて！')],
@@ -506,17 +509,17 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   judgeRight: [
     hero('smug', 'ほらね！\n顔に書いてあった！'),
     hero('smug', 'やっぱり！\n思ったとおり！'),
-    hero('smug', 'ほらね！\nひと目で分かった！')
+    hero('smug', 'ほらね！\n一目で分かった！')
   ],
   stubborn: [
     hero('smug', '目つきは\n悪かった！'),
-    hero('smug', 'でも怪しかった！'),
+    hero('smug', 'でもあやしかった！'),
     hero('smug', '顔がワルっぽかった！')
   ],
   ownFault: [
     op('deadpan', '…ワルにしたの、\n私だけど'),
     op('deadpan', '…仕分けたの、\n私だった'),
-    op('deadpan', '…ワルの札、\n私がつけたんだった')
+    op('deadpan', '…ワルのハンコ、\n私が押したんだった')
   ],
   hitBad: [op('hype', 'ナイス！'), op('hype', 'いいね！\nその調子！'), op('hype', 'よし、\n1人片付いた！')],
   hitBadHero: [hero('smug', '正義の勝利！'), hero('smug', '悪は許さない！')],
@@ -548,7 +551,7 @@ export const REACTIONS: Readonly<Record<ReactionKey, readonly Speech[]>> = {
   ],
   grannyHit: [op('panic', 'おばあちゃん\nだったのに！'), op('panic', 'よりによって\nおばあちゃん！')],
   specialOnCiv: [op('panic', '必殺技を市民に\n当てないで！'), op('panic', '光線が市民に！\n何してんの！')],
-  stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まります！'), hero('smile', 'おっと、了解！')],
+  stop: [hero('smile', '了解！'), hero('smile', '了解！\n止まるよ！'), hero('smile', 'おっと、了解！')],
   stopOp: [op('normal', 'オッケー、次！'), op('normal', 'はい、次に\n行こう！'), op('normal', 'よし、先に進もう！')],
   stopBad: [op('deadpan', 'あ、ワルだったかも…'), op('deadpan', 'あれ？今の人、\nワルだったかも…')],
   stopFailBoss: [hero('oops', 'えっ、止まれ…\nないっ！'), hero('smug', 'ボスだけは\n待てないよ！')],
@@ -652,7 +655,7 @@ export const TITLE_COMMENTS: Readonly<Record<TitleId, Speech>> = {
   ...MALL_TITLE_COMMENTS,
   ...TOWER_TITLE_COMMENTS,
   // フリープレイだけの称号(docs/FREEPLAY.md「称号」)。通訳はヒーローが言う
-  heroSitter: op('hype', 'おバカ、全部止めたね！'),
+  heroSitter: op('hype', 'おバカのお守り、\n完ぺきだね！'),
   heroInterpreter: hero('smile', 'ぼくの言いたいこと、\n分かってたんだね！'),
   letItBe: op('deadpan', '…もう知らない')
 };

@@ -108,7 +108,7 @@ export class TitleScene extends Phaser.Scene {
     new PixelText(this, Math.round(W / 2), mid + 30, `称号{gold}${got}{/}/${TITLE_COUNT}`, {
       size: FS.body, color: UI.textDim
     }).setOrigin(0.5, 0);
-    new PixelText(this, Math.round(W / 2), H - Math.max(8, layout.safeBottom + 4), 'ホーム画面に追加すると\n記録が消えにくくなります', {
+    new PixelText(this, Math.round(W / 2), H - Math.max(8, layout.safeBottom + 4), 'ホーム画面に追加すると\n称号や記録が残りやすいよ', {
       size: FS.body, color: 0x8a84a0, align: 'center'
     }).setOrigin(0.5, 1);
 

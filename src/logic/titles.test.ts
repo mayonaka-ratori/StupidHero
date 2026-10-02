@@ -294,7 +294,7 @@ describe('称号(ステージ4)', () => {
   it('ひとことは高層ビルの文(STAGE4_TEXT「称号のひとこと」)', () => {
     expect(titleCommentFor('topHero', 'tower').text).toBe('全部のステージ、\nクリアだよ！');
     expect(titleCommentFor('furnitureGuide', 'tower').text).toBe('家具が飛ぶのを\n見てたよね');
-    expect(titleCommentFor('liftGuardian', 'tower').text).toBe('満員のエレベーターで\n一人も間違えなかった！');
+    expect(titleCommentFor('liftGuardian', 'tower').text).toBe('満員のエレベーターで\n1人も間違えなかった！');
     expect(titleCommentFor('sofaMaster', 'tower').text).toBe('ソファの上に\nぴったり落とした！');
   });
 });

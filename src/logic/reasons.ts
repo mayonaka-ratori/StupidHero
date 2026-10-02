@@ -69,7 +69,7 @@ export const TOWER_CIV_REASONS: Readonly<Record<TowerLook, string>> = {
   newbie: '新人でそわそわしていた',
   janitor: '掃除をしていただけ',
   chef: '味見をしていただけ',
-  waiter: '給仕をしていただけ',
+  waiter: '料理を運んでいただけ',
   lady: 'パーティのお客さん',
   magician: 'ただの手品師'
 };
@@ -77,8 +77,8 @@ export const TOWER_CIV_REASONS: Readonly<Record<TowerLook, string>> = {
 /** 高層ビルの紛らわしい市民の決め手(もれに見えたものの理由) */
 export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
   flicker: '蛍光灯が切れかけだった',
-  cellophane: '照明は紫のセロハンだった',
-  thread: '手品の糸で吊っていた',
+  cellophane: '明かりは紫のセロハンだった',
+  thread: '手品の糸でつっていた',
   smoke: '手品の煙と糸だった',
   balloon: '紫の風船がのっていただけ'
 };
@@ -88,10 +88,10 @@ export const TOWER_DECOY_REASONS: Readonly<Record<TowerDecoy, string>> = {
  * hidden はもれを隠すヴィラン(照明にも小物にも何も出ない)。プロフィールがふしぎで、一言も疑っていた
  */
 export const TOWER_LEAK_REASONS = {
-  both: '照明にも小物にも火花',
-  light: '照明に火花が出ていた',
-  item: '小物が紫のもやと火花',
-  hidden: '力を隠した。話も一言も変'
+  both: '明かりにも小物にも火花',
+  light: '明かりに火花が出ていた',
+  item: '小物に紫のもやと火花',
+  hidden: 'プロフィールと一言が変だった'
 } as const;
 
 /** 高層ビルの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE4.md) */
@@ -143,7 +143,7 @@ function garageReason(p: Person, wave: Pick<Wave, 'groups'> | undefined): string
     return stripReasonMarkup(text).length <= REASON_MAX ? text : `${tag}${acc.item}{/}が仲間と同じ色`;
   }
   const sameAsGang = (wave?.groups ?? []).some((g) => g.accessory.id === acc.id);
-  return sameAsGang ? `${color}は偶然。合図なし` : `${color}の仲間も合図もない`;
+  return sameAsGang ? `${color}は偶然。合図なし` : `${color}の仲間なし。合図なし`;
 }
 
 /** その人の決め手の文 */

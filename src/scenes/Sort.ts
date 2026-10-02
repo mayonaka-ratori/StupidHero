@@ -1,6 +1,8 @@
 // 仕分け。人が1人ずつスポットライトの下に出てくる。左にスワイプ(◀ワル)でワル、右(市民▶)で市民。
 // 時間は波ごと(wave.seconds。ゆっくりモードなら settings.timeScale 倍)。残り5秒で画面の端が赤く点滅し、オペレーターが急かす。
 // 全員仕分けたらすぐ結果発表(Street)へ。時間切れなら残りをヒーローが気まぐれで決めて Street へ。
+// そのスマホで初めて時間切れになったときは、Street へ行く前にオペレーターがゆっくりモードのことを教える
+// (say('slowHint')。records の slowHintSeen で1回だけ。ゆっくりモードがもうオンなら出さない)。
 // 1人3秒くらいで決めるゲームなので、入れ替わりは0.2秒くらいにして待たせない。
 //
 // 読むものはぜんぶ下の窓にまとめる:名前と年齢、プロフィール、細い線の下にオペレーターの小さな顔と一言。
@@ -25,6 +27,7 @@ import { personSheet } from '../art/recolor';
 import {
   HURRY_AT_SEC, bgForWave, glitchCount, glitchShowing, leakSpots, say, waveIntroFor, type Person, type SortChoice, type Speech
 } from '../logic';
+import { markSlowHintSeen, needsSlowHint } from '../logic';
 import { currentWave, fillUnsorted, getRun, setSort, type GameRun } from '../run';
 import {
   Button, EdgeAlarm, FS, IconButton, PauseControl, PixelText, SwipeInput, TimeBar, UIX, WindowFrame,
@@ -669,7 +672,18 @@ export class SortScene extends Phaser.Scene {
     }
     this.idx = this.people.length;
     await waitMs(this, 250);
+    await this.slowHint();
     this.leave();
+  }
+
+  /** そのスマホで初めての時間切れ:一時停止のメニューにゆっくりモードがあることを教える(1回だけ) */
+  private async slowHint(): Promise<void> {
+    if (settings.slowMode || !needsSlowHint()) return;
+    markSlowHintSeen();
+    const s = say('slowHint');
+    this.typeSeq++;
+    await this.remark.say(s.text, s.face, { who: s.who, speed: REMARK_CPS });
+    await waitMs(this, 1800);
   }
 
   /** 全員仕分けた:すぐ結果発表へ */

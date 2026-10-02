@@ -56,8 +56,13 @@ const asPublished = (s: Stage) => ({
  * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
  * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
  * timeUpOp:どこからも使っていなかったので消した
+ * judgeRight、stubborn、ownFault、stop:表記をそろえたとき(「ひと目」を「一目」、「怪しかった」を「あやしかった」)と、
+ * 言い方の見直し(仕分けの画面はハンコなので「ワルの札」を「ワルのハンコ」、ヒーローのため口に合わせて「止まります」を「止まるよ」)で直した
+ * (数は変えていないので、乱数の引き方は同じ)
  */
-const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp']);
+const REDESIGNED_REACTIONS = new Set([
+  'streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp', 'judgeRight', 'stubborn', 'ownFault', 'stop'
+]);
 
 /** fixture の答えから、わざと変えた項目を取りのぞく */
 type FixtureStage = (typeof alleyV1.stages)[number]['stage'];

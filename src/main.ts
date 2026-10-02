@@ -42,7 +42,11 @@ const refit = (): void => {
   fitCanvas(game.canvas, L.W, L.H);
   game.scale.refresh();
 };
-game.events.once(Phaser.Core.Events.READY, refit);
+game.events.once(Phaser.Core.Events.READY, () => {
+  // index.html の「読みこみ中…」を消す(ここからは Boot が同じ字を画面に出す)
+  document.getElementById('loading')?.remove();
+  refit();
+});
 window.addEventListener('resize', refit);
 window.addEventListener('orientationchange', () => setTimeout(refit, 200));
 // 横向きになったら止める(縦に戻ったら「タップで再開」)

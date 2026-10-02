@@ -45,7 +45,7 @@ const fillSpeech = (s: Speech, names: { item?: FreeItem; from?: FreeItem; to?: F
 export const FREE_INTRO: readonly Speech[] = [
   op('normal', '今日は仕分けなし！\n好きにやらせてみる'),
   hero('smug', 'まかせて！\n見れば分かるもん！'),
-  op('deadpan', '…絶対まちがえる。\n待てと行けで直してね')
+  op('deadpan', '…絶対間違える。\n待てと行けで直してね')
 ];
 
 // ─── 波の始めの決めつけ ───────────────────────────
@@ -75,7 +75,7 @@ export const FREE_DECLARES: Readonly<Record<FreeStageId, FreeDeclareSet>> = {
     allBad: [
       pair('暗いから\nワルだらけ！', '暗いってだけで！？', 'panic'),
       pair('ゴミ箱が多い！\nここはワルの巣だ！', 'ゴミ箱は\n関係ないでしょ'),
-      pair('路地裏だよ？\nみんなワルに決まってる', 'その決め方、\n雑すぎ！')
+      pair('路地裏だよ？\nみんなワルに決まってる！', 'その決め方、\n雑すぎ！')
     ],
     allCiv: [
       pair('自販機が光ってる！\nみんないい人！', '自販機で\n決めないで！'),
@@ -240,7 +240,7 @@ export const FREE_ATTACK: Readonly<Record<FreeLook, readonly Speech[]>> = {
     hero('smug', '車をいじる気だ！')
   ],
   clubber: [
-    hero('smug', '服がハデすぎる！'),
+    hero('smug', '服が派手すぎる！'),
     hero('smug', 'ヘアバンドが\nあやしい！'),
     hero('smug', 'ノリが軽そう！\nワルだ！'),
     hero('smug', 'ステップが\n悪そう！'),
@@ -265,7 +265,7 @@ export const FREE_ATTACK: Readonly<Record<FreeLook, readonly Speech[]>> = {
     hero('smug', '名札があやしい！'),
     hero('smug', 'あくびした！\nワルだ！'),
     hero('smug', '居眠りのふりだ！'),
-    hero('smug', 'ねむそうな顔は\nワルの顔！'),
+    hero('smug', '眠そうな顔は\nワルの顔！'),
     hero('smug', '目の下が黒い！\nワルだ！')
   ],
   dancer: [
@@ -392,7 +392,7 @@ export const FREE_PASS: Readonly<Record<FreeLook, readonly Speech[]>> = {
   ],
   clubber: [
     hero('smile', 'ノリがいいね！'),
-    hero('smile', '服、ハデで\nかっこいい！'),
+    hero('smile', '服、派手で\nかっこいい！'),
     hero('smile', '気をつけて\n帰ってね！'),
     hero('smile', 'ヘアバンド、\n似合ってる！'),
     hero('smile', '楽しそう！')
@@ -414,7 +414,7 @@ export const FREE_PASS: Readonly<Record<FreeLook, readonly Speech[]>> = {
   ],
   clerk: [
     hero('smile', 'いつも\nありがとう！'),
-    hero('smile', 'ねむそう！\nがんばって！'),
+    hero('smile', '眠そう！\nがんばって！'),
     hero('smile', 'お仕事\nお疲れさま！'),
     hero('smile', '名札、\nいい名前！'),
     hero('smile', 'あくび、\nうつりそう！')
@@ -476,7 +476,7 @@ export const FREE_STUBBORN: readonly Speech[] = [
   hero('smug', 'でもルール通りだし！'),
   hero('smug', 'ルールは\nルールだもん！'),
   hero('smug', '決めたことは\n決めたこと！'),
-  hero('smug', 'ぼくは\nまちがってない！'),
+  hero('smug', 'ぼくは\n間違ってない！'),
   hero('smug', 'だって\nそう見えたし！'),
   hero('smug', '見た目で\n決めたもん！')
 ];
@@ -494,7 +494,7 @@ export const FREE_TOLD_YOU: readonly Speech[] = [
 export const FREE_GO_EARLY: readonly Speech[] = [
   hero('smug', 'えっ、ワルなの！？\nよし、まかせて！'),
   hero('smug', 'いい人だと\n思ったのに！'),
-  hero('smug', '行けって？\n了解、ぶっとばす！'),
+  hero('smug', '行けって？\n了解、ぶっ飛ばす！'),
   hero('smug', 'ぼくも今\n気づいたところ！'),
   hero('smug', '知ってた！\nワルだって知ってた！')
 ];
@@ -583,8 +583,8 @@ export const FREE_OP: Readonly<Record<FreeOpKey, readonly [readonly Speech[], re
     [op('normal', '止めてから\n倒すの、得意だね'), op('deadpan', 'もう作戦でしょ'), op('hype', '取り返しの名人！')]
   ],
   goEarly: [
-    [op('hype', '見れば分かる\nよね！'), op('hype', '悪さの前に\n止めた！')],
-    [op('hype', '先に止めるの、\nいいね！'), op('hype', '手を振る前に\n止めた！'), op('normal', '見た目どおりの\nワルだもんね')],
+    [op('hype', '見れば\n分かるよね！'), op('hype', '悪さの前に\n倒した！')],
+    [op('hype', '先に倒すの、\nいいね！'), op('hype', '手を振る前に\n倒した！'), op('normal', '見た目どおりの\nワルだもんね')],
     [op('hype', '先回りの名人！'), op('deadpan', 'もうヒーロー\nいらなくない？'), op('hype', '悪さする\nひまもないね')]
   ],
   goCiv: [
@@ -595,7 +595,7 @@ export const FREE_OP: Readonly<Record<FreeOpKey, readonly [readonly Speech[], re
 };
 
 /** その回で初めて、素通りしかけたワルに行けのマークが出たとき(行けの使い方。オペレーター) */
-export const FREE_TEACH_PASS_GO: Speech = op('panic', 'どう見てもワル！\n行けで止めて！');
+export const FREE_TEACH_PASS_GO: Speech = op('panic', 'どう見てもワル！\n行けで倒して！');
 
 /** op に渡せる、その場面の人と小物 */
 export interface FreeOpContext {
@@ -615,7 +615,7 @@ export const FREE_OP_GRANNY_RULE: readonly Speech[] = [
 
 /** 小物のルールの一言3つ。1つ目だけ、小物の身につけ方(持ってる、かぶってる)で言い方が変わる */
 const itemRuleLines = (wearing: string): readonly Speech[] => [
-  op('panic', `{item}${wearing}\nだけ！`),
+  op('panic', `{item}を\n${wearing}だけ！`),
   op('panic', '{item}は\n悪くないって！'),
   op('deadpan', '{item}だけで\n決めないで！')
 ];

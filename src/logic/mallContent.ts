@@ -142,7 +142,7 @@ export const MALL_OPERATOR_HINTS: Readonly<Record<MallLook, { civ: readonly Oper
       hint('normal', 'ふらふらしてる…'),
       hint('normal', '風船を\n持ってる'),
       hint('deadpan', '中、暑そう…'),
-      hint('normal', '子どもに\n手をふってる'),
+      hint('normal', '子どもに\n手を振ってる'),
       hint('panic', 'こっちを\nじっと見てる')
     ],
     bad: [
@@ -196,7 +196,7 @@ export const MALL_OPERATOR_HINTS: Readonly<Record<MallLook, { civ: readonly Oper
       hint('normal', '腰が痛そう'),
       hint('deadpan', 'おつかい\n中かな…'),
       hint('normal', 'チラシを\n見てる'),
-      hint('normal', 'ベンチを\nさがしてる'),
+      hint('normal', 'ベンチを\n探してる'),
       hint('panic', '顔色が\n悪くない？')
     ],
     bad: [
@@ -240,19 +240,19 @@ export const BOSS3_HINTS: Readonly<Record<MallDisguise, readonly OperatorHint[]>
     hint('panic', '名札が\nさかさま…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', '名札の字が\n読めない'),
-    hint('deadpan', '店員にしては\n貫禄がありすぎ')
+    hint('deadpan', '店員にしては\nオーラがありすぎ')
   ],
   uncle: [
     hint('panic', '耳が…\nとがってる？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', '買い物袋が\n空っぽ？'),
-    hint('deadpan', 'おじさんにしては\n貫禄がありすぎ')
+    hint('deadpan', 'おじさんにしては\nオーラがありすぎ')
   ],
   mascot: [
     hint('panic', '頭から何か\n出てる…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', '風船を\n持ってない'),
-    hint('deadpan', 'バイトにしては\n貫禄がありすぎ')
+    hint('deadpan', 'バイトにしては\nオーラがありすぎ')
   ]
 };
 
@@ -416,7 +416,7 @@ export const MALL_TITLE_COMMENT_OVERRIDES = {
 
 /** 称号のひとこと(ステージ3の3つ) */
 export const MALL_TITLE_COMMENTS = {
-  ufoGuide: op('deadpan', 'UFOの前で\n手をふってたよね'),
-  saleGuardian: op('hype', 'セールの人ごみで\n一人も間違えなかった！'),
+  ufoGuide: op('deadpan', 'UFOの前で\n手を振ってたよね'),
+  saleGuardian: op('hype', 'セールの人ごみで\n1人も間違えなかった！'),
   ufoHunter: op('hype', 'UFO落とすの、\nくせになってない？')
 } as const;
