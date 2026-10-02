@@ -51,16 +51,24 @@ const perDay = new Map();
 for (const c of commits) perDay.set(dayKey(c.date), (perDay.get(dayKey(c.date)) ?? 0) + 1);
 const days = [...perDay.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-14);
 
-// 公開している版(pages.yml の既定)と、そのあとの変更
+// 公開している版(pages.yml の既定)と、そのあとの変更。
+// 公開する遊べるページに入るファイル(テスト、テスト用の部品、開発用のページをのぞく)を変えたコミットだけを、公開していない変更に数える。
+// 公開した版の記録、ボード、ドキュメント、テストだけのコミットは、公開しても遊べるページが変わらないので、別に数える
+const GAME_PATHS = [
+  'src', 'public', 'index.html', 'package.json', 'package-lock.json', 'vite.config.ts',
+  ':(exclude,glob)src/**/*.test.ts', ':(exclude)src/logic/testHelpers.ts', ':(exclude)src/logic/fixtures', ':(exclude)src/dev'
+];
 const pagesYml = readFileSync('.github/workflows/pages.yml', 'utf8');
 const pubRef = pagesYml.match(/default:\s*([0-9a-f]{7,40})/)?.[1] ?? '';
 const pubNote = pagesYml.match(/#\s*いま公開している版(.*)\n/)?.[1]?.replace(/^[((]|[))]$/g, '') ?? '';
 let unpublished = [];
+let otherAfterPub = 0;
 let pubDate = '';
 if (pubRef) {
   try {
     pubDate = git('log', '-1', '--format=%aI', pubRef);
-    unpublished = lines(git('log', '--no-merges', `--format=%h${SEP}%s`, `${pubRef}..HEAD`)).map((l) => l.split(SEP));
+    unpublished = lines(git('log', '--no-merges', `--format=%h${SEP}%s`, `${pubRef}..HEAD`, '--', ...GAME_PATHS)).map((l) => l.split(SEP));
+    otherAfterPub = lines(git('log', '--no-merges', '--format=%h', `${pubRef}..HEAD`)).length - unpublished.length;
   } catch {
     // 公開した版が手元にない(浅いクローンなど)
   }
@@ -322,6 +330,7 @@ ${failList}
   <h2>公開していない変更 (${unpublished.length})</h2>
   ${unpublished.length ? `<ul class="list">${unpublished.slice(0, 15).map(([h, s]) => commitLi(h, s)).join('')}</ul>` : '<p class="muted">公開中の版と同じ</p>'}
   ${pubNote ? `<p class="hint">公開中の版:${esc(pubNote)}</p>` : ''}
+  ${otherAfterPub ? `<p class="hint">ほかに、テスト、ドキュメント、ボード、公開の記録だけを変えたコミットが ${otherAfterPub} 件(公開しても遊べるページは変わらない)</p>` : ''}
 </section>
 <section>
   <h2>最近のコミット</h2>
