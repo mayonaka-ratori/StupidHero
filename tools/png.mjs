@@ -1,4 +1,4 @@
-// PNGを書き出す部品(tools/artsheet.mjs で使う)。
+// PNGを書き出す部品(tools/artsheet.mjs と tools/icons.mjs で使う)。
 // ブラウザもPlaywrightも読み込まない。node だけで動く。
 import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';

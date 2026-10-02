@@ -1,13 +1,16 @@
-// 開発のダッシュボードを作る。gitの記録、テスト、型の確かめ、docs/BOARD.md(やることと質問)を読んで、
+// 開発のダッシュボードを作る。gitの記録、テスト、型の確かめ、やることと質問(docs/BOARD.md と docs/BOARD_ARCHIVE.md)を読んで、
 // スマホでも見やすい1枚のHTMLにまとめる。開発用のサーバーはいらない。
 //
 // 使い方:
-//   node tools/dashboard.mjs              # テストと型の確かめも動かす(1分くらい)
-//   node tools/dashboard.mjs --quick      # テストと型の確かめをとばす
-//   node tools/dashboard.mjs - out.html   # 書き出す場所を変える(ふつうは dashboard/index.html。gitに入れない)
+//   npm run dashboard                  # テストと型の確かめも動かす(1分くらい)
+//   npm run dashboard -- --quick       # テストと型の確かめをとばす
+//   npm run dashboard -- - out.html    # 書き出す場所を変える(ふつうは dashboard/index.html。gitに入れない)
+// Node 22.18以上なら node tools/dashboard.mjs でも動く。それより前は src/ の .ts を読めずに止まるので、
+// --experimental-strip-types をつける npm run dashboard で動かす。
 //
 // 出したHTMLは、そのままブラウザで開ける。Claude Codeのセッションでは、Artifactとして公開すればスマホで見られる。
-// やることと質問は docs/BOARD.md の表から読む。表の形を変えたら、下の readBoard も合わせる。
+// やることと質問は、docs/BOARD.md(まだのものと最近終わったもの)と docs/BOARD_ARCHIVE.md(古い終わったもの)の表を
+// 合わせて読み、両方の行を数えて並べる。2つの表の形は同じ。表の形を変えたら、下の readBoard も合わせる。
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -109,18 +112,36 @@ if (!quick) {
   types = { ok: tsc.status === 0, errors: (tsc.stdout.match(/error TS/g) ?? []).length };
 }
 
-// ---- やることと質問(docs/BOARD.md) ----
+// ---- やることと質問(docs/BOARD.md と docs/BOARD_ARCHIVE.md) ----
+
+const BOARD_FILES = ['docs/BOARD.md', 'docs/BOARD_ARCHIVE.md'];
 
 function readBoard() {
-  const md = readFileSync('docs/BOARD.md', 'utf8');
-  const table = (heading) => {
-    const part = md.split(/^## /m).find((s) => s.startsWith(heading));
-    if (!part) return [];
-    return lines(part).filter((l) => l.startsWith('|')).slice(2)
-      .map((l) => l.slice(1, -1).split('|').map((c) => c.trim()));
-  };
-  const tasks = table('やること').map(([id, state, title, blocker]) => ({ id, state, title, blocker }));
-  const questions = table('質問').map(([id, state, question, answer]) => ({ id, state, question, answer }));
+  const tasks = [];
+  const questions = [];
+  for (const file of BOARD_FILES) {
+    let md;
+    try {
+      md = readFileSync(file, 'utf8');
+    } catch {
+      continue; // 移した行がまだないときは、ファイルがなくてもよい
+    }
+    const table = (heading) => {
+      const part = md.split(/^## /m).find((s) => s.startsWith(heading));
+      if (!part) return [];
+      return part.split(/\r?\n/).filter((l) => l.startsWith('|')).slice(2)
+        .map((l) => l.slice(1, -1).split('|').map((c) => c.trim()));
+    };
+    const t = table('やること').map(([id, state, title, blocker]) => ({ id, state, title, blocker }));
+    const q = table('質問').map(([id, state, question, answer]) => ({ id, state, question, answer }));
+    if (file !== BOARD_FILES[0]) {
+      for (const r of [...t, ...q].filter((r) => r.state !== 'done')) console.warn(`${file} に done でない行がある: ${r.id}(docs/BOARD.md にもどす)`);
+    }
+    tasks.push(...t);
+    questions.push(...q);
+  }
+  const ids = [...tasks, ...questions].map((r) => r.id);
+  for (const id of new Set(ids.filter((id, i) => ids.indexOf(id) !== i))) console.warn(`同じIDが2回ある: ${id}`);
   return { tasks, questions };
 }
 const { tasks, questions } = readBoard();
@@ -171,9 +192,12 @@ const chart = days.length ? `
   ${days.map(([d, n]) => `<div class="bar" title="${d}: ${n}件"><span class="b-n">${n}</span><i style="height:${(n / maxDay) * 100}%"></i><span class="b-d">${d.slice(5).replace('-', '/')}</span></div>`).join('')}
 </div>` : '<p class="muted">コミットがない</p>';
 
-const sortedTasks = [...tasks].sort((a, b) => (ORDER[a.state] ?? 9) - (ORDER[b.state] ?? 9));
+// 終わったものは、新しい番号を上にする(docs/BOARD.md と docs/BOARD_ARCHIVE.md の行がまざるので)
+const idNum = (r) => Number(r.id.replace(/\D/g, '')) || 0;
+const newestDone = (a, b) => (a.state === 'done' && b.state === 'done' ? idNum(b) - idNum(a) : 0);
+const sortedTasks = [...tasks].sort((a, b) => (ORDER[a.state] ?? 9) - (ORDER[b.state] ?? 9) || newestDone(a, b));
 const taskRows = sortedTasks.map((t) => `<tr class="r-${esc(t.state)}"><td class="mono">${esc(t.id)}</td><td>${pill(t.state)}</td><td>${md(t.title)}</td><td class="muted">${md(t.blocker)}</td></tr>`).join('');
-const qItems = [...openQ, ...questions.filter((q) => q.state === 'done')].map((q) => `
+const qItems = [...openQ, ...questions.filter((q) => q.state === 'done').sort(newestDone)].map((q) => `
 <li class="q ${q.state === 'done' ? 'q-done' : ''}">
   <div class="q-head"><span class="mono">${esc(q.id)}</span>${pill(q.state === 'done' ? 'done' : 'todo').replace('まだ', 'まだ答えていない')}</div>
   <p>${md(q.question)}</p>
