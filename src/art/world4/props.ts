@@ -357,7 +357,7 @@ function chandelierBroken(): PixelGrid {
 }
 
 // ---------------------------------------------------------------------
-// 仕分けの画面の机 40×32(天板と前の板)
+// 机 40×32(天板と前の板)。ボス戦で念力で投げる家具に使う
 // ---------------------------------------------------------------------
 function desk(): PixelGrid {
   const P = new Painter(40, 32);
@@ -369,6 +369,24 @@ function desk(): PixelGrid {
   for (const y of [11, 19]) {
     P.rect(22, y, 13, 7, WOOD[1]).rect(22, y, 13, 1, WOOD[0]).rect(22, y + 6, 13, 1, md(2, 1, 1));
     P.rect(27, y + 3, 3, 1, GOLD[1]);
+  }
+  return done(P);
+}
+
+/**
+ * 仕分けの画面の小さな机 26×20(天板と前の板と引き出し2つ)。仕分けの画面では2倍で置く。
+ * 天板の上の面は、tw_desk と同じく上から3〜4段目
+ */
+function sideDesk(): PixelGrid {
+  const P = new Painter(26, 20);
+  P.fill(P.mask().rect(1, 3, 24, 4), WOOD, { hi: 0.3, lo: 0.8 });
+  P.rect(1, 3, 24, 1, WOOD[0]);
+  P.fill(P.mask().rect(3, 7, 20, 12), WOOD[2], { flat: true });
+  P.rect(3, 7, 20, 1, md(2, 1, 1)).rect(3, 8, 1, 11, WOOD[1]).rect(22, 8, 1, 11, md(2, 1, 1));
+  // 引き出しと取っ手
+  for (const y of [9, 14]) {
+    P.rect(13, y, 8, 4, WOOD[1]).rect(13, y, 8, 1, WOOD[0]).rect(13, y + 3, 8, 1, md(2, 1, 1));
+    P.rect(16, y + 1, 2, 1, GOLD[1]);
   }
   return done(P);
 }
@@ -402,6 +420,7 @@ export function buildProps4(): Record<string, PixelGrid[][]> {
     prop_piano: two(piano),
     prop_chandelier: [[chandelierArt(false), chandelierArt(true), chandelierBroken()]],
     tw_desk: [[desk()]],
+    tw_desk_s: [[sideDesk()]],
     tw_lift_door: [[liftDoor()]]
   };
 }

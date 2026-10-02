@@ -6,6 +6,8 @@
 //   desk.setLook(CALM_LOOK);                              // 人がいないときと中断中
 //   desk.update(time);                                    // 毎フレーム(浮いた小物のゆれ、糸を引き直す)
 // 場所の数字は src/art/towerSpots.ts。container を渡すと、その中に置く(掛け合いのお手本の小さな画面)。
+// 机は desk.scale 倍(仕分けの画面は2倍)で出し、小物、もや、小物の火花、手品の煙、風船も同じ倍率で描く。
+// 手品の糸と風船のひもは、倍率によらず画面の1ドットの線に濃い影をつけて描く。
 // もれは人が出ている間ずっと同じで、待っても増えたり減ったりしない。
 // 「光と揺れを弱くする」(settings.reduceFx)のときは、火花のまたたきと小物の上下のゆれを止める(色と絵はそのまま)。
 
@@ -13,7 +15,8 @@ import Phaser from 'phaser';
 import { animKey, frameIndex, sheetByKey } from '../../art/sheets';
 import { magicianCaneTips } from '../../art/world4/people';
 import {
-  CALM_LOOK, FLOAT_PX, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS, TOWER_ITEM_SIZE, itemRestDy, towerDeskFor, type LeakLook, type TowerDeskSpot
+  CALM_LOOK, FLOAT_PX, TOWER_DESK_KEY, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS, TOWER_ITEM_SIZE, itemRestDy, towerDeskFor, type LeakLook,
+  type TowerDeskSpot
 } from '../../art/towerSpots';
 import type { WaveNo } from '../../logic';
 import { settings } from '../../settings';
@@ -32,14 +35,21 @@ const OUTLINE = 0x240024;
 /** 浮いた小物の上下のゆれ(1往復のミリ秒) */
 const BOB_MS = 1400;
 /**
- * 照明と小物の火花のまたたき(fx_psy_spark のコマ)。どのコマも十字が3ドット以上ある大きさ(1と2は大きく、0は3ドットの十字)。
+ * 照明と小物の火花のまたたき(fx_psy_spark のコマ)。2は7×7の細長い十字、1は5×5の大きい十字、0は3×3の十字。
+ * 照明も小物も2倍で出すので、いちばん小さい0でも画面で6×6ドットある。
  * 前はシートのまたたき(0から3)をそのまま使っていて、小さいコマが続くと1ドットの点に見えた
  */
 const SPARK_ANIM = 'fx_psy_spark.desk';
-const SPARK_FRAMES = [1, 2, 1, 0];
+const SPARK_FRAMES = [2, 1, 2, 0];
 const SPARK_FPS = 8;
-/** 「光と揺れを弱くする」のときに止めるコマ(大きい十字) */
-const SPARK_STILL = 1;
+/** 「光と揺れを弱くする」のときに止めるコマ(7×7の細長い十字。十字の形がいちばんはっきりしている) */
+const SPARK_STILL = 2;
+/**
+ * 小物の火花の、小物の真ん中からのずれ(机の絵の1ドットで数える)。小物の左上の、もやの輪の外。
+ * 右上にすると、人の絵ともやの輪に重なって見えにくかった
+ */
+const ITEM_SPARK_DX = -9;
+const ITEM_SPARK_DY = -8;
 /** 手品の糸を吊る点を、つえの先より何ドット上に置くか(小物の真上。ここから糸がまっすぐ下りる) */
 const HANG_ABOVE_TIP = 16;
 /** 吊る点からつえの先へ渡る糸の、真ん中のたるみ(ドット) */
@@ -49,8 +59,8 @@ export interface TowerDeskOptions {
   floor: WaveNo;
   /** 照明の上の真ん中と、何倍で出すか(火花も同じ倍率) */
   lamp: { x: number; y: number; scale?: number };
-  /** 机の下の真ん中 */
-  desk: { x: number; y: number };
+  /** 机の下の真ん中と、何倍で出すか(小物、もや、小物の火花、手品の煙、風船も同じ倍率) */
+  desk: { x: number; y: number; scale?: number };
   depth: number;
   /** 手品の糸の重なり(人より前に出すとき) */
   threadDepth?: number;
@@ -98,6 +108,8 @@ export class TowerDesk {
   private tip: CaneTip | null = null;
   private restY: number;
   private spotX: number;
+  /** 机と小物の倍率 */
+  private ds: number;
   private reduce = settings.reduceFx;
   private lastThread = '';
   private lastSmoke = '';
@@ -116,23 +128,26 @@ export class TowerDesk {
         key: SPARK_ANIM, frames: SPARK_FRAMES.map((frame) => ({ key: 'fx_psy_spark', frame })), frameRate: SPARK_FPS, repeat: -1
       });
     }
-    // 照明の火花は、照明の右の上と右の下。どちらも下へこぼれる紫の光の外の、暗い壁の上に出す
-    // (前は1つ目が左の下で、紫の光に重なって見えにくく、左上の「○人目」の字の続きにも見えた)。
-    // 照明だけのもれ(火花1つ)は右の上
+    // 照明の火花は、照明の右の上と右の下。どちらも下へこぼれる紫の光と、本体を包む紫のもやの外の、暗い壁の上に出す
+    // (前は1つ目が左の下で、紫の光に重なって見えにくく、左上の「○人目」の字の続きにも見えた。
+    // もやのすぐ横に置いたときは、もやとつながって十字に見えにくかった)。照明だけのもれ(火花1つ)は右の上
     this.lampSparks = [
-      add(scene.add.sprite(lx + 22 * ls, ly + 5 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2)),
-      add(scene.add.sprite(lx + 24 * ls, ly + 18 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2))
+      add(scene.add.sprite(lx + 26 * ls, ly + 5 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2)),
+      add(scene.add.sprite(lx + 27 * ls, ly + 19 * ls, 'fx_psy_spark', SPARK_STILL).setScale(ls).setDepth(d + 0.2))
     ];
     const { x: dx, y: dy } = opt.desk;
-    this.desk = add(scene.add.image(dx, dy, 'tw_desk').setOrigin(0.5, 1).setDepth(d));
+    const ds = this.ds = opt.desk.scale ?? 1;
+    this.desk = add(scene.add.image(dx, dy, TOWER_DESK_KEY).setOrigin(0.5, 1).setScale(ds).setDepth(d));
     const spotItem = this.spot.items[0];
-    this.spotX = dx + spotItem.dx;
-    this.restY = dy + itemRestDy(spotItem.item);
+    this.spotX = dx + spotItem.dx * ds;
+    this.restY = dy + itemRestDy(spotItem.item) * ds;
+    const floatY = this.restY - FLOAT_PX * ds;
     // もやは小物の後ろ(小物の形がはっきり見えるように)
-    this.haze = add(scene.add.sprite(this.spotX, this.restY - FLOAT_PX, 'fx_psy_haze', 0).setDepth(d + 0.1));
+    this.haze = add(scene.add.sprite(this.spotX, floatY, 'fx_psy_haze', 0).setScale(ds).setDepth(d + 0.1));
     this.items = this.spot.items.map(({ item, dx: ix }) =>
-      add(scene.add.sprite(dx + ix, dy + itemRestDy(item), 'fx_psy_items', TOWER_ITEM_FRAMES[item]).setDepth(d + 0.2)));
-    this.itemSpark = add(scene.add.sprite(this.spotX + 7, this.restY - FLOAT_PX - 6, 'fx_psy_spark', SPARK_STILL).setDepth(d + 0.3));
+      add(scene.add.sprite(dx + ix * ds, dy + itemRestDy(item) * ds, 'fx_psy_items', TOWER_ITEM_FRAMES[item]).setScale(ds).setDepth(d + 0.2)));
+    this.itemSpark = add(scene.add.sprite(this.spotX + ITEM_SPARK_DX * ds, floatY + ITEM_SPARK_DY * ds, 'fx_psy_spark', SPARK_STILL)
+      .setScale(ds).setDepth(d + 0.3));
     this.thread = add(scene.add.graphics().setDepth(opt.threadDepth ?? d + 0.3));
     this.balloon = add(scene.add.graphics().setDepth(d + 0.3));
     // 手品の煙は小物の後ろ(小物の形が見えるように)
@@ -187,12 +202,12 @@ export class TowerDesk {
       // 火花がそろって光らないように、コマをずらす
       if (!reduce) sparks.forEach((s, i) => s.anims.setProgress(((i * 3) % 4) / 4));
     }
-    // 1つ目の小物:浮いているときは少し上で、ゆっくり1ドット上下する
+    // 1つ目の小物:浮いているときは少し上で、ゆっくり1ドット(机の絵の1ドット)上下する
     const bob = L.itemFloat && !reduce ? (Math.sin((now / BOB_MS) * Math.PI * 2) > 0 ? 1 : 0) : 0;
-    const y = this.restY - (L.itemFloat ? FLOAT_PX + bob : 0);
+    const y = this.restY - (L.itemFloat ? (FLOAT_PX + bob) * this.ds : 0);
     const item = this.items[0];
     if (item.y !== y) item.setY(y);
-    if (L.haze && this.haze.y !== y) { this.haze.setY(y); this.itemSpark.setY(y - 6); }
+    if (L.haze && this.haze.y !== y) { this.haze.setY(y); this.itemSpark.setY(y + ITEM_SPARK_DY * this.ds); }
     if (L.balloon) this.drawBalloon(y);
     if (L.smoke) this.drawSmoke(y);
     if (L.thread) this.drawThread(y);
@@ -201,35 +216,44 @@ export class TowerDesk {
   /** 小物の上の端(その高さ y のとき) */
   private itemTop(y: number): number {
     const spot = this.spot.items[0].item;
-    return y - TOWER_ITEM_SIZE / 2 + TOWER_ITEM_ROWS[spot].top;
+    return y + (TOWER_ITEM_ROWS[spot].top - TOWER_ITEM_SIZE / 2) * this.ds;
   }
 
-  /** 小物の上に、ひもで結んだ小さな紫の風船 */
+  /** 机の倍率で、ドット絵の文字の並び(rows)を (px, py) から描く。col にない文字は描かない */
+  private paint(g: Phaser.GameObjects.Graphics, px: number, py: number, rows: readonly string[], col: Record<string, number>): void {
+    const u = this.ds;
+    rows.forEach((row, j) => {
+      for (let i = 0; i < row.length; i++) {
+        const c = col[row[i]];
+        if (c !== undefined) g.fillStyle(c, 1).fillRect(px + i * u, py + j * u, u, u);
+      }
+    });
+  }
+
+  /** 小物の上に、ひもで結んだ小さな紫の風船(机の倍率で描く) */
   private drawBalloon(y: number): void {
     const key = `b${y}`;
     if (this.lastThread === key) return;
     this.lastThread = key;
     const g = this.balloon.clear();
+    const u = this.ds;
     const top = this.itemTop(y);
     const x = this.spotX;
-    // ひも(小物の上から、少し右へ曲がって上へ9ドット)。結び目は小物のすぐ上
+    // ひも(小物の上から、少し右へ曲がって上へ9ドット。机の倍率で)。結び目は小物のすぐ上。
+    // 画面の1ドットの線を、倍率の分だけ太くする(2倍なら2ドット)
     const pts: [number, number][] = [];
-    for (let i = 1; i <= 9; i++) pts.push([x + (i >= 5 && i <= 7 ? 1 : 0), top - i]);
+    for (let i = 1; i <= 9 * u; i++) {
+      const k = Math.ceil(i / u);
+      for (let w = 0; w < u; w++) pts.push([x + w + (k >= 5 && k <= 7 ? u : 0), top - i]);
+    }
     drawLine(g, pts);
     // 風船(7×8の玉と、下の結び口)
-    const bx = x - 3, by = top - 18;
     const rows = ['..ooo..', '.orrro.', 'orhrrro', 'orhrrro', 'orrrrdo', 'orrrrdo', '.orrdo.', '..ooo..', '...k...'];
-    const col: Record<string, number> = { o: OUTLINE, r: PURPLE, h: PURPLE_HI, d: PURPLE_DARK, k: PURPLE_DARK };
-    rows.forEach((row, j) => {
-      for (let i = 0; i < row.length; i++) {
-        const c = col[row[i]];
-        if (c !== undefined) g.fillStyle(c, 1).fillRect(bx + i, by + j, 1, 1);
-      }
-    });
+    this.paint(g, x - 3 * u, top - 18 * u, rows, { o: OUTLINE, r: PURPLE, h: PURPLE_HI, d: PURPLE_DARK, k: PURPLE_DARK });
   }
 
   /**
-   * 手品の紫の煙。小物の左に小さな煙のかたまりを2つ(4×3と2×2)、右下に1つ(2×2)。
+   * 手品の紫の煙。小物の左に煙のかたまりを2つ(5×4と3×3)、右に1つ(3×3)。机の倍率で描く。
    * もれのもやのように小物を輪で包まず、火花も出さない。高さは小物に合わせる(浮いた小物のゆれについていく)
    */
   private drawSmoke(y: number): void {
@@ -237,26 +261,19 @@ export class TowerDesk {
     if (this.lastSmoke === key) return;
     this.lastSmoke = key;
     const g = this.smoke.clear();
+    const u = this.ds;
     const x = this.spotX;
     const col: Record<string, number> = { h: PURPLE_HI, p: PURPLE, d: PURPLE_DARK };
-    const puff = (px: number, py: number, rows: readonly string[]): void => {
-      rows.forEach((row, j) => {
-        for (let i = 0; i < row.length; i++) {
-          const c = col[row[i]];
-          if (c !== undefined) g.fillStyle(c, 1).fillRect(px + i, py + j, 1, 1);
-        }
-      });
-    };
     // 十字にすると火花に見えるので、横長の丸いかたまりにする
-    puff(x - 10, y - 1, ['.pp.', 'phpp', '.dd.']);
-    puff(x - 11, y - 5, ['pd', 'dd']);
-    puff(x + 5, y + 1, ['pp', 'dp']);
+    this.paint(g, x - 12 * u, y - 1 * u, ['.pph.', 'phppp', 'ppppd', '.ddd.'], col);
+    this.paint(g, x - 12 * u, y - 5 * u, ['.ph', 'ppd', 'dd.'], col);
+    this.paint(g, x + 5 * u, y + 1 * u, ['pp.', 'ppd', '.dd'], col);
   }
 
   /**
    * 手品の糸。小物の真上の、つえの先より高い所に吊る点を置き、そこから小物の上の端まで糸をまっすぐ下ろす。
-   * 吊る点からつえの先へは、少したるんだ糸を1ドットおきの点で渡す(つえで吊っていると分かるように。
-   * 前はつえの先から小物まで1本の線を引いていて、横に長い棒に見えた)。1ドットの点を並べる。にじませない
+   * 吊る点からつえの先へは、少したるんだ糸を渡す(つえで吊っていると分かるように。
+   * 前はつえの先から小物まで1本の線を引いていて、横に長い棒に見えた)。1ドットの点を並べ、右と下に濃い影をつける。にじませない
    */
   private drawThread(y: number): void {
     const tip = this.tip?.() ?? null;
@@ -283,8 +300,8 @@ export class TowerDesk {
       for (const q of linePoints(prev, p).slice(1)) span.push(q);
       prev = p;
     }
-    // 1ドットおきにして、うすく見せる(手品の見えにくい糸)
-    drawLine(g, span.filter((_, i) => i % 2 === 1));
+    // 前は1ドットおきにしてうすく見せていたが、スマホでは見えなかったので、切れ目のない線にする
+    drawLine(g, span);
   }
 
   destroy(): void {

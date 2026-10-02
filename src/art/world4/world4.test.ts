@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { type PixelGrid } from '../lib';
 import { bbox } from '../world/pix';
+import { WHITE } from '../world/palette';
 import { PSY } from './palette';
 import { magicianCaneTips } from './people';
 import { buildWorld4Sheets } from './index';
@@ -40,8 +41,43 @@ describe('ステージ4の絵', () => {
     expect(hasPsy(leak)).toBe(true);
     expect(hasPsy(cellophane)).toBe(true);
     for (const g of [normal, weak, weak2]) expect(hasPsy(g)).toBe(false);
-    // めくれ(管の下にたれる紫)と、管の左の端の白が、見てわかる大きさ(4ドット以上)で違う
-    expect(diff(leak, cellophane)).toBeGreaterThan(4);
+    // めくれ(管の下にたれる紫)と、管の両端の白が、見てわかる大きさで違う
+    expect(diff(leak, cellophane)).toBeGreaterThan(20);
+  });
+
+  it('照明:スマホでも見分けられる大きさ。セロハンは管の両端の4列が白く、めくれは6×5。もれは本体の左右を紫のもやが包む', () => {
+    const [normal, leak, , , cellophane] = sheets.fx_psy_lamp[0];
+    const W = normal.w;
+    // 管(6〜7段目)の左の端の4列(x=4〜7)と右の端の4列(x=32〜35)が白
+    for (const x of [4, 5, 6, 7, 32, 33, 34, 35]) for (const y of [6, 7]) expect(cellophane.get(x, y), `x=${x} y=${y}`).toBe(WHITE[0]);
+    // めくれたセロハン:管の下(8段目から)の右の端に、紫が横6ドット、縦5段以上
+    const flap: [number, number][] = [];
+    for (let y = 8; y < 14; y++) for (let x = 28; x < W; x++) if (psy.has(cellophane.get(x, y) ?? '')) flap.push([x, y]);
+    const fx = flap.map(([x]) => x), fy = flap.map(([, y]) => y);
+    expect(Math.max(...fx) - Math.min(...fx) + 1).toBeGreaterThanOrEqual(6);
+    expect(Math.max(...fy) - Math.min(...fy) + 1).toBeGreaterThanOrEqual(5);
+    // もれのもや:左右の端の2列(1〜11段目)に紫がある。紫のセロハンにはない
+    const sidePsy = (g: PixelGrid): number => {
+      let n = 0;
+      for (let y = 1; y < 12; y++) for (const x of [0, 1, W - 2, W - 1]) if (psy.has(g.get(x, y) ?? '')) n++;
+      return n;
+    };
+    expect(sidePsy(leak)).toBeGreaterThanOrEqual(16);
+    expect(sidePsy(cellophane)).toBe(0);
+  });
+
+  it('火花:仕分けの画面で使うコマ(0〜2)は十字で、2は縦横7ドットの十字', () => {
+    const sparks = sheets.fx_psy_spark[0];
+    const c = Math.floor(sparks[0].w / 2);
+    const arm = (g: PixelGrid): number => { let r = 0; while (g.get(c + r + 1, c) && g.get(c, c + r + 1)) r++; return r; };
+    expect([0, 1, 2].map((i) => arm(sparks[i]))).toEqual([1, 2, 3]);
+  });
+
+  it('仕分けの画面の小さな机は26×20で、天板の高さは tw_desk と同じ(ふちが2段目、上の面が3〜4段目)', () => {
+    const [[d]] = sheets.tw_desk_s;
+    expect([d.w, d.h]).toEqual([26, 20]);
+    expect(bbox(d)!.y0).toBe(2);
+    expect(bbox(sheets.tw_desk[0][0])!.y0).toBe(2);
   });
 
   it('机と会場の小物は8つとも3×3ドット以上で、紫を使わない(もやはコードで重ねる)', () => {
