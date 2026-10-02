@@ -42,10 +42,11 @@ function haze(w: number, h: number, n: number): PixelGrid[] {
 }
 
 /**
- * 仕分けの画面の左上の照明 40×24(天井につけた蛍光灯と、下へこぼれる光)。
- * 0:ふつう(白)、1:もれ(紫)、2:切れかけ(うすい黄色で端が黒い)、3:切れかけの暗いほう、
- * 4:紫のセロハン(紛らわしい市民。光はもれと同じ紫だが、まわりの粒はない。管の左の端はセロハンが届かず白いまま、
- * 右の端はセロハンがめくれて3段たれ下がる)
+ * 仕分けの画面の左上の照明 40×24(天井につけた蛍光灯と、下へこぼれる光)。仕分けの画面では2倍で置く。
+ * 0:ふつう(白)、1:もれ(紫。本体のまわりを紫のもや(市松の輪)が包み、紫の粒が3つ)、2:切れかけ(うすい黄色で端が黒い)、
+ * 3:切れかけの暗いほう、
+ * 4:紫のセロハン(紛らわしい市民。光はもれと同じ紫だが、もやと粒はない。管の左の端の4列はセロハンが届かず白いまま、
+ * 右の端の4列はセロハンがめくれて白い管が見え、めくれたセロハンが6×5の三角で下へたれる)
  */
 function lamp(w: number, h: number, n: number): PixelGrid[] {
   const METAL = [md(5, 5, 5), md(4, 4, 5), md(3, 3, 4)];
@@ -63,28 +64,37 @@ function lamp(w: number, h: number, n: number): PixelGrid[] {
       P.rect(4, 6, 4, 2, OUTLINE).rect(32, 6, 4, 2, OUTLINE);
     }
     if (i === 4) {
-      // セロハン:左の端の2列は白い管のまま。右の端はめくれたセロハンが下へたれる(4×3の三角)
-      P.rect(4, 6, 2, 2, W0);
-      P.rect(32, 8, 4, 1, PSY[1]).rect(33, 9, 3, 1, PSY[2]).rect(35, 10, 1, 1, PSY[2]);
-      P.px(35, 8, PSY[0]);
+      // セロハン:左の端の4列は白い管のまま。右の端の4列はセロハンがめくれて白い管が見え、
+      // めくれたセロハンが下へたれる(6×5の三角。ふちは P.outline で濃くなる)
+      P.rect(4, 6, 4, 2, W0).rect(5, 6, 3, 1, W0);
+      P.rect(32, 6, 4, 2, W0);
+      P.rect(30, 8, 6, 1, PSY[0]).rect(31, 9, 5, 1, PSY[1]).rect(32, 10, 4, 1, PSY[1]).rect(33, 11, 3, 1, PSY[2]).rect(34, 12, 2, 1, PSY[2]);
     }
     P.outline();
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = P.g.get(x, y); if (c) g.px(x, y, c); }
-    // 下へこぼれる光(市松。下ほど広く、まばらに)
+    if (i === 1) {
+      // もれ:本体のまわりを包む紫のもや(市松の輪。左右の端の2列と、本体のすぐ下の2段)。
+      // 紫のセロハンには出ない(紫の光だけではもれと決められないが、もやがあればもれ)
+      for (let y = 1; y < 12; y++) for (let x = 0; x < w; x++) {
+        if (g.get(x, y) || !dith(x, y)) continue;
+        const side = x <= 1 || x >= w - 2;
+        const below = (y === 9 || y === 10) && x >= 2 && x <= w - 3;
+        if (side || below) g.px(x, y, side ? PSY[1] : (x + y) % 4 === 0 ? PSY[1] : PSY[2]);
+      }
+      // 紫の粒(火花は fx_psy_spark をコードで重ねる)
+      g.px(1, 13, PSY[0]).px(38, 13, PSY[0]).px(3, 0, PSY[0]);
+    }
+    // 下へこぼれる光(市松。下ほど広く、まばらに)。描いてある所(めくれたセロハン、もや)には重ねない
     const spill = [md(6, 6, 6), PSY[2], WEAK[2], null, PSY[2]][i];
     if (!spill) return;
     for (let y = 10; y < h; y++) {
       const half = 14 + (y - 10) * 0.45;
       for (let x = Math.round(20 - half); x <= Math.round(19 + half); x++) {
-        if (!dith(x, y) || y % 2 !== 0) continue;
+        if (!dith(x, y) || y % 2 !== 0 || g.get(x, y)) continue;
         if (i === 2 && x % 4 !== 0) continue;
         if (y > 18 && (x + y) % 4 !== 0) continue;
         g.px(x, y, spill);
       }
-    }
-    if (i === 1) {
-      // もれ:照明のまわりの紫の粒(火花は fx_psy_spark をコードで重ねる)
-      g.px(1, 4, PSY[1]).px(38, 9, PSY[1]).px(2, 12, PSY[0]);
     }
   });
 }

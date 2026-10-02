@@ -58,17 +58,26 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
     // 左上の字(STAGE、人数、時間。右の端は x=52 くらい)の右で、右上のボタン(x=170から)の左、頭より上
     expect(TOWER_LAMP.x - lampHalf >= 52 && TOWER_LAMP.x + lampHalf <= 170).toBe(true);
     expect(TOWER_LAMP.y + TOWER_LAMP_H * TOWER_LAMP.scale < PERSON.top).toBe(true);
-    const deskLeft = TOWER_DESK.x - TOWER_DESK_W / 2;
-    const deskRight = TOWER_DESK.x + TOWER_DESK_W / 2;
-    // 左の端の赤い光(いちばん強くて17ドット)と、人の間
+    const ds = TOWER_DESK.scale;
+    const deskLeft = TOWER_DESK.x - (TOWER_DESK_W / 2) * ds;
+    const deskRight = TOWER_DESK.x + (TOWER_DESK_W / 2) * ds;
+    // 左の端の赤い光と「◀ワル」の字(どちらも右の端は17ドットくらい)と、人の間
     expect(deskLeft >= 17 && deskRight <= PERSON.left).toBe(true);
-    // 浮いた小物(もやを含む)も、人の左に収まる
+    // 浮いた小物(もやを含む。もやは16×14を机の倍率で)も、人の左に収まる
+    const hazeW = sheetByKey('fx_psy_haze').frameW * ds, hazeH = sheetByKey('fx_psy_haze').frameH * ds;
     for (const d of TOWER_DESKS) {
       const { item, dx } = d.items[0];
-      const cx = TOWER_DESK.x + dx;
-      const cy = TOWER_DESK.y + itemRestDy(item) - FLOAT_PX;
-      expect(cx - 8 >= 0 && cx + 8 <= PERSON.left && cy - 7 >= 0, item).toBe(true);
+      const cx = TOWER_DESK.x + dx * ds;
+      const cy = TOWER_DESK.y + (itemRestDy(item) - FLOAT_PX) * ds;
+      expect(cx - hazeW / 2 >= 17 && cx + hazeW / 2 <= PERSON.left && cy - hazeH / 2 >= 0, item).toBe(true);
     }
+  });
+
+  it('スマホで見分けられるように、照明も机と小物も2倍で出す', () => {
+    expect(TOWER_LAMP.scale).toBe(2);
+    expect(TOWER_DESK.scale).toBe(2);
+    // 小物は画面で6×6ドット以上(絵の3×3ドット以上を2倍)
+    for (const [item, rows] of Object.entries(TOWER_ITEM_ROWS)) expect((rows.bottom - rows.top + 1) * TOWER_DESK.scale, item).toBeGreaterThanOrEqual(6);
   });
 });
 

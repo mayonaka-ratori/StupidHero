@@ -6,7 +6,8 @@
 //   const look = leakLook(leakSpots(person));   // 照明のコマ、火花の数、小物を浮かせるか、もや、糸、煙、風船
 //
 // 照明と机は、どの階も同じ場所に置く(TOWER_LAMP、TOWER_DESK)。人の絵(2倍)と重ならないように、
-// 照明は頭の上、机は人の左の細い所に置く。机の上の小物は階ごとに2つ(1階は名刺とペン、18階はペンとマグカップ、
+// 照明は頭の上、机は人の左に置く。照明も机と小物も2倍で出す(スマホでも火花やめくれ、ひもが見えるように。
+// 前は机と小物が1倍で、紛らわしい市民の理由が2×2〜4×3ドットしかなく、スマホでは見分けられなかった)。机の上の小物は階ごとに2つ(1階は名刺とペン、18階はペンとマグカップ、
 // 35階はグラスとナプキン、最上階はグラスとキャンドル)。もれや紛らわしい市民の理由が出るのは、1つ目(spot)だけ。
 // 大きく映す窓はない(前は「まわり」の窓があったが、やさしすぎたのでやめた)。プレイヤーは仕分けの画面の机と照明をじかに見る。
 
@@ -35,36 +36,44 @@ export const TOWER_ITEM_ROWS: Readonly<Record<TowerItem, { top: number; bottom: 
 
 /** 小物のコマ(fx_psy_items)の大きさ(縦と横は同じ) */
 export const TOWER_ITEM_SIZE = sheetByKey('fx_psy_items').frameW;
-/** 机(tw_desk)の大きさ */
-export const TOWER_DESK_W = sheetByKey('tw_desk').frameW;
-export const TOWER_DESK_H = sheetByKey('tw_desk').frameH;
+/** 仕分けの画面の机の絵のキー(小さな机。ボス戦で投げる tw_desk とは別) */
+export const TOWER_DESK_KEY = 'tw_desk_s';
+/** 机(tw_desk_s)の大きさ(1倍のとき) */
+export const TOWER_DESK_W = sheetByKey(TOWER_DESK_KEY).frameW;
+export const TOWER_DESK_H = sheetByKey(TOWER_DESK_KEY).frameH;
 /** 小物の下の端をのせる行(机のコマの上から数えて。天板の上の面は3〜4段目) */
 export const DESK_TOP_ROW = 4;
-/** 浮いた小物が上がる高さ(ドット)。上下のゆれは、ここから1ドット上まで */
+/**
+ * 浮いた小物が上がる高さ(机の絵の1ドットで数える。2倍で出せば画面では2倍)。
+ * 上下のゆれは、ここから1ドット上まで
+ */
 export const FLOAT_PX = 3;
 
 /**
  * 仕分けの画面の照明(fx_psy_lamp の上の真ん中)。頭の上の、左上の字(STAGE、人数、時間)の右。
- * 照明は画面の左上に大きく(2倍で)出す。机と小物は背景と同じ1倍
+ * 照明は画面の左上に大きく(2倍で)出す
  */
 export const TOWER_LAMP = { x: 94, y: 0, scale: 2 } as const;
 /** fx_psy_lamp の大きさ */
 export const TOWER_LAMP_W = sheetByKey('fx_psy_lamp').frameW;
 export const TOWER_LAMP_H = sheetByKey('fx_psy_lamp').frameH;
-/** 仕分けの画面の机(tw_desk の下の真ん中)。人の左の細い所。足の高さ(204)にそろえる */
-export const TOWER_DESK = { x: 38, y: 204 } as const;
+/**
+ * 仕分けの画面の机(tw_desk_s の下の真ん中)と倍率。人の左。足の高さ(204)にそろえる。
+ * 机と小物、もや、小物の火花、手品の煙、風船は、どれもこの倍率(2倍)で出す
+ */
+export const TOWER_DESK = { x: 46, y: 204, scale: 2 } as const;
 
-/** 机の上の小物1つ。dx は机の真ん中から小物のコマの真ん中までのずれ */
+/** 机の上の小物1つ。dx は机の真ん中から小物のコマの真ん中までのずれ(机の絵の1ドットで数える) */
 interface DeskItem { item: TowerItem; dx: number }
 
 /** 1つの階の机。items[0] がもれの出る小物(spot) */
 export interface TowerDeskSpot { items: readonly [DeskItem, DeskItem] }
 
-/** 1つ目の小物は机の右寄り(人の側。手品の糸がつえから届く側)、2つ目は左寄り */
-const SPOT_DX = 9;
-const OTHER_DX = -9;
+/** 1つ目の小物は机の右寄り(人の側。手品の糸がつえから届く側)、2つ目は左寄り(机の絵の1ドットで数える) */
+const SPOT_DX = 6;
+const OTHER_DX = -6;
 
-/** 小物のコマの真ん中の、机の下の真ん中からの高さ(浮いていないとき。上がマイナス) */
+/** 小物のコマの真ん中の、机の下の真ん中からの高さ(浮いていないとき。上がマイナス。机の絵の1ドットで数える) */
 export function itemRestDy(item: TowerItem): number {
   const bottomY = -TOWER_DESK_H + DESK_TOP_ROW;
   return bottomY - TOWER_ITEM_ROWS[item].bottom + TOWER_ITEM_SIZE / 2;
