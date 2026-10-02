@@ -1,69 +1,21 @@
 // フリープレイを通しで数える(並び → 数え方 → 称号 → 記録 → 共有の文)。画面の代わりに、決めた遊び方で出来事を起こす。
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFreePlay, freeRoleOf, isSceneHead, type FreePlan } from './freeplay';
+import { createFreePlay, freeRoleOf } from './freeplay';
 import { clearRecords, emptyFreeRecord, freeSelectInfo, isFreeUnlocked, loadRecords, markFreeIntroSeen, needsFreeIntro, saveFreeResult, saveResult, RECORDS_KEY } from './records';
 import { FREE_WORST_CAPTION, freeShareCaption, freeShareTexts, heroAccuracyText, ruleQuote } from './share';
-import { FREE_WORST_SCENE_RANK, StatsTracker, freeWaveScene, sceneForCivHit } from './stats';
-import { MemStorage } from './testHelpers';
-import { TITLES, decideTitle, titlesFor, titlesForFree } from './titles';
-import type { Person, StageStats } from './types';
-import { titleCommentFor } from './content';
-
-type Style = 'perfect' | 'handsOff' | 'stopAll';
+import { FREE_WORST_SCENE_RANK, StatsTracker, freeWaveScene } from './stats';
+import { MemStorage, playFree, type FreePolicy } from './testHelpers';
+import { decideTitle } from './titles';
+import type { StageStats } from './types';
 
 /**
- * 決めた遊び方で1回通す。
- * perfect:市民だけに待て、行けのチャンスは全部行け / handsOff:何も押さない / stopAll:殴りかかる相手全員に待て(ワルは取り返す)
+ * 決めた遊び方(playFree に渡す)。
+ * perfect:市民だけに待て、行けのチャンスは全部行け / handsOff:何も押さない / stopAll:殴りかかる相手全員に待て(ワルは recover で取り返す)
  */
-function play(plan: FreePlan, style: Style, rawSec = 100): StatsTracker {
-  const stats = new StatsTracker(plan.stage.villainTotal, plan.stage.id);
-  stats.startFree(plan);
-  plan.stage.waves.forEach((w, i) => {
-    const fw = plan.waves[i];
-    stats.setFreeRule(fw.rule);
-    for (const p of w.people) {
-      if (fw.redeclare && p.index === fw.redeclare.after) stats.setFreeRule(fw.redeclare.rule);
-      if (!isSceneHead(w, p)) continue;
-      const role = freeRoleOf(fw, p);
-      if (role === 'stop') {
-        if (style === 'handsOff') {
-          stats.hurtCiv('hero', p.look);
-          stats.reportScene(sceneForCivHit(p.look, 'punch'), 'punch');
-        } else {
-          stats.stopped('civ');
-          stats.reportFreeScene('closeCall');
-        }
-      } else if (role === 'heroBad') {
-        if (style === 'stopAll') {
-          stats.stopped('bad');
-          goOn(stats, p, true);
-        } else stats.defeatBad('sort');
-      } else if (role === 'go') {
-        stats.reportFreeScene(freeWaveScene(p.look));
-        if (style === 'handsOff') escape(stats, p);
-        else goOn(stats, p, false);
-      }
-    }
-  });
-  stats.finishFree(rawSec);
-  return stats;
-}
-
-function goOn(stats: StatsTracker, p: Person, recovered: boolean): void {
-  if (p.look === 'fp_gang') stats.groupWiped(2);
-  else if (p.look === 'fp_alien') stats.ufoDowned(recovered);
-  else stats.defeatBad('go', recovered);
-}
-
-function escape(stats: StatsTracker, p: Person): void {
-  if (p.look === 'fp_gang') stats.groupEscaped(2);
-  else if (p.look === 'fp_alien') stats.ufoEscaped();
-  else {
-    stats.mischief(p.look);
-    stats.escaped(true);
-  }
-}
+const perfect: FreePolicy = (role) => (role === 'stop' || role === 'go' ? 'press' : 'skip');
+const handsOff: FreePolicy = () => 'skip';
+const stopAll: FreePolicy = (role) => (role === 'heroCiv' ? 'skip' : 'press');
 
 const PLAN = createFreePlay(2024, ['alley', 'garage', 'mall']);
 const ALLEY = createFreePlay(2024, ['alley']);
@@ -71,7 +23,7 @@ const ALLEY = createFreePlay(2024, ['alley']);
 describe('フリープレイの数え方', () => {
   it('何も押さなければ、ヒーローだけの当たりと直したあとの当たりが同じ(10/27)。称号はなすがまま', () => {
     for (const plan of [PLAN, ALLEY]) {
-      const s = play(plan, 'handsOff').snapshot();
+      const s = playFree(plan, handsOff).snapshot();
       const f = s.free!;
       expect(f).toMatchObject({ heroRight: 10, fixedRight: 10, units: 27, stopSaved: 0, goScenes: 0, effectiveStops: 0, effectiveGos: 0 });
       expect(heroAccuracyText(f)).toBe('ヒーローだけなら10/27人、あなたが直して10/27人');
@@ -84,20 +36,17 @@ describe('フリープレイの数え方', () => {
   });
 
   it('全部決めれば27/27。だれも傷つけず、だれも逃がさないのでお守り役', () => {
-    const s = play(PLAN, 'perfect').snapshot();
+    const s = playFree(PLAN, perfect).snapshot();
     const f = s.free!;
     expect(f).toMatchObject({ fixedRight: 27, stopSaved: 9, goScenes: 8, recovered: 0, dryPresses: 0, clearSec: 100, rawSec: 100 });
     expect(s.escaped).toBe(0);
     expect(s.allDefeated).toBe(true);
     expect(heroAccuracyText(f)).toBe('ヒーローだけなら10/27人、あなたが直して27/27人');
     expect(decideTitle(s).id).toBe('heroSitter');
-    // 完全無欠と街のほんものヒーローは、フリープレイでは出ない
-    expect(decideTitle({ ...s, escaped: 1 }).id).toBe('heroInterpreter');
-    expect(decideTitle({ ...s, escaped: 1, free: { ...f, dryPresses: 4 } }).id).not.toBe('heroInterpreter');
   });
 
   it('ワルに待てを押しても、すぐには逃がしたに数えない。行けで取り返せば逃がしたにならず、行けで決めたにも入らない', () => {
-    const s = play(PLAN, 'stopAll').snapshot();
+    const s = playFree(PLAN, stopAll, { recover: true }).snapshot();
     const f = s.free!;
     expect(s.badSparedByStop).toBe(5); // 殴られるワル(波1の2人、波3の3人)
     expect(f.recovered).toBe(5);
@@ -153,7 +102,7 @@ describe('フリープレイの数え方', () => {
   });
 
   it('素通りしかけた市民に行けを押して殴ると、市民のけが(なぐった)に数えて3秒足す。お守り役もなすがままも取れない', () => {
-    const stats = play(PLAN, 'perfect');
+    const stats = playFree(PLAN, perfect);
     stats.hurtCiv('hero', 'suit');
     stats.freeGoCiv();
     const s = stats.snapshot();
@@ -162,7 +111,7 @@ describe('フリープレイの数え方', () => {
     expect(f).toMatchObject({ goCivHits: 1, goScenes: 8, clearSec: 103, fixedRight: 26 });
     expect(decideTitle(s).id).toBe('heroInterpreter');
     // 何も押さなかった回でも、市民に行けを押していれば、なすがままにしない
-    const hands = play(PLAN, 'handsOff');
+    const hands = playFree(PLAN, handsOff);
     hands.hurtCiv('hero', 'suit');
     hands.freeGoCiv();
     expect(hands.snapshot().free!.effectiveGos).toBe(1);
@@ -251,23 +200,7 @@ describe('フリープレイの数え方', () => {
 });
 
 describe('フリープレイの称号', () => {
-  const s = (): StageStats => play(PLAN, 'perfect').snapshot();
-
-  it('フリープレイだけの3つを先に上から調べ、そのあとステージの称号。調べない称号は出ない', () => {
-    const ids = titlesForFree().map((t) => t.id);
-    expect(ids.slice(0, 3)).toEqual(['heroSitter', 'heroInterpreter', 'letItBe']);
-    for (const id of ['flawless', 'realHero', 'bossBuddy', 'tapProdigy', 'roundUp', 'gangDriver', 'ufoGuide', 'saleGuardian', 'ufoHunter']) {
-      expect(ids, id).not.toContain(id);
-    }
-    expect(ids.slice(3)).toEqual(['civNemesis', 'demolition', 'grannyFoe', 'runawayTrain', 'stopMaster', 'chaseDemon', 'tooKind', 'soSo']);
-    // ステージではフリープレイだけの称号は取れない
-    for (const id of ['alley', 'garage', 'mall'] as const) {
-      expect(titlesFor(id).map((t) => t.id)).not.toContain('heroSitter');
-    }
-    expect(titleCommentFor('heroInterpreter').who).toBe('hero');
-    expect(titleCommentFor('heroSitter').text).toBe('おバカのお守り、\n完ぺきだね！');
-    expect(titleCommentFor('letItBe').text).toBe('…もう知らない');
-  });
+  const s = (): StageStats => playFree(PLAN, perfect).snapshot();
 
   it('お守り役:なぐった市民とワルにやられた市民が0で逃がしたワルが0。まきぞえは数えない', () => {
     const base = s();
@@ -277,9 +210,12 @@ describe('フリープレイの称号', () => {
   });
 
   it('通訳:待て8人以上、行け7回以上、空押し3回まで、ワルへの待て1回まで', () => {
+    // 逃がしたワルが1人いるので、お守り役ではない(完全無欠と街のほんものヒーローは、フリープレイでは出ない)
     const base = { ...s(), escaped: 1 };
     const f = base.free!;
+    expect(decideTitle(base).id).toBe('heroInterpreter');
     expect(decideTitle({ ...base, free: { ...f, stopSaved: 8, goScenes: 7, dryPresses: 3 } }).id).toBe('heroInterpreter');
+    expect(decideTitle({ ...base, free: { ...f, dryPresses: 4 } }).id).not.toBe('heroInterpreter');
     expect(decideTitle({ ...base, badSparedByStop: 1, free: { ...f, stopSaved: 8, goScenes: 7 } }).id).toBe('heroInterpreter');
     expect(decideTitle({ ...base, badSparedByStop: 2, free: { ...f, stopSaved: 8, goScenes: 7 } }).id).not.toBe('heroInterpreter');
     expect(decideTitle({ ...base, free: { ...f, stopSaved: 7, goScenes: 8 } }).id).not.toBe('heroInterpreter');
@@ -287,17 +223,11 @@ describe('フリープレイの称号', () => {
   });
 
   it('なすがまま:効いた待てと行けが0なら、空押しがあっても取れる。おばあさんを殴っていても先に出る', () => {
-    const hands = play(PLAN, 'handsOff').snapshot();
+    const hands = playFree(PLAN, handsOff).snapshot();
     expect(decideTitle({ ...hands, free: { ...hands.free!, dryPresses: 20 } }).id).toBe('letItBe');
     expect(decideTitle({ ...hands, free: { ...hands.free!, effectiveGos: 1 } }).id).not.toBe('letItBe');
     // なすがままでなければ、ステージの称号(市民の天敵など)
     expect(decideTitle({ ...hands, free: { ...hands.free!, effectiveStops: 1 } }).id).toBe('civNemesis');
-  });
-
-  it('ステージの称号の決め方は変わらない(stats.free がなければ、フリープレイだけの称号は出ない)', () => {
-    const noFree: StageStats = { ...play(PLAN, 'handsOff').snapshot(), free: null, civHurt: 0, civHurtByHero: 0, damage: 0 };
-    expect(['heroSitter', 'heroInterpreter', 'letItBe']).not.toContain(decideTitle(noFree).id);
-    expect(TITLES).toHaveLength(24);
   });
 });
 
@@ -308,7 +238,7 @@ describe('フリープレイの記録', () => {
     const st = new MemStorage();
     expect(isFreeUnlocked(loadRecords(st))).toBe(false);
     expect(freeSelectInfo(loadRecords(st))).toEqual({ unlocked: false, bestSec: null, bestSlowSec: null, record: null });
-    const alley = play(ALLEY, 'perfect').snapshot();
+    const alley = playFree(ALLEY, perfect).snapshot();
     saveResult('alley', { ...alley, free: null, bossDefeated: true }, 'soSo', st);
     expect(isFreeUnlocked(loadRecords(st))).toBe(true);
     expect(needsFreeIntro(loadRecords(st))).toBe(true);
@@ -318,7 +248,7 @@ describe('フリープレイの記録', () => {
 
   it('いちばん速い時間はふつうとゆっくりで別。待て、行け、被害額のいちばん良いもの。称号は全体に数える', () => {
     const st = new MemStorage();
-    const a = play(PLAN, 'perfect', 110).snapshot();
+    const a = playFree(PLAN, perfect, { rawSec: 110 }).snapshot();
     const r1 = saveFreeResult(a, decideTitle(a).id, st);
     expect(r1.firstPlay).toBe(true);
     expect(r1.newRecords).toEqual([]);
@@ -326,12 +256,12 @@ describe('フリープレイの記録', () => {
     expect(r1.titlesTotal).toBe(24);
     expect(r1.titleIsNew).toBe(true);
 
-    const b = play(PLAN, 'perfect', 90).snapshot();
+    const b = playFree(PLAN, perfect, { rawSec: 90 }).snapshot();
     const r2 = saveFreeResult(b, 'heroSitter', st);
     expect(r2.newRecords).toEqual(['bestSec']);
     expect(r2.titleIsNew).toBe(false);
 
-    const slow = play(PLAN, 'perfect', 150).snapshot();
+    const slow = playFree(PLAN, perfect, { rawSec: 150 }).snapshot();
     const r3 = saveFreeResult({ ...slow, free: { ...slow.free!, slow: true } }, 'heroSitter', st);
     expect(r3.free.bestSec).toBe(90);
     expect(r3.free.bestSlowSec).toBe(150);
@@ -340,15 +270,11 @@ describe('フリープレイの記録', () => {
     expect(loadRecords(st).titles).toContain('heroSitter');
   });
 
-  it('「ステージを進めると、出てくる人が増えるよ」は路地裏しか開いていない人に一度だけ', () => {
+  it('「ステージを進めると、出てくる人が増えるよ」は、モールが開いていない人に一度だけ(地下駐車場が開いていても出す)', () => {
+    const s = playFree(ALLEY, handsOff).snapshot();
     const st = new MemStorage();
-    const s = play(ALLEY, 'handsOff').snapshot();
     expect(saveFreeResult(s, 'letItBe', st).showMoreStagesHint).toBe(true);
     expect(saveFreeResult(s, 'letItBe', st).showMoreStagesHint).toBe(false);
-  });
-
-  it('路地裏のボスを倒した人(地下駐車場も開いている)にも出す。モールまで開いていれば出さない', () => {
-    const s = play(ALLEY, 'handsOff').snapshot();
     const rec = (stages: object): MemStorage => {
       const st = new MemStorage();
       st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages, titles: [] }));

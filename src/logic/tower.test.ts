@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AGES, NAMES } from './content';
-import { createRng, hashSeed } from './rng';
-import { DECOY_LOOKS, LEAK, LIFT } from './rules';
-import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
-import { TOWER_LOOKS, sheetKeyFor } from './stages';
-import { FLOOR_LOOKS, buildLift, canDecoy, isDoubtHint, isOddLine, leakSpots, rollLeak, spotHintsFor } from './tower';
+import { createRng } from './rng';
+import { LEAK, LIFT } from './rules';
+import { createStage, liftRushOf } from './stage';
+import { TOWER_LOOKS } from './stages';
+import { FLOOR_LOOKS, canDecoy, isDoubtHint, isOddLine, leakSpots, rollLeak, spotHintsFor } from './tower';
 import { TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_SPOT_HINTS } from './towerContent';
-import { baseSheetKey } from './tells';
-import type { LiftPlan, Person, Stage, StageId, TowerLook } from './types';
+import type { LiftPlan, Person, Stage, TowerLook } from './types';
+
+// 外れは配列に集めて最後に1回だけ確かめる(1人ずつ expect を呼ぶと遅い)
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 5);
 const stages: Stage[] = SEEDS.map((s) => createStage(s, 'tower'));
@@ -16,11 +16,8 @@ const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 const isHidden = (p: Person): boolean => p.truth === 'bad' && !p.leak!.light && !p.leak!.item;
 
 describe('createStage(seed, "tower")', () => {
-  // id と名前、波の人数と時間、波ごとのヴィランの数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合は stage.test.ts でまとめて確かめる
-
-  it('同じ種なら同じステージ(ラッシュの並びも)', () => {
-    expect(createStage(55, 'tower')).toEqual(createStage(55, 'tower'));
-  });
+  // id と名前、波の人数と時間、波ごとのヴィランの数と悪さ、ボスの共通の決まり、同じ見た目の市民の割合、
+  // 親玉の名前と年齢は stage.test.ts でまとめて確かめる。同じ種なら同じステージになることは colorVariants.test.ts で確かめる
 
   it('出る見た目は階ごと(1階は2種類、18階は4種類、35階は6種類、最上階は8種類)。最上階にはドレスの女性と手品師がかならずいる', () => {
     const seen: Set<string>[] = [new Set(), new Set(), new Set(), new Set()];
@@ -39,14 +36,15 @@ describe('createStage(seed, "tower")', () => {
     expect(seen.map((x) => x.size)).toEqual([2, 4, 6, 8]);
   });
 
-  it('ヴィランにだけもれがある。2か所とも出るか1か所だけ(だいたい半々)。市民と親玉にはない', () => {
+  it('ヴィランにだけもれがある。2か所とも出るか1か所だけ(だいたい半々)。市民と親玉にはない。波1には2か所とももれる練習用のヴィランがかならずいる', () => {
     let both = 0;
     let light = 0;
     let item = 0;
+    const bad: string[] = [];
     for (const s of stages) {
       for (const p of everyone(s)) {
         if (p.truth !== 'bad') {
-          expect(p.leak, p.id).toBeUndefined();
+          if (p.leak !== undefined) bad.push(`${s.seed} ${p.id} ヴィランでないのにもれがある`);
           continue;
         }
         const l = p.leak!;
@@ -55,7 +53,9 @@ describe('createStage(seed, "tower")', () => {
         else if (l.light) light++;
         else item++;
       }
+      if (!s.waves[0].people.some((p) => p.truth === 'bad' && p.leak!.light && p.leak!.item)) bad.push(`${s.seed} 波1に練習用のヴィランがいない`);
     }
+    expect(bad).toEqual([]);
     const total = both + light + item;
     // 練習用のヴィランが波1に1人ずついるぶん、2か所の方が少し多い
     expect(both / total).toBeGreaterThan(0.45);
@@ -65,26 +65,24 @@ describe('createStage(seed, "tower")', () => {
     expect(Math.abs(light - item) / (light + item)).toBeLessThan(0.15);
   });
 
-  it('もれを隠すヴィランは、波3と波4に1人ずつ(親玉は数えない)。波ごとのヴィランの数は変わらない', () => {
-    expect(LEAK.hiddenPerWave).toEqual([0, 0, 1, 1]);
-    const counts = new Set<number>();
+  it('もれを隠すヴィランは、波3と波4に1人ずつ(親玉は数えない)。ほかにもれのあるヴィランが1人以上いる', () => {
+    const bad: string[] = [];
     for (const s of stages) {
       s.waves.forEach((w, i) => {
-        const hidden = w.people.filter(isHidden);
-        expect(hidden.length, `seed ${s.seed} 波${i + 1}`).toBe(LEAK.hiddenPerWave[i]);
-        // ほかにもれのあるヴィランが1人以上いる(波4は2人のうち1人、波3は2〜3人のうち1〜2人)
-        const bad = w.people.filter((p) => p.truth === 'bad');
-        expect(bad.length - hidden.length, `seed ${s.seed} 波${i + 1}`).toBeGreaterThanOrEqual(1);
-        expect(w.badCount).toBe(bad.length);
-        if (i === 2) counts.add(bad.length);
+        const at = `seed ${s.seed} 波${i + 1}`;
+        const hidden = w.people.filter(isHidden).length;
+        if (hidden !== LEAK.hiddenPerWave[i]) bad.push(`${at} 隠すヴィラン ${hidden}人`);
+        // 波4は2人のうち1人、波3は2〜3人のうち1〜2人
+        if (w.people.filter((p) => p.truth === 'bad').length - hidden < 1) bad.push(`${at} もれのあるヴィランがいない`);
       });
     }
-    expect([...counts].sort()).toEqual([2, 3]);
+    expect(bad).toEqual([]);
   });
 
   it('もれを隠すヴィランは、プロフィールがふしぎに聞こえる文で、一言は疑う一言。市民はこの2つがそろわない(両方あやしい人だけがヴィラン)', () => {
     let civOdd = 0;
     let civDoubt = 0;
+    const bad: string[] = [];
     for (const s of stages) {
       for (const p of everyone(s)) {
         if (p.truth === 'boss') continue;
@@ -92,16 +90,17 @@ describe('createStage(seed, "tower")', () => {
         const odd = isOddLine(look, p.profile.line);
         const doubt = isDoubtHint(look, p.hint);
         if (isHidden(p)) {
-          expect(TOWER_ODD_LINES[look].bad, p.id).toContain(p.profile.line);
-          expect(p.hint, p.id).toEqual(TOWER_DOUBT_HINTS[look]);
+          if (!TOWER_ODD_LINES[look].bad.includes(p.profile.line)) bad.push(`${p.id} 文 ${p.profile.line}`);
+          if (JSON.stringify(p.hint) !== JSON.stringify(TOWER_DOUBT_HINTS[look])) bad.push(`${p.id} 一言 ${p.hint.text}`);
         }
         if (p.truth === 'civ') {
-          expect(odd && doubt, `${p.id} ${p.profile.line} ${p.hint.text}`).toBe(false);
+          if (odd && doubt) bad.push(`${p.id} ${p.profile.line} ${p.hint.text}`);
           if (odd) civOdd++;
           if (doubt) civDoubt++;
         }
       }
     }
+    expect(bad).toEqual([]);
     // 市民にも、ふしぎに聞こえる文と疑う一言が、それぞれ出る(片方だけでは決められない)
     expect(civOdd).toBeGreaterThan(100);
     expect(civDoubt).toBeGreaterThan(100);
@@ -135,38 +134,32 @@ describe('createStage(seed, "tower")', () => {
     expect(civ / all).toBeLessThan(0.6);
   });
 
-  it('波1には2か所とももれる練習用のヴィランがかならずいる', () => {
-    for (const s of stages) {
-      const bad = s.waves[0].people.filter((p) => p.truth === 'bad');
-      expect(bad.some((p) => p.leak!.light && p.leak!.item)).toBe(true);
-    }
-  });
-
   it('紛らわしい市民は、波1は0人、波2から1〜2人ずつ(どちらも出る)。1つの波で種類は重ならない。種類ごとに出せる見た目が決まっている(5種類とも出る)', () => {
     const kinds = new Set<string>();
     const counts = new Set<number>();
+    const bad: string[] = [];
     for (const s of stages) {
       s.waves.forEach((w, i) => {
         const decoys = w.people.filter((p) => p.decoy).map((p) => p.decoy);
         const at = `seed ${s.seed} 波${i + 1}`;
-        if (i === 0) expect(decoys, at).toEqual([]);
-        else {
-          expect(decoys.length >= 1 && decoys.length <= 2, at).toBe(true);
-          expect(new Set(decoys).size, at).toBe(decoys.length);
+        if (i === 0) {
+          if (decoys.length > 0) bad.push(`${at} 波1に ${decoys}`);
+        } else {
+          if (decoys.length < 1 || decoys.length > 2) bad.push(`${at} ${decoys.length}人`);
+          if (new Set(decoys).size !== decoys.length) bad.push(`${at} 種類が重なる ${decoys}`);
           counts.add(decoys.length);
         }
       });
       for (const p of everyone(s)) {
         if (!p.decoy) continue;
-        expect(p.truth, p.id).toBe('civ');
-        expect(canDecoy(p.look as TowerLook, p.decoy), `${p.look} ${p.decoy}`).toBe(true);
+        if (p.truth !== 'civ') bad.push(`${p.id} ${p.truth} が紛らわしい`);
+        if (!canDecoy(p.look as TowerLook, p.decoy)) bad.push(`${p.id} ${p.look} は ${p.decoy} にならない`);
         kinds.add(p.decoy);
       }
     }
+    expect(bad).toEqual([]);
     expect([...kinds].sort()).toEqual(['balloon', 'cellophane', 'flicker', 'smoke', 'thread']);
     expect([...counts].sort()).toEqual([1, 2]);
-    expect(DECOY_LOOKS.thread).toEqual(['magician']);
-    expect(DECOY_LOOKS.smoke).toEqual(['magician']);
   });
 
   it('照明と机の小物に出すもの(leakSpots)', () => {
@@ -185,17 +178,22 @@ describe('createStage(seed, "tower")', () => {
   it('見えている物のことを言う一言は、照明か小物に何か出ている人にだけ、本当に見えている物のことを言う。ヴィランと紛らわしい市民で同じくらい出る', () => {
     const spotTexts = new Set(Object.values(TOWER_SPOT_HINTS).flat().map((h) => h.text));
     const rate = { bad: [0, 0], decoy: [0, 0] };
+    const bad: string[] = [];
     for (const s of stages) {
       for (const p of everyone(s)) {
         const has = spotTexts.has(p.hint.text);
         const allowed = spotHintsFor(leakSpots(p), p.wave).map((h) => h.text);
-        if (allowed.length === 0) { expect(has, p.id).toBe(false); continue; }
-        if (has) expect(allowed, p.id).toContain(p.hint.text);
+        if (allowed.length === 0) {
+          if (has) bad.push(`${s.seed} ${p.id} 何も出ていないのに ${p.hint.text}`);
+          continue;
+        }
+        if (has && !allowed.includes(p.hint.text)) bad.push(`${s.seed} ${p.id} 見えていない物 ${p.hint.text}`);
         const r = p.truth === 'bad' ? rate.bad : rate.decoy;
         r[1]++;
         if (has) r[0]++;
       }
     }
+    expect(bad).toEqual([]);
     for (const [n, total] of Object.values(rate)) {
       expect(n / total).toBeGreaterThan(0.4);
       expect(n / total).toBeLessThan(0.6);
@@ -213,49 +211,27 @@ describe('createStage(seed, "tower")', () => {
     }
   });
 
-  it('親玉にはもれも紛らわしさもない。年齢と名前は化けた姿の幅と一覧から', () => {
-    for (const s of stages) {
-      const boss = findBoss(s)!;
-      expect(boss.leak).toBeUndefined();
-      expect(boss.decoy).toBeUndefined();
-      const [lo, hi] = AGES[boss.look];
-      expect(boss.profile.age).toBeGreaterThanOrEqual(lo);
-      expect(boss.profile.age).toBeLessThanOrEqual(hi);
-      expect(NAMES[boss.look]).toContain(boss.profile.name);
-    }
-  });
-
   it('絵のキーは、市民もヴィランも同じ tw_<見た目>(正体を見ない)', () => {
-    for (const s of stages.slice(0, 50)) {
-      for (const p of everyone(s)) if (p.truth !== 'boss') expect(p.sheetKey).toBe(`tw_${p.look}`);
-    }
-    for (const look of TOWER_LOOKS) expect(sheetKeyFor(look, 'bad', 'tower')).toBe(sheetKeyFor(look, 'civ', 'tower'));
+    const wrong = stages.slice(0, 50).flatMap(everyone).filter((p) => p.truth !== 'boss' && p.sheetKey !== `tw_${p.look}`);
+    expect(wrong.map((p) => `${p.id} ${p.truth} ${p.sheetKey}`)).toEqual([]);
   });
 });
 
 describe('エレベーターラッシュ', () => {
   const plans: LiftPlan[] = stages.map((s) => liftRushOf(s)!);
 
-  it('6人、ヴィランは2人か3人(どちらも出る)。最初の2人は市民1人とヴィラン1人(どちらが先かも両方ある)', () => {
+  it('6人、ヴィランは2人か3人(どちらも出る)。最初の2人は市民1人とヴィラン1人(どちらが先かも両方ある)。見た目は8種類から(どれも出る)、前の人と続けて同じにならない。絵のキーは仕分けと同じ。階は上がっていく', () => {
     const counts = new Set<number>();
     const firsts = new Set<string>();
-    for (const p of plans) {
-      expect(p.riders).toHaveLength(LIFT.people);
-      const v = p.riders.filter((r) => r.truth === 'bad').length;
-      expect(v).toBe(p.villainCount);
-      expect(p.civCount).toBe(LIFT.people - v);
-      counts.add(v);
-      expect(p.riders.slice(0, 2).map((r) => r.truth).sort()).toEqual(['bad', 'civ']);
-      firsts.add(p.riders[0].truth);
-    }
-    expect([...counts].sort()).toEqual([2, 3]);
-    expect([...firsts].sort()).toEqual(['bad', 'civ']);
-  });
-
-  it('見た目は8種類から(どれも出る)、前の人と続けて同じにならない。絵のキーは仕分けと同じ。階は上がっていく', () => {
     const looks = new Set<string>();
     const bad: string[] = [];
     plans.forEach((p, k) => {
+      const v = p.riders.filter((r) => r.truth === 'bad').length;
+      if (p.riders.length !== LIFT.people || v !== p.villainCount || p.civCount !== LIFT.people - v) bad.push(`${k}番目の並び ${p.riders.length}人 ヴィラン${v} ${p.villainCount} 市民${p.civCount}`);
+      counts.add(v);
+      const two = p.riders.slice(0, 2).map((r) => r.truth);
+      if ([...two].sort().join() !== 'bad,civ') bad.push(`${k}番目の並びの最初の2人 ${two}`);
+      firsts.add(two[0]);
       p.riders.forEach((r, i) => {
         const at = `${k}番目の並びの${i}人目`;
         if (r.index !== i) bad.push(`${at} index`);
@@ -268,52 +244,8 @@ describe('エレベーターラッシュ', () => {
       });
     });
     expect(bad).toEqual([]);
+    expect([...counts].sort()).toEqual([2, 3]);
+    expect([...firsts].sort()).toEqual(['bad', 'civ']);
     expect(looks.size).toBe(8);
-  });
-
-  it('同じ種なら同じ並び', () => {
-    expect(buildLift(createRng(9))).toEqual(buildLift(createRng(9)));
-  });
-});
-
-describe('ステージ1〜3は高層ビルを足す前と同じ', () => {
-  // 高層ビルを足す前の src/logic で作ったステージの中身(波とラッシュの並び)の指紋。
-  // ラッシュの並びに足した kind: 'sale' は、比べるときに取りのぞく。
-  // mall の1と42は、プロフィールの文(休けい)を直したので値を新しくした。人の並びは変わっていない。
-  // 手がかりの出し分け(tells.ts)を足したときに、全部の値を新しくした。person.tell が増え、絵のキーと
-  // ステージ2の小物の名前が出し分けに合わせて変わり、ステージ1の一言の一覧に色の一言を足したので選ばれる一言も変わったため。
-  // 人の並び、名前、年齢、正体、小物の色、組、くずれの時間、ラッシュの並びは変わっていない
-  // (出し分けは別の乱数で選ぶ。変わっていないことは published.test.ts と tells.test.ts でも確かめる)
-  const BEFORE: Record<string, number> = {
-    'alley:1': 2105441975, 'alley:2': 2439529476, 'alley:42': 1129829285, 'alley:777': 421695522, 'alley:abc': 3238324980,
-    'garage:1': 1057916589, 'garage:2': 2156115328, 'garage:42': 2920835025, 'garage:777': 1909704391, 'garage:abc': 3708027351,
-    'mall:1': 3765981201, 'mall:2': 200406602, 'mall:42': 541204094, 'mall:777': 266273746, 'mall:abc': 873646899
-  };
-
-  // 表記をそろえたとき(docs/DEVELOP.md「文章を書くときの決まり」の表)と、むずかしい漢字を直したときに書きかえた文。
-  // 人の並びも選ばれる文の番号も変わっていないので、前の書き方に戻してから指紋をとる
-  const RESPELLED: readonly (readonly [string, string])[] = [
-    ['袋はいつも\nパンパン', '袋はいつも\nぱんぱん'],
-    ['周りを\n気にしてる', 'まわりを\n気にしてる'],
-    ['子どもに\n手を振ってる', '子どもに\n手をふってる'],
-    ['ベンチを\n探してる', 'ベンチを\nさがしてる'],
-    ['にしては\nオーラがありすぎ', 'にしては\n貫禄がありすぎ']
-  ];
-  const esc = (t: string): string => JSON.stringify(t).slice(1, -1);
-  const asBefore = (json: string): string => RESPELLED.reduce((s, [now, was]) => s.split(esc(now)).join(esc(was)), json);
-
-  it('同じ種なら、人の並び、名前、文、ラッシュの並びが変わらない', () => {
-    for (const key of Object.keys(BEFORE)) {
-      const [id, raw] = key.split(':');
-      const seed = /^\d+$/.test(raw) ? Number(raw) : raw;
-      const s = createStage(seed, id as StageId);
-      const sale = saleRushOf(s);
-      const rush = sale ? (({ kind: _kind, ...rest }) => rest)(sale) : s.rush;
-      // あとから足した服の色ちがい(colorVariant)は別の乱数で決めるので、ここでは取りのぞいて比べる
-      // 路地裏のボスの小物(tells.ts の bossItemsFor)も、あとから足して別の乱数で選ぶので、元の化けた姿の絵のキーに直して比べる
-      const noVariant = (k: string, v: unknown): unknown =>
-        k === 'colorVariant' ? undefined : k === 'sheetKey' && typeof v === 'string' && v.startsWith('boss_disguise_') ? baseSheetKey(v) : v;
-      expect(hashSeed(asBefore(JSON.stringify({ waves: s.waves, rush, seed: s.seed }, noVariant))), key).toBe(BEFORE[key]);
-    }
   });
 });

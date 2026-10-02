@@ -23,17 +23,23 @@ describe('曲のデータ', () => {
     const introSec = (s.intro?.steps ?? 0) * (60 / s.bpm / 4);
     expect(introSec).toBeGreaterThanOrEqual(17);
     expect(introSec).toBeLessThanOrEqual(20);
-    // 節の最初の音(ビブラフォン)の高さと、2つめの音までのマスの数を、前奏の区切りごとに見る
-    const lead = (at: { inst: string; midi: number }[][]) =>
-      at.flatMap((evs, i) => evs.filter((e) => e.inst === 'vibes').map((e) => ({ i, midi: e.midi })));
-    const intro = lead(s.intro?.at ?? []);
-    const loop = lead(s.loop.at);
-    const heads = [0, 17, 34].map((k) => intro[k]);
-    const gaps = [0, 17, 34].map((k) => intro[k + 1].i - intro[k].i);
-    expect(heads.map((h) => h.midi)).toEqual([69, 71, 73]);
-    expect(gaps).toEqual([7, 6, 5]);
-    expect(loop[0].midi).toBe(74);
-    expect(loop[1].i - loop[0].i).toBe(4);
+    // 区切り(ベルが鳴るマス)ごとに、節の最初の音(ビブラフォン)の高さと、2つめの音までのマスの数を見る。
+    // 前奏の区切りのあとに、くり返しの頭を足す。どの区切りも、前より高く、前より速い(マスが少ない)
+    const heads: number[] = [], gaps: number[] = [];
+    for (const at of [s.intro?.at ?? [], s.loop.at]) {
+      const lead = at.flatMap((evs, i) => evs.filter((e) => e.inst === 'vibes').map((e) => ({ i, midi: e.midi })));
+      at.forEach((evs, i) => {
+        if (!evs.some((e) => e.inst === 'bell')) return;
+        const k = lead.findIndex((n) => n.i === i);
+        heads.push(lead[k].midi);
+        gaps.push(lead[k + 1].i - i);
+      });
+    }
+    expect(heads.length).toBe(4);
+    for (let k = 1; k < heads.length; k++) {
+      expect(heads[k], `区切り${k}の高さ ${heads}`).toBeGreaterThan(heads[k - 1]);
+      expect(gaps[k], `区切り${k}のマス ${gaps}`).toBeLessThan(gaps[k - 1]);
+    }
   });
 
   it('フリープレイの曲は同じ曲で、波ごとに少しずつ速い', () => {

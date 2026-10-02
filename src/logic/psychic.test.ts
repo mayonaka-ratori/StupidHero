@@ -9,19 +9,7 @@ import type { PropKind, WaveNo } from './types';
 
 describe('PsyCall', () => {
   // 段階の進み方、行けが効く段階、長さの変え方、順番待ちの決まりは timedCall.test.ts で確かめる
-  it('villainId は念力を使っているヴィランの id', () => {
-    expect(new PsyCall('w1-2').villainId).toBe('w1-2');
-  });
-
-  it('行けが効いたときの、運ぶ段階の進み具合を覚える', () => {
-    const c = new PsyCall('x');
-    c.update(600 + 800 + 750);
-    expect(c.phase).toBe('carry');
-    expect(c.goProgress).toBeNull();
-    expect(c.go()).toBe(true);
-    expect(c.goProgress).toBeCloseTo(0.25);
-  });
-
+  // 行けが効いたときの id と運ぶ進み具合は、下の PsyQueue のテストで確かめる
   it('写真は運ぶ時間が95%まで進んだら撮る(落ちている間も)', () => {
     const c = new PsyCall('x');
     c.update(1400 + 2800);
@@ -50,35 +38,38 @@ describe('PsyQueue', () => {
 describe('planPsychic(並べ方)', () => {
   const floors: WaveNo[] = [1, 2, 3, 4];
 
-  it('持ち上げる物はヴィランのすぐ前、市民は90ドット先。間にソファがかならず1つ、もう1つは7割くらい', () => {
+  it('持ち上げる物はヴィランのすぐ前、市民は90ドット先。間にソファがかならず1つ、もう1つは7割くらい。間の物の真上で落とすとその物に、市民の上まで運ぶと市民に当たる', () => {
     let extra = 0;
     const N = 400;
+    // 外れは配列に集めて最後に1回だけ確かめる(1つずつ expect を呼ぶと遅い)
+    const bad: string[] = [];
     for (let i = 0; i < N; i++) {
       const no = floors[i % 4];
       const props = propsForWave(STAGES.tower, no);
       const plan = planPsychic(300, props, createRng(`psy-${i}`));
-      expect(plan.villainX).toBe(300);
-      expect(plan.victimX).toBe(390);
-      expect(plan.lift.x).toBe(300 + PSY_LAYOUT.liftDx);
+      const at = `psy-${i}`;
+      if (plan.villainX !== 300 || plan.victimX !== 390 || plan.lift.x !== 300 + PSY_LAYOUT.liftDx) bad.push(`${at} 位置 ${JSON.stringify(plan)}`);
       // 持ち上げる物は、その階の壊れる物(ソファではない)
-      expect(plan.lift.kind).not.toBe('sofa');
-      expect(props).toContain(plan.lift.kind);
-      expect(plan.floor.filter((p) => p.kind === 'sofa')).toHaveLength(1);
-      expect(plan.floor.length === 1 || plan.floor.length === 2).toBe(true);
+      if (plan.lift.kind === 'sofa' || !props.includes(plan.lift.kind)) bad.push(`${at} 持ち上げる物 ${plan.lift.kind}`);
+      if (plan.floor.filter((p) => p.kind === 'sofa').length !== 1) bad.push(`${at} ソファの数`);
+      if (plan.floor.length !== 1 && plan.floor.length !== 2) bad.push(`${at} 間の物の数 ${plan.floor.length}`);
       // 間の物は、持ち上げた物と市民の間に、左から並ぶ
       for (const p of plan.floor) {
-        expect(p.x).toBeGreaterThan(plan.lift.x);
-        expect(p.x).toBeLessThan(plan.victimX);
+        if (p.x <= plan.lift.x || p.x >= plan.victimX) bad.push(`${at} ${p.kind} の位置 ${p.x}`);
+        // その物の真上で落とすと、その物に当たる(押す時刻と落ちる所の計算がずれていない)
+        if (resolvePsyDrop(plan, p.x).target !== p) bad.push(`${at} ${p.kind} の真上で落としても当たらない`);
       }
-      expect([...plan.floor].sort((a, b) => a.x - b.x)).toEqual(plan.floor);
+      if (plan.floor.some((p, k) => k > 0 && p.x < plan.floor[k - 1].x)) bad.push(`${at} 左から並んでいない`);
+      // 押さなかったとき(市民の上まで運ばれた)は、かならず市民に当たる
+      if (resolvePsyDrop(plan, plan.victimX).on !== 'citizen') bad.push(`${at} 市民の上で市民に当たらない`);
       if (plan.floor.length === 2) {
         extra++;
         const other = plan.floor.find((p) => p.kind !== 'sofa')!;
-        expect(props).toContain(other.kind);
         // その階に壊れる物が2種類あるので、持ち上げた物と違う物にする
-        expect(other.kind).not.toBe(plan.lift.kind);
+        if (!props.includes(other.kind) || other.kind === plan.lift.kind) bad.push(`${at} もう1つの物 ${other.kind}`);
       }
     }
+    expect(bad).toEqual([]);
     expect(extra / N).toBeGreaterThan(0.6);
     expect(extra / N).toBeLessThan(0.8);
   });
@@ -135,13 +126,6 @@ describe('resolvePsyDrop(落ちた所)', () => {
     expect(resolvePsyDrop(two, 77).on).toBe('citizen');
     expect(resolvePsyDrop(two, 76).on).toBe('prop');
     expect(resolvePsyDrop(plan([{ kind: 'sofa', x: 40 }, { kind: 'plant', x: 60 }]), 50).on).toBe('sofa');
-  });
-
-  it('押さなかったとき(市民の上まで運ばれた)は、かならず市民に当たる', () => {
-    for (let i = 0; i < 50; i++) {
-      const p = planPsychic(0, ['sofa', 'champagne', 'piano'], createRng(i));
-      expect(resolvePsyDrop(p, p.victimX).on).toBe('citizen');
-    }
   });
 
   it('ピアノは念力で落としたらかならず壊れる', () => {

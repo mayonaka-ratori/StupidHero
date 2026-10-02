@@ -93,7 +93,8 @@ describe('ステージ3を通しで数える', () => {
   beforeEach(() => clearRecords(null));
 
   it('全員正しく仕分けると全員撃破。ラッシュの数はほかの数字に入らない。倒したとき噴水の¥150万', () => {
-    for (let i = 0; i < 50; i++) {
+    // 種で変わるのは人数と並びだけなので、5つの種で足りる
+    for (let i = 0; i < 5; i++) {
       const stage = createStage(i * 13 + 5, 'mall');
       const s = play(stage, { sortAlien: 'bad', goUfo: true, rushStop: 'none' });
       expect(s.stageId).toBe('mall');
@@ -118,7 +119,7 @@ describe('ステージ3を通しで数える', () => {
     }
   });
 
-  it('見逃した宇宙人のUFOを全部行けで落とす:撃破と「行けで倒した」に数え、UFO1機¥300万', () => {
+  it('見逃した宇宙人のUFOを全部行けで落とす:撃破と「行けで倒した」に数え、UFO1機¥300万。保存すると、いちばん多く倒した数などがそのまま残る', () => {
     const stage = createStage(77, 'mall');
     const n = aliensOf(stage);
     const s = play(stage, { sortAlien: 'civ', goUfo: true, rushStop: 'civ' });
@@ -139,6 +140,10 @@ describe('ステージ3を通しで数える', () => {
     const partial = { ...s, allDefeated: false, bossFightSec: 9 };
     expect(decideTitle(partial).id).toBe('saleGuardian');
     expect(decideTitle({ ...partial, rush: { ...s.rush!, civsSaved: s.rush!.civs - 1, civsHit: 1 } }).id).toBe('ufoHunter');
+    // 記録:通しで遊んだ結果を保存する
+    const saved = saveResult('mall', s, decideTitle(s).id, new MemStorage());
+    expect(saved.firstPlay).toBe(true);
+    expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
   });
 
   it('行けを押さないと、買い物客がさらわれ(市民のけが)、宇宙人は逃げる。いちばんひどい場面は「市民がさらわれた!」', () => {
@@ -155,14 +160,5 @@ describe('ステージ3を通しで数える', () => {
     expect(decideTitle(s).id).toBe('ufoGuide');
     const caption = shareCaption({ worstScene: s.worstScene, caption: ABDUCTED_CAPTION, titleName: '宇宙人の案内係' });
     expect(buildShareText({ caption, url: 'u' }).split('\n')).toEqual(['市民がさらわれた!', '#StupidHero', 'u']);
-  });
-
-  it('記録:通しで遊んだ結果を保存すると、いちばん多く倒した数などがそのまま残る', () => {
-    const st = new MemStorage();
-    const stage = createStage(77, 'mall');
-    const s = play(stage, { sortAlien: 'civ', goUfo: true, rushStop: 'civ' });
-    const saved = saveResult('mall', s, decideTitle(s).id, st);
-    expect(saved.firstPlay).toBe(true);
-    expect(saved.stage).toMatchObject({ mostDefeated: stage.villainTotal, fewestHurt: 0, plays: 1, clears: 1 });
   });
 });

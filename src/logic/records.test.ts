@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markEndingSeen,
-  markIntroSeen, markRushSeen, markSlowHintSeen, markTitleListSeen, needsEnding,
-  needsIntro, needsSlowHint, saveFreeResult, saveResult, stageSelectInfo, unseenTitles, type RecordStorage
+  LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markEndingSeen,
+  markFreeIntroSeen, markIntroSeen, markLessonSeen, markRushSeen, markSlowHintSeen, markTitleListSeen, needsEnding, needsFreeIntro,
+  needsIntro, needsLesson, needsSlowHint, saveFreeResult, saveResult, stageSelectInfo, unseenTitles, type RecordStorage, type Records
 } from './records';
 import { MemStorage, makeStats } from './testHelpers';
 import { TITLES, titlesAt } from './titles';
@@ -60,9 +60,8 @@ describe('records', () => {
   it('壊れたデータや知らない称号は捨てる', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
-    expect(loadRecords(st)).toEqual({
-      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false, slowHintSeen: false, listSeen: []
-    });
+    // 何も残していないときと同じ空の記録になる(項目を足しても、ここは直さなくてよい)
+    expect(loadRecords(st)).toEqual(loadRecords(new MemStorage()));
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);
     expect(r.titles).toEqual(['soSo']);
@@ -104,10 +103,11 @@ describe('records', () => {
     expect(r.titles).toEqual(['soSo', 'realHero', 'roundUp']);
   });
 
-  it('地下駐車場は、路地裏のボスを一度倒すと開く', () => {
+  it('ステージは前のステージのボスを一度倒すと開く(路地裏、地下駐車場、モール、高層ビルの順)', () => {
     const st = new MemStorage();
     expect(isStageUnlocked('alley', loadRecords(st))).toBe(true);
     expect(isStageUnlocked('garage', loadRecords(st))).toBe(false);
+    // ボスを倒していなければ開かない
     const a = saveResult('alley', stats({ bossDefeated: false, bossFightSec: null }), 'soSo', st);
     expect(a.unlockedNow).toEqual([]);
     expect(isStageUnlocked('garage', loadRecords(st))).toBe(false);
@@ -115,32 +115,18 @@ describe('records', () => {
     expect(b.unlockedNow).toEqual(['garage']);
     expect(b.stage.clears).toBe(1);
     expect(isStageUnlocked('garage', loadRecords(st))).toBe(true);
-    const c = saveResult('alley', stats(), 'soSo', st);
-    expect(c.unlockedNow).toEqual([]);
+    // 路地裏だけではモールは開かない。開いたと伝えるのは1回だけ
+    expect(isStageUnlocked('mall', loadRecords(st))).toBe(false);
+    expect(saveResult('alley', stats(), 'soSo', st).unlockedNow).toEqual([]);
     const info = stageSelectInfo(loadRecords(st));
     expect(info.map((i) => [i.id, i.unlocked, i.titlesCollected])).toEqual([['alley', true, 1], ['garage', true, 0], ['mall', false, 0], ['tower', false, 0]]);
     expect(info[0].record?.plays).toBe(3);
     expect(info[1].record).toBeNull();
     expect(info[1].def.name).toBe('地下駐車場');
-  });
 
-  it('開いていないときの選ぶ画面', () => {
-    const info = stageSelectInfo(loadRecords(new MemStorage()));
-    expect(info[1].unlocked).toBe(false);
-    expect(info[1].def.lockedText).toBe('路地裏をクリアすると遊べる');
-    expect(info[2].id).toBe('mall');
-    expect(info[2].unlocked).toBe(false);
-    expect(info[2].def.lockedText).toBe('地下駐車場をクリアすると遊べる');
-  });
-
-  it('ショッピングモールは、地下駐車場のボスを一度倒すと開く(路地裏だけでは開かない)', () => {
-    const st = new MemStorage();
-    expect(saveResult('alley', stats(), 'soSo', st).unlockedNow).toEqual(['garage']);
-    expect(isStageUnlocked('mall', loadRecords(st))).toBe(false);
     const g = saveResult('garage', stats({ stageId: 'garage' }), 'soSo', st);
     expect(g.unlockedNow).toEqual(['mall']);
-    const info = stageSelectInfo(loadRecords(st));
-    expect(info.map((i) => i.unlocked)).toEqual([true, true, true, false]);
+    expect(stageSelectInfo(loadRecords(st)).map((i) => i.unlocked)).toEqual([true, true, true, false]);
     const m = saveResult('mall', stats({ stageId: 'mall' }), 'ufoHunter', st);
     expect(m.unlockedNow).toEqual(['tower']);
     expect(stageSelectInfo(loadRecords(st)).map((i) => i.unlocked)).toEqual([true, true, true, true]);
@@ -161,10 +147,6 @@ describe('records', () => {
     expect(loadRecords(st).rushSeen).toEqual([]);
     st.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], introSeen: [], rushSeen: ['mall', 'moon', 1, 'mall'] }));
     expect(loadRecords(st).rushSeen).toEqual(['mall']);
-    // 書けなくても、その場では覚えている
-    clearRecords(null);
-    markRushSeen('mall', broken);
-    expect(hasSeenRush('mall', loadRecords(broken))).toBe(true);
   });
 
   it('v2 が壊れていたら v1 を読む。知らないステージは捨てる', () => {
@@ -220,12 +202,31 @@ describe('records', () => {
     expect(needsIntro('alley', loadRecords(v1))).toBe(false);
     expect(hasAnyRecord(loadRecords(v1))).toBe(true);
   });
+});
 
-  it('localStorage が使えなくても、見た印はその場で覚えている', () => {
-    expect(() => markIntroSeen('alley', broken)).not.toThrow();
-    expect(needsIntro('alley', loadRecords(broken))).toBe(false);
-    clearRecords(null);
-    expect(needsIntro('alley', loadRecords(broken))).toBe(true);
+describe('localStorage が使えなくても、見た印はその場で覚えている', () => {
+  beforeEach(() => clearRecords(null));
+
+  it('掛け合い、ラッシュ、終わりの場面、ゆっくりモードの案内、フリープレイの掛け合い、待ての教え、称号の一覧', () => {
+    const marks: { name: string; seen: (r: Records) => boolean; mark: (s: RecordStorage) => void; before?: () => void }[] = [
+      { name: '掛け合い', seen: (r) => !needsIntro('alley', r), mark: (s) => markIntroSeen('alley', s) },
+      { name: 'ラッシュ', seen: (r) => hasSeenRush('mall', r), mark: (s) => markRushSeen('mall', s) },
+      { name: '終わりの場面', seen: (r) => r.endingSeen, mark: (s) => markEndingSeen(s) },
+      { name: 'ゆっくりモードの案内', seen: (r) => !needsSlowHint(r), mark: (s) => markSlowHintSeen(s) },
+      { name: 'フリープレイの掛け合い', seen: (r) => !needsFreeIntro(r), mark: (s) => markFreeIntroSeen(s) },
+      { name: '待ての教え', seen: (r) => !needsLesson('stop', r), mark: (s) => markLessonSeen('stop', s) },
+      {
+        name: '称号の一覧', seen: (r) => unseenTitles(r).length === 0, mark: (s) => markTitleListSeen(['flawless'], s),
+        before: () => saveResult('alley', stats(), ['flawless'], broken)
+      }
+    ];
+    for (const m of marks) {
+      clearRecords(null);
+      m.before?.();
+      expect(m.seen(loadRecords(broken)), `${m.name}:見る前`).toBe(false);
+      expect(() => m.mark(broken), m.name).not.toThrow();
+      expect(m.seen(loadRecords(broken)), `${m.name}:見たあと`).toBe(true);
+    }
   });
 });
 
@@ -252,7 +253,7 @@ describe('ボスを初めて倒したか(最上階のヒーロー)', () => {
 describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () => {
   beforeEach(() => clearRecords(null));
 
-  it('高層ビルのボスを初めて倒したときだけ出す。見たら、もう出さない', () => {
+  it('高層ビルのボスを初めて倒したときだけ出す。見たあとと、見る前にボスを倒した記録があるとき(2回目のクリア)は出さない', () => {
     const st = new MemStorage();
     const won = stats({ stageId: 'tower' });
     const lost = stats({ stageId: 'tower', bossDefeated: false, bossFightSec: null });
@@ -264,16 +265,21 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     markEndingSeen(st);
     expect(loadRecords(st).endingSeen).toBe(true);
     expect(needsEnding('tower', won, loadRecords(st))).toBe(false);
-  });
 
-  it('見る前にボスを倒した記録があれば(2回目のクリア)出さない。前の記録(endingSeen がない)は見ていないとして読む', () => {
-    const st = new MemStorage();
-    saveResult('tower', stats({ stageId: 'tower' }), 'soSo', st);
-    expect(needsEnding('tower', stats({ stageId: 'tower' }), loadRecords(st))).toBe(false);
+    // 空の保存先を読むと、さっき書いた控え(メモリ)が返るので、先に消す
+    clearRecords(null);
+    const again = new MemStorage();
+    saveResult('tower', won, 'soSo', again);
+    expect(needsEnding('tower', won, loadRecords(again))).toBe(false);
+    // 前の記録(endingSeen がない)は、見ていないとして読む
     const old = new MemStorage();
     old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [] }));
     expect(loadRecords(old).endingSeen).toBe(false);
   });
+});
+
+describe('1回のプレイの称号', () => {
+  beforeEach(() => clearRecords(null));
 
   it('1回のプレイの称号を全部残す。初めて取った称号と、このステージで初めての称号を返す', () => {
     const st = new MemStorage();
@@ -312,6 +318,10 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     expect(f.titlesCollected).toBe(3);
     expect(loadRecords(st).stages.alley?.titles).toEqual(['stopMaster']);
   });
+});
+
+describe('称号の一覧の NEW(unseenTitles、markTitleListSeen)', () => {
+  beforeEach(() => clearRecords(null));
 
   it('称号の一覧で見た称号:前からの記録(listSeen がない)は全部見たことにする。開いたあとに取った称号だけ NEW', () => {
     const old = new MemStorage();
@@ -336,51 +346,6 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     expect(loadRecords(bad).listSeen).toEqual(['soSo']);
   });
 
-  it('称号の一覧で見たことを、localStorage が使えなくても、その場では覚えている', () => {
-    saveResult('alley', stats(), ['flawless'], broken);
-    expect(unseenTitles(loadRecords(broken))).toEqual(['flawless']);
-    expect(() => markTitleListSeen(['flawless'], broken)).not.toThrow();
-    expect(unseenTitles(loadRecords(broken))).toEqual([]);
-  });
-
-  it('ゆっくりモードのことを教えるのは1回だけ。教えたあとと、ゆっくりモードをオンにしたあとは出さない', () => {
-    const st = new MemStorage();
-    expect(needsSlowHint(loadRecords(st))).toBe(true);
-    markSlowHintSeen(st);
-    expect(needsSlowHint(loadRecords(st))).toBe(false);
-    expect(loadRecords(st).slowHintSeen).toBe(true);
-    // 2回呼んでも同じ
-    markSlowHintSeen(st);
-    expect(needsSlowHint(loadRecords(st))).toBe(false);
-  });
-
-  it('ゆっくりモードのことを教えたか:前の記録(slowHintSeen がない)は、まだ教えていないとして読む', () => {
-    const old = new MemStorage();
-    old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 3, clears: 1, titles: ['soSo'] } }, titles: ['soSo'] }));
-    const r = loadRecords(old);
-    expect(r.slowHintSeen).toBe(false);
-    expect(needsSlowHint(r)).toBe(true);
-    expect(r.stages.alley?.plays).toBe(3);
-    // 教えたら残り、ほかの記録は変わらない
-    markSlowHintSeen(old);
-    expect(loadRecords(old).slowHintSeen).toBe(true);
-    expect(loadRecords(old).stages.alley?.plays).toBe(3);
-    // ステージ1だけの公開版(v1)の記録も、まだ教えていないとして読む
-    const v1 = new MemStorage();
-    v1.setItem(LEGACY_RECORDS_KEY, JSON.stringify({ version: 1, stages: { alley: { plays: 1 } }, titles: ['grannyFoe'] }));
-    expect(needsSlowHint(loadRecords(v1))).toBe(true);
-    // true のほかの値は、教えていないとして読む
-    const bad = new MemStorage();
-    bad.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], slowHintSeen: 'yes' }));
-    expect(needsSlowHint(loadRecords(bad))).toBe(true);
-  });
-
-  it('ゆっくりモードのことを教えたことを、localStorage が使えなくても、その場では覚えている', () => {
-    expect(needsSlowHint(loadRecords(broken))).toBe(true);
-    expect(() => markSlowHintSeen(broken)).not.toThrow();
-    expect(needsSlowHint(loadRecords(broken))).toBe(false);
-  });
-
   it('称号の一覧で見たことにするのは、一覧に並べた称号だけ(ステージのカードから開いた一覧で、ほかの場所の NEW を消さない)', () => {
     const st = new MemStorage();
     saveResult('alley', stats(), ['stopMaster'], st);
@@ -398,5 +363,32 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     expect(unseenTitles(loadRecords(st))).toEqual([]);
     markTitleListSeen(TITLES.map((t) => t.id), st);
     expect(unseenTitles(loadRecords(st))).toEqual([]);
+  });
+});
+
+describe('ゆっくりモードの案内(needsSlowHint、markSlowHintSeen)', () => {
+  beforeEach(() => clearRecords(null));
+
+  it('教えるのは1回だけ。前の記録(slowHintSeen がない)は、まだ教えていないとして読む', () => {
+    const old = new MemStorage();
+    old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 3, clears: 1, titles: ['soSo'] } }, titles: ['soSo'] }));
+    const r = loadRecords(old);
+    expect(r.slowHintSeen).toBe(false);
+    expect(needsSlowHint(r)).toBe(true);
+    expect(r.stages.alley?.plays).toBe(3);
+    // 教えたら残り、ほかの記録は変わらない。2回呼んでも同じ
+    markSlowHintSeen(old);
+    expect(loadRecords(old).slowHintSeen).toBe(true);
+    expect(loadRecords(old).stages.alley?.plays).toBe(3);
+    markSlowHintSeen(old);
+    expect(needsSlowHint(loadRecords(old))).toBe(false);
+    // ステージ1だけの公開版(v1)の記録も、まだ教えていないとして読む
+    const v1 = new MemStorage();
+    v1.setItem(LEGACY_RECORDS_KEY, JSON.stringify({ version: 1, stages: { alley: { plays: 1 } }, titles: ['grannyFoe'] }));
+    expect(needsSlowHint(loadRecords(v1))).toBe(true);
+    // true のほかの値は、教えていないとして読む
+    const bad = new MemStorage();
+    bad.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], slowHintSeen: 'yes' }));
+    expect(needsSlowHint(loadRecords(bad))).toBe(true);
   });
 });

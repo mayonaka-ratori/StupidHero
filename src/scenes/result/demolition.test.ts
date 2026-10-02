@@ -124,15 +124,20 @@ describe('歩く解体工事:路地裏の¥1,500万', () => {
 
 describe('歩く解体工事:フリープレイの¥800万', () => {
   const line = DEMOLITION_DAMAGE.free;
-  const runs = (play: FreePlay, unlocked: StageId[]): number[] => seeds(500, 200).map((s) => freeRun(s, play, unlocked));
+  // 同じ遊び方と開いたステージの組は1回だけ通して、テストの間で使い回す
+  const memo = new Map<string, number[]>();
+  const runs = (play: FreePlay, unlocked: StageId[], n = 200): number[] => {
+    const key = `${play} ${unlocked.join(',')} ${n}`;
+    if (!memo.has(key)) memo.set(key, seeds(500, n).map((s) => freeRun(s, play, unlocked)));
+    return memo.get(key)!;
+  };
   const opened: StageId[][] = [['alley'], ['alley', 'garage'], ['alley', 'garage', 'mall']];
 
-  it('地下駐車場が開いていれば、ワゴンとUFOが来るのを待って行けで止めると届く', () => {
-    expect(rate(runs('smash', ['alley', 'garage']), line)).toBeGreaterThan(0.9);
-    expect(rate(runs('smash', ['alley', 'garage', 'mall']), line)).toBeGreaterThan(0.9);
-  });
-
-  it('路地裏だけでも、待てを押さずに殴らせ、行けも全部押すと、まれに届く', () => {
+  it('待てを押さずに殴らせ、ワゴンとUFOが来るのを待って行けで止めると、地下駐車場が開いていれば届き、路地裏だけでもまれに届く', () => {
+    // 地下駐車場が開いていれば200回とも届いていたので、50回で足りる
+    expect(rate(runs('smash', ['alley', 'garage'], 50), line)).toBeGreaterThan(0.9);
+    expect(rate(runs('smash', ['alley', 'garage', 'mall'], 50), line)).toBeGreaterThan(0.9);
+    // 路地裏だけは200回で9回くらいしか届かないので、回数を減らさない
     expect(rate(runs('smash', ['alley']), line)).toBeGreaterThan(0);
   });
 

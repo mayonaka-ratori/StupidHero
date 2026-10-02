@@ -21,12 +21,16 @@ describe('止めて教えるときの暗くする所', () => {
     ];
     const rs = coverRects(W, H, holes);
     const clipped = holes.map((h) => clipRect(h, W, H)!);
+    // 点ごとに expect を呼ぶと遅いので、合わない点を集めて最後に1回だけ確かめる
+    const bad: string[] = [];
     for (let y = 0; y < H; y += 1) {
       for (let x = 0; x < W; x += 1) {
-        const inHole = inside(clipped, x, y);
-        expect(coverCount(rs, x, y), `${x},${y}`).toBe(inHole ? 0 : 1);
+        const want = inside(clipped, x, y) ? 0 : 1;
+        const got = coverCount(rs, x, y);
+        if (got !== want) bad.push(`${x},${y}: ${got}回`);
       }
     }
+    expect(bad.slice(0, 20)).toEqual([]);
     // どの四角も画面の中で、幅と高さがある
     for (const r of rs) {
       expect(r.w).toBeGreaterThan(0);

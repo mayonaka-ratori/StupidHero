@@ -106,13 +106,5 @@ describe('高層ビルのボス戦(STAGES.tower.bossFight)', () => {
     expect(f.seconds! - at!).toBeGreaterThanOrEqual(BOSS4.afterChoiceMinSec - 1e-9);
     expect(f.seconds! - at!).toBeLessThan(BOSS4.afterChoiceMinSec + 0.6);
   });
-
-  it('押さなくても15秒で倒せる(選択で止めた時間は数えない)', () => {
-    const f = new BossFight(opts);
-    let ms = 0;
-    while (!f.isOver && ms < 30_000) { f.update(16); ms += 16; }
-    expect(f.seconds!).toBeCloseTo(15, 5);
-    expect(f.inCar).toBe(true);
-    expect(f.damageYen).toBe(14 * BOSS.idleCostPerSec);
-  });
+  // 押さなくても15秒で倒せることは boss.test.ts(車に乗る設定も含む)で確かめる
 });

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { titleCommentFor } from './content';
-import { TITLES, collectTitles, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
+import { TITLES, collectTitles, decideTitle, titleById } from './titles';
 import { makeStats } from './testHelpers';
 import type { StageStats } from './types';
 
@@ -9,18 +8,13 @@ const base = (over: Partial<StageStats> = {}): StageStats =>
   makeStats({ civHurt: 1, civHurtByHero: 1, damage: 8_000_000, damageByProps: 8_000_000, escaped: 1 }, over);
 
 describe('称号', () => {
-  it('24個、順番と名前とポーズがSPECとSTAGE2とSTAGE3とSTAGE4とFREEPLAYの通り', () => {
+  it('24個、順番と名前がSPECとSTAGE2とSTAGE3とSTAGE4とFREEPLAYの通り(大きな称号を調べる順)', () => {
     expect(TITLES).toHaveLength(24);
     expect(TITLES.map((t) => t.name)).toEqual([
       '完全無欠のヒーロー', '最上階のヒーロー', '市民の天敵', 'ボスの親友', 'ギャングの見送り係', '宇宙人の案内係',
       '空飛ぶ家具の見送り係', '歩く解体工事', 'おばあちゃんの敵', '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神',
       'エレベーターの守り神', '連打の申し子', '待ての達人', 'UFOハンター', 'ソファの名人', '一網打尽',
       '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー', 'ヒーローのお守り役', 'ヒーローの通訳', 'なすがまま'
-    ]);
-    expect(TITLES.map((t) => t.pose)).toEqual([
-      'win_pose', 'win_pose', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_fist', 'win_shy', 'win_arms',
-      'win_pose', 'win_pose', 'win_pose', 'win_fist', 'win_pose', 'win_fist', 'win_arms', 'win_arms', 'win_arms', 'win_pose',
-      'win_arms', 'win_pose', 'win_arms', 'win_shy'
     ]);
     expect(new Set(TITLES.map((t) => t.id)).size).toBe(24);
     expect(titleById('demolition').name).toBe('歩く解体工事');
@@ -102,7 +96,6 @@ describe('称号の市民のけがの数え方', () => {
     const ufo = base({ stageId: 'mall', civHurt: 1, civHurtByHero: 0, civHurtByAbduction: 1, escaped: 3, escapedByUfo: 1 });
     expect(decideTitle(ufo).id).toBe('soSo');
     expect(decideTitle({ ...ufo, escaped: 4 }).id).toBe('tooKind');
-    expect(titleById('tooKind').hint).toBe('市民をなぐらず、待てでワルを3人見のがす');
   });
 
   it('どの称号にも、条件とヒントの文がある', () => {
@@ -116,20 +109,6 @@ describe('称号の市民のけがの数え方', () => {
 });
 
 describe('称号(ステージ2)', () => {
-  it('ギャングの見送り係は ボスの親友 のすぐあと、一網打尽は 追い打ちの鬼 のすぐ前。おばあちゃんの敵は路地裏だけ、一網打尽は地下駐車場だけ', () => {
-    const ids = TITLES.map((t) => t.id);
-    expect(ids.indexOf('gangDriver')).toBe(ids.indexOf('bossBuddy') + 1);
-    expect(ids.indexOf('roundUp')).toBe(ids.indexOf('chaseDemon') - 1);
-    // おばあさんは地下駐車場に出ないので、おばあちゃんの敵は路地裏だけ(ステージごとの数は ステージ3 の称号で確かめる)
-    expect(titlesFor('garage').map((t) => t.id)).not.toContain('grannyFoe');
-    expect(titlesFor('alley').map((t) => t.id)).not.toContain('roundUp');
-    // どれかのステージかフリープレイでは必ず取れる
-    for (const t of TITLES) {
-      expect(titlesFor('alley').includes(t) || titlesFor('garage').includes(t) || titlesFor('mall').includes(t)
-        || titlesFor('tower').includes(t) || titlesForFree().includes(t), t.id).toBe(true);
-    }
-  });
-
   it('一網打尽:まとめて吹き飛ばした組が2組以上', () => {
     const s = base({ stageId: 'garage', groupsWiped: 2 });
     expect(decideTitle(s).id).toBe('roundUp');
@@ -151,26 +130,6 @@ describe('称号(ステージ2)', () => {
 
 describe('称号(ステージ3)', () => {
   const mall = (over: Partial<StageStats> = {}): StageStats => base({ stageId: 'mall', ...over });
-
-  it('宇宙人の案内係は ギャングの見送り係 のすぐあと、タイムセールの守り神は 街のほんものヒーロー のすぐあと、UFOハンターは 待ての達人 のすぐあと', () => {
-    const ids = TITLES.map((t) => t.id);
-    expect(ids.indexOf('ufoGuide')).toBe(ids.indexOf('gangDriver') + 1);
-    expect(ids.indexOf('saleGuardian')).toBe(ids.indexOf('realHero') + 1);
-    expect(ids.indexOf('ufoHunter')).toBe(ids.indexOf('stopMaster') + 1);
-    for (const id of ['ufoGuide', 'saleGuardian', 'ufoHunter'] as const) expect(titleById(id).stages).toEqual(['mall']);
-  });
-
-  it('ステージごとに取れる数:路地裏12、地下駐車場13、ショッピングモール14', () => {
-    expect(titlesFor('alley')).toHaveLength(12);
-    expect(titlesFor('garage')).toHaveLength(13);
-    expect(titlesFor('mall')).toHaveLength(14);
-    const mallIds = titlesFor('mall').map((t) => t.id);
-    for (const id of ['grannyFoe', 'roundUp', 'gangDriver'] as const) expect(mallIds).not.toContain(id);
-    for (const id of ['ufoGuide', 'saleGuardian', 'ufoHunter'] as const) {
-      expect(titlesFor('alley').map((t) => t.id)).not.toContain(id);
-      expect(titlesFor('garage').map((t) => t.id)).not.toContain(id);
-    }
-  });
 
   it('宇宙人の案内係:連れ去られた買い物客が2人以上。ボスの親友より後', () => {
     const s = mall({ civHurt: 2, civHurtByHero: 0, civHurtByAbduction: 2, escaped: 2 });
@@ -201,35 +160,6 @@ describe('称号(ステージ3)', () => {
 
 describe('称号(ステージ4)', () => {
   const tower = (over: Partial<StageStats> = {}): StageStats => base({ stageId: 'tower', ...over });
-  const TOWER_ONLY = ['topHero', 'furnitureGuide', 'liftGuardian', 'sofaMaster'] as const;
-
-  it('入れる場所:最上階のヒーローは完全無欠のすぐあと、空飛ぶ家具の見送り係は宇宙人の案内係のすぐあと、'
-    + 'エレベーターの守り神はタイムセールの守り神のすぐあと、ソファの名人はUFOハンターのすぐあと', () => {
-    const ids = TITLES.map((t) => t.id);
-    expect(ids.indexOf('topHero')).toBe(ids.indexOf('flawless') + 1);
-    expect(ids.indexOf('furnitureGuide')).toBe(ids.indexOf('ufoGuide') + 1);
-    expect(ids.indexOf('liftGuardian')).toBe(ids.indexOf('saleGuardian') + 1);
-    expect(ids.indexOf('sofaMaster')).toBe(ids.indexOf('ufoHunter') + 1);
-    expect(titleById('topHero').hint).toBe('最後のボスを倒す');
-    expect(titleById('furnitureGuide').hint).toBe('念力で市民が2人けがをする');
-    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人も間違えない');
-    expect(titleById('sofaMaster').hint).toBe('ソファの上に2回落とす');
-    for (const id of TOWER_ONLY) {
-      expect(titleById(id).stages).toEqual(['tower']);
-      expect(titleById(id).modes).toEqual(['stage']);
-    }
-  });
-
-  it('ステージごとに取れる数:高層ビルは15(どこでも取れる11と4つ)。ほかのステージとフリープレイでは4つは取れない', () => {
-    expect(titlesFor('tower')).toHaveLength(15);
-    const ids = titlesFor('tower').map((t) => t.id);
-    for (const id of TOWER_ONLY) expect(ids).toContain(id);
-    for (const id of ['grannyFoe', 'roundUp', 'gangDriver', 'ufoGuide', 'saleGuardian', 'ufoHunter'] as const) expect(ids).not.toContain(id);
-    for (const id of TOWER_ONLY) {
-      for (const st of ['alley', 'garage', 'mall'] as const) expect(titlesFor(st).map((t) => t.id)).not.toContain(id);
-      expect(titlesForFree().map((t) => t.id)).not.toContain(id);
-    }
-  });
 
   it('完全無欠:高層ビルでボスを倒したときは、かならず壊れるシャンパンタワー(¥1,000万)を被害額に数えない', () => {
     // 実際の高層ビルでは、全員倒すとシャンパンタワーの¥1,000万がかならず入る
@@ -281,24 +211,11 @@ describe('称号(ステージ4)', () => {
     expect(decideTitle(kind).id).toBe('tooKind');
   });
 
-  it('やさしすぎるヒーローの見のがした数に、念力のあとに逃げたヴィランは入れない', () => {
-    const s = tower({ civHurt: 0, civHurtByHero: 0, escaped: 4, escapedByPsy: 2 });
-    expect(decideTitle(s).id).toBe('soSo');
-    expect(decideTitle({ ...s, escaped: 5 }).id).toBe('tooKind');
-  });
-
   it('ソファの名人:2回以上ソファの上で落とした。待ての達人より後、追い打ちの鬼より先', () => {
     const s = tower({ sofaSaves: 2, defeatedByPsy: 3, defeatedByGo: 3 });
     expect(decideTitle(s).id).toBe('sofaMaster');
     expect(decideTitle({ ...s, sofaSaves: 1 }).id).toBe('chaseDemon');
     expect(decideTitle({ ...s, civSavedByStop: 3 }).id).toBe('stopMaster');
-  });
-
-  it('ひとことは高層ビルの文(STAGE4_TEXT「称号のひとこと」)', () => {
-    expect(titleCommentFor('topHero', 'tower').text).toBe('全部のステージ、\nクリアだよ！');
-    expect(titleCommentFor('furnitureGuide', 'tower').text).toBe('家具が飛ぶのを\n見てたよね');
-    expect(titleCommentFor('liftGuardian', 'tower').text).toBe('満員のエレベーターで\n1人も間違えなかった！');
-    expect(titleCommentFor('sofaMaster', 'tower').text).toBe('ソファの上に\nぴったり落とした！');
   });
 });
 

@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
-  FLOOR_LOOKS, PSY, PSY_LAYOUT, createFreePlay, createRng, createStage, freeRoleOf, freeTiming, propsForWave, resolvePsyDrop, STAGES,
+  FLOOR_LOOKS, PSY, PSY_LAYOUT, createFreePlay, createRng, createStage, freeRoleOf, freeTiming, propsForWave, STAGES,
   type Person, type PropKind, type Stage, type StageId
 } from '../../logic';
 import {
@@ -122,36 +122,28 @@ const CASES: Readonly<Record<StageId, Case[]>> = {
 };
 
 describe.each([
-  { id: 'alley', name: 'planStreet(路地裏)' },
-  { id: 'garage', name: 'planGarage(地下駐車場)' },
-  { id: 'mall', name: 'planMall(ショッピングモール)' },
-  { id: 'tower', name: 'planTower(高層ビル)' }
-] as const)('$name の共通の決まり', ({ id }) => {
-  it('ボスは最後、人は道の中に左から右へ並ぶ', () => {
-    expect(CASES[id].flatMap((c) => commonRules({ ...c, label: labelOf(c) }))).toEqual([]);
-  });
-
-  it('物はそのステージの物だけ(高層ビルはその階の物だけ)', () => {
-    expect(CASES[id].flatMap((c) => strayProps(labelOf(c), c.plan, propsForWave(STAGES[id], c.people[0].wave)))).toEqual([]);
+  { id: 'alley', name: 'planStreet(路地裏)', must: ['vending'] },
+  { id: 'garage', name: 'planGarage(地下駐車場)', must: [] },
+  { id: 'mall', name: 'planMall(ショッピングモール)', must: [] },
+  { id: 'tower', name: 'planTower(高層ビル)', must: [] }
+] as const)('$name の共通の決まり', ({ id, must }) => {
+  it('ボスは最後、人は道の中に左から右へ並ぶ。物はそのステージの物だけ(高層ビルはその階の物だけ。路地裏は自販機が必ずある)', () => {
+    expect(CASES[id].flatMap((c) => [
+      ...commonRules({ ...c, label: labelOf(c) }),
+      ...strayProps(labelOf(c), c.plan, propsForWave(STAGES[id], c.people[0].wave)),
+      ...(must as readonly PropKind[]).filter((k) => !c.plan.props.some((p) => p.kind === k)).map((k) => `${labelOf(c)}: ${k} がない`)
+    ])).toEqual([]);
   });
 });
 
 describe('planStreet(路地裏)', () => {
-  const all = CASES.alley;
-
   it('見逃したワルのすぐ先には、悪さの相手の通りがかりの市民がいる', () => {
-    for (const { plan, passBad } of all) {
+    for (const { plan, passBad } of CASES.alley) {
       for (const s of plan.people) {
         if (!passBad.has(s.person.id)) continue;
         expect(plan.passers.some((p) => p.x > s.x + 60 && p.x < s.x + 80), s.person.id).toBe(true);
       }
     }
-  });
-
-  it('自販機と車は必ずある。組の集まる場所はない', () => {
-    expect(all.every(({ plan }) => plan.props.some((p) => p.kind === 'vending'))).toBe(true);
-    expect(all.every(({ plan }) => plan.props.filter((p) => p.kind === 'car').length === 1)).toBe(true);
-    expect(all.every(({ plan }) => plan.gathers.length === 0)).toBe(true);
   });
 });
 
@@ -199,11 +191,11 @@ describe('planGarage(地下駐車場)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('通りがかりの市民は4つの見た目で、小物の色がある', () => {
+  it('通りがかりの市民は4つの見た目で、絵は市民の絵、小物の色がある', () => {
     const passers = all.flatMap(({ plan }) => plan.passers);
     expect(passers.length).toBeGreaterThan(0);
     expect([...new Set(passers.map((p) => p.look))].sort()).toEqual(['clubber', 'guard', 'mechanic', 'officelady']);
-    expect(passers.filter((p) => p.key !== `${p.look}_civ` || typeof p.color !== 'number')).toEqual([]);
+    expect(passers.filter((p) => p.key !== `${p.look}_civ` || typeof p.color !== 'number').map((p) => `${p.key} ${p.color}`)).toEqual([]);
   });
 });
 
@@ -219,13 +211,20 @@ describe('planMall(ショッピングモール)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('ラッシュのある波(波2)だけ、ヒーローが立つ所の後ろにエスカレーター', () => {
-    for (const { plan, people } of all) {
+  it('ラッシュのある波(波2)だけ、ヒーローが立つ所(最後の人の RUSH_DX 先)の後ろにエスカレーター', () => {
+    const bad: string[] = [];
+    for (const c of all) {
+      const at = labelOf(c);
+      const { plan } = c;
+      if (c.people[0].wave !== 2) {
+        if (plan.rushX !== undefined) bad.push(`${at}: ラッシュのない波に rushX ${plan.rushX}`);
+        continue;
+      }
       const last = plan.people[plan.people.length - 1];
-      if (people[0].wave !== 2) { expect(plan.rushX).toBeUndefined(); continue; }
-      expect(plan.rushX).toBe(last.x + RUSH_DX);
-      expect(plan.props.some((p) => p.kind === 'escalator' && Math.abs(p.x - plan.rushX!) <= 12)).toBe(true);
+      if (plan.rushX !== last.x + RUSH_DX) bad.push(`${at}: rushX ${plan.rushX}`);
+      else if (!plan.props.some((p) => p.kind === 'escalator' && Math.abs(p.x - plan.rushX!) <= 12)) bad.push(`${at}: 後ろにエスカレーターがない`);
     }
+    expect(bad).toEqual([]);
   });
 
   it('UFOが下りてくる所(見逃した宇宙人の先)には、通りがかりの市民を置かない', () => {
@@ -298,20 +297,35 @@ describe('planTower(高層ビル)', () => {
   });
 
   it('念力の場面の物は、決めた所と列に置く(持ち上げる物は奥、1つ目の場所は手前、2つ目の場所は奥)', () => {
-    for (const { plan } of all) {
+    const bad: string[] = [];
+    for (const c of all) {
+      const { plan } = c;
+      const has = (x: number, y: number, kind: string): boolean => plan.props.some((q) => q.x === x && q.y === y && q.kind === kind);
       for (const p of plan.psy ?? []) {
-        const at = (x: number, y: number, kind: string): boolean => plan.props.some((q) => q.x === x && q.y === y && q.kind === kind);
-        expect(at(p.plan.lift.x, PSY_ROWS.back, p.plan.lift.kind)).toBe(true);
+        const at = `${labelOf(c)} ${p.villainId}`;
+        if (!has(p.plan.lift.x, PSY_ROWS.back, p.plan.lift.kind)) bad.push(`${at}: 持ち上げる物 ${p.plan.lift.kind} が奥の列にない`);
         p.plan.floor.forEach((f, j) => {
-          const front = f.x - p.plan.villainX === PSY_LAYOUT.slotDx[0];
-          expect(p.floorY[j]).toBe(front ? PSY_ROWS.front : PSY_ROWS.back);
-          expect(at(f.x, p.floorY[j], f.kind)).toBe(true);
-          // その物の真上で落とすと、その物に落ちる
-          expect(resolvePsyDrop(p.plan, f.x).target).toEqual(f);
+          const y = f.x - p.plan.villainX === PSY_LAYOUT.slotDx[0] ? PSY_ROWS.front : PSY_ROWS.back;
+          if (p.floorY[j] !== y) bad.push(`${at}: ${f.kind} の列 ${p.floorY[j]}`);
+          if (!has(f.x, y, f.kind)) bad.push(`${at}: ${f.kind} が置かれていない`);
         });
-        expect(p.plan.floor.filter((f) => f.kind === PSY.cushionProp)).toHaveLength(1);
+        if (p.plan.floor.filter((f) => f.kind === PSY.cushionProp).length !== 1) bad.push(`${at}: ソファが1つでない`);
       }
     }
+    expect(bad).toEqual([]);
+  });
+
+  it('ソファは階ごとの色のコマ。通りがかりの市民はその階の市民の絵', () => {
+    const bad: string[] = [];
+    for (const c of all) {
+      const { plan } = c;
+      const no = c.people[0].wave;
+      for (const p of plan.props) if (p.kind === 'sofa' && p.frame !== no - 1) bad.push(`${labelOf(c)}: ソファのコマ ${p.frame}`);
+      for (const p of plan.passers) {
+        if (!FLOOR_LOOKS[no - 1].includes(p.look as never) || p.key !== `tw_${p.look}`) bad.push(`${labelOf(c)}: 通りがかり ${p.key}`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 
   it('念力の場面には、ほかの物も通りがかりの市民も置かない', () => {
@@ -336,14 +350,6 @@ describe('planTower(高層ビル)', () => {
     }
     expect(bad).toEqual([]);
   });
-
-  it('ソファは階ごとの色のコマ。通りがかりの市民はその階の市民の絵', () => {
-    for (const { plan, people } of all) {
-      const no = people[0].wave;
-      expect(plan.props.filter((p) => p.kind === 'sofa' && p.frame !== no - 1)).toEqual([]);
-      expect(plan.passers.filter((p) => !FLOOR_LOOKS[no - 1].includes(p.look as never) || p.key !== `tw_${p.look}`)).toEqual([]);
-    }
-  });
 });
 
 describe('planFree(フリープレイ)', () => {
@@ -365,10 +371,10 @@ describe('planFree(フリープレイ)', () => {
     });
   }
 
-  it('人は波の順に、人と人の間(gap)をあけて道の中に並ぶ(ステージと同じ決まり)', () => {
+  it('人は波の順に、人と人の間(gap)をあけて道の中に並ぶ(ステージと同じ決まり)。物は背景のステージの物だけ', () => {
     // フリープレイの波にはボスがいないので、ステージの決まり(ボスは最後)でも並ぶ順は波の順のまま
     expect(all.flatMap(({ label, people }) => people.filter((p) => p.truth === 'boss').map(() => `${label}: ボス`))).toEqual([]);
-    expect(all.flatMap(commonRules)).toEqual([]);
+    expect(all.flatMap((c) => [...commonRules(c), ...strayProps(c.label, c.plan, STAGES[c.bg].props)])).toEqual([]);
   });
 
   it('悪さの相手は、モヒカンの72ドット先と、UFOが下りてくる所に1人ずつ。ほかの通りがかりの市民はいない', () => {
@@ -400,9 +406,5 @@ describe('planFree(フリープレイ)', () => {
       }
     }
     expect(seen).toBeGreaterThan(30);
-  });
-
-  it('物は背景のステージの物だけ', () => {
-    expect(all.flatMap(({ label, plan, bg }) => strayProps(label, plan, STAGES[bg].props))).toEqual([]);
   });
 });

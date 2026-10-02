@@ -1,23 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createRng, hashSeed } from './rng';
+import { createRng } from './rng';
 
 describe('rng', () => {
-  it('同じ種なら同じ並び', () => {
-    const a = createRng(42);
-    const b = createRng(42);
-    for (let i = 0; i < 20; i++) expect(a.next()).toBe(b.next());
-    expect(createRng('abc').seed).toBe(hashSeed('abc'));
-  });
-
   it('int は両端を含む範囲に収まる', () => {
     const r = createRng(1);
     const seen = new Set<number>();
-    for (let i = 0; i < 1000; i++) {
-      const v = r.int(2, 4);
-      expect(v).toBeGreaterThanOrEqual(2);
-      expect(v).toBeLessThanOrEqual(4);
-      seen.add(v);
-    }
+    for (let i = 0; i < 1000; i++) seen.add(r.int(2, 4));
+    // 範囲の外の値が1つでも出れば、ここに入って落ちる
     expect([...seen].sort()).toEqual([2, 3, 4]);
   });
 

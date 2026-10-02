@@ -19,10 +19,10 @@ const diff = (a: PixelGrid, b: PixelGrid): number => {
 };
 
 describe('ステージ4の絵', () => {
-  it('人は8種類とも7行(市民の6行と念力の行)。見た目のくせと念力は4コマとも動く', () => {
+  // 行とコマの数がシートの表と合うかは artRules.test.ts で確かめる
+  it('人は8種類とも、見た目のくせ(行2)と念力(行6)が4コマとも動く', () => {
     for (const look of LOOKS) {
       const rows = sheets[`tw_${look}`];
-      expect(rows.length, look).toBe(7);
       for (const r of [2, 6]) for (let i = 1; i < 4; i++) expect(diff(rows[r][0], rows[r][i]), `${look} 行${r} コマ${i}`).toBeGreaterThan(4);
     }
   });
@@ -30,14 +30,12 @@ describe('ステージ4の絵', () => {
   it('化けた姿は、同じ見た目の市民と違う絵(おかしな所がある)', () => {
     for (const look of ['lady', 'magician', 'waiter']) {
       const d = sheets[`tw_boss_${look}`];
-      expect(d.length).toBe(3);
       expect(diff(d[0][0], sheets[`tw_${look}`][0][0]), look).toBeGreaterThan(20);
     }
   });
 
   it('照明:ふつうと切れかけは紫を使わず、もれと紫のセロハンが紫。セロハンは、もれと違う所(めくれ)がある', () => {
     const [normal, leak, weak, weak2, cellophane] = sheets.fx_psy_lamp[0];
-    expect(sheets.fx_psy_lamp[0]).toHaveLength(5);
     expect(hasPsy(leak)).toBe(true);
     expect(hasPsy(cellophane)).toBe(true);
     for (const g of [normal, weak, weak2]) expect(hasPsy(g)).toBe(false);
@@ -82,7 +80,6 @@ describe('ステージ4の絵', () => {
 
   it('机と会場の小物は8つとも3×3ドット以上で、紫を使わない(もやはコードで重ねる)', () => {
     const items = sheets.fx_psy_items[0];
-    expect(items.length).toBe(8);
     for (const g of items) {
       const b = bbox(g)!;
       expect(b.x1 - b.x0 + 1).toBeGreaterThanOrEqual(3);

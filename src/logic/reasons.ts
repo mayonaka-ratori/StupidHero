@@ -13,7 +13,7 @@
 // 返す文には {#rrggbb}…{/} の色の書き方が入ることがある(小物の色)。字の数は stripReasonMarkup で数える。
 
 import { ACCESSORY_COLORS } from './rules';
-import { tellDef } from './tells';
+import { tellDef, tellsFor } from './tells';
 import type {
   AlleyDisguise, AlleyLook, GarageDisguise, MallDisguise, MallLook, Person, RushTally, TowerDecoy, TowerDisguise, TowerLook, Truth, Wave
 } from './types';
@@ -21,14 +21,11 @@ import type {
 /** 1行に入る字の数(全角) */
 export const REASON_MAX = 14;
 
-/** 路地裏の見た目と正体ごとの決め手(出てこない組み合わせは書かない)。手がかりの出し分け(person.tell)がある人は tells.ts の文を使う */
-const ALLEY_REASONS: Readonly<Record<AlleyLook, Partial<Record<'bad' | 'civ', string>>>> = {
-  // ワル:後ろのポケットから黄色いナイフの柄。市民:同じ場所に茶色い財布
-  hoodie: { bad: 'ポケットに黄色いナイフの柄', civ: 'ポケットの茶色い物は財布' },
-  // ワル:赤い女物のバッグを抱える。市民:金色の腕時計を見てあせる
-  suit: { bad: '赤い女物のバッグを抱えていた', civ: '金色は腕時計。会議に遅れそう' },
-  // ワル:袋から金色の財布と腕時計。市民:袋から白い米袋
-  shopper: { bad: '袋に金色の財布。人の物だった', civ: 'のぞいていたのは白い米袋' },
+/**
+ * 路地裏の、手がかりの出し分けがない見た目の決め手(出てこない組み合わせは書かない)。
+ * パーカー、スーツ、買い物袋の人はいつも出し分け(person.tell)があるので、tells.ts の文を使う
+ */
+const ALLEY_REASONS: Readonly<Record<Extract<AlleyLook, 'mohawk' | 'granny'>, Partial<Record<'bad' | 'civ', string>>>> = {
   mohawk: { bad: 'ナイフを回していた。見たまま' },
   granny: { civ: '杖をついたふつうのおばあさん' }
 };
@@ -47,12 +44,15 @@ const GARAGE_BOSS_REASONS: Readonly<Record<GarageDisguise, string>> = {
   officelady: 'ギラギラの金の腕輪とスカーフ'
 };
 
-/** ショッピングモールの見た目と正体ごとの決め手。宇宙人はくずれ、市民はぎこちない動きの理由。くずれの出し分け(person.tell)がある宇宙人は tells.ts の文を使う */
-export const MALL_REASONS: Readonly<Record<MallLook, Record<'bad' | 'civ', string>>> = {
-  mascot: { bad: '着ぐるみの首が一回転', civ: '前が見えずにふらついた' },
-  clerk: { bad: 'まばたきが横に閉じた', civ: '寝不足でかくっとなった' },
-  dancer: { bad: '腕がのびて戻った', civ: 'ダンスの練習でカクカク' },
-  uncle: { bad: '体の色がちらついた', civ: '腰をさすっていただけ' }
+/**
+ * ショッピングモールの市民の決め手(ぎこちない動きの理由)。
+ * 宇宙人はいつもくずれの出し分け(person.tell)があるので、くずれの文は tells.ts にある
+ */
+export const MALL_CIV_REASONS: Readonly<Record<MallLook, string>> = {
+  mascot: '前が見えずにふらついた',
+  clerk: '寝不足でかくっとなった',
+  dancer: 'ダンスの練習でカクカク',
+  uncle: '腰をさすっていただけ'
 };
 
 /** ショッピングモールの親玉:化けた姿のどこか1か所おかしい所(docs/STAGE3.md) */
@@ -151,10 +151,11 @@ export function reasonFor(p: Person, wave?: Pick<Wave, 'groups'>): string {
   if (p.truth === 'boss') return BOSS_REASONS[p.disguise ?? p.look] ?? '背が高く、どこかおかしい';
   const tell = tellDef(p.look, p.truth, p.tell)?.reason;
   if (tell) return tell;
+  // 決め手の文を持つ出し分けがあるのに tell がない人は、作ったステージには出てこない(出し分けは全員に選ぶ)
+  if (tellsFor(p.look, p.truth).some((d) => d.reason)) return '';
   const alley = (ALLEY_REASONS as Record<string, Partial<Record<Truth, string>>>)[p.look];
   if (alley) return alley[p.truth] ?? '';
-  const mall = (MALL_REASONS as Record<string, Partial<Record<Truth, string>>>)[p.look];
-  if (mall) return mall[p.truth] ?? '';
+  if (p.look in MALL_CIV_REASONS) return p.truth === 'civ' ? MALL_CIV_REASONS[p.look as MallLook] : '';
   if (p.look in TOWER_CIV_REASONS) return towerReason(p);
   return garageReason(p, wave);
 }

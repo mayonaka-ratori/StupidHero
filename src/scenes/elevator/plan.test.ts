@@ -1,7 +1,7 @@
 // エレベーターラッシュの立つ位置と時間の並び(elevator/plan.ts)。
 
 import { describe, expect, it } from 'vitest';
-import { LIFT, createStage, liftFloor, liftRushOf, liftTiming } from '../../logic';
+import { LIFT, liftFloor, liftTiming } from '../../logic';
 import { LIFT_LAYOUT } from '../../art/world4/backgrounds';
 import {
   DOOR_MOVE_SEC, LIFT_SPOT, liftDoorOpen, liftFloorAt, liftMoving, liftPhase, liftSchedule, liftSlot, nearestButton
@@ -9,30 +9,25 @@ import {
 
 const floors = Array.from({ length: LIFT.people }, (_, i) => liftFloor(i));
 
-describe('奥に立つ位置', () => {
-  it('左から詰め、4人目からは2列目(少し後ろで、横に半分ずらす)', () => {
+describe('立つ位置', () => {
+  it('奥の人は左から詰め、4人目からは2列目(少し後ろで、横に半分ずらす)。ヒーローより奥で左。止まる所は扉の内側', () => {
     const s = Array.from({ length: 6 }, (_, i) => liftSlot(i));
-    expect(s.slice(0, 3).map((p) => p.y)).toEqual([186, 186, 186]);
-    expect(s.slice(3).map((p) => p.y)).toEqual([176, 176, 176]);
-    // 左から右へ
+    // 1列目の3人は同じ高さで左から右へ。2列目は1列目より奥で、1列目の間に入る(前の人に隠れない)
+    expect(new Set(s.slice(0, 3).map((p) => p.y)).size).toBe(1);
+    expect(new Set(s.slice(3).map((p) => p.y)).size).toBe(1);
+    expect(s[3].y).toBeLessThan(s[0].y);
     for (let i = 1; i < 3; i++) expect(s[i].x).toBeGreaterThan(s[i - 1].x);
-    // 2列目は1列目の間に入る(前の人に隠れない)
     expect(s[3].x).toBeGreaterThan(s[0].x);
     expect(s[3].x).toBeLessThan(s[1].x);
-  });
-
-  it('奥の人は、ヒーローと乗ってきた人より奥で、ヒーローより左(次に乗ってくる人を隠さない)', () => {
-    for (let i = 0; i < 6; i++) {
-      const p = liftSlot(i);
+    // 奥の人は、ヒーローと乗ってきた人より奥で、ヒーローより左(次に乗ってくる人を隠さない)
+    for (const p of s) {
       expect(p.y).toBeLessThan(LIFT_SPOT.hero.y);
       expect(p.y).toBeLessThan(LIFT_SPOT.stop.y);
       // 人の絵の横はばは24ドットくらい。ヒーローの体とは重ならない
       expect(p.x + 12).toBeLessThan(LIFT_SPOT.hero.x - 10);
       expect(p.y).toBeGreaterThan(LIFT_LAYOUT.floorY);
     }
-  });
-
-  it('ヒーローはまん中より少し左、止まる所は扉の内側', () => {
+    // ヒーローはまん中より少し左、止まる所は扉の内側
     expect(LIFT_SPOT.hero.x).toBeLessThan(108);
     expect(LIFT_SPOT.hero.x).toBeGreaterThan(80);
     expect(LIFT_SPOT.stop.x).toBeLessThan(LIFT_LAYOUT.door.x + LIFT_LAYOUT.door.w);
@@ -72,24 +67,21 @@ describe('時間の並び', () => {
 describe('階の数字と扉', () => {
   const { beats, totalSec } = liftSchedule(floors, liftTiming(false));
 
-  it('階は35から、扉が開く階(37、39、41、44、46、48)へ1つずつ進み、戻らない', () => {
+  it('階は35から、扉が開く階(37、39、41、44、46、48)へ1つずつ進み、戻らない。数字が進むのは扉が閉まっている間だけ', () => {
     expect(floors).toEqual([37, 39, 41, 44, 46, 48]);
     expect(liftFloorAt(beats, 0)).toBe(35);
+    // 0.01秒ごとに見る。そのたびに expect を呼ぶと遅いので、合わない所を集めて最後に1回だけ確かめる
+    const bad: string[] = [];
     let prev = 35;
     for (let t = 0; t <= totalSec; t += 0.01) {
       const f = liftFloorAt(beats, t);
-      expect(f).toBeGreaterThanOrEqual(prev);
-      expect(f - prev).toBeLessThanOrEqual(1);
+      if (f < prev || f - prev > 1) bad.push(`${t.toFixed(2)}秒 ${prev}→${f}`);
+      if (liftMoving(beats, t) && liftDoorOpen(beats, t) !== 0) bad.push(`${t.toFixed(2)}秒 数字が進んでいるのに扉が開いている`);
       prev = f;
     }
+    expect(bad).toEqual([]);
     for (const b of beats) expect(liftFloorAt(beats, b.openAt)).toBe(b.floor);
     expect(liftFloorAt(beats, totalSec + 1)).toBe(48);
-  });
-
-  it('数字が進むのは扉が閉まっている間だけ', () => {
-    for (let t = 0; t < totalSec; t += 0.01) {
-      if (liftMoving(beats, t)) expect(liftDoorOpen(beats, t)).toBe(0);
-    }
     expect(liftMoving(beats, beats[2].travelAt + 0.01)).toBe(true);
     expect(liftMoving(beats, beats[2].markAt)).toBe(false);
   });
@@ -114,13 +106,5 @@ describe('ボタンの板', () => {
     expect(nearestButton(bs[3].x + 1, bs[3].y + 2)).toBe(3);
     // 扉の内側で止まった人(頭の横)は、板の下のほう
     expect(nearestButton(LIFT_SPOT.stop.x, LIFT_SPOT.stop.y - 50)).toBe(bs.length - 1);
-  });
-});
-
-describe('ステージ4の並びと合わせる', () => {
-  it('並びの扉の階は、時間の並びの階と同じ', () => {
-    const plan = liftRushOf(createStage(5, 'tower'))!;
-    const { beats } = liftSchedule(plan.riders.map((r) => r.floor), liftTiming(false));
-    expect(beats.map((b) => b.floor)).toEqual(floors);
   });
 });

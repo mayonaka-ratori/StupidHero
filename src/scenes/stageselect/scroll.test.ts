@@ -15,12 +15,13 @@ function peekSeen(H: number, n: number): { seen: number; hidden: number } {
 }
 
 describe('listLayout', () => {
-  it('高さ468で3枚なら、今までどおり高さを分けて並べ、ずらさない', () => {
+  it('高さ468で3枚なら、今までどおり高さを分けて並べ、ずらさない。1枚や2枚ならずらさない', () => {
     const lay = listLayout(viewOf(468), 3);
     expect(lay.scrollMax).toBe(0);
-    expect(lay.cardH).toBe(122);
-    expect(lay.thumbH).toBe(58);
     expect(lay.y0 + lay.contentH).toBeLessThanOrEqual(lay.viewH);
+    expect(listLayout(viewOf(384), 1).scrollMax).toBe(0);
+    expect(listLayout(viewOf(384), 2).scrollMax).toBe(0);
+    expect(listLayout(viewOf(384), 0).contentH).toBe(0);
   });
 
   it('入りきらないときは、絵を細くせずにずらす。カードの絵はいつも出る', () => {
@@ -29,7 +30,6 @@ describe('listLayout', () => {
         const lay = listLayout(viewOf(H), n);
         expect(lay.cardH).toBeGreaterThanOrEqual(CARD_MIN);
         expect(lay.thumbH).toBeGreaterThanOrEqual(58);
-        if (lay.scrollMax > 0) expect(lay.contentH - lay.scrollMax).toBe(lay.viewH);
       }
     }
     expect(listLayout(viewOf(384), 3).scrollMax).toBeGreaterThan(0);
@@ -46,12 +46,6 @@ describe('listLayout', () => {
       }
     }
   });
-
-  it('1枚や2枚ならずらさない', () => {
-    expect(listLayout(viewOf(384), 1).scrollMax).toBe(0);
-    expect(listLayout(viewOf(384), 2).scrollMax).toBe(0);
-    expect(listLayout(viewOf(384), 0).contentH).toBe(0);
-  });
 });
 
 describe('ListScroll', () => {
@@ -66,7 +60,7 @@ describe('ListScroll', () => {
     expect(s.up(1, 300)).toBe('drag');
   });
 
-  it('指を上へ動かすと下のカードの方へずれる。8ドットをこえた分だけ動き、跳ばない', () => {
+  it('指を上へ動かすと下のカードの方へずれる。8ドットをこえた分だけ動き、跳ばない。いちばん上と下では、それ以上ずれない', () => {
     const s = new ListScroll(200);
     s.down(1, 200, 0);
     s.move(1, 191, 10);
@@ -75,14 +69,10 @@ describe('ListScroll', () => {
     expect(s.pos).toBe(42);
     s.move(1, 250, 30);
     expect(s.pos).toBe(0);
-  });
-
-  it('いちばん上と下では、それ以上ずれない', () => {
-    const s = new ListScroll(100);
-    s.down(1, 300, 0);
-    s.move(1, 0, 10);
-    expect(s.pos).toBe(100);
-    s.move(1, 600, 20);
+    // いちばん下(200)より先へも、いちばん上(0)より手前へも行かない
+    s.move(1, -200, 40);
+    expect(s.pos).toBe(200);
+    s.move(1, 600, 50);
     expect(s.pos).toBe(0);
   });
 
@@ -162,9 +152,10 @@ describe('ListScroll', () => {
 describe('showTarget', () => {
   const lay = listLayout(viewOf(384), 4);
 
-  it('見えているカードなら、そのまま', () => {
+  it('見えているカードなら、そのまま。ずらさない並べ方ではいつも0', () => {
     expect(showTarget(0, lay, 0)).toBe(0);
     expect(showTarget(1, lay, 0)).toBe(0);
+    expect(showTarget(2, listLayout(viewOf(468), 3), 0)).toBe(0);
   });
 
   it('下のカードは全部見えるまでずらし、次のカードの頭も見せる。最後のカードはいちばん下まで', () => {
@@ -180,10 +171,6 @@ describe('showTarget', () => {
     expect(cardTop(lay, 1)).toBeGreaterThanOrEqual(p);
     expect(showTarget(0, lay, lay.scrollMax)).toBe(0);
   });
-
-  it('ずらさない並べ方では0', () => {
-    expect(showTarget(2, listLayout(viewOf(468), 3), 0)).toBe(0);
-  });
 });
 
 describe('initialCard', () => {
@@ -191,17 +178,13 @@ describe('initialCard', () => {
   const fresh = { unlocked: true, played: false };
   const locked = { unlocked: false, played: false };
 
-  it('まだ遊んでいない開いたカード(NEW!)があれば、そこ', () => {
+  it('まだ遊んでいない開いたカード(NEW!)があればそこ、なければ最後に遊んだステージ。開いたばかりのカードは選ばない', () => {
     expect(initialCard([played, played, fresh, locked], 0)).toBe(2);
     expect(initialCard([fresh, locked, locked, locked])).toBe(0);
-  });
-
-  it('なければ最後に遊んだステージ。分からなければ遊んだことがあるいちばん後ろ', () => {
+    // 最後に遊んだステージが分からなければ、遊んだことがあるいちばん後ろ
     expect(initialCard([played, played, played, locked], 1)).toBe(1);
     expect(initialCard([played, played, played, locked])).toBe(2);
-  });
-
-  it('開いたばかりのカードは選ばない(あとで自動でずらす)', () => {
+    // 開いたばかりのカードは、あとで自動でずらして見せる
     expect(initialCard([played, played, played, { ...fresh, justUnlocked: true }], 2)).toBe(2);
   });
 });

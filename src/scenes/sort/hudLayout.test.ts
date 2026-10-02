@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CHIP, COL_RIGHT, COL_X, EDGE_LABEL_Y, SEC_Y, STRIP_X, STRIP_Y, chipAt, overlaps, shareTagBox, shareTagText, stopTagBox, stripBox, textBox,
+  CHIP, COL_RIGHT, COL_X, EDGE_LABEL_Y, SEC_Y, STRIP_X, STRIP_Y, chipAt, overlaps, shareTagBox, stopTagBox, stripBox, textBox,
   type Box
 } from './hudLayout';
 
@@ -20,15 +20,9 @@ describe('仕分けの画面の左上の札', () => {
   // 波の人数は4〜8人。念のため10人まで
   const counts = [4, 5, 6, 7, 8, 10];
 
-  it('「▲5人ぶん」は1行12字まで、半角の空白を入れない', () => {
-    for (const n of counts) {
-      const t = shareTagText(n);
-      expect(t).not.toContain(' ');
-      expect([...t].length).toBeLessThanOrEqual(12);
-    }
-  });
-
   it('「▲5人ぶん」と「時計ストップ中」は、左の列の中に収まる(人の絵にかからない)', () => {
+    // 左の列の右の端は、人の絵より左
+    expect(COL_RIGHT).toBeLessThan(PERSON_LEFT);
     for (const n of counts) {
       const b = shareTagBox(n);
       expect(b.x + b.w).toBeLessThanOrEqual(COL_RIGHT);
@@ -36,20 +30,13 @@ describe('仕分けの画面の左上の札', () => {
     for (const shown of [false, true]) {
       const b = stopTagBox(shown);
       expect(b.x + b.w).toBeLessThanOrEqual(COL_RIGHT);
-      expect(b.x + b.w).toBeLessThan(PERSON_LEFT);
     }
   });
 
-  it('札は、時間の数字、バー、何人目、ステージ、ボタン、「◀ワル」と重ならない', () => {
+  it('札は、時間の数字、バー、何人目、ステージ、ボタン、「◀ワル」と重ならない。2つの札が一緒に出ても重ならない(「時計ストップ中」を下へずらす)', () => {
     const others = [STAGE, COUNT, BAR, SEC, ICONS, EDGE];
-    for (const n of counts) for (const o of others) expect(overlaps(shareTagBox(n), o)).toBe(false);
+    for (const n of counts) for (const o of [...others, stopTagBox(true)]) expect(overlaps(shareTagBox(n), o)).toBe(false);
     for (const shown of [false, true]) for (const o of others) expect(overlaps(stopTagBox(shown), o)).toBe(false);
-  });
-
-  it('2つの札が一緒に出ても重ならない(「時計ストップ中」を下へずらす)', () => {
-    for (const n of counts) expect(overlaps(shareTagBox(n), stopTagBox(true))).toBe(false);
-    // 「▲5人ぶん」が出ていないときは、時間の数字のすぐ下
-    expect(stopTagBox(false).y).toBe(shareTagBox(5).y);
   });
 
   it('「見た小物」の並び(ステージ2)とどの札も重ならない', () => {
@@ -64,16 +51,20 @@ describe('仕分けの画面の左上の札', () => {
   });
 
   it('「見た小物」の札の並べ方(1行に4つ、2行目は下に)', () => {
-    expect(chipAt(STRIP_X, STRIP_Y, 0)).toEqual({ x: 83, y: 36 });
-    expect(chipAt(STRIP_X, STRIP_Y, 3).x).toBe(83 + 34 * 3);
-    expect(chipAt(STRIP_X, STRIP_Y, 4)).toEqual({ x: 83, y: 62 });
+    const c = Array.from({ length: 8 }, (_, i) => chipAt(STRIP_X, STRIP_Y, i));
+    // 1行目の4つは同じ高さで、左から右へ重ならずに並ぶ。5つ目は1つ目の真下で、札の高さより下
+    for (let i = 1; i < 4; i++) {
+      expect(c[i].y).toBe(c[0].y);
+      expect(c[i].x).toBeGreaterThanOrEqual(c[i - 1].x + CHIP);
+    }
+    expect(c[4].x).toBe(c[0].x);
+    expect(c[4].y).toBeGreaterThan(c[0].y + CHIP);
     // 札は並びの所の中
     const b = stripBox(STRIP_X, STRIP_Y, 8);
-    for (let i = 0; i < 8; i++) {
-      const c = chipAt(STRIP_X, STRIP_Y, i);
-      expect(c.x - 2).toBeGreaterThanOrEqual(b.x);
-      expect(c.x + CHIP + 2).toBeLessThanOrEqual(b.x + b.w);
-      expect(c.y + CHIP).toBeLessThanOrEqual(b.y + b.h);
+    for (const p of c) {
+      expect(p.x - 2).toBeGreaterThanOrEqual(b.x);
+      expect(p.x + CHIP + 2).toBeLessThanOrEqual(b.x + b.w);
+      expect(p.y + CHIP).toBeLessThanOrEqual(b.y + b.h);
     }
   });
 

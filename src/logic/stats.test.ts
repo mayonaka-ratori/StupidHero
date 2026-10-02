@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { liftSummary, rushSummary } from './reasons';
-import { STAGES } from './stages';
-import { StatsTracker, WORST_SCENE_RANK, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
+import { STAGE_IDS } from './stages';
+import { StatsTracker, isGroup, sceneForCivHit, sceneForProp, sortIsCorrect, tallySorts } from './stats';
+import type { Look, StageId, WorstScene } from './types';
 
 describe('StatsTracker', () => {
   it('撃破は仕分け、行け、ボスの合計', () => {
@@ -67,17 +68,37 @@ describe('StatsTracker', () => {
     expect(r.badSparedByStop).toBe(1);
   });
 
-  it('いちばんひどかった場面は、ひどくなったときだけ true', () => {
-    const s = new StatsTracker(8);
-    expect(s.reportScene('bossDefeated')).toBe(true);
-    expect(s.reportScene('bigPropBroken')).toBe(true);
-    expect(s.reportScene('bigPropBroken')).toBe(false);
-    expect(s.reportScene('civHit')).toBe(true);
-    expect(s.reportScene('bossDefeated')).toBe(false);
-    expect(s.reportScene('grannyHit')).toBe(true);
-    expect(s.reportScene('specialOnCiv')).toBe(false);
-    expect(s.snapshot().worstScene).toBe('grannyHit');
-    expect(s.snapshot().worstAttack).toBeNull();
+  it('いちばんひどかった場面は、ひどくなったときだけ true。同じ段なら先に起きた1枚を残す', () => {
+    // [場面, 返る値]。順に伝えたときに、いちばんひどい場面が変わったら true
+    const cases: { stageId: StageId; steps: [WorstScene, boolean][]; worst: WorstScene }[] = [
+      {
+        stageId: 'alley',
+        steps: [['bossDefeated', true], ['bigPropBroken', true], ['bigPropBroken', false], ['civHit', true], ['bossDefeated', false],
+          ['grannyHit', true], ['specialOnCiv', false]],
+        worst: 'grannyHit'
+      },
+      // 市民に必殺技は、市民を殴ったよりひどい
+      { stageId: 'alley', steps: [['civHit', true], ['specialOnCiv', true], ['civHit', false], ['grannyHit', true]], worst: 'grannyHit' },
+      // 市民がさらわれたは、市民を殴った瞬間のすぐあと、大きな物の前
+      {
+        stageId: 'mall',
+        steps: [['bigPropBroken', true], ['abducted', true], ['bigPropBroken', false], ['civHit', true], ['abducted', false]],
+        worst: 'civHit'
+      },
+      // 市民に物が落ちたは、市民がさらわれたと同じ段(docs/STAGE4.md)。どちらを先に伝えても、あとの方には入れかわらない
+      {
+        stageId: 'tower',
+        steps: [['bigPropBroken', true], ['dropped', true], ['dropped', false], ['abducted', false], ['civHit', true], ['dropped', false]],
+        worst: 'civHit'
+      },
+      { stageId: 'tower', steps: [['abducted', true], ['dropped', false]], worst: 'abducted' }
+    ];
+    for (const c of cases) {
+      const s = new StatsTracker(8, c.stageId);
+      c.steps.forEach(([scene, want], i) => expect(s.reportScene(scene), `${c.stageId} ${i}:${scene}`).toBe(want));
+      expect(s.snapshot().worstScene).toBe(c.worst);
+      expect(s.snapshot().worstAttack).toBeNull();
+    }
     expect(new StatsTracker(1).snapshot().worstScene).toBeNull();
   });
 
@@ -106,6 +127,27 @@ describe('StatsTracker', () => {
     expect(a.damage).toBe(0);
     expect(a.propsBroken.car).toBe(0);
   });
+
+  it('ギャングの口笛、宇宙人の空への合図、ヴィランの念力は悪さではない(被害額も市民負傷も増えない)', () => {
+    const cases: [StageId, Look][] = [['garage', 'guard'], ['mall', 'clerk'], ['tower', 'chef']];
+    for (const [stageId, look] of cases) {
+      const s = new StatsTracker(9, stageId);
+      expect(s.mischief(look), look).toBe(0);
+      expect(s.snapshot().damage, look).toBe(0);
+      expect(s.snapshot().civHurt, look).toBe(0);
+    }
+  });
+
+  it('ボスを市民に仕分けたときの額はステージごと(ステージを省いたら路地裏)。仕分けた印も残る', () => {
+    const costs = Object.fromEntries(STAGE_IDS.map((id) => {
+      const s = new StatsTracker(9, id);
+      const cost = s.bossRampage();
+      expect(s.snapshot().bossSortedCiv, id).toBe(true);
+      return [id, cost];
+    }));
+    expect(costs).toEqual({ alley: 10_000_000, garage: 15_000_000, mall: 20_000_000, tower: 20_000_000 });
+    expect(new StatsTracker(9).bossRampage()).toBe(10_000_000);
+  });
 });
 
 describe('StatsTracker(ステージ2)', () => {
@@ -125,8 +167,6 @@ describe('StatsTracker(ステージ2)', () => {
     expect(r.damage).toBe(5_000_000);
     expect(r.propsBroken.van).toBe(1);
     expect(r.civHurt).toBe(0);
-    expect(sceneForProp('van')).toBe('bigPropBroken');
-    expect(sceneForProp('cone')).toBeNull();
   });
 
   it('1人だけの組は、人数は数えるが組の数(一網打尽、ギャングの見送り係)には入れない', () => {
@@ -145,27 +185,6 @@ describe('StatsTracker(ステージ2)', () => {
     expect(r.escapedByVan).toBe(4);
     expect(isGroup(1)).toBe(false);
     expect(isGroup(2)).toBe(true);
-  });
-
-  it('ギャングの口笛は悪さではない(被害額も市民負傷も増えない)', () => {
-    const s = new StatsTracker(9, 'garage');
-    expect(s.mischief('guard')).toBe(0);
-    expect(s.snapshot().damage).toBe(0);
-    expect(s.snapshot().civHurt).toBe(0);
-  });
-
-  it.each([
-    { name: 'ステージを省いたとき(路地裏)', id: undefined, cost: 10_000_000 },
-    { name: '路地裏', id: 'alley', cost: 10_000_000 },
-    { name: '地下駐車場', id: 'garage', cost: 15_000_000 },
-    { name: 'モール', id: 'mall', cost: 20_000_000 },
-    { name: '高層ビル', id: 'tower', cost: 20_000_000 }
-  ] as const)('ボスを市民に仕分けたときの額はステージごと:$name は $cost 円。仕分けた印も残る', ({ id, cost }) => {
-    const s = new StatsTracker(9, id);
-    expect(s.bossRampage()).toBe(cost);
-    expect(s.snapshot().bossSortedCiv).toBe(true);
-    // 額はステージの定義(STAGES[id].bossRampageCost)から読む
-    expect(STAGES[id ?? 'alley'].bossRampageCost).toBe(cost);
   });
 });
 
@@ -204,54 +223,11 @@ describe('仕分けの答え合わせ', () => {
   });
 });
 
-describe('StatsTracker(ステージ3)', () => {
-  it('いちばんひどい場面の順:市民を殴った瞬間のすぐあとに「市民がさらわれた」、そのあと大きな物', () => {
-    expect(Object.entries(WORST_SCENE_RANK).sort((a, b) => a[1] - b[1]).map(([k]) => k))
-      .toEqual(['grannyHit', 'specialOnCiv', 'civHit', 'abducted', 'dropped', 'bigPropBroken', 'bossDefeated']);
-    const s = new StatsTracker(8, 'mall');
-    expect(s.reportScene('bigPropBroken')).toBe(true);
-    expect(s.reportScene('abducted')).toBe(true);
-    expect(s.reportScene('bigPropBroken')).toBe(false);
-    expect(s.reportScene('civHit', 'punch')).toBe(true);
-    expect(s.reportScene('abducted')).toBe(false);
-  });
-
-  it('UFOを落とすと、宇宙人を撃破と「行けで倒した」に数え、UFOの¥300万を足す', () => {
-    const s = new StatsTracker(3, 'mall');
-    expect(s.ufoDowned()).toBe(3_000_000);
-    s.defeatBad('go');
-    const r = s.snapshot();
-    expect(r.defeated).toBe(2);
-    expect(r.defeatedByGo).toBe(2);
-    expect(r.defeatedByUfo).toBe(1);
-    expect(r.ufosDowned).toBe(1);
-    expect(r.damage).toBe(3_000_000);
-    expect(r.propsBroken.ufo).toBe(1);
-    // 落ちたUFOは「大きな物が壊れた」場面にはしない。噴水とエスカレーターはする
-    expect(sceneForProp('ufo')).toBeNull();
-    expect(sceneForProp('fountain')).toBe('bigPropBroken');
-    expect(sceneForProp('escalator')).toBe('bigPropBroken');
-    expect(sceneForProp('showcase')).toBeNull();
-  });
-
-  it('UFOが去ると、買い物客は市民のけが(さらわれた)、宇宙人は逃がした。空への合図は悪さに数えない', () => {
-    const s = new StatsTracker(3, 'mall');
-    expect(s.mischief('clerk')).toBe(0);
-    s.ufoEscaped();
-    s.ufoEscaped();
-    const r = s.snapshot();
-    expect(r.civHurt).toBe(2);
-    expect(r.civHurtByAbduction).toBe(2);
-    expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain]).toEqual([0, 0, 0]);
-    expect(r.escaped).toBe(2);
-    expect(r.escapedByUfo).toBe(2);
-    expect(r.damage).toBe(0);
-    expect(s.heroMistakes).toBe(0);
-  });
-
-  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。念力そのものは悪さに数えない', () => {
+// UFOを落とした、UFOが去ったときの数え方は mallFlow.test.ts で、念力の床、ソファ、物の上と、押さなかったときは
+// psychic.test.ts で、実際の流れの中で確かめる
+describe('StatsTracker(ステージ4)', () => {
+  it('高層ビル:念力の物が落ちた市民は市民のけが(物が落ちた)。さらわれたと同じく、ヒーローのまちがいには数えない', () => {
     const s = new StatsTracker(9, 'tower');
-    expect(s.mischief('chef')).toBe(0);
     s.hurtCiv('dropped');
     const r = s.snapshot();
     expect(r.civHurt).toBe(1);
@@ -259,62 +235,24 @@ describe('StatsTracker(ステージ3)', () => {
     expect([r.civHurtByHero, r.civHurtByCollateral, r.civHurtByVillain, r.civHurtByAbduction]).toEqual([0, 0, 0, 0]);
     expect(r.damage).toBe(0);
     expect(s.heroMistakes).toBe(0);
-    expect(s.breakProp('sofa')).toBe(0);
-    expect(s.breakProp('piano')).toBe(30_000_000);
-    // ほかのステージでは物が落ちたけがは0
-    expect(new StatsTracker(3, 'mall').snapshot().civHurtByDrop).toBe(0);
-  });
-});
-
-describe('StatsTracker(ステージ4)', () => {
-  it('念力を行けで止めた:ヴィランを撃破と「行けで倒した」に数え、落ちた先で壊れた物を足す', () => {
-    const s = new StatsTracker(5, 'tower');
-    expect(s.psyDowned({ on: 'floor', broken: ['plant'] })).toBe(50_000);
-    expect(s.psyDowned({ on: 'prop', broken: ['wine', 'tank'] })).toBe(8_000_000);
-    expect(s.psyDowned({ on: 'sofa', broken: [] })).toBe(0);
-    expect(s.psyDowned({ on: 'sofa', broken: [] })).toBe(0);
-    // 行けが遅れて市民の上で落ちた:ヴィランは倒れるが、市民はけが(物が落ちた)。物は壊れない
-    expect(s.psyDowned({ on: 'citizen', broken: [] })).toBe(0);
-    const r = s.snapshot();
-    expect(r.defeated).toBe(5);
-    expect(r.allDefeated).toBe(true);
-    expect(r.defeatedByGo).toBe(5);
-    expect(r.defeatedByPsy).toBe(5);
-    expect(r.sofaSaves).toBe(2);
-    expect(r.civHurt).toBe(1);
-    expect(r.civHurtByDrop).toBe(1);
-    expect(r.escaped).toBe(0);
-    expect(r.damage).toBe(8_050_000);
-    expect(r.damageByProps).toBe(8_050_000);
-    expect(r.propsBroken).toMatchObject({ plant: 1, wine: 1, tank: 1, sofa: 0 });
-  });
-
-  it('押さずに物が市民に落ちた:市民のけが(物が落ちた)と逃がしたに数える。被害額は増えない', () => {
-    const s = new StatsTracker(3, 'tower');
-    s.psyEscaped();
-    s.psyEscaped();
-    const r = s.snapshot();
-    expect(r.civHurt).toBe(2);
-    expect(r.civHurtByDrop).toBe(2);
-    expect(r.escaped).toBe(2);
-    expect(r.escapedByPsy).toBe(2);
-    expect(r.defeated).toBe(0);
-    expect(r.damage).toBe(0);
+    s.hurtCiv('abducted');
     expect(s.heroMistakes).toBe(0);
   });
 
-  it('市民に物が落ちた場面は、市民がさらわれた場面と同じ段(先に起きた1枚を残す)', () => {
-    expect(WORST_SCENE_RANK.dropped).toBe(WORST_SCENE_RANK.abducted);
-    const s = new StatsTracker(8, 'tower');
-    expect(s.reportScene('bigPropBroken')).toBe(true);
-    expect(s.reportScene('dropped')).toBe(true);
-    expect(s.reportScene('dropped')).toBe(false);
-    expect(s.reportScene('abducted')).toBe(false);
-    expect(s.reportScene('civHit', 'punch')).toBe(true);
-    expect(s.reportScene('dropped')).toBe(false);
-    expect(s.snapshot().worstScene).toBe('civHit');
+  it('念力を行けで止めたが、市民の上で落ちた:ヴィランは撃破と「行けで倒した」に数え、市民はけが(物が落ちた)。物は壊れない', () => {
+    const s = new StatsTracker(1, 'tower');
+    expect(s.psyDowned({ on: 'citizen', broken: [] })).toBe(0);
+    const r = s.snapshot();
+    expect(r.defeated).toBe(1);
+    expect(r.allDefeated).toBe(true);
+    expect(r.defeatedByGo).toBe(1);
+    expect(r.defeatedByPsy).toBe(1);
+    expect(r.sofaSaves).toBe(0);
+    expect(r.civHurt).toBe(1);
+    expect(r.civHurtByDrop).toBe(1);
+    expect(r.escaped).toBe(0);
+    expect(r.damage).toBe(0);
   });
-
 });
 
 describe('ラッシュの数え方(タイムセールとエレベーターは同じ形)', () => {

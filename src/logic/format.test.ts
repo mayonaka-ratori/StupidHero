@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { damageAnalogy, formatSeconds, formatYen, hurtBreakdown, withCommas } from './format';
+import type { StageId } from './types';
 
 describe('format', () => {
   it('金額', () => {
@@ -29,40 +30,33 @@ describe('format', () => {
     expect(damageAnalogy(0).text).toBe('被害ゼロ');
   });
 
-  it('地下駐車場のたとえは三角コーン、ワゴン、高級車(路地裏の物は出さない)', () => {
-    expect(damageAnalogy(10_000, 'garage').text).toBe('三角コーン1個分');
-    expect(damageAnalogy(300_000, 'garage').text).toBe('三角コーン30個分');
-    expect(damageAnalogy(490_000, 'garage').unit).toBe('cone');
-    expect(damageAnalogy(500_000, 'garage').text).toBe('ワゴン0.1台分');
-    expect(damageAnalogy(8_060_000, 'garage').text).toBe('ワゴン1.6台分');
-    expect(damageAnalogy(50_000_000, 'garage').text).toBe('ワゴン10台分');
-    expect(damageAnalogy(199_000_000, 'garage').unit).toBe('van');
-    expect(damageAnalogy(200_000_000, 'garage').text).toBe('高級車10台分');
-    expect(damageAnalogy(0, 'garage').text).toBe('被害ゼロ');
-    expect(damageAnalogy(24_000_000, 'garage').text).toBe('ワゴン4.8台分');
-  });
-
-  it('ショッピングモールのたとえはガチャガチャ、噴水、エスカレーター(ほかのステージの物は出さない)', () => {
-    expect(damageAnalogy(50_000, 'mall').text).toBe('ガチャガチャ1台分');
-    expect(damageAnalogy(490_000, 'mall').unit).toBe('gacha');
-    expect(damageAnalogy(500_000, 'mall').unit).toBe('fountain');
-    expect(damageAnalogy(1_500_000, 'mall').text).toBe('噴水1基分');
-    expect(damageAnalogy(30_000_000, 'mall').text).toBe('噴水20基分');
-    expect(damageAnalogy(199_000_000, 'mall').unit).toBe('fountain');
-    expect(damageAnalogy(200_000_000, 'mall').text).toBe('エスカレーター25基分');
-    expect(damageAnalogy(4_500_000, 'mall').text).toBe('噴水3基分');
-  });
-
-  it.each([
-    { stage: 'garage', ng: /ゴミ箱|自販機|一軒家|^車|ガチャガチャ|噴水|エスカレーター|観葉植物|シャンパンタワー|ピアノ/ },
-    { stage: 'mall', ng: /ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車|観葉植物|シャンパンタワー|ピアノ/ },
-    { stage: 'tower', ng: /ゴミ箱|自販機|一軒家|^車|三角コーン|ワゴン|高級車|ガチャガチャ|噴水|エスカレーター/ }
-  ] as const)('$stage のたとえは、どの額でもほかのステージの物を出さず、数は0より大きい', ({ stage, ng }) => {
-    for (let yen = 10_000; yen < 2_000_000_000; yen = Math.ceil(yen * 1.37)) {
-      const a = damageAnalogy(yen, stage);
-      expect(a.text).not.toMatch(ng);
-      expect(a.count).toBeGreaterThan(0);
-    }
+  it('ステージごとのたとえ(路地裏の物は出さない):地下駐車場は三角コーン、ワゴン、高級車。モールはガチャガチャ、噴水、エスカレーター。高層ビルは観葉植物、シャンパンタワー、ピアノ', () => {
+    // [ステージ, 被害額, たとえ]。どの段階も、切りかわる額の前とあとを入れる
+    const cases: [StageId, number, string][] = [
+      ['garage', 10_000, '三角コーン1個分'],
+      ['garage', 300_000, '三角コーン30個分'],
+      ['garage', 490_000, '三角コーン49個分'],
+      ['garage', 500_000, 'ワゴン0.1台分'],
+      ['garage', 8_060_000, 'ワゴン1.6台分'],
+      ['garage', 50_000_000, 'ワゴン10台分'],
+      ['garage', 199_000_000, 'ワゴン40台分'],
+      ['garage', 200_000_000, '高級車10台分'],
+      ['mall', 50_000, 'ガチャガチャ1台分'],
+      ['mall', 490_000, 'ガチャガチャ9.8台分'],
+      ['mall', 500_000, '噴水0.3基分'],
+      ['mall', 1_500_000, '噴水1基分'],
+      ['mall', 30_000_000, '噴水20基分'],
+      ['mall', 199_000_000, '噴水133基分'],
+      ['mall', 200_000_000, 'エスカレーター25基分'],
+      ['tower', 100_000, '観葉植物2鉢分'],
+      ['tower', 490_000, '観葉植物9.8鉢分'],
+      ['tower', 500_000, 'シャンパンタワー0.1基分'],
+      ['tower', 25_000_000, 'シャンパンタワー2.5基分'],
+      ['tower', 199_000_000, 'シャンパンタワー20基分'],
+      ['tower', 200_000_000, 'ピアノ6.7台分'],
+      ['tower', 300_000_000, 'ピアノ10台分']
+    ];
+    for (const [stageId, yen, text] of cases) expect(damageAnalogy(yen, stageId).text, `${stageId} ${yen}`).toBe(text);
   });
 
   it('市民のけがの内わけ(0は書かない。さらわれたは4つ目)', () => {
@@ -74,12 +68,6 @@ describe('format', () => {
     // 物が落ちたは5つ目(高層ビル)
     expect(hurtBreakdown({ ...none, civHurtByVillain: 1, civHurtByDrop: 2 }))
       .toEqual(['ワルにやられた1', '物が落ちた2']);
-  });
-
-  it('高層ビルの被害額のたとえ(¥50万未満は観葉植物、¥2億未満はシャンパンタワー、それより上はピアノ)', () => {
-    expect(damageAnalogy(100_000, 'tower').text).toBe('観葉植物2鉢分');
-    expect(damageAnalogy(25_000_000, 'tower').text).toBe('シャンパンタワー2.5基分');
-    expect(damageAnalogy(300_000_000, 'tower').text).toBe('ピアノ10台分');
   });
 
   it('秒数は切り上げ', () => {

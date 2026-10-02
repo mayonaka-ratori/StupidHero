@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LESSON_HINTS, LESSON_LINES, allLessonTexts, lessonDue } from './lesson';
+import { LESSON_LINES, lessonDue } from './lesson';
 import { RECORDS_KEY, clearRecords, loadRecords, markIntroSeen, markLessonSeen, needsLesson, saveResult } from './records';
 import { MemStorage, makeStats } from './testHelpers';
 
 describe('待てと行けを止めて教える', () => {
   beforeEach(() => clearRecords(null));
 
-  it('文は1行12字まで、2行まで。半角スペース、エムダッシュ、半角の!?を使わない。オペレーターが言う', () => {
-    for (const t of allLessonTexts()) {
-      const lines = t.split('\n');
-      expect(lines.length, t).toBeLessThanOrEqual(2);
-      for (const l of lines) expect([...l].length, t).toBeLessThanOrEqual(12);
-      expect(t).not.toMatch(/[ —―!?]/);
-    }
-    for (const s of [...Object.values(LESSON_LINES), ...Object.values(LESSON_HINTS)]) expect(s.who).toBe('operator');
+  // 1行12字、2行まで、半角スペースなどを使わない決まりは、content.test.ts が allTexts() 全体で確かめる(この文も入っている)
+  it('待てを教える一言は「待て」、行けを教える一言は「行け」と言う', () => {
     expect(LESSON_LINES.stop.text).toContain('待て');
     expect(LESSON_LINES.go.text).toContain('行け');
     // フリープレイと同じく「倒す」で言う

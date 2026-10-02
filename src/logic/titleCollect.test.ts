@@ -2,11 +2,10 @@
 // フリープレイで取れる称号が本当に取れるか(決めた遊び方で出来事を起こして確かめる)。
 
 import { describe, expect, it } from 'vitest';
-import { createFreePlay, freeRoleOf, isSceneHead, type FreePlan } from './freeplay';
-import { StatsTracker } from './stats';
-import { makeStats } from './testHelpers';
-import { TITLES, TITLE_PLACES, collectTitles, decideTitle, placesOf, titleById, titlesAt, titlesFor, titlesForFree } from './titles';
-import type { Person, StageStats, TitleId } from './types';
+import { createFreePlay } from './freeplay';
+import { makeStats, playFree, type FreePolicy } from './testHelpers';
+import { TITLES, TITLE_PLACES, collectTitles, decideTitle, placesOf, titlesAt, titlesFor, titlesForFree } from './titles';
+import type { StageStats, TitleId } from './types';
 
 const ids = (s: StageStats, firstClear = false): TitleId[] => collectTitles(s, { firstClear }).map((t) => t.id);
 
@@ -61,11 +60,6 @@ describe('1回のプレイで当てはまった称号を全部集める', () => 
     const rush = { aliens: 4, aliensDefeated: 4, aliensSpared: 0, civs: 4, civsSaved: 3, civsHit: 1 };
     expect(ids(great({ stageId: 'mall', rush }))).not.toContain('flawless');
   });
-
-  it('同じ称号を2回入れない。大きな称号はいつも1つ', () => {
-    const got = ids(great());
-    expect(new Set(got).size).toBe(got.length);
-  });
 });
 
 describe('歩く解体工事の金額はステージとフリープレイで分ける', () => {
@@ -78,62 +72,18 @@ describe('歩く解体工事の金額はステージとフリープレイで分�
   });
 
   it('フリープレイは¥800万以上(遊び方で届くかは src/scenes/result/demolition.test.ts)', () => {
-    const s = play(PLAN, (role) => (role === 'stop' ? 'press' : 'skip')).snapshot();
+    const s = playFree(PLAN, (role) => (role === 'stop' ? 'press' : 'skip')).snapshot();
     expect(collectIds({ ...s, damage: 8_000_000 })).toContain('demolition');
     expect(collectIds({ ...s, damage: 7_990_000 })).not.toContain('demolition');
   });
 });
 
-// ─── フリープレイを決めた遊び方で通す ───────────────────────
-
-type Role = 'stop' | 'heroBad' | 'go' | 'heroCiv';
-type Choice = 'press' | 'skip';
-/** 場面ごとに押すか決める(n はその役の何回目か) */
-type Policy = (role: Role, p: Person, n: number) => Choice;
-
-/** freeFlow.test.ts の play と同じ数え方で、押すかどうかを場面ごとに決めて1回通す */
-function play(plan: FreePlan, policy: Policy): StatsTracker {
-  const stats = new StatsTracker(plan.stage.villainTotal, plan.stage.id);
-  stats.startFree(plan);
-  const count: Record<string, number> = {};
-  plan.stage.waves.forEach((w, i) => {
-    const fw = plan.waves[i];
-    stats.setFreeRule(fw.rule);
-    for (const p of w.people) {
-      if (fw.redeclare && p.index === fw.redeclare.after) stats.setFreeRule(fw.redeclare.rule);
-      if (!isSceneHead(w, p)) continue;
-      const role = freeRoleOf(fw, p) as Role;
-      const n = (count[role] = (count[role] ?? 0) + 1);
-      const c = policy(role, p, n);
-      if (role === 'stop') {
-        if (c === 'press') stats.stopped('civ');
-        else stats.hurtCiv('hero', p.look);
-      } else if (role === 'heroBad') {
-        if (c === 'press') {
-          // ワルに待てを押して、そのまま見のがす(モヒカンは財布を奪って逃げる)
-          stats.stopped('bad');
-          if (p.look === 'fp_alien') stats.ufoEscaped();
-          else { stats.mischief(p.look); stats.escaped(true); }
-        } else stats.defeatBad('sort');
-      } else if (role === 'go') {
-        if (c === 'press') {
-          if (p.look === 'fp_gang') stats.groupWiped(2);
-          else if (p.look === 'fp_alien') stats.ufoDowned();
-          else stats.defeatBad('go');
-        } else if (p.look === 'fp_gang') stats.groupEscaped(2);
-        else if (p.look === 'fp_alien') stats.ufoEscaped();
-        else { stats.mischief(p.look); stats.escaped(true); }
-      }
-    }
-  });
-  stats.finishFree(100);
-  return stats;
-}
+// ─── フリープレイを決めた遊び方(testHelpers.ts の playFree)で通す ───────────────────────
 
 const collectIds = (s: StageStats): TitleId[] => collectTitles(s).map((t) => t.id);
 const PLAN = createFreePlay(2024, ['alley', 'garage', 'mall']);
 const ALLEY = createFreePlay(2024, ['alley']);
-const perfect: Policy = (role) => (role === 'stop' || role === 'go' ? 'press' : 'skip');
+const perfect: FreePolicy = (role) => (role === 'stop' || role === 'go' ? 'press' : 'skip');
 
 describe('フリープレイで取れる称号は、どれも本当に取れる', () => {
   it('フリープレイで取れるのは11個(フリープレイだけの3つと、ステージの8つ)', () => {
@@ -144,7 +94,7 @@ describe('フリープレイで取れる称号は、どれも本当に取れる'
 
   it('全部決めると、お守り役とヒーローの通訳がいっしょに取れる(通訳のために1回まちがえなくてよい)', () => {
     for (const plan of [PLAN, ALLEY]) {
-      const got = collectIds(play(plan, perfect).snapshot());
+      const got = collectIds(playFree(plan, perfect).snapshot());
       expect(got[0]).toBe('heroSitter');
       expect(got).toEqual(expect.arrayContaining(['heroSitter', 'heroInterpreter', 'stopMaster', 'chaseDemon']));
     }
@@ -153,24 +103,24 @@ describe('フリープレイで取れる称号は、どれも本当に取れる'
   it('やさしすぎるヒーロー:市民への待ては全部押し、素通りのワルを3人見のがす(待ての達人に取られない)', () => {
     for (const plan of [PLAN, ALLEY]) {
       // 素通りのモヒカンには行けを押さない(走って逃げる)。ギャングとUFOは行けで倒す
-      const s = play(plan, (role, p) => (role === 'stop' ? 'press' : role === 'go' && p.look !== 'fp_mohawk' ? 'press' : 'skip')).snapshot();
+      const s = playFree(plan, (role, p) => (role === 'stop' ? 'press' : role === 'go' && p.look !== 'fp_mohawk' ? 'press' : 'skip')).snapshot();
       expect(s.civHurtByHero).toBe(0);
       expect(collectIds(s)).toEqual(expect.arrayContaining(['stopMaster', 'tooKind']));
     }
     // ヒントの通り、待てでワルを3人見のがしても取れる(素通りのワルは全部行けで倒す)
-    const byStop = play(ALLEY, (role, _p, n) => (role === 'stop' || role === 'go' || (role === 'heroBad' && n <= 3) ? 'press' : 'skip')).snapshot();
+    const byStop = playFree(ALLEY, (role, _p, n) => (role === 'stop' || role === 'go' || (role === 'heroBad' && n <= 3) ? 'press' : 'skip')).snapshot();
     expect(byStop.badSparedByStop).toBe(3);
     expect(collectIds(byStop)).toContain('tooKind');
   });
 
   it('なすがまま、市民の天敵、おばあちゃんの敵:何も押さない', () => {
-    const got = collectIds(play(ALLEY, () => 'skip').snapshot());
+    const got = collectIds(playFree(ALLEY, () => 'skip').snapshot());
     expect(got[0]).toBe('letItBe');
     expect(got).toEqual(expect.arrayContaining(['letItBe', 'civNemesis', 'grannyFoe']));
   });
 
   it('正義の暴走機関車:ワルは全部倒し、市民への待てを3回押さない', () => {
-    const s = play(PLAN, (role, _p, n) => (role === 'go' || (role === 'stop' && n > 3) ? 'press' : 'skip')).snapshot();
+    const s = playFree(PLAN, (role, _p, n) => (role === 'go' || (role === 'stop' && n > 3) ? 'press' : 'skip')).snapshot();
     expect(s.allDefeated).toBe(true);
     expect(collectIds(s)).toContain('runawayTrain');
   });
@@ -178,7 +128,7 @@ describe('フリープレイで取れる称号は、どれも本当に取れる'
   it('まあまあヒーロー:待ては2回、行けはギャングの組と2回まで(ギャングが出るとき)', () => {
     let stops = 0;
     let gos = 0;
-    const s = play(PLAN, (role, p) => {
+    const s = playFree(PLAN, (role, p) => {
       // おばあさんには待てを押す(おばあちゃんの敵にしない)。待ては2回まで
       if (role === 'stop') return p.look === 'granny' || ++stops <= 1 ? 'press' : 'skip';
       // ギャングの組は倒す(行けで決めた数には入るが、行けで倒したワルの数には入らない)。モヒカンとUFOは合わせて2回まで
@@ -188,18 +138,12 @@ describe('フリープレイで取れる称号は、どれも本当に取れる'
     expect(collectIds(s)).toEqual(['soSo']);
   });
 
-  it('ヒントの文:通訳は「待ても行けもほとんど決める」、やさしすぎるは「待てでワルを3人見のがす」', () => {
-    expect(titleById('heroInterpreter').hint).toBe('フリープレイで、待ても行けもほとんど決める');
-    expect(titleById('tooKind').hint).toBe('市民をなぐらず、待てでワルを3人見のがす');
-  });
 });
 
 describe('称号を取れる場所', () => {
-  it('場所ごとの数:路地裏12、地下駐車場13、ショッピングモール14、高層ビル15、フリープレイ11', () => {
+  it('場所ごとの数は路地裏12、地下駐車場13、ショッピングモール14、高層ビル15、フリープレイ11。どの称号もどこかで取れ、1つの場所だけで取れる称号(「〜だけ」の札)は、ステージだけの9つとフリープレイだけの3つ', () => {
     expect(TITLE_PLACES.map((p) => titlesAt(p).length)).toEqual([12, 13, 14, 15, 11]);
-  });
-
-  it('1つの場所だけで取れる称号(「〜だけ」の札)は、ステージだけの9つとフリープレイだけの3つ', () => {
+    for (const t of TITLES) expect(placesOf(t.id).length, t.id).toBeGreaterThan(0);
     const only = TITLES.filter((t) => placesOf(t.id).length === 1).map((t) => `${t.id}:${placesOf(t.id)[0]}`);
     expect(only).toEqual([
       'topHero:tower', 'gangDriver:garage', 'ufoGuide:mall', 'furnitureGuide:tower', 'saleGuardian:mall', 'liftGuardian:tower',

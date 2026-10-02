@@ -91,7 +91,7 @@ describe('場面の流れ', () => {
     expect(s.sortCorrect).toBe(s.sortTotal);
   });
 
-  it('fillUnsorted は、今の波で仕分けていない人だけをヒーローの気まぐれで決める', () => {
+  it('fillUnsorted は、今の波で仕分けていない人だけをヒーローの気まぐれで決める。同じ種なら決め方も同じ', () => {
     const run = startRun(fakeScene(), 99, false, 'garage');
     const [first, second, ...rest] = currentWave(run).people;
     setSort(run, first, 'bad');
@@ -108,13 +108,11 @@ describe('場面の流れ', () => {
     // 次の波に進むと、その波の人を決める
     nextAfterReview(run);
     expect(fillUnsorted(run)).toHaveLength(currentWave(run).people.length);
-  });
-
-  it('同じ種なら、気まぐれの決め方も同じ', () => {
+    // 同じ種なら、気まぐれの決め方も同じ
     const pick = () => {
-      const run = startRun(fakeScene(), 5);
-      fillUnsorted(run);
-      return run.sorts;
+      const r = startRun(fakeScene(), 5);
+      fillUnsorted(r);
+      return r.sorts;
     };
     expect(pick()).toEqual(pick());
   });
@@ -135,7 +133,8 @@ describe('フリープレイ', () => {
     expect(run.free!.clockMs).toBe(0);
     expect(run.stage.id).toBe(plan.waves[0].bgStage);
     const s = run.stats.snapshot();
-    expect(s.free).toMatchObject({ stopChances: 9, goChances: 8, units: 27, heroRight: 10, slow: true });
+    // stats もフリープレイとして始まっている(押せる回数の数は freeplay.test.ts で確かめる)
+    expect(s.free).toMatchObject({ slow: true });
   });
 
   it('Street のあと、波1と波2は次の波の Street、波3は Result(時計を stats に渡す)', () => {

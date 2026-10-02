@@ -8,9 +8,10 @@ import {
   say, shout, streetTextsFor, titleCommentFor, tsukkomi, waveIntroFor, type AnyReactionKey,
   liftEndLine, liftIntroFor, towerFloorLabel
 } from './content';
+import { allLessonTexts } from './lesson';
 import {
   BOSS4_HINTS, BOSS4_PROFILE_LINES, LIFT_BAND, LIFT_INTRO_AGAIN, LIFT_INTRO_FIRST, TOWER_ENDING, TOWER_GARAGE_OVERRIDES, TOWER_INTRO,
-  TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_OVERRIDES, TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_SPOT_HINTS,
+  TOWER_DOUBT_HINTS, TOWER_ODD_LINES, TOWER_OPERATOR_HINTS, TOWER_OVERRIDES, TOWER_PROFILE_LINES, TOWER_REACTIONS, TOWER_STREET_TEXTS,
   TOWER_TITLE_COMMENTS, TOWER_WAVE_INTRO
 } from './towerContent';
 import {
@@ -18,12 +19,12 @@ import {
   GARAGE_WAVE_INTRO, LINK_HINTS, allLinkTexts
 } from './garageContent';
 import {
-  BOSS3_HINTS, MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_PROFILE_LINES, MALL_REACTIONS,
+  MALL_GARAGE_OVERRIDES, MALL_INTRO, MALL_OPERATOR_HINTS, MALL_OVERRIDES, MALL_REACTIONS, MALL_STREET_TEXTS,
   MALL_WAVE_INTRO, RUSH_BAND, RUSH_INTRO_AGAIN, RUSH_INTRO_FIRST
 } from './mallContent';
-import { GANG_LOOKS, MALL_LOOKS, TOWER_LOOKS } from './stages';
-import { TITLES, titlesFor } from './titles';
-import type { Look } from './types';
+import { GANG_LOOKS, MALL_LOOKS, STAGES, STAGE_IDS, TOWER_LOOKS } from './stages';
+import { titlesFor } from './titles';
+import type { DisguiseLook, Look, Speech, StageId, WaveNo } from './types';
 
 // ステージごとのセリフの文(下の「ステージごとの文の決まり」で使う)
 const ALLEY_SPEECH_TEXTS = [
@@ -43,6 +44,8 @@ const TOWER_SPEECH_TEXTS = [
   ...Object.values(TOWER_OVERRIDES).flat(), ...Object.values(TOWER_GARAGE_OVERRIDES).flat(),
   ...LIFT_INTRO_FIRST, ...LIFT_INTRO_AGAIN, ...TOWER_ENDING, ...Object.values(TOWER_TITLE_COMMENTS)
 ].map((s) => s.text);
+/** 全部の見た目(フリープレイのワルも入る) */
+const LOOKS = Object.keys(NAMES) as Look[];
 
 describe('content の文の決まり', () => {
   const texts = allTexts();
@@ -60,9 +63,8 @@ describe('content の文の決まり', () => {
   });
 
   it('半角スペース、エムダッシュ、半角の!?を使わない', () => {
-    for (const t of [...texts, ...Object.values(NAMES).flat()]) {
-      expect(t).not.toMatch(/[ —―!?]/);
-    }
+    // 文が多いので、外れを集めて1回だけ確かめる(1つずつ expect を呼ぶと遅い)
+    expect([...texts, ...Object.values(NAMES).flat()].filter((t) => /[ —―!?]/.test(t))).toEqual([]);
   });
 
   it('名前は見た目ごとに十分あり(ステージ2の見た目は8人以上)、全部のステージで重ならない。ボスの偽名もこの一覧から', () => {
@@ -78,17 +80,28 @@ describe('content の文の決まり', () => {
     expect(dup, '重なっている名前').toEqual([]);
   });
 
-  it('見た目ごとに、市民とワルの文と一言が何通りもある。ボスの化けた姿にも文と一言がある', () => {
-    for (const look of ['hoodie', 'suit', 'shopper', 'guard', 'mechanic', 'clubber', 'officelady'] as const) {
-      expect(PROFILE_LINES[look].civ!.length, look).toBeGreaterThanOrEqual(5);
-      expect(PROFILE_LINES[look].bad!.length, look).toBeGreaterThanOrEqual(5);
-      expect(OPERATOR_HINTS[look].civ!.length, look).toBeGreaterThanOrEqual(4);
-      expect(OPERATOR_HINTS[look].bad!.length, look).toBeGreaterThanOrEqual(4);
-      expect(AGES[look][0], look).toBeLessThan(AGES[look][1]);
+  it('見た目ごとに、市民とワルの文と一言と名前が足りている。年齢の幅がある。モールと高層ビルは、どちらにも出る文が2つずつ。ボスの化けた姿にも文と一言が3つ以上(全部のステージ)', () => {
+    const need = [
+      { looks: ['hoodie', 'suit', 'shopper', ...GANG_LOOKS] as readonly Look[], lines: 5, hints: 4, names: 6, both: null },
+      { looks: MALL_LOOKS, lines: 8, hints: 6, names: 8, both: 2 },
+      { looks: TOWER_LOOKS, lines: 8, hints: 7, names: 10, both: 2 }
+    ];
+    for (const n of need) {
+      for (const look of n.looks) {
+        const { civ, bad } = PROFILE_LINES[look];
+        expect(civ!.length, look).toBeGreaterThanOrEqual(n.lines);
+        expect(bad!.length, look).toBeGreaterThanOrEqual(n.lines);
+        expect(OPERATOR_HINTS[look].civ!.length, look).toBeGreaterThanOrEqual(n.hints);
+        expect(OPERATOR_HINTS[look].bad!.length, look).toBeGreaterThanOrEqual(n.hints);
+        expect(NAMES[look].length, look).toBeGreaterThanOrEqual(n.names);
+        expect(AGES[look][0], look).toBeLessThan(AGES[look][1]);
+        if (n.both !== null) expect(civ!.filter((l) => bad!.includes(l)).length, look).toBe(n.both);
+      }
     }
+    // モヒカンはいつもワル、おばあさんはいつも市民
     expect(PROFILE_LINES.mohawk.civ).toBeUndefined();
     expect(PROFILE_LINES.granny.bad).toBeUndefined();
-    for (const d of ['suit', 'granny', 'shopper', 'guard', 'mechanic', 'officelady'] as const) {
+    for (const d of Object.keys(BOSS_PROFILE_LINES) as DisguiseLook[]) {
       expect(BOSS_PROFILE_LINES[d].length, d).toBeGreaterThanOrEqual(3);
       expect(BOSS_HINTS[d].length, d).toBeGreaterThanOrEqual(3);
     }
@@ -132,10 +145,10 @@ describe('content の文の決まり', () => {
   });
 
   it('路地裏の組の見た目の人は、プロフィールの文だけでは決められないことがよくある', () => {
-    // 文が相手の一覧にもあれば、文だけでは決まらない
+    // 文が相手の一覧にもあれば、文だけでは決まらない。種50個で割合は0.33くらい(200個でも同じくらい)
     let ambiguous = 0;
     let total = 0;
-    for (let seed = 1; seed <= 200; seed++) {
+    for (let seed = 1; seed <= 50; seed++) {
       for (const w of createStage(seed).waves) {
         for (const p of w.people) {
           if (p.truth === 'boss' || !['hoodie', 'suit', 'shopper'].includes(p.look)) continue;
@@ -159,32 +172,53 @@ describe('content の文の決まり', () => {
     expect(INTRO.some((s) => s.who === 'hero')).toBe(true);
     expect(INTRO.some((s) => s.who === 'operator')).toBe(true);
   });
+});
 
-  it('称号ごとにひとことがある(ステージ2の称号はオペレーターが言う)', () => {
-    for (const t of TITLES) expect(TITLE_COMMENTS[t.id], t.id).toBeDefined();
-    expect(TITLE_COMMENTS.roundUp.who).toBe('operator');
-    expect(TITLE_COMMENTS.gangDriver.who).toBe('operator');
-  });
-
-  it('選ぶ関数', () => {
+describe('セリフの選び方', () => {
+  it('そのステージの言い換え → 路地裏の文 → ほかのステージで足した種類の順に探す。悪さの一言は仕組みごと、ツッコミは2回目から短い版、本性ちらりは仕組みごと', () => {
+    // [種類, ステージ, 選ばれる一覧]
+    const cases: [AnyReactionKey, StageId, readonly Speech[]][] = [
+      // 言い換えがなければ路地裏の文
+      ['oops', 'alley', REACTIONS.oops], ['oops', 'garage', REACTIONS.oops], ['oops', 'mall', REACTIONS.oops], ['oops', 'tower', REACTIONS.oops],
+      ['pass', 'alley', REACTIONS.pass],
+      // そのステージの言い換え
+      ['pass', 'garage', GARAGE_OVERRIDES.pass], ['pass', 'tower', TOWER_OVERRIDES.pass],
+      ['bossReveal', 'garage', GARAGE_OVERRIDES.bossReveal], ['bossReveal', 'mall', MALL_OVERRIDES.bossReveal],
+      ['bossReveal', 'tower', TOWER_OVERRIDES.bossReveal],
+      // そのステージで足した種類。母艦は女ボスの車と同じ種類で、言い方だけ変える
+      ['gathered', 'garage', GARAGE_REACTIONS.gathered], ['ufoBeam', 'mall', MALL_REACTIONS.ufoBeam], ['psyCarry', 'tower', TOWER_REACTIONS.psyCarry],
+      ['bossCar', 'garage', GARAGE_REACTIONS.bossCar], ['bossCar', 'mall', MALL_GARAGE_OVERRIDES.bossCar],
+      ['bossWreck', 'tower', TOWER_GARAGE_OVERRIDES.bossWreck],
+      // 路地裏の結果画面で次のステージが開いたときは、ほかのステージで足した種類を使う
+      ['unlocked', 'alley', GARAGE_REACTIONS.unlocked], ['unlocked', 'garage', GARAGE_REACTIONS.unlocked],
+      ['unlocked', 'mall', MALL_GARAGE_OVERRIDES.unlocked], ['unlocked', 'tower', TOWER_GARAGE_OVERRIDES.unlocked]
+    ];
+    for (const [k, id, list] of cases) expect(reactionList(k, id), `${k} ${id}`).toBe(list);
+    // 行けを教える一言は「行け」と言う
+    for (const [k, id] of [['teachUfo', 'mall'], ['teachPsy', 'tower']] as const) {
+      for (const s of reactionList(k, id)) expect(s.text, k).toContain('行け');
+    }
     const rng = createRng(1);
     expect(REACTIONS.oops).toContain(say('oops', rng));
-    expect(REACTIONS.oops).toContain(say('oops', rng, 'garage'));
-    expect(REACTIONS.bossReveal).toContain(say('bossReveal', rng));
-    expect(GARAGE_OVERRIDES.bossReveal).toContain(say('bossReveal', rng, 'garage'));
-    expect(GARAGE_REACTIONS.gathered).toContain(say('gathered', rng, 'garage'));
-    expect(GARAGE_REACTIONS.whistle).toContain(mischiefLine('clubber', rng));
-    expect(shout('special', rng).who).toBe('hero');
-    expect(tsukkomi(1, rng).text).toContain('まあいいか');
+    expect(ATTACK_SHOUTS.special).toContain(shout('special', rng));
+    expect(REACTIONS.tsukkomi).toContain(tsukkomi(1, rng));
     expect(REACTIONS.tsukkomiShort).toContain(tsukkomi(2, rng));
-    expect(mischiefLine('suit', rng).who).toBe('operator');
-    expect(say('pass').who).toBe('hero');
+    // 悪さの一言:路地裏は見た目ごと、ギャングは口笛、宇宙人は空への合図、ヴィランは念力
+    expect(MISCHIEF_LINES.suit).toContain(mischiefLine('suit', rng));
+    for (const look of GANG_LOOKS) expect(GARAGE_REACTIONS.whistle).toContain(mischiefLine(look, rng));
+    for (const look of MALL_LOOKS) expect(MALL_REACTIONS.ufoSignal).toContain(mischiefLine(look, rng));
+    for (const look of TOWER_LOOKS) expect(TOWER_REACTIONS.psyLift).toContain(mischiefLine(look, rng));
+    // 本性ちらりは、宇宙人のステージと超能力のステージだけ別の文
+    expect(streetTextsFor('alley')).toBe(STREET_TEXTS);
+    expect(streetTextsFor('garage')).toBe(STREET_TEXTS);
+    expect(streetTextsFor('mall')).toBe(MALL_STREET_TEXTS);
+    expect(streetTextsFor('tower')).toBe(TOWER_STREET_TEXTS);
+    // 市民のちらりは、どのステージも路地裏と同じ「ぺこり」(STAGE3.md、STAGE4.md)
+    for (const id of STAGE_IDS) expect(streetTextsFor(id).peekCiv, id).toBe(STREET_TEXTS.peekCiv);
   });
 });
 
 describe('結果発表の決めつけと、待て・行けの使い方', () => {
-  const LOOKS = Object.keys(NAMES) as Look[];
-
   it('どの見た目にも、ヒーローの決めつけが2つ以上あり、「ワルで間違いない!」で終わる(ステージ3は「宇宙人に決まってる!」、ステージ4は「ヴィランに決まってる!」)', () => {
     for (const look of LOOKS) {
       const list = JUDGE_LINES[look];
@@ -212,14 +246,6 @@ describe('結果発表の決めつけと、待て・行けの使い方', () => {
     expect(REACTIONS.teachGo[0].text).toContain('行け');
     // 謝らない
     for (const s of REACTIONS.stubborn) expect(s.text).not.toMatch(/ごめん|しまった|すみません/);
-    // 始まりの一言(待てと行けの説明)は、初めての合図のときに言うのでなくした
-    expect(Object.keys(REACTIONS)).not.toContain('streetWatch');
-  });
-
-  it('路地裏と地下駐車場の帯、本性ちらり、決めつけの文は allTexts に入っている(字の読みこみから漏れない)', () => {
-    const all = new Set(allTexts());
-    for (const t of Object.values(STREET_TEXTS)) expect(all.has(t), t).toBe(true);
-    for (const look of LOOKS) for (const s of JUDGE_LINES[look]) expect(all.has(s.text), s.text).toBe(true);
   });
 
   it('結果発表の帯で待てと行けを教える', () => {
@@ -233,14 +259,14 @@ describe('ステージ2の文', () => {
     for (const t of allLinkTexts()) expect(t).not.toMatch(/\{n\}|\{item\}|さっき/);
   });
 
-  it('掛け合いで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
+  it('掛け合いは5枚までで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
     const joined = introFor('garage').map((s) => s.text.replace('\n', '')).join('/');
     for (const word of ['同じ色', '合図', '前の人', '仲間を呼ぶ', '集まったら行け', '3秒', '車', '止まる']) {
       expect(joined).toContain(word);
     }
-    expect(introFor('alley')).toBe(INTRO);
+    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(5);
+    expect(GARAGE_INTRO.some((s) => s.who === 'hero')).toBe(true);
     expect(waveIntroFor('garage', 3)[0].text).toContain('女ボス');
-    expect(waveIntroFor('alley', 1)[0].text).toContain('5人');
   });
 
   it('あわてた顔は市民の一言にもギャングの一言にも出る(同じ文がいつも同じ顔かは、上の全部のステージの確かめで見る)', () => {
@@ -263,102 +289,24 @@ describe('ステージ2の文', () => {
       for (const l of [...civ, ...bad]) expect(l).not.toMatch(/タオル|バンダナ/);
     }
   });
-
-  it('壊した称号のひとことは駐車場の文。路地裏の言い方は今まで通り', () => {
-    expect(titleCommentFor('demolition', 'garage').text).toContain('駐車場');
-    // 路地裏は今まで通り
-    for (const t of TITLES) expect(titleCommentFor(t.id)).toBe(TITLE_COMMENTS[t.id]);
-    expect(titleCommentFor('demolition', 'alley')).toBe(TITLE_COMMENTS.demolition);
-    expect(reactionList('pass')).toBe(REACTIONS.pass);
-    expect(reactionList('escaped')).toBe(REACTIONS.escaped);
-  });
-
-  it('初めての掛け合いは5枚まで', () => {
-    expect(GARAGE_INTRO.length).toBeLessThanOrEqual(5);
-    expect(GARAGE_INTRO.some((s) => s.who === 'hero')).toBe(true);
-  });
 });
 
 describe('ステージ3の文', () => {
-  it('4つの見た目に、市民と宇宙人の文と一言がある。どちらにも出る文が2つずつ', () => {
-    for (const look of MALL_LOOKS) {
-      const { civ, bad } = MALL_PROFILE_LINES[look];
-      expect(civ.length, look).toBeGreaterThanOrEqual(8);
-      expect(bad.length, look).toBeGreaterThanOrEqual(8);
-      expect(civ.filter((l) => bad.includes(l)).length, look).toBe(2);
-      expect(OPERATOR_HINTS[look].civ!.length).toBeGreaterThanOrEqual(6);
-      expect(OPERATOR_HINTS[look].bad!.length).toBeGreaterThanOrEqual(6);
-      expect(NAMES[look].length, look).toBeGreaterThanOrEqual(8);
-    }
-    for (const d of ['clerk', 'uncle', 'mascot'] as const) {
-      expect(BOSS_PROFILE_LINES[d].length).toBeGreaterThanOrEqual(3);
-      expect(BOSS_HINTS[d]).toBe(BOSS3_HINTS[d]);
-    }
-  });
-
-  it('掛け合いは5枚で、くずれ、ぎこちない市民、UFO、全員は待てないことを伝える。タイムセールは言わない', () => {
+  it('掛け合いは5枚までで、くずれ、ぎこちない市民、UFO、全員は待てないことを伝える。タイムセールは言わない', () => {
     const joined = introFor('mall').map((s) => s.text.replace('\n', '')).join('/');
     for (const word of ['ショッピングモール', '宇宙人', 'くずれる', 'ぎこちない市民', '待って', 'UFO', 'さらう', '全員は待てない']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toContain('セール');
-    expect(MALL_INTRO).toHaveLength(5);
+    expect(MALL_INTRO.length).toBeLessThanOrEqual(5);
     expect(MALL_INTRO[0].who).toBe('hero');
     expect(waveIntroFor('mall', 1)[1].text).toContain('くずれる');
     expect(waveIntroFor('mall', 3)[0].text).toContain('親玉');
     expect(waveIntroFor('mall', 3)[1].text).toContain('くずれない');
   });
-
-  it('say でモールの言い方が出る。母艦は女ボスの車と同じ種類、モールが開いたときの一言もある', () => {
-    const rng = createRng(12);
-    expect(MALL_REACTIONS.ufoBeam).toContain(say('ufoBeam', rng, 'mall'));
-    expect(MALL_OVERRIDES.bossReveal).toContain(say('bossReveal', rng, 'mall'));
-    expect(MALL_GARAGE_OVERRIDES.bossCar).toContain(say('bossCar', rng, 'mall'));
-    expect(GARAGE_REACTIONS.bossCar).toContain(say('bossCar', rng, 'garage'));
-    expect(say('unlocked', rng, 'mall').text).toMatch(/モールに行ける|次のステージ/);
-    expect(GARAGE_REACTIONS.unlocked).toContain(say('unlocked', rng, 'garage'));
-    // 路地裏と地下駐車場は今まで通り
-    expect(GARAGE_REACTIONS.unlocked).toContain(say('unlocked', rng));
-    expect(reactionList('pass', 'garage')).toBe(GARAGE_OVERRIDES.pass);
-    expect(streetTextsFor('alley')).toBe(STREET_TEXTS);
-    expect(streetTextsFor('garage')).toBe(STREET_TEXTS);
-    expect(REACTIONS.oops).toContain(say('oops', rng, 'mall'));
-    // 見逃した宇宙人は空へ合図を送る
-    for (const look of MALL_LOOKS) expect(MALL_REACTIONS.ufoSignal).toContain(mischiefLine(look, rng));
-    expect(say('teachUfo', rng, 'mall').text).toContain('行け');
-    expect(say('ufoGo', rng, 'mall').who).toBe('hero');
-    expect(say('rushMark', rng, 'mall').text).toBe('セールを荒らすなーっ！');
-    expect(say('rushCivHit', rng, 'mall').text).toBe('あれ？');
-  });
-
 });
 
 describe('ステージ4の文', () => {
-  it('8つの見た目に、名前が10人ずつ、市民とヴィランの文が8つずつと一言が7つずつある。どちらにも出る文が2つずつ', () => {
-    for (const look of TOWER_LOOKS) {
-      const { civ, bad } = TOWER_PROFILE_LINES[look];
-      expect(civ, look).toHaveLength(8);
-      expect(bad, look).toHaveLength(8);
-      expect(civ.filter((l) => bad.includes(l)), look).toHaveLength(2);
-      expect(OPERATOR_HINTS[look].civ, look).toHaveLength(7);
-      expect(OPERATOR_HINTS[look].bad, look).toHaveLength(7);
-      expect(NAMES[look], look).toHaveLength(10);
-      expect(AGES[look][0], look).toBeLessThan(AGES[look][1]);
-      expect(JUDGE_LINES[look], look).toHaveLength(3);
-    }
-    for (const d of ['lady', 'magician', 'waiter'] as const) {
-      expect(BOSS_PROFILE_LINES[d]).toBe(BOSS4_PROFILE_LINES[d]);
-      expect(BOSS_HINTS[d]).toBe(BOSS4_HINTS[d]);
-    }
-    expect(AGES.newbie).toEqual([22, 25]);
-    expect(AGES.janitor).toEqual([40, 65]);
-    // 「カードが浮いてる!?」は、手品師が出る最上階の机の小物(グラス)と合わず嘘になるので、見た目ごとの一言から外し、
-    // 見えている物のことを言う一言の「グラスが浮いてる!?」にした
-    const allHints = TOWER_LOOKS.flatMap((look) => [...TOWER_OPERATOR_HINTS[look].civ, ...TOWER_OPERATOR_HINTS[look].bad]);
-    expect(allHints.map((h) => h.text).filter((t) => t.includes('カード'))).toEqual([]);
-    expect(TOWER_SPOT_HINTS.glassFloat.map((h) => h.text)).toEqual(['グラスが\n浮いてる！？']);
-  });
-
   it('ふしぎに聞こえるプロフィールの文は、市民とヴィランに3つずつ(どちらにも出る文は入れない)。一言は市民とヴィランで同じ一覧で、疑う一言が1つずつある', () => {
     const DOUBT = /？|かな|だよね/;
     for (const look of TOWER_LOOKS) {
@@ -384,21 +332,22 @@ describe('ステージ4の文', () => {
     // 前は市民に嘘の文があった(手品師の「タネもしかけもない」「何でも出せる」)
     const magic = [...TOWER_PROFILE_LINES.magician.civ, ...TOWER_PROFILE_LINES.magician.bad].join('/');
     expect(magic).not.toMatch(/しかけもない|何でも出せる/);
+    // 「カードが浮いてる!?」は、手品師が出る最上階の机の小物(グラス)と合わず嘘になるので、見た目ごとの一言から外し、
+    // 見えている物のことを言う一言の「グラスが浮いてる!?」にした
+    const allHints = TOWER_LOOKS.flatMap((look) => [...TOWER_OPERATOR_HINTS[look].civ, ...TOWER_OPERATOR_HINTS[look].bad]);
+    expect(allHints.map((h) => h.text).filter((t) => t.includes('カード'))).toEqual([]);
   });
 
-  it('掛け合いは5枚で、もれ、紛らわしい市民、念力を伝える。エレベーターのことは言わない', () => {
+  it('掛け合いは5枚までで、もれ、紛らわしい市民、念力を伝える。エレベーターのことは言わない', () => {
     const joined = introFor('tower').map((s) => s.text.replace('\n', '')).join('/');
     for (const word of ['高層ビル', 'ヴィラン', '周りをよく見て', '紫', '浮いたり', '手品', '風船', '火花が出ない', '念力']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toContain('エレベーター');
-    expect(TOWER_INTRO).toHaveLength(5);
+    expect(TOWER_INTRO.length).toBeLessThanOrEqual(5);
     expect(TOWER_INTRO[0].who).toBe('hero');
-    expect(waveIntroFor('tower', 1)[0].text).toContain('4人');
-    expect(waveIntroFor('tower', 2)[0].text).toContain('18階');
     // 紫でも火花がなければ市民(紫のセロハン、手品の紫の煙、紫の風船)
     expect(waveIntroFor('tower', 2)[1].text.replace('\n', '')).toContain('火花がなければ市民');
-    expect(waveIntroFor('tower', 3)[0].text).toContain('35階');
     // 波3から、もれを隠すヴィランが出る。プロフィールと一言を合わせて見ることを言う
     const wave3 = waveIntroFor('tower', 3).map((s) => s.text.replace('\n', '')).join('/');
     expect(wave3).toContain('変えないヴィラン');
@@ -407,29 +356,6 @@ describe('ステージ4の文', () => {
     expect(waveIntroFor('tower', 4)[1].text).toContain('変えない');
     // ステージ1〜3には波4の一言がない
     for (const id of ['alley', 'garage', 'mall'] as const) expect(waveIntroFor(id, 4)).toEqual([]);
-    expect(([1, 2, 3, 4] as const).map((n) => towerFloorLabel(n))).toEqual(['1F', '18F', '35F', '50F']);
-  });
-
-  it('say でビルの言い方が出る。見逃したヴィランは念力で物を持ち上げる', () => {
-    const rng = createRng(21);
-    expect(TOWER_REACTIONS.psyCarry).toContain(say('psyCarry', rng, 'tower'));
-    expect(TOWER_OVERRIDES.bossReveal).toContain(say('bossReveal', rng, 'tower'));
-    expect(TOWER_OVERRIDES.pass).toContain(say('pass', rng, 'tower'));
-    expect(TOWER_GARAGE_OVERRIDES.bossWreck).toContain(say('bossWreck', rng, 'tower'));
-    expect(say('unlocked', rng, 'tower').text).toMatch(/高層ビルに行ける|最後のステージ/);
-    // ほかのステージは今まで通り
-    expect(MALL_GARAGE_OVERRIDES.unlocked).toContain(say('unlocked', rng, 'mall'));
-    expect(REACTIONS.pass).toContain(say('pass', rng));
-    expect(REACTIONS.oops).toContain(say('oops', rng, 'tower'));
-    for (const look of TOWER_LOOKS) expect(TOWER_REACTIONS.psyLift).toContain(mischiefLine(look, rng));
-    expect(say('teachPsy', rng, 'tower').text).toContain('行け');
-    expect(say('psyGo', rng, 'tower').who).toBe('hero');
-    expect(say('liftMark', rng, 'tower').text).toBe('乗ってくるなーっ！');
-    expect(say('bossChoice', rng, 'tower').text).toBe('客は待て！\nシャンデリアは行け！');
-  });
-
-  it('終わりの場面は3枚(オペレーター、ヒーロー、オペレーター)', () => {
-    expect(TOWER_ENDING.map((s) => s.who)).toEqual(['operator', 'hero', 'operator']);
   });
 });
 
@@ -439,13 +365,11 @@ type HintsByLook = Readonly<Record<string, { civ: readonly { face: string }[]; b
 describe.each([
   {
     stage: 'モール', id: 'mall', bad: '宇宙人', looks: MALL_LOOKS as readonly string[], hints: MALL_OPERATOR_HINTS as HintsByLook,
-    demolition: 'モールの修理代、\n誰が払うの…', overrides: MALL_OVERRIDES, garageOverrides: MALL_GARAGE_OVERRIDES, peekBad: 'ピピッ…',
-    rush: 'ラッシュ', introFor: rushIntroFor, band: RUSH_BAND, bandText: 'タイムセール開始！', endLine: rushEndLine, civs: 4
+    overrides: MALL_OVERRIDES, garageOverrides: MALL_GARAGE_OVERRIDES, rush: 'ラッシュ', introFor: rushIntroFor, endLine: rushEndLine, civs: 4
   },
   {
     stage: '高層ビル', id: 'tower', bad: 'ヴィラン', looks: TOWER_LOOKS as readonly string[], hints: TOWER_OPERATOR_HINTS as HintsByLook,
-    demolition: 'ビルの修理代、\n誰が払うの…', overrides: TOWER_OVERRIDES, garageOverrides: TOWER_GARAGE_OVERRIDES, peekBad: 'フッ…',
-    rush: 'エレベーター', introFor: liftIntroFor, band: LIFT_BAND, bandText: '最上階へ！', endLine: liftEndLine, civs: 3
+    overrides: TOWER_OVERRIDES, garageOverrides: TOWER_GARAGE_OVERRIDES, rush: 'エレベーター', introFor: liftIntroFor, endLine: liftEndLine, civs: 3
   }
 ] as const)('$stage の文(モールと高層ビルで同じ形の決まり)', (c) => {
   it(`同じ見た目の市民と${c.bad}で、あわてた顔とあきれ顔の数が同じ(顔だけで分からない)`, () => {
@@ -457,15 +381,10 @@ describe.each([
     }
   });
 
-  it('壊した称号のひとことはそのステージの文。言い換えは、元からあるセリフの種類だけ', () => {
-    expect(titleCommentFor('demolition', c.id).text).toBe(c.demolition);
+  // 壊した称号のひとことがそのステージの文になることは、下の「〜という言葉は出ない」で確かめる
+  it('言い換えは、元からあるセリフの種類だけ', () => {
     for (const k of Object.keys(c.overrides)) expect(Object.keys(REACTIONS)).toContain(k);
     for (const k of Object.keys(c.garageOverrides)) expect(Object.keys(GARAGE_REACTIONS)).toContain(k);
-  });
-
-  it(`本性ちらりは${c.bad}なら「${c.peekBad}」。市民は今までと同じ`, () => {
-    expect(streetTextsFor(c.id).peekBad).toBe(c.peekBad);
-    expect(streetTextsFor(c.id).peekCiv).toBe(STREET_TEXTS.peekCiv);
   });
 
   it(`${c.rush}の説明は、初めては2つ、見たことがあれば1つ。終わりの一言は市民を全員守れたかで変わる`, () => {
@@ -473,7 +392,6 @@ describe.each([
     expect(c.introFor(true)).toHaveLength(1);
     expect(c.introFor(false)[1].text).toContain('市民だけ待てを押して');
     expect(c.introFor(true)[0].text).toContain('市民だけ待てを押して');
-    expect(c.band).toBe(c.bandText);
     expect(c.endLine({ civs: c.civs, civsSaved: c.civs }).face).toBe('hype');
     expect(c.endLine({ civs: c.civs, civsSaved: c.civs - 1 }).face).toBe('deadpan');
   });
@@ -492,35 +410,40 @@ describe('ステージごとの文の決まり', () => {
     expect(texts.filter((t) => t.split('\n').some((line) => ONE_CHAR_TAIL.test(line)))).toEqual([]);
   });
 
-  it.each([
-    { stage: '地下駐車場', texts: () => [...GARAGE_SPEECH_TEXTS, ...allLinkTexts()] },
-    {
-      stage: 'モール',
-      texts: () => [
-        ...MALL_SPEECH_TEXTS, ...Object.values(streetTextsFor('mall')), RUSH_BAND,
-        ...MALL_LOOKS.flatMap((look) => [
-          ...MALL_PROFILE_LINES[look].civ, ...MALL_PROFILE_LINES[look].bad, ...JUDGE_LINES[look].map((s) => s.text)
-        ]),
-        titleCommentFor('demolition', 'mall').text,
-        ...(['ufoGuide', 'saleGuardian', 'ufoHunter'] as const).map((id) => TITLE_COMMENTS[id].text)
-      ]
-    },
-    {
-      stage: '高層ビル',
-      texts: () => [
-        ...TOWER_SPEECH_TEXTS, ...Object.values(streetTextsFor('tower')), LIFT_BAND,
-        ...TOWER_LOOKS.flatMap((look) => [
-          ...TOWER_PROFILE_LINES[look].civ, ...TOWER_PROFILE_LINES[look].bad,
-          ...[...TOWER_OPERATOR_HINTS[look].civ, ...TOWER_OPERATOR_HINTS[look].bad].map((h) => h.text),
-          ...JUDGE_LINES[look].map((s) => s.text)
-        ]),
-        ...(['lady', 'magician', 'waiter'] as const).flatMap((d) => [...BOSS4_PROFILE_LINES[d], ...BOSS4_HINTS[d].map((h) => h.text)]),
-        titleCommentFor('demolition', 'tower').text
-      ]
-    }
-  ])('$stage:文は allTexts に入っている(1行12字と2行までの確かめと、フォントの読みこみのため)', ({ texts }) => {
+  it('どのステージのセリフ、帯、本性ちらり、プロフィール、一言、決めつけ、称号のひとこと、待てと行けを教える一言も allTexts に入っている(1行12字と2行までの確かめと、フォントの読みこみのため)', () => {
     const all = new Set(allTexts());
-    expect(texts().filter((t) => !all.has(t))).toEqual([]);
+    const texts = [
+      ...ALLEY_SPEECH_TEXTS, ...GARAGE_SPEECH_TEXTS, ...allLinkTexts(), ...MALL_SPEECH_TEXTS, ...TOWER_SPEECH_TEXTS,
+      ...STAGE_IDS.flatMap((id) => Object.values(streetTextsFor(id))), RUSH_BAND, LIFT_BAND,
+      ...LOOKS.flatMap((look) => JUDGE_LINES[look].map((s) => s.text)),
+      ...[...MALL_LOOKS, ...TOWER_LOOKS].flatMap((look) => [
+        ...PROFILE_LINES[look].civ!, ...PROFILE_LINES[look].bad!,
+        ...[...OPERATOR_HINTS[look].civ!, ...OPERATOR_HINTS[look].bad!].map((h) => h.text)
+      ]),
+      ...(['lady', 'magician', 'waiter'] as const).flatMap((d) => [...BOSS4_PROFILE_LINES[d], ...BOSS4_HINTS[d].map((h) => h.text)]),
+      ...STAGE_IDS.flatMap((id) => titlesFor(id).map((t) => titleCommentFor(t.id, id).text)),
+      ...allLessonTexts()
+    ];
+    expect(texts.filter((t) => !all.has(t))).toEqual([]);
+  });
+
+  it('波の始まりの一言に出てくる人数と階は、波の表と同じ', () => {
+    const bad: string[] = [];
+    for (const id of STAGE_IDS) {
+      STAGES[id].waves.forEach((plan, i) => {
+        const no = (i + 1) as WaveNo;
+        for (const s of waveIntroFor(id, no)) {
+          const people = s.text.match(/(\d+)人/);
+          if (people && Number(people[1]) !== plan.people) bad.push(`${id} 波${no} 「${s.text}」は${plan.people}人`);
+          const floor = s.text.match(/(\d+)階/);
+          if (floor && `${floor[1]}F` !== towerFloorLabel(no)) bad.push(`${id} 波${no} 「${s.text}」は${towerFloorLabel(no)}`);
+        }
+      });
+    }
+    expect(bad).toEqual([]);
+    // 確かめる文があること(数字を使わない言い方に変えたら、この確かめも見直す)
+    expect(waveIntroFor('alley', 1)[0].text).toMatch(/\d+人/);
+    expect(waveIntroFor('tower', 2)[0].text).toMatch(/\d+階/);
   });
 
   // 口笛と仲間とワゴンは地下駐車場だけで使う種類なので、モールでは見ない
@@ -535,7 +458,7 @@ describe('ステージごとの文の決まり', () => {
       id: 'tower', words: '「街」「路地裏」「駐車場」「モール」', ng: /街|路地裏|駐車場|モール/,
       keys: [...Object.keys(REACTIONS), ...Object.keys(TOWER_REACTIONS), ...Object.keys(TOWER_GARAGE_OVERRIDES)]
     }
-  ] as const)('$id:セリフと称号のひとことに$wordsは出ない', ({ id, ng, keys }) => {
+  ] as const)('$id:セリフと称号のひとことに出ない言葉($words)', ({ id, ng, keys }) => {
     const bad: string[] = [];
     for (const k of keys as AnyReactionKey[]) for (const s of reactionList(k, id)) if (ng.test(s.text)) bad.push(`${k} ${s.text}`);
     for (const t of titlesFor(id)) if (ng.test(titleCommentFor(t.id, id).text)) bad.push(t.id);

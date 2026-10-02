@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { tellSheetKeys } from '../logic/tells';
 import type { PixelGrid } from './lib';
 import { CLUE_SPOTS, type ClueRect } from './clueSpots';
-import { KEY_ACCESSORY, SHEETS, TELL_BASE, TELL_SHEETS, sheetByKey } from './sheets';
+import { KEY_ACCESSORY, TELL_BASE, TELL_SHEETS, sheetByKey } from './sheets';
 import { ART_SETS } from './sets';
 import { buildItemlessPeople } from './world/people';
 
@@ -43,21 +43,8 @@ describe('手がかりの出し分けの絵', () => {
     expect(Object.keys(TELL_BASE).sort()).toEqual(fromLogic);
   });
 
-  it('どれも SHEETS にあり、元の絵と同じ行の並び。コードで描いてあり、コマの数も表と合う', () => {
-    for (const [key, base] of Object.entries(TELL_BASE)) {
-      const d = sheetByKey(key), b = sheetByKey(base);
-      expect(d.rows.map((r) => [r.name, r.frames])).toEqual(b.rows.map((r) => [r.name, r.frames]));
-      expect(d.anchor).toBe(b.anchor);
-      const rows = drawn[key];
-      expect(rows, key).toBeDefined();
-      expect(rows.map((r) => r.length), key).toEqual(d.rows.map((r) => r.frames));
-    }
-    expect(SHEETS.filter((d) => d.key in TELL_BASE)).toHaveLength(Object.keys(TELL_BASE).length);
-  });
-
-  it('「持ち物」の窓の四角は元の絵と同じ', () => {
-    for (const [key, base] of Object.entries(TELL_BASE)) expect(CLUE_SPOTS[key], key).toEqual(CLUE_SPOTS[base]);
-  });
+  // 出し分けの絵の表(行の並び)は sheets.ts で元の絵をコピーして作る。SHEETS にあるかは下のテストの sheetByKey が、
+  // 描いた絵の行とコマの数は artRules.test.ts が、窓の四角が元の絵と同じかは clueSpots.test.ts が確かめる
 
   it('ステージ1と2:仕分けの動きの4コマのどれでも、窓の中で元の絵と見てわかるほど違う(小物が窓に入っている)', () => {
     for (const [key, base] of Object.entries(TELL_BASE)) {

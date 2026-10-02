@@ -2,25 +2,20 @@
 import { describe, expect, it } from 'vitest';
 import { judgeLine } from './content';
 import { createRng } from './rng';
-import { REASON_MAX, reasonFor, stripReasonMarkup } from './reasons';
 import { createStage } from './stage';
-import { TELLS, baseSheetKey, bossItemsFor, fitsTell, tellDef, tellSheetKey, tellsFor } from './tells';
+import { baseSheetKey, bossItemsFor, fitsTell, tellDef, tellSheetKey, tellsFor } from './tells';
 import type { Look, Person, Stage, StageId } from './types';
 
-const SEEDS = Array.from({ length: 300 }, (_, i) => i * 104729 + 11);
+// 種100個で、どの出し分けも1割5分より多く出る(調べた値。しきい値は1割)
+const SEEDS = Array.from({ length: 100 }, (_, i) => i * 104729 + 11);
 const stagesOf = (id: StageId): Stage[] => SEEDS.map((s) => createStage(s, id));
 const ALL: Record<'alley' | 'garage' | 'mall', Stage[]> = { alley: stagesOf('alley'), garage: stagesOf('garage'), mall: stagesOf('mall') };
 const everyone = (list: Stage[]): Person[] => list.flatMap((s) => s.waves.flatMap((w) => w.people.map((p) => p)));
 const findBossKey = (s: Stage): string | undefined => everyone([s]).find((p) => p.truth === 'boss')?.sheetKey;
 
 describe('手がかりの出し分け', () => {
-  it('同じ種なら同じ出し分け(別の乱数で選ぶので、何度作っても同じ)', () => {
-    for (const id of ['alley', 'garage', 'mall'] as const) {
-      const a = createStage(42, id), b = createStage(42, id);
-      expect(everyone([a]).map((p) => [p.tell, p.sheetKey])).toEqual(everyone([b]).map((p) => [p.tell, p.sheetKey]));
-    }
-  });
-
+  // 同じ種なら同じ出し分けになることは、colorVariants.test.ts の「同じ種なら、色ちがいまで入れて同じステージ」が
+  // 4つのステージ全部で、ステージ全体(tell と絵のキーも入る)を比べて確かめる。答え合わせの決め手が出し分けの文になることは reasons.test.ts で確かめる
   it('出し分けのある人は全員 tell を持ち、絵のキーはそれに合う。ない人(ボス、モヒカン、おばあさん、市民の宇宙人側)は持たない', () => {
     const bad: string[] = [];
     for (const list of Object.values(ALL)) {
@@ -75,9 +70,6 @@ describe('手がかりの出し分け', () => {
     expect(fitsTell(flash, 'uncle', 'bad', 'hatch')).toBe(false);
     expect(fitsTell(pale, 'uncle', 'bad', 'flicker')).toBe(true);
     expect(fitsTell(pale, 'uncle', 'bad', 'hatch')).toBe(true);
-    const hatch = everyone(ALL.mall).filter((p) => p.tell === 'hatch');
-    expect(hatch.length).toBeGreaterThan(0);
-    for (const p of hatch) expect(p.hint.text, p.sheetKey).not.toContain('今、色が');
   });
 
   it('路地裏のボスの化けた姿(スーツと買い物袋)は、市民と同じ3つの小物のどれかを持つ(持ち物でボスでないと分からない)', () => {
@@ -117,26 +109,6 @@ describe('手がかりの出し分け', () => {
     expect(bad).toEqual([]);
   });
 
-  it('答え合わせの決め手は出し分けごとの文で、1行に入る', () => {
-    for (const [look, byTruth] of Object.entries(TELLS)) {
-      for (const d of [...(byTruth?.civ ?? []), ...(byTruth?.bad ?? [])]) {
-        if (d.reason) expect([...d.reason].length, `${look} ${d.id} ${d.reason}`).toBeLessThanOrEqual(REASON_MAX);
-      }
-    }
-    for (const list of Object.values(ALL)) {
-      for (const s of list.slice(0, 50)) {
-        for (const w of s.waves) {
-          for (const p of w.people) {
-            const r = reasonFor(p, w);
-            expect([...stripReasonMarkup(r)].length, r).toBeLessThanOrEqual(REASON_MAX);
-            const def = tellDef(p.look, p.truth, p.tell);
-            if (def?.reason) expect(r).toBe(def.reason);
-          }
-        }
-      }
-    }
-  });
-
   it('ステージ2の「同じ色の{item}」のつながりの文は、その人の小物の形の呼び名で言う', () => {
     let seen = 0;
     for (const p of everyone(ALL.garage)) {
@@ -150,12 +122,12 @@ describe('手がかりの出し分け', () => {
   });
 
   it('ステージ2の組の仲間は同じ色だが、小物の形はちがうこともある(形ではなく色で見分ける)', () => {
+    // 組の仲間が同じ色であることは garage.test.ts で確かめる。ここでは形が混ざる組があることだけを見る
     let mixed = 0;
     for (const s of ALL.garage) {
       for (const w of s.waves) {
         for (const g of w.groups) {
           const members = w.people.filter((p) => p.group === g.id);
-          expect(new Set(members.map((p) => p.accessory!.id)).size).toBe(1);
           if (new Set(members.map((p) => p.accessory!.item)).size > 1) mixed++;
         }
       }

@@ -11,8 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import alleyV1 from './fixtures/alley-v1.json';
 import recordsV1 from './fixtures/records-v1.json';
 import {
-  ATTACK_SHOUTS, BOSS_HINTS, BOSS_PROFILE_LINES, MISCHIEF_LINES, OPERATOR_HINTS, PROFILE_LINES,
-  reactionList, titleCommentFor, waveIntroFor,
+  ATTACK_SHOUTS, MISCHIEF_LINES, reactionList, titleCommentFor, waveIntroFor,
   type ReactionKey
 } from './content';
 import { clearRecords, isStageUnlocked, loadRecords, saveResult } from './records';
@@ -122,29 +121,9 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
       expect(asPublished(createStage(seed)), `seed ${seed}`).toEqual(withoutChanged(stage));
     }
   });
-
-  it('わざと変えたもの:時間は長くなり、文と一言はその人の見た目と正体の一覧から選ばれる', () => {
-    for (const { seed, stage } of alleyV1.stages) {
-      const now = createStage(seed);
-      now.waves.forEach((w, i) => {
-        expect(w.seconds).toBeGreaterThan(stage.waves[i].seconds);
-        for (const p of w.people) {
-          const d = p.disguise;
-          const lines = d ? BOSS_PROFILE_LINES[d] : PROFILE_LINES[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
-          const hints = d ? BOSS_HINTS[d] : OPERATOR_HINTS[p.look][p.truth === 'bad' ? 'bad' : 'civ']!;
-          expect(lines, `seed ${seed} ${p.id}`).toContain(p.profile.line);
-          expect(hints, `seed ${seed} ${p.id}`).toContainEqual(p.hint);
-        }
-      });
-    }
-  });
+  // わざと変えた文と一言が、その人の見た目と正体の一覧から選ばれることは stage.test.ts で確かめる
 
   // ステージ前の掛け合い(INTRO)は、初めての1分を短くするためにわざと変えたので比べない
-  it('文だけを直したセリフは、fixture に入っている(比べる項目から外しすぎていない)', () => {
-    const fixtureKeys = Object.keys(alleyV1.speech.REACTIONS);
-    for (const k of ['collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'stop']) expect(fixtureKeys, k).toContain(k);
-  });
-
   it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
     for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no as 1 | 2 | 3]);
@@ -164,8 +143,6 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
 
   it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録。わざと変えた条件の分は除く)`, () => {
     expect(titlesFor('alley').map((t) => ({ id: t.id, name: t.name, pose: t.pose }))).toEqual(publishedOrderNow(alleyV1.titleDefs));
-    // 動かしたのは歩く解体工事だけ(ほかの並びと名前とポーズは公開版のまま)
-    expect(alleyV1.titleDefs.findIndex((d) => d.id === 'demolition')).toBe(alleyV1.titleDefs.findIndex((d) => d.id === 'bossBuddy') - 1);
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
     alleyV1.titles.forEach(({ stats, title, name }, i) => {

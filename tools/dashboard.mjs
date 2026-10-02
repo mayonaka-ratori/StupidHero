@@ -101,7 +101,7 @@ if (!quick) {
   spawnSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${json}`], { encoding: 'utf8', shell: WIN });
   try {
     const r = JSON.parse(readFileSync(json, 'utf8'));
-    tests = { passed: r.numPassedTests, failed: r.numFailedTests, total: r.numTotalTests, files: r.numTotalTestSuites };
+    tests = { passed: r.numPassedTests, failed: r.numFailedTests, total: r.numTotalTests, files: r.testResults.length };
     tests.failures = r.testResults.flatMap((f) => f.assertionResults.filter((a) => a.status === 'failed')
       .map((a) => `${relative(process.cwd(), f.name)}: ${a.fullName}`));
   } catch {

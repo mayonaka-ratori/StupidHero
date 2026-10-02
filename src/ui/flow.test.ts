@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { curl, hermite, noise, smooth } from './flow';
+import { curl, hermite, noise } from './flow';
 
 describe('hermite', () => {
   it('両端で p0 と p1 を通り、向きが m0 と m1 になる', () => {
@@ -9,10 +9,6 @@ describe('hermite', () => {
     const e = 1e-5;
     expect((hermite(p0, m0, p1, m1, e) - hermite(p0, m0, p1, m1, 0)) / e).toBeCloseTo(m0, 2);
     expect((hermite(p0, m0, p1, m1, 1) - hermite(p0, m0, p1, m1, 1 - e)) / e).toBeCloseTo(m1, 2);
-  });
-
-  it('smooth は向きが0のエルミート曲線と同じ', () => {
-    for (let t = 0; t <= 1; t += 0.125) expect(smooth(t)).toBeCloseTo(hermite(0, 0, 1, 0, t));
   });
 });
 

@@ -59,14 +59,7 @@ const MARK: Record<string, (c: string, x: number, y: number) => boolean> = {
 };
 
 describe('フリープレイの絵', () => {
-  it('一目で分かるワルは、ふつうのワルと同じ7行で、悪さの当たりは3コマ目', () => {
-    for (const key of ['fp_mohawk', 'fp_gang', 'fp_alien']) {
-      const d = sheetByKey(key);
-      expect(d.rows.map((r) => r.name), key).toEqual(['idle', 'walk', 'sortIdle', 'surprised', 'knocked', 'down', 'mischief']);
-      expect(d.rows[6].hits, key).toEqual([3]);
-    }
-  });
-
+  // 一目で分かるワルの行の並び(ふつうのワルと同じ7行)は、sheets.ts の freeVillain が市民の行と悪さの行から作る
   it('ワルの目印がはっきり出ている(ナイフの刃が頭の上、バンダナとバット、黄緑の触角)', () => {
     for (const key of Object.keys(MARK)) {
       const g = free[key][0][0];

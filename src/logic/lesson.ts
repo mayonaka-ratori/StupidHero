@@ -50,7 +50,7 @@ export function lessonDue(c: LessonChance): boolean {
   return true;
 }
 
-/** 教える文の全部(文の決まりの確かめ用) */
+/** 教える文の全部。content.ts の allTexts() に入れてある(文の決まりの確かめと、フォントの読みこみのため) */
 export function allLessonTexts(): string[] {
   return LESSON_KINDS.flatMap((k) => [LESSON_LINES[k].text, LESSON_HINTS[k].text]);
 }

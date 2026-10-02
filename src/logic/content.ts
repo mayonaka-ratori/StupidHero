@@ -33,6 +33,7 @@ import {
 } from './towerContent';
 import { ANALOGY_UNITS } from './format';
 import { allFreeTexts } from './freeContent';
+import { allLessonTexts } from './lesson';
 import { ACCESSORY_COLORS, ACCESSORY_ITEM, MISCHIEF_BY_LOOK } from './rules';
 import { STAGES } from './stages';
 import { TELLS, fitsTell } from './tells';
@@ -925,5 +926,7 @@ export function allTexts(): string[] {
   for (const byTruth of Object.values(TELLS)) for (const d of byTruth?.civ ?? []) if (d.item) out.push(d.item.civ, d.item.bad);
   // フリープレイ(freeContent.ts)
   out.push(...allFreeTexts());
+  // 待てと行けを止めて教える一言(lesson.ts)
+  out.push(...allLessonTexts());
   return out;
 }

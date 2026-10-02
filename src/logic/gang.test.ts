@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GangCall, gatherMembers } from './gang';
+import { GangCall } from './gang';
 import { GANG, rollGroupWipeProps } from './rules';
 import { createRng } from './rng';
 
 describe('ギャングの組(仲間を呼ぶ、まとめて吹き飛ばす、車で逃げる)', () => {
-  it('集まるのは、まだ倒していない仲間(待てで止めた仲間は来ない。誰も来なければ1人だけ)', () => {
-    const gatherWithout = (...gone: string[]) => gatherMembers(['a', 'b', 'c'], (id) => gone.includes(id));
-    expect(gatherWithout('b')).toEqual(['a', 'c']);
-    expect(gatherWithout('b', 'c')).toEqual(['a']);
-  });
-
   it('集まる → 3秒待つ → 乗りこむ → 2秒走る → 逃げきられる', () => {
     const c = new GangCall(['a', 'b', 'c']);
     expect(c.size).toBe(3);

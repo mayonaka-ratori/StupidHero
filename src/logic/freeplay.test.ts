@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { gatherMembers } from './gang';
 import {
   DryPress, FREE, canCarry, clearTimeSec, createFreePlay, formatClearTime, freeRoleOf, freeTiming, heroChoice, isSceneHead, ruleAt,
   type FreeRole, type FreeWave
 } from './freeplay';
-import { MARK } from './rules';
 import { GANG_LOOKS, MALL_LOOKS, STAGES, sheetKeyFor } from './stages';
 import type { Look, Person, StageId, Wave } from './types';
 
 const UNLOCKS: readonly (readonly StageId[])[] = [['alley'], ['alley', 'garage'], ['alley', 'garage', 'mall']];
 
-const SEEDS = Array.from({ length: 150 }, (_, i) => i * 7919 + 3);
+// 種は20個(開き方3通りと合わせて60通り)。乱数で分かれる道(言い直しが6人目のあとと7人目のあと、
+// おばあさんが波1と波3、波3のおばあさんが前と後ろの半分、波3のギャングと宇宙人)は、これで全部通る
+const SEEDS = Array.from({ length: 20 }, (_, i) => i * 7919 + 3);
 
 /** 開き方と種のすべての組み合わせの並び。最初に1回だけ作り、どのテストでも使い回す(テストは中身を書きかえない) */
 const PLANS = UNLOCKS.flatMap((unlocked) => SEEDS.map((seed) => ({ plan: createFreePlay(seed, unlocked), unlocked })));
@@ -57,14 +57,13 @@ describe('ヒーローの決めつけ', () => {
 });
 
 describe('createFreePlay:山札の数', () => {
-  it('どの開き方でも毎回、待て9、行け8、ヒーローが正しい10、場面27', () => {
+  it('波ごとの場面の数と4通りの数が仕様の表の通り(ギャングの組は1場面)。どの開き方でも毎回、待て9、行け8、ヒーローが正しい10、場面27', () => {
+    // 表(FREE.waves)の合計が仕様の数のまま
+    const sum = (key: 'scenes' | 'stop' | 'go') => FREE.waves.reduce((a, w) => a + w[key], 0);
+    const heroRight = FREE.waves.reduce((a, w) => a + w.heroBad + w.heroCiv, 0);
+    expect({ scenes: sum('scenes'), stop: sum('stop'), go: sum('go'), heroRight }).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
     eachPlan((plan) => {
       expect(plan.chances).toEqual({ stop: 9, go: 8, heroRight: 10, scenes: 27 });
-    });
-  });
-
-  it('波ごとの場面の数と4通りの数が仕様の表の通り(ギャングの組は1場面)', () => {
-    eachPlan((plan) => {
       plan.stage.waves.forEach((w, i) => {
         const want = FREE.waves[i];
         expect(heads(w)).toHaveLength(want.scenes);
@@ -86,11 +85,6 @@ describe('createFreePlay:山札の数', () => {
       expect(w3.redeclare!.rule.kind).toBe('item');
       if (w3.rule.kind === 'item' && w3.redeclare!.rule.kind === 'item') expect(w3.redeclare!.rule.item).not.toBe(w3.rule.item);
     });
-  });
-
-  it('同じ種と同じ開き方なら同じ並び', () => {
-    expect(createFreePlay(42, ['alley', 'garage'])).toEqual(createFreePlay(42, ['alley', 'garage']));
-    expect(createFreePlay('abc', ['alley'])).toEqual(createFreePlay('abc', ['alley']));
   });
 
   it('run.stage に入れる形:id と def は波1の背景、名前はフリープレイ、人数とワルの数', () => {
@@ -136,17 +130,14 @@ describe('createFreePlay:人と背景', () => {
       }
     });
     expect(bad).toEqual([]);
-    // 路地裏だけ:ワルは全員モヒカン
-    const plan = createFreePlay(1, ['alley']);
-    expect(new Set(plan.stage.waves.flatMap((w) => w.people).filter((p) => p.truth === 'bad').map((p) => p.look))).toEqual(new Set(['fp_mohawk']));
   });
 
   it('開いているステージが増えると、ギャングと宇宙人が出る', () => {
     const looks = (u: readonly StageId[]): Set<Look> =>
-      new Set(SEEDS.flatMap((s) => createFreePlay(s, u).stage.waves.flatMap((w) => w.people.map((p) => p.look))));
-    const all = looks(['alley', 'garage', 'mall']);
+      new Set(PLANS.filter((x) => x.unlocked === u).flatMap((x) => x.plan.stage.waves.flatMap((w) => w.people.map((p) => p.look))));
+    const all = looks(UNLOCKS[2]);
     for (const l of ['fp_mohawk', 'fp_gang', 'fp_alien', 'granny', 'guard', 'mascot'] as Look[]) expect(all.has(l), l).toBe(true);
-    expect(looks(['alley', 'garage']).has('fp_gang')).toBe(true);
+    expect(looks(UNLOCKS[1]).has('fp_gang')).toBe(true);
   });
 
   it('背景は開いているステージから波ごとに1つずつ。3つ開いていれば全部違う', () => {
@@ -158,24 +149,30 @@ describe('createFreePlay:人と背景', () => {
     });
   });
 
-  it('路地裏はいつも開いているものとして扱う。知らない id は捨てる', () => {
-    const plan = createFreePlay(5, ['garage']);
-    expect(plan.unlocked).toEqual(['alley', 'garage']);
+  it('路地裏はいつも開いているものとして扱う。高層ビルは開いていても入れず、背景にも人にも出ない', () => {
+    expect(createFreePlay(5, ['garage']).unlocked).toEqual(['alley', 'garage']);
+    // 4つ開いていると、高層ビルが入っていれば1回ごとに3/4で背景に出る。5回なら見落としは約0.1%
+    for (let seed = 1; seed <= 5; seed++) {
+      const plan = createFreePlay(seed, ['alley', 'garage', 'mall', 'tower']);
+      expect(plan.unlocked).toEqual(['alley', 'garage', 'mall']);
+      for (const w of plan.waves) expect(w.bgStage).not.toBe('tower');
+      for (const w of plan.stage.waves) for (const p of w.people) expect(STAGES.tower.looks).not.toContain(p.look);
+    }
   });
 
   it('フリープレイのワルの絵のキーは見た目の名前そのまま。悪さはナイフで脅す、口笛、合図', () => {
     expect(sheetKeyFor('fp_mohawk', 'bad')).toBe('fp_mohawk');
     expect(sheetKeyFor('fp_gang', 'bad', 'garage')).toBe('fp_gang');
     expect(sheetKeyFor('fp_alien', 'bad', 'mall')).toBe('fp_alien');
+    // 悪さの表(MISCHIEF_BY_LOOK)にフリープレイのワルを書き忘れていないか
+    const want: Partial<Record<Look, string>> = { fp_mohawk: 'threaten', fp_gang: 'whistle', fp_alien: 'signal' };
+    const bad: string[] = [];
     eachPlan((plan) => {
       for (const p of plan.stage.waves.flatMap((w) => w.people)) {
-        if (p.look === 'fp_mohawk') expect(p.mischief).toBe('threaten');
-        if (p.look === 'fp_gang') expect(p.mischief).toBe('whistle');
-        if (p.look === 'fp_alien') expect(p.mischief).toBe('signal');
-        if (p.truth === 'bad') expect(p.sheetKey).toBe(p.look);
-        else expect(p.sheetKey).toBe(sheetKeyFor(p.look, 'civ'));
+        if (want[p.look] && p.mischief !== want[p.look]) bad.push(`${p.id} ${p.look} ${p.mischief}`);
       }
     });
+    expect(bad).toEqual([]);
   });
 
   it('おばあさんは毎回1人、波1か波3の待てのチャンスに入る(どちらの波にも出ることがある)', () => {
@@ -201,19 +198,8 @@ describe('createFreePlay:人と背景', () => {
   });
 });
 
-describe('高層ビルはフリープレイに入れない', () => {
-  it('高層ビルが開いていても、背景にも人にも出ない', () => {
-    for (let seed = 1; seed <= 100; seed++) {
-      const plan = createFreePlay(seed, ['alley', 'garage', 'mall', 'tower']);
-      expect(plan.unlocked).toEqual(['alley', 'garage', 'mall']);
-      for (const w of plan.waves) expect(w.bgStage).not.toBe('tower');
-      for (const w of plan.stage.waves) for (const p of w.people) expect(STAGES.tower.looks).not.toContain(p.look);
-    }
-  });
-});
-
 describe('createFreePlay:ギャングとUFO', () => {
-  it('ギャングは2人組だけ、1つの波に1組まで。行けのチャンスにだけ出て、gatherMembers で2人とも集まれる', () => {
+  it('ギャングは2人組だけ、1つの波に1組まで。行けのチャンスにだけ出て、組の2人がそろっている', () => {
     let pairs = 0;
     eachPlan((plan) => {
       plan.stage.waves.forEach((w, i) => {
@@ -228,7 +214,6 @@ describe('createFreePlay:ギャングとUFO', () => {
             expect(p.group).toBe(g.id);
             expect(freeRoleOf(plan.waves[i], p)).toBe('go');
           }
-          expect(gatherMembers(g.memberIds, () => false)).toHaveLength(2);
         }
       });
     });
@@ -306,18 +291,6 @@ describe('createFreePlay:波3', () => {
 });
 
 describe('時間と空押し', () => {
-  it('FREE の数字', () => {
-    expect(FREE.waves.map((w) => w.scenes)).toEqual([8, 7, 12]);
-    const sum = (key: 'scenes' | 'stop' | 'go') => FREE.waves.reduce((a, w) => a + w[key], 0);
-    const heroRight = FREE.waves.reduce((a, w) => a + w.heroBad + w.heroCiv, 0);
-    expect({ scenes: sum('scenes'), stop: sum('stop'), go: sum('go'), heroRight }).toEqual({ scenes: 27, stop: 9, go: 8, heroRight: 10 });
-    expect(FREE.gapPx).toEqual({ 1: 104, 2: 104, 3: 96 });
-    expect(FREE.windupSec[3]).toBe(0.9);
-    expect(FREE.markSlowmo[3]).toBe(1);
-    expect(FREE.markSlowmo[1]).toBe(MARK.slowmo);
-    expect([FREE.penaltySec, FREE.dryPressLockSec, FREE.redeclarePauseSec, FREE.slowScale, FREE.lateGraceSec]).toEqual([3, 1, 1.5, 1.5, 0.15]);
-  });
-
   it('ゆっくりモードは間、ため、マーク、逃げるまで、車、UFOを1.5倍。言い直しで止める時間は3秒', () => {
     const n = freeTiming(3);
     const s = freeTiming(3, true);

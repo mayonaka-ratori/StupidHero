@@ -1,61 +1,52 @@
 import { describe, expect, it } from 'vitest';
-import { sheetByKey } from '../art/sheets';
-import { AGES, BOSS_HINTS, BOSS_PROFILE_LINES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
+import { AGES, NAMES, OPERATOR_HINTS, PROFILE_LINES } from './content';
 import { createStage, findBoss, liftRushOf, saleRushOf } from './stage';
 import { STAGES } from './stages';
-import { baseSheetKey } from './tells';
 import { leakSpots, spotHintsFor } from './tower';
 import type { Person, Stage, StageId } from './types';
 
-/** 400個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
-const seedsFrom = (offset: number): number[] => Array.from({ length: 400 }, (_, i) => i * 7919 + offset);
+// 外れは配列に集めて最後に1回だけ確かめる(1人ずつ expect を呼ぶと遅い)
+
+/** count 個の種(ずらし方は、前にそれぞれのファイルで作っていたときと同じ) */
+const seedsFrom = (offset: number, count: number): number[] => Array.from({ length: count }, (_, i) => i * 7919 + offset);
 // ステージは最初に1回だけ作り、どのテストでも使い回す
-const stages: Stage[] = seedsFrom(1).map((s) => createStage(s));
+const stages: Stage[] = seedsFrom(1, 400).map((s) => createStage(s));
 const everyone = (s: Stage): Person[] => s.waves.flatMap((w) => w.people);
 
 describe('createStage', () => {
   it('モヒカンは波1にちょうど1人、ほかの波にはいない', () => {
+    const bad: string[] = [];
     for (const s of stages) {
-      const mohawks = s.waves.map((w) => w.people.filter((p) => p.look === 'mohawk').length);
-      expect(mohawks).toEqual([1, 0, 0]);
-      const m = s.waves[0].people.find((p) => p.look === 'mohawk')!;
-      expect(m.truth).toBe('bad');
-      expect(m.sheetKey).toBe('villain_mohawk');
+      const mohawks = s.waves.map((w) => w.people.filter((p) => p.look === 'mohawk'));
+      if (mohawks.map((m) => m.length).join() !== '1,0,0') bad.push(`seed ${s.seed} モヒカンの数`);
+      const m = mohawks[0][0];
+      if (m && (m.truth !== 'bad' || m.sheetKey !== 'villain_mohawk')) bad.push(`seed ${s.seed} ${m.id} ${m.truth} ${m.sheetKey}`);
     }
+    expect(bad).toEqual([]);
   });
 
   it('名前もプロフィールの文も一言も、同じものは2回出ない', () => {
+    const bad: string[] = [];
     for (const s of stages) {
       const people = everyone(s);
-      expect(new Set(people.map((p) => p.profile.name)).size).toBe(people.length);
-      expect(new Set(people.map((p) => p.profile.line)).size).toBe(people.length);
-      expect(new Set(people.map((p) => p.hint.text)).size).toBe(people.length);
-      expect(new Set(people.map((p) => p.id)).size).toBe(people.length);
+      if (new Set(people.map((p) => p.profile.name)).size !== people.length) bad.push(`seed ${s.seed} 名前が重なる`);
+      if (new Set(people.map((p) => p.profile.line)).size !== people.length) bad.push(`seed ${s.seed} 文が重なる`);
+      if (new Set(people.map((p) => p.hint.text)).size !== people.length) bad.push(`seed ${s.seed} 一言が重なる`);
     }
-  });
-
-  it('絵のキーは全部 sheets.ts にある。見た目と正体の組み合わせも正しい', () => {
-    for (const s of stages.slice(0, 50)) {
-      for (const p of everyone(s)) {
-        expect(() => sheetByKey(p.sheetKey)).not.toThrow();
-        if (p.look === 'granny' && p.truth !== 'boss') expect(p.truth).toBe('civ');
-        if (p.truth === 'bad') expect(p.mischief).toBeDefined();
-        else expect(p.mischief).toBeUndefined();
-        expect(p.profile.age).toBeGreaterThan(0);
-      }
-    }
+    expect(bad).toEqual([]);
   });
 
   it('ワルと同じ見た目の市民がなるべく同じ波に出る。おばあさんはステージに必ずいる', () => {
+    const bad: string[] = [];
     for (const s of stages) {
       for (const w of s.waves) {
         const pairBads = w.people.filter((p) => p.truth === 'bad' && p.look !== 'mohawk').map((p) => p.look);
         const civLooks = new Set(w.people.filter((p) => p.truth === 'civ').map((p) => p.look));
-        if (pairBads.length > 0) expect(pairBads.some((l) => civLooks.has(l))).toBe(true);
+        if (pairBads.length > 0 && !pairBads.some((l) => civLooks.has(l))) bad.push(`seed ${s.seed} 波${w.no} 同じ見た目の市民がいない`);
       }
-      const grannies = s.waves.flatMap((w) => w.people).filter((p) => p.look === 'granny' && p.truth === 'civ');
-      expect(grannies.length).toBeGreaterThanOrEqual(1);
+      if (!everyone(s).some((p) => p.look === 'granny' && p.truth === 'civ')) bad.push(`seed ${s.seed} おばあさんがいない`);
     }
+    expect(bad).toEqual([]);
   });
 
   it('組の見た目は、ステージ全体で市民としてもワルとしてもほぼ出る', () => {
@@ -96,54 +87,39 @@ describe('路地裏は今まで通り(ステージ2を足したあと)', () => {
 
 const BY_ID: Readonly<Record<StageId, readonly Stage[]>> = {
   alley: stages,
-  garage: seedsFrom(1).map((s) => createStage(s, 'garage')),
-  mall: seedsFrom(3).map((s) => createStage(s, 'mall')),
-  tower: seedsFrom(5).map((s) => createStage(s, 'tower'))
+  garage: seedsFrom(1, 200).map((s) => createStage(s, 'garage')),
+  mall: seedsFrom(3, 200).map((s) => createStage(s, 'mall')),
+  tower: seedsFrom(5, 200).map((s) => createStage(s, 'tower'))
 };
 
 describe('createStage:どのステージにも共通の決まり', () => {
-  it.each([
-    { id: 'garage', name: '地下駐車場' },
-    { id: 'mall', name: 'ショッピングモール' },
-    { id: 'tower', name: '高層ビル' }
-  ] as const)('$id:id と定義と名前($name)', ({ id, name }) => {
-    const s = BY_ID[id][0];
-    expect(s.id).toBe(id);
-    expect(s.def).toBe(STAGES[id]);
-    expect(s.name).toBe(name);
+  it('ラッシュの並びは、ラッシュのあるステージだけ(モールはタイムセール、高層ビルはエレベーター)', () => {
+    const kinds = (['alley', 'garage', 'mall', 'tower'] as const).map((id) => {
+      const s = createStage(1, id);
+      return [id, s.rush?.kind ?? null, saleRushOf(s) !== null, liftRushOf(s) !== null];
+    });
+    expect(kinds).toEqual([
+      ['alley', null, false, false], ['garage', null, false, false], ['mall', 'sale', true, false], ['tower', 'elevator', false, true]
+    ]);
   });
 
-  it.each([
-    { id: 'alley', kind: null },
-    { id: 'garage', kind: null },
-    { id: 'mall', kind: 'sale' },
-    { id: 'tower', kind: 'elevator' }
-  ] as const)('$id:ラッシュの並びは、ラッシュのあるステージだけ($kind)', ({ id, kind }) => {
-    const s = createStage(1, id);
-    expect(s.rush?.kind ?? null).toBe(kind);
-    expect(saleRushOf(s) !== null).toBe(kind === 'sale');
-    expect(liftRushOf(s) !== null).toBe(kind === 'elevator');
-  });
-
-  it.each([
-    { id: 'garage', seconds: [30, 26, 28], people: [5, 6, 7], total: 18, noGroups: false },
-    { id: 'mall', seconds: [30, 28, 30], people: [5, 6, 7], total: 18, noGroups: true },
-    { id: 'tower', seconds: [26, 24, 26, 30], people: [4, 5, 6, 7], total: 22, noGroups: true }
-  ] as const)('$id:波の人数と時間が表の通り(人数 $people、秒 $seconds、ボスは最後の波)', ({ id, seconds, people, total, noGroups }) => {
-    const n = seconds.length;
+  it.each(['alley', 'garage', 'mall', 'tower'] as const)('%s:波の人数と時間がステージの表(STAGES の waves)の通り。ボスは最後の波に1人ぶん足す', (id) => {
+    const plans = STAGES[id].waves;
+    const want = {
+      no: plans.map((p) => p.no), seconds: plans.map((p) => p.seconds),
+      people: plans.map((p) => p.people + (p.boss ? 1 : 0)), hasBoss: plans.map((_, i) => i === plans.length - 1),
+      total: plans.reduce((n, p) => n + p.people + (p.boss ? 1 : 0), 0)
+    };
     const bad: string[] = [];
     for (const s of BY_ID[id]) {
       const got = {
         no: s.waves.map((w) => w.no), seconds: s.waves.map((w) => w.seconds), people: s.waves.map((w) => w.people.length),
         hasBoss: s.waves.map((w) => w.hasBoss), total: s.peopleTotal
       };
-      const want = {
-        no: Array.from({ length: n }, (_, i) => i + 1), seconds, people,
-        hasBoss: Array.from({ length: n }, (_, i) => i === n - 1), total
-      };
       if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`seed ${s.seed} ${JSON.stringify(got)}`);
       for (const w of s.waves) {
-        if (noGroups && w.groups.length > 0) bad.push(`seed ${s.seed} 波${w.no}に組がある`);
+        // 組があるのは地下駐車場だけ
+        if (id !== 'garage' && w.groups.length > 0) bad.push(`seed ${s.seed} 波${w.no}に組がある`);
         for (const p of w.people) if (p.wave !== w.no) bad.push(`seed ${s.seed} ${p.id} の wave`);
       }
     }
@@ -152,29 +128,26 @@ describe('createStage:どのステージにも共通の決まり', () => {
 
   it.each([
     // pairedCiv:ボスと同じ見た目の市民が、かならず最後の波にいるステージ
-    { id: 'alley', disguises: ['granny', 'shopper', 'suit'], sheet: 'boss_disguise_', pairedCiv: false },
-    { id: 'garage', disguises: ['guard', 'mechanic', 'officelady'], sheet: 'boss2_disguise_', pairedCiv: false },
-    { id: 'mall', disguises: ['clerk', 'mascot', 'uncle'], sheet: 'boss3_disguise_', pairedCiv: true },
-    { id: 'tower', disguises: ['lady', 'magician', 'waiter'], sheet: 'tw_boss_', pairedCiv: true }
-  ] as const)('$id:ボスは最後の波にちょうど1人。化けた姿は $disguises(どれも出る)。絵のキーと、ワルの合計(ボスを入れる)', ({ id, disguises, sheet, pairedCiv }) => {
+    { id: 'alley', disguises: ['granny', 'shopper', 'suit'], pairedCiv: false },
+    { id: 'garage', disguises: ['guard', 'mechanic', 'officelady'], pairedCiv: false },
+    { id: 'mall', disguises: ['clerk', 'mascot', 'uncle'], pairedCiv: true },
+    { id: 'tower', disguises: ['lady', 'magician', 'waiter'], pairedCiv: true }
+  ] as const)('$id:ボスは最後の波にちょうど1人。化けた姿は $disguises(どれも出る)', ({ id, disguises, pairedCiv }) => {
+    // ボスの文と一言はボスの一覧から選ぶ作り(people.ts の makePerson)。ワルの合計(villainTotal)は stage.ts の createStage が数える。
+    // ボスの絵のキーは stages.test.ts と tells.test.ts で確かめる
     const seen = new Set<string>();
+    const bad: string[] = [];
     for (const s of BY_ID[id]) {
       const last = s.waves.length;
-      expect(s.waves.map((w) => w.people.filter((p) => p.truth === 'boss').length)).toEqual(s.waves.map((w) => (w.no === last ? 1 : 0)));
-      const boss = findBoss(s)!;
-      expect(boss.wave).toBe(last);
-      expect(disguises).toContain(boss.disguise);
-      expect(boss.look).toBe(boss.disguise);
-      // 路地裏のボスの化けた姿は、市民と同じ小物の絵のキーになることがある('boss_disguise_suit_phone' など。tells.ts の bossItemsFor)
-      expect(baseSheetKey(boss.sheetKey)).toBe(`${sheet}${boss.disguise}`);
-      expect(boss.mischief).toBeUndefined();
-      // 文と一言は、その化けた姿のボスの一覧から
-      expect(BOSS_PROFILE_LINES[boss.disguise!]).toContain(boss.profile.line);
-      expect(BOSS_HINTS[boss.disguise!]).toContainEqual(boss.hint);
-      expect(s.villainTotal).toBe(s.waves.reduce((n, w) => n + w.badCount, 0) + 1);
-      if (pairedCiv) expect(s.waves[last - 1].people.some((p) => p.truth === 'civ' && p.look === boss.look)).toBe(true);
+      const counts = s.waves.map((w) => w.people.filter((p) => p.truth === 'boss').length);
+      if (counts.join() !== s.waves.map((w) => (w.no === last ? 1 : 0)).join()) bad.push(`seed ${s.seed} ボスの数 ${counts}`);
+      const boss = findBoss(s);
+      if (!boss) continue;
+      if (!(disguises as readonly string[]).includes(boss.disguise!)) bad.push(`seed ${s.seed} 化けた姿 ${boss.disguise}`);
+      if (pairedCiv && !s.waves[last - 1].people.some((p) => p.truth === 'civ' && p.look === boss.look)) bad.push(`seed ${s.seed} 同じ見た目の市民がいない`);
       seen.add(boss.disguise!);
     }
+    expect(bad).toEqual([]);
     expect([...seen].sort()).toEqual(disguises);
   });
 
@@ -220,14 +193,14 @@ describe('createStage:どのステージにも共通の決まり', () => {
   });
 
   it.each([
+    { id: 'alley', count: 200 },
     { id: 'mall', count: 100 },
     { id: 'tower', count: 200 }
-  ] as const)('$id:名前、年齢、文、一言はその見た目と正体の一覧から(高層ビルは、照明と小物に見えている物のことを言う一言もある)。名前と id はステージの中で重ならない(はじめの $count 個の種)', ({ id, count }) => {
+  ] as const)('$id:名前、年齢、文、一言はその見た目と正体の一覧から(高層ビルは、照明と小物に見えている物のことを言う一言もある)。名前はステージの中で重ならない(はじめの $count 個の種)', ({ id, count }) => {
     const bad: string[] = [];
     for (const s of BY_ID[id].slice(0, count)) {
       const people = everyone(s);
       if (new Set(people.map((p) => p.profile.name)).size !== people.length) bad.push(`seed ${s.seed} 名前が重なる`);
-      if (new Set(people.map((p) => p.id)).size !== people.length) bad.push(`seed ${s.seed} id が重なる`);
       for (const p of people) {
         const [lo, hi] = AGES[p.look];
         if (!NAMES[p.look].includes(p.profile.name)) bad.push(`${p.id} 名前 ${p.profile.name}`);

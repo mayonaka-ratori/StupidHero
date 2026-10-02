@@ -1,6 +1,5 @@
 // 粒の動きに使う計算だけ(Phaser を使わないので、テストで確かめられる)。
 //   hermite(p0, m0, p1, m1, t)   // 3次のエルミート曲線。始まりの位置と向き、終わりの位置と向きで決まる曲線の、t(0〜1)の所
-//   smooth(t)                    // 0〜1をなめらかにつなぐ(hermite(0, 0, 1, 0, t) と同じ)
 //   noise(x, y, seed)            // なめらかにつながる乱数(-1〜1)と、その坂の向き
 //   curl(x, y, t, seed)          // 渦を巻く流れの向き。煙を乗せると、うねりながら広がる
 // curl の流れは、noise の坂を90度回した向きなので、どこかに集まったり、どこかから湧いたりしない。
@@ -13,7 +12,7 @@ export function hermite(p0: number, m0: number, p1: number, m1: number, t: numbe
 }
 
 /** 0〜1をなめらかにつなぐ(両端で向きが0になるエルミート曲線) */
-export const smooth = (t: number): number => t * t * (3 - 2 * t);
+const smooth = (t: number): number => t * t * (3 - 2 * t);
 
 /** smooth の坂 */
 const smoothSlope = (t: number): number => 6 * t * (1 - t);

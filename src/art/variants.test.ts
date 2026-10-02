@@ -6,7 +6,7 @@ import { LEVELS, type PixelGrid, md } from './lib';
 import { KEY_ACCESSORY, TELL_BASE, sheetByKey } from './sheets';
 import { ART_SETS } from './sets';
 import { colorsOf, rgbOf } from './testColors';
-import { COLOR_VARIANTS, VARIANTS_PER_LOOK, hasVariants, recolorGrid, rgbInt, variantSwap } from './variants';
+import { COLOR_VARIANTS, VARIANTS_PER_LOOK, hasVariants, recolorGrid, recolorPixels, rgbInt, variantSwap, type VariantSwap } from './variants';
 import { BAG_RED, BLADE, GOLD, KNIFE_YELLOW, TATTOO, WALLET_BROWN } from './world/palette';
 import { buildItemlessPeople } from './world/people';
 import { GLITCH } from './world3/palette';
@@ -38,10 +38,6 @@ function hueSat(c: string): { hue: number; sat: number } {
   return { hue: (h * 60 + 360) % 360, sat };
 }
 
-/** 見た目 → そのステージ(ボスの化けた姿も入れる) */
-const stageOfLook = new Map<string, StageId>();
-for (const id of STAGE_IDS) for (const l of STAGES[id].looks) stageOfLook.set(l, id);
-
 const entries = Object.entries(COLOR_VARIANTS);
 
 /**
@@ -72,23 +68,19 @@ describe('服の色ちがい', () => {
     }
   });
 
-  it('表の形:色ちがいは3つずつ、置きかえの前とあとの色の数が同じ', () => {
+  it('表の形:置きかえの前とあとの色の数が同じ。shared の色は置きかえる色の中にある', () => {
+    // 色ちがいが3つずつなのは、表の型(to は3つの組)で決まる
     for (const [look, v] of entries) {
-      for (const s of v.swaps) {
-        expect(s.to.length, look).toBe(VARIANTS_PER_LOOK - 1);
-        for (const t of s.to) expect(t.length, look).toBe(s.from.length);
-      }
+      for (const s of v.swaps) for (const t of s.to) expect(t.length, look).toBe(s.from.length);
       for (const c of v.shared ?? []) expect(v.swaps.some((s) => s.from.includes(c)), `${look} ${c}`).toBe(true);
     }
   });
 
   it('色ちがい0と、表にない番号とシートは、塗り替えない(いまの絵のまま)', () => {
-    for (const [, v] of entries) for (const key of v.sheets) {
-      expect(variantSwap(key, 0)).toBeNull();
-      expect(variantSwap(key, undefined)).toBeNull();
-      expect(variantSwap(key, VARIANTS_PER_LOOK)).toBeNull();
-      expect(hasVariants(key)).toBe(true);
-    }
+    // 番号の確かめはシートによらないので、1枚で見る
+    const key = entries[0][1].sheets[0];
+    for (const n of [0, undefined, VARIANTS_PER_LOOK]) expect(variantSwap(key, n), `${key} ${n}`).toBeNull();
+    expect(variantSwap(key, 1), key).not.toBeNull();
     for (const key of ['hero', 'fp_mohawk', 'fp_gang', 'fp_alien', 'boss', 'prop_car']) {
       expect(hasVariants(key), key).toBe(false);
       expect(variantSwap(key, 2), key).toBeNull();
@@ -139,39 +131,34 @@ describe('服の色ちがい', () => {
     }
   });
 
-  it('ステージ2の服は、小物の6色と金に見えない色(あざやかでない色か、青)だけ(こげ茶のいちばん暗い色まではよい)', () => {
-    for (const look of STAGES.garage.looks) for (const s of COLOR_VARIANTS[look].swaps) for (const t of s.to) for (const c of t) {
-      const { hue, sat } = hueSat(c);
-      expect(sat <= 0.55 || (hue >= 215 && hue <= 255), `${look} ${c}`).toBe(true);
+  it('ステージ2〜4の服の新しい色は、そのステージの手がかりの色に見えない', () => {
+    const rules: { stage: StageId; rule: string; ok: (hue: number, sat: number) => boolean }[] = [
+      // 小物の6色と金に見えない色(あざやかでない色か、青)だけ(こげ茶のいちばん暗い色まではよい)
+      { stage: 'garage', rule: '小物の6色と金に見える', ok: (hue, sat) => sat <= 0.55 || (hue >= 215 && hue <= 255) },
+      // くずれの黄緑に見えない(黄緑から黄の色あいのあざやかな色を使わない)
+      { stage: 'mall', rule: 'くずれの黄緑に見える', ok: (hue, sat) => !(sat > 0.3 && hue >= 50 && hue <= 150) },
+      // もれの紫に見えない(紫から赤紫の色あいのあざやかな色を使わない)
+      { stage: 'tower', rule: 'もれの紫に見える', ok: (hue, sat) => !(sat > 0.3 && hue >= 255 && hue <= 340) }
+    ];
+    const bad: string[] = [];
+    for (const { stage, rule, ok } of rules) {
+      for (const look of STAGES[stage].looks) for (const s of COLOR_VARIANTS[look].swaps) for (const t of s.to) for (const c of t) {
+        const { hue, sat } = hueSat(c);
+        if (!ok(hue, sat)) bad.push(`${stage} ${look} ${c}:${rule}`);
+      }
     }
+    expect(bad).toEqual([]);
   });
 
-  it('ステージ3の服は、くずれの黄緑に見えない(黄緑から黄の色あいのあざやかな色を使わない)', () => {
-    for (const look of STAGES.mall.looks) for (const s of COLOR_VARIANTS[look].swaps) for (const t of s.to) for (const c of t) {
-      const { hue, sat } = hueSat(c);
-      expect(sat > 0.3 && hue >= 50 && hue <= 150, `${look} ${c}`).toBe(false);
-    }
-  });
-
-  it('ステージ4の服は、もれの紫に見えない(紫から赤紫の色あいのあざやかな色を使わない)', () => {
-    for (const look of STAGES.tower.looks) for (const s of COLOR_VARIANTS[look].swaps) for (const t of s.to) for (const c of t) {
-      const { hue, sat } = hueSat(c);
-      expect(sat > 0.3 && hue >= 255 && hue <= 340, `${look} ${c}`).toBe(false);
-    }
-  });
-
-  it('手がかりの出し分けの絵も元の絵と同じ色ちがいになり、出し分けの小物だけの色は置きかえない', () => {
-    // 出し分けの絵だけいまの色のままだと、色でワルが分かってしまう
+  it('手がかりの出し分けの絵も塗り替え、出し分けの小物だけの色は置きかえない', () => {
+    // 出し分けの絵だけいまの色のままだと、色でワルが分かってしまう。
+    // 出し分けの絵は元の絵と同じ表を使う(variants.ts の lookOfSheet)。置きかえる前の色は色ちがい1〜3で同じなので、1つで見る
     for (const [tellKey, base] of Object.entries(TELL_BASE)) {
-      expect(hasVariants(tellKey), tellKey).toBe(true);
       const baseColors = colorsOf(SHEETS_BUILT[base].flat());
       const own = [...colorsOf(SHEETS_BUILT[tellKey].flat())].filter((c) => !baseColors.has(c));
-      for (const variant of variants) {
-        const swap = variantSwap(tellKey, variant)!;
-        expect(swap, `${tellKey} ${variant}`).not.toBeNull();
-        expect(swap.map, `${tellKey} ${variant}`).toEqual(variantSwap(base, variant)!.map);
-        for (const c of own) expect(swap.map.has(rgbInt(c)), `${tellKey} ${c}`).toBe(false);
-      }
+      const swap = variantSwap(tellKey, 1);
+      expect(swap, tellKey).not.toBeNull();
+      for (const c of own) expect(swap!.map.has(rgbInt(c)), `${tellKey} ${c}`).toBe(false);
     }
   });
 
@@ -219,37 +206,77 @@ describe('服の色ちがい', () => {
     expect(bad).toEqual([]);
   });
 
-  describe.each(entries)('%s', (_look, v) => {
-    it.each(variants)('色ちがい%i:服の色のドットだけが表の通りに変わり、1枚15色まで', (variant) => {
-      const shared = new Set(v.shared ?? []);
-      for (const key of v.sheets) {
+  it('色ちがいのあとも1枚15色まで(手がかりの出し分けの絵も)', () => {
+    const over: string[] = [];
+    for (const [look, v] of entries) {
+      const keys = [...v.sheets, ...Object.keys(TELL_BASE).filter((k) => v.sheets.includes(TELL_BASE[k]))];
+      for (const variant of variants) for (const key of keys) {
         const swap = variantSwap(key, variant)!;
         const rows = SHEETS_BUILT[key];
-        const def = sheetByKey(key);
-        const out = rows.map((frames) => frames.map((g) => recolorGrid(g, swap)));
-        expect(colorsOf(out.flat()).size, key).toBeLessThanOrEqual(15);
-        let changed = 0, keptShared = 0;
-        rows.forEach((frames, r) => frames.forEach((g, i) => {
-          const o = out[r][i];
-          expect([o.w, o.h]).toEqual([def.frameW, def.frameH]);
-          for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-            const a = g.cells[y][x], b = o.cells[y][x];
-            if (a === b) {
-              // 置きかえる色なのに残ってよいのは shared の色だけ(色ちがいで同じ色にしたときをのぞく)
-              if (a && swap.map.has(rgbInt(a)) && swap.map.get(rgbInt(a)) !== rgbInt(a)) {
-                expect(shared.has(a), `${key} 行${r} (${x},${y}) ${a}`).toBe(true);
-                keptShared++;
-              }
-              continue;
-            }
-            expect(a, `${key} 行${r} (${x},${y})`).not.toBeNull();
-            expect(swap.map.get(rgbInt(a!)), `${key} 行${r} (${x},${y}) ${a}`).toBe(rgbInt(b!));
-            changed++;
-          }
-        }));
-        expect(changed, key).toBeGreaterThan(0);
-        if (shared.size === 0) expect(keptShared, key).toBe(0);
+        let n: number;
+        if (swap.shared.size > 0) {
+          // shared の色は、となりの色やかたまりの大きさで残ることがあるので、ドットを塗り替えて数える
+          n = colorsOf(rows.flatMap((frames) => frames.map((g) => recolorGrid(g, swap)))).size;
+        } else {
+          // shared がなければ、置きかえる色はいつも全部変わる(下の recolorPixels のテストで確かめる)ので、色の組だけで数える
+          const out = new Set<number>();
+          for (const c of colorsOf(rows.flat())) out.add(swap.map.get(rgbInt(c)) ?? rgbInt(c));
+          n = out.size;
+        }
+        if (n > 15) over.push(`${look} ${key} 色ちがい${variant}:${n}色`);
       }
-    });
+    }
+    expect(over).toEqual([]);
+  });
+});
+
+describe('ドットの塗り替え(recolorPixels)', () => {
+  // 小さな絵で決まりを確かめる。a は服の色、s と t は shared の色(靴の影などにも使う色)、x は表にない色、. は透明。
+  // 大文字は塗り替えたあとの色(A、S、T)
+  const CODE: Record<string, number> = { '.': -1, a: 1, s: 2, t: 4, x: 3, A: 10, S: 20, T: 40 };
+  const SWAP: VariantSwap = { map: new Map([[1, 10], [2, 20], [4, 40]]), shared: new Set([2, 4]) };
+  const toPx = (rows: string[]): Int32Array => Int32Array.from(rows.join('').split('').map((c) => CODE[c]));
+  // 16×8 の絵。コマは 8×4 で、横に2つ、縦に2つ
+  const SHEET = [
+    'aas.....' + 'tsa.....',
+    '....ss..' + '........',
+    'x.......' + '....ssss',
+    '........' + 'a...ssss',
+    'ssss....' + 's...ssss',
+    'ssss...a' + 's...ssss',
+    'ssss....' + '........',
+    'ssss....' + '........'
+  ];
+
+  it('shared の色は、服のドットにとなり合うかたまりと16ドット以上のかたまりだけ変わり、コマの境目をまたいでつながらない', () => {
+    // 左上のコマ:服にとなり合う s は変わり、はなれた2ドットの s は残る。表にない x は変わらない。
+    // 右上のコマ:t は s をはさんで服につながるので、s と t の両方が変わる。
+    // 左下のコマ:16ドットの s のかたまりは、服にとなり合わなくても変わる。
+    // 右下のコマ:左のコマの a と上のコマの a のすぐとなりの s も、上のコマの s とつながると16ドットになる s も、コマが違うので残る
+    const out = recolorPixels(toPx(SHEET), 16, 8, 8, 4, SWAP);
+    expect(Array.from(out)).toEqual(Array.from(toPx([
+      'AAS.....' + 'TSA.....',
+      '....ss..' + '........',
+      'x.......' + '....ssss',
+      '........' + 'A...ssss',
+      'SSSS....' + 's...ssss',
+      'SSSS...A' + 's...ssss',
+      'SSSS....' + '........',
+      'SSSS....' + '........'
+    ])));
+  });
+
+  it('1枚のコマとして見れば、コマの境目で残っていた s もつながって変わる(上のテストで残ったのはコマの境目のため)', () => {
+    const out = recolorPixels(toPx(SHEET), 16, 8, 16, 8, SWAP);
+    expect(Array.from(out)).toEqual(Array.from(toPx([
+      'AAS.....' + 'TSA.....',
+      '....ss..' + '........',
+      'x.......' + '....SSSS',
+      '........' + 'A...SSSS',
+      'SSSS....' + 'S...SSSS',
+      'SSSS...A' + 'S...SSSS',
+      'SSSS....' + '........',
+      'SSSS....' + '........'
+    ])));
   });
 });

@@ -218,8 +218,12 @@ export function tellSheetKeys(): { base: string; key: string; look: Look; truth:
   return out;
 }
 
+/** 足した絵のキー → 元の絵のキー(baseSheetKey が使う。TELLS と BOSS_ITEMS は変わらないので、初めて使うときに1回だけ作る) */
+let baseOfTellKey: Map<string, string> | null = null;
+
 /** 手がかりの絵のキーから、元の絵のキーを取り出す(出し分けのない絵はそのまま) */
 export function baseSheetKey(key: string): string {
   const k = key.split('#')[0];
-  return tellSheetKeys().find((x) => x.key === k)?.base ?? k;
+  baseOfTellKey ??= new Map(tellSheetKeys().map((x) => [x.key, x.base]));
+  return baseOfTellKey.get(k) ?? k;
 }

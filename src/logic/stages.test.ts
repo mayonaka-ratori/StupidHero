@@ -1,66 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { IMAGES, sheetByKey } from '../art/sheets';
-import { ATTACKS, ATTACK_KINDS, BIG_PROPS, BOSS, BOSS4, LEAK, LIFT, MALL_PROP_SIZE, PROP_COST, PSY, TOWER_WAVES } from './rules';
-import {
-  FREE_STAGE_IDS, MALL_SHEETS, STAGES, STAGE_IDS, bgForWave, isStageId, propsForWave, rushAfter, sheetKeyFor, stageTexts, unlockBannerText,
-  type StageDef
-} from './stages';
-import { TITLES } from './titles';
+import { ATTACKS, ATTACK_KINDS, BOSS4, PROP_COST, PSY } from './rules';
+import { MALL_SHEETS, STAGES, STAGE_IDS, bgForWave, propsForWave, rushAfter, sheetKeyFor, type StageDef } from './stages';
 
-// ボスを市民に仕分けたときの額(bossRampageCost)は stats.test.ts でまとめて確かめる
+// ボスを市民に仕分けたときの額(bossRampageCost)は stats.test.ts でまとめて確かめる。
+// 開く順は records.test.ts、地下駐車場と高層ビルのボス戦の動きは boss.test.ts と bossChoice.test.ts、
+// 波の人数と時間とワルの数は stage.test.ts と tower.test.ts、1つのステージだけで取れる称号は titleCollect.test.ts の
+// 「1つの場所だけで取れる称号」で確かめる。開いていないときの文(lockedText)と、モールの母艦の1秒¥150万のような
+// 表に書いただけの文と数字は、表を書き写すだけになるので確かめない
 
 describe('ステージの定義', () => {
-  it('番号、名前、ボス戦の数字、開く順。ステージ2は曲もボスの絵も別', () => {
-    expect(STAGE_IDS).toEqual(['alley', 'garage', 'mall', 'tower']);
-    expect(STAGE_IDS.map((id) => [STAGES[id].no, STAGES[id].name, STAGES[id].shortName])).toEqual([
-      [1, '路地裏', '路地裏'], [2, '地下駐車場', '地下駐車場'], [3, 'ショッピングモール', 'モール'], [4, '高層ビル', 'ビル']
-    ]);
-    expect(STAGES.garage.bgm.street).not.toBe(STAGES.alley.bgm.street);
-    expect(STAGES.garage.bgm.boss).not.toBe(STAGES.alley.bgm.boss);
-    expect(STAGES.garage.bossSheet).not.toBe(STAGES.alley.bossSheet);
-    expect(STAGES.garage.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_000_000, carHoldSec: 1.3, carMinSec: 1.5 });
-    expect(STAGES.garage.unlockAfter).toBe('alley');
-    // 仕組みとラッシュ
-    expect(STAGE_IDS.map((id) => [STAGES[id].mechanic, STAGES[id].rush])).toEqual([
-      ['none', null], ['gang', null], ['ufo', { kind: 'sale', afterWave: 2 }], ['psychic', { kind: 'elevator', afterWave: 3 }]
-    ]);
-    // ステージ1〜3は、どの波も同じ背景と物。高層ビルは波ごとに4つの階
-    for (const id of STAGE_IDS.filter((i) => i !== 'tower')) expect(STAGES[id].floors).toBeNull();
-    expect(STAGES.tower.floors).toHaveLength(4);
-  });
-
-  it('ステージ3:地下駐車場のボスを倒すと開く。見た目と物、母艦は1秒¥150万、倒すと噴水が壊れる', () => {
-    const d = STAGES.mall;
-    expect(d.unlockAfter).toBe('garage');
-    expect(d.lockedText).toBe('地下駐車場をクリアすると遊べる');
-    expect(d.looks).toEqual(['mascot', 'clerk', 'dancer', 'uncle']);
-    expect(d.props).toEqual(['gacha', 'mannequin', 'showcase', 'fountain', 'escalator']);
-    expect(d.bossFight).toEqual({ carAtHpRatio: 0.5, carIdleCostPerSec: 1_500_000, carHoldSec: 1.3, carMinSec: 1.5 });
-    expect(d.bossProp).toBe('mothership');
-    expect(d.bossDefeatProp).toBe('fountain');
-    expect(PROP_COST.fountain).toBe(1_500_000);
-    expect(d.bossSheet).toBe('boss3');
-    expect(d.bg).toEqual({ far: 'bg_mall_far', wall: 'bg_mall_wall', ground: 'bg_mall_ground' });
-    expect(d.disguiseSheets).toEqual({ clerk: 'boss3_disguise_clerk', uncle: 'boss3_disguise_uncle', mascot: 'boss3_disguise_mascot' });
-    expect(TITLES.filter((t) => t.stages?.length === 1 && t.stages[0] === 'mall').map((t) => t.id)).toEqual(['ufoGuide', 'saleGuardian', 'ufoHunter']);
-    expect(stageTexts()).toContain('地下駐車場をクリアすると遊べる');
-  });
-
-  it('ステージ3の物の値段と大きさ(STAGE3の表)。噴水とエスカレーターは大きな物。UFOと母艦はふつうの攻撃では壊れない', () => {
-    expect([PROP_COST.gacha, PROP_COST.mannequin, PROP_COST.showcase, PROP_COST.fountain, PROP_COST.escalator])
-      .toEqual([50_000, 100_000, 300_000, 1_500_000, 8_000_000]);
-    expect(PROP_COST.ufo).toBe(3_000_000);
-    expect(MALL_PROP_SIZE.gacha).toEqual({ w: 24, h: 32 });
-    expect(MALL_PROP_SIZE.mannequin).toEqual({ w: 24, h: 56 });
-    expect(MALL_PROP_SIZE.showcase).toEqual({ w: 32, h: 32 });
-    expect(MALL_PROP_SIZE.fountain).toEqual({ w: 64, h: 40 });
-    expect(MALL_PROP_SIZE.escalator).toEqual({ w: 96, h: 64 });
-    expect(BIG_PROPS).toContain('fountain');
-    expect(BIG_PROPS).toContain('escalator');
-    expect(BIG_PROPS).not.toContain('ufo');
-    for (const k of ATTACK_KINDS) {
-      for (const p of STAGES.mall.props) expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBeGreaterThan(0);
-    }
+  it('どのステージも、結果発表の曲、ボス戦の曲、ラッシュの曲、ボスの絵がほかのステージと重ならない', () => {
+    const unique = (list: readonly (string | null)[]): boolean => {
+      const set = list.filter((v) => v !== null);
+      return new Set(set).size === set.length;
+    };
+    for (const key of ['street', 'boss', 'rush'] as const) expect(unique(STAGE_IDS.map((id) => STAGES[id].bgm[key])), key).toBe(true);
+    expect(unique(STAGE_IDS.map((id) => STAGES[id].bossSheet))).toBe(true);
   });
 
   it('絵のキーは全部 sheets.ts にある(全部のステージ)', () => {
@@ -82,16 +38,21 @@ describe('ステージの定義', () => {
     }
     // ステージ3のUFOの吸い上げる光の絵
     for (const k of Object.values(MALL_SHEETS)) expect(() => sheetByKey(k), k).not.toThrow();
-    expect(sheetKeyFor('guard', 'bad', 'garage')).toBe('guard_bad');
-    expect(sheetKeyFor('suit', 'boss')).toBe('boss_disguise_suit');
   });
 
-  it('UFO、母艦、ワゴン、高級車、ソファ、シャンデリアはふつうの攻撃では壊れない', () => {
+  it('ふつうの攻撃で壊れる物と壊れない物。モールの物はどの技でも壊れる。仕掛けの物とソファは壊れない。ピアノはめったに壊れない', () => {
+    // 高層ビルの壊れる物(ソファとピアノのほか)は、どの技でもピアノより壊れやすい
+    const towerProps = [...new Set(STAGES.tower.floors!.flatMap((f) => f.props))].filter((p) => p !== 'sofa' && p !== 'piano');
     for (const k of ATTACK_KINDS) {
-      for (const p of ['ufo', 'mothership', 'van', 'bosscar', 'sofa', 'chandelier'] as const) {
-        expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBe(0);
-      }
+      const chance = ATTACKS[k].propBreakChance;
+      for (const p of STAGES.mall.props) expect(chance[p], `${k} ${p}`).toBeGreaterThan(0);
+      // UFO、母艦、ワゴン、高級車、シャンデリアは仕掛けにだけ使う。ソファは念力で運ばれた物を受け止める
+      for (const p of ['ufo', 'mothership', 'van', 'bosscar', 'sofa', 'chandelier'] as const) expect(chance[p], `${k} ${p}`).toBe(0);
+      if (k !== 'special') expect(chance.piano, k).toBeLessThanOrEqual(0.1);
+      for (const p of towerProps) expect(chance[p], `${k} ${p}`).toBeGreaterThan(chance.piano);
     }
+    // ボス戦でシャンデリアが落ちたときの額は、物の値段の表と同じ
+    expect(PROP_COST.chandelier).toBe(BOSS4.chandelierCost);
   });
 });
 
@@ -124,80 +85,13 @@ describe('波ごとの舞台とラッシュ', () => {
     expect(rushAfter(tower, 3, 'elevator')).toBe(true);
     expect(rushAfter(tower, 3, 'sale')).toBe(false);
   });
-});
 
-describe('ステージ4(高層ビル)の定義', () => {
-  const d = STAGES.tower;
-
-  // 番号、名前、仕組み、ラッシュの種類、ステージを選ぶ画面に入ることは「ステージの定義」で確かめる
-  it('ラッシュの波、開く順、ボスと絵と物。フリープレイには入れない', () => {
-    expect(rushAfter(d, 3, 'elevator')).toBe(true);
-    expect(rushAfter(d, 2)).toBe(false);
-    expect(d.unlockAfter).toBe('mall');
-    expect(d.lockedText).toBe('モールをクリアすると遊べる');
-    expect(FREE_STAGE_IDS).not.toContain('tower');
-    expect(isStageId('tower')).toBe(true);
-    expect(d.waves).toBe(TOWER_WAVES);
-    expect(d.bossSheet).toBe('boss4');
-    expect(d.bossProp).toBe('chandelier');
-    expect(d.bossDefeatProp).toBe('champagne');
-    expect(d.disguises).toEqual(['lady', 'magician', 'waiter']);
-    expect(d.disguiseSheets).toEqual({ lady: 'tw_boss_lady', magician: 'tw_boss_magician', waiter: 'tw_boss_waiter' });
-    for (const look of d.disguises) expect(sheetKeyFor(look, 'boss', 'tower')).toBe(d.disguiseSheets[look]);
-    for (const look of d.looks) {
-      expect(sheetKeyFor(look, 'civ', 'tower')).toBe(`tw_${look}`);
-      expect(sheetKeyFor(look, 'bad', 'tower')).toBe(`tw_${look}`);
-    }
-  });
-
-  it('波ごとの背景と物(1階、18階、35階、最上階)。ソファはどの階にもある', () => {
-    expect(d.floors).toHaveLength(4);
-    expect([1, 2, 3, 4].map((n) => bgForWave(d, n as 1 | 2 | 3 | 4).far)).toEqual(['bg_tower1_far', 'bg_tower2_far', 'bg_tower3_far', 'bg_tower4_far']);
-    for (const n of [1, 2, 3] as const) {
-      expect(bgForWave(d, n).wall).toBe('bg_tower_wall');
-      expect(bgForWave(d, n).ground).toBe('bg_tower_ground');
-    }
-    expect(bgForWave(d, 4)).toEqual({ far: 'bg_tower4_far', wall: 'bg_party_wall', ground: 'bg_party_ground' });
-    expect(d.bg).toEqual(bgForWave(d, 1));
-    expect([1, 2, 3, 4].map((n) => propsForWave(d, n as 1 | 2 | 3 | 4))).toEqual([
-      ['sofa', 'plant', 'flowers'], ['sofa', 'plant', 'copier'], ['sofa', 'tank', 'wine'], ['sofa', 'champagne', 'piano']
-    ]);
-  });
-
-  it('物の値段と大きさ(STAGE4「壊れる物」)。ソファは壊れない、ピアノはめったに壊れない、水槽とピアノは大きな物', () => {
-    expect([PROP_COST.sofa, PROP_COST.plant, PROP_COST.flowers, PROP_COST.copier, PROP_COST.tank, PROP_COST.wine, PROP_COST.champagne, PROP_COST.piano])
-      .toEqual([0, 50_000, 200_000, 800_000, 3_000_000, 5_000_000, 10_000_000, 30_000_000]);
-    expect(PROP_COST.chandelier).toBe(BOSS4.chandelierCost);
-    expect(BIG_PROPS).toContain('tank');
-    expect(BIG_PROPS).toContain('piano');
-    expect(BIG_PROPS).not.toContain('sofa');
-    for (const k of ATTACK_KINDS) {
-      if (k !== 'special') expect(ATTACKS[k].propBreakChance.piano).toBeLessThanOrEqual(0.1);
-      for (const p of ['plant', 'flowers', 'copier', 'tank', 'wine', 'champagne'] as const) {
-        expect(ATTACKS[k].propBreakChance[p], `${k} ${p}`).toBeGreaterThan(ATTACKS[k].propBreakChance.piano);
-      }
-    }
-  });
-
-  it('波、もれ、念力、エレベーター、ボス戦の数字', () => {
-    expect(TOWER_WAVES.map((w) => [w.people, w.seconds, w.villains, w.boss, w.decoys ?? [0, 0]]))
-      .toEqual([[4, 26, [1, 2], false, [0, 0]], [5, 24, [2, 3], false, [1, 2]], [6, 26, [2, 3], false, [1, 2]], [6, 30, [2, 2], true, [1, 2]]]);
-    expect(TOWER_WAVES[0].practiceLeak).toBe(true);
-    expect(LEAK.bothChance).toBe(0.5);
-    expect([PSY.raiseSec, PSY.liftSec, PSY.carrySec, PSY.dropSec, PSY.victimDistance, PSY.dropWindowPx]).toEqual([0.6, 0.8, 3, 0.4, 90, 20]);
-    expect(PSY.cushionProp).toBe('sofa');
-    expect(PSY.extraPropChance).toBe(0.7);
-    expect([LIFT.people, LIFT.villains, LIFT.doorSec, LIFT.stepInSec, LIFT.markSec, LIFT.actSec, LIFT.closeSec, LIFT.slowScale])
-      .toEqual([6, [2, 3], 0.3, 0.5, 1, 0.6, 0.5, 1.5]);
-    expect([BOSS.hpTaps, BOSS4.choiceAtHpRatio, BOSS4.choiceSec, BOSS4.chandelierCost, BOSS.idleCostPerSec])
-      .toEqual([40, 0.5, 3, 30_000_000, 500_000]);
-    // 念力の選択は、女ボスが車に乗るのと同じ仕組みで知らせる(戻ってから倒れるまで最短1.5秒)
-    expect(d.bossFight).toEqual({ carAtHpRatio: 0.5, carMinSec: 1.5 });
-  });
-
-  it('開いたときの帯は短い名前(STAGE4「ステージを選ぶ画面」)', () => {
-    expect(unlockBannerText('garage')).toBe('地下駐車場が遊べる!');
-    expect(unlockBannerText('mall')).toBe('モールが遊べる!');
-    expect(unlockBannerText('tower')).toBe('ビルが遊べる!');
+  it('高層ビルは波ごとに階の背景と物が変わり、波1は bg と props と同じ。どの階にもソファがある(念力で運ばれた物を受け止める)', () => {
+    const d = STAGES.tower;
+    expect(d.floors).toHaveLength(d.waves.length);
+    expect(bgForWave(d, 1)).toEqual(d.bg);
+    expect(propsForWave(d, 1)).toEqual(d.props);
+    expect(new Set(d.floors!.map((f) => f.bg.far)).size).toBe(d.floors!.length);
+    for (const [i, f] of d.floors!.entries()) expect(f.props, `波${i + 1}`).toContain(PSY.cushionProp);
   });
 });

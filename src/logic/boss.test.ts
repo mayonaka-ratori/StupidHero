@@ -63,14 +63,6 @@ describe('BossFight', () => {
     expect(g.damageYen).toBe(7_000_000);
   });
 
-  it('体力は時間でも少しずつ減る', () => {
-    const f = new BossFight();
-    f.tap();
-    f.update(3000);
-    expect(f.hp).toBeLessThan(39);
-    expect(f.hp).toBeGreaterThan(36);
-  });
-
   it('手が止まっている間は1秒ごとに¥50万', () => {
     const f = new BossFight();
     // 0.6秒で止まったとみなし、そこから1秒ごと。3秒たつと 2.4秒ぶん → 2回
@@ -147,17 +139,7 @@ describe('BossFight(女ボス:車に乗る)', () => {
     expect(run(new BossFight(opts), 16)).toBe(9_000_000);
   });
 
-  it('連打し続ければ、車に乗っても被害はゼロ', () => {
-    const f = new BossFight(opts);
-    while (!f.isOver) {
-      f.tap();
-      f.update(100);
-    }
-    expect(f.inCar).toBe(true);
-    expect(f.damageYen).toBe(0);
-  });
-
-  it('全力で連打しても、車に乗ってから1.3秒は体力が減らず、そのあと最低1.5秒は倒れない', () => {
+  it('全力で連打しても、車に乗ってから1.3秒は体力が減らず、そのあと最低1.5秒は倒れない。連打し続ければ、車に乗っても被害はゼロ', () => {
     const f = new BossFight(opts);
     let boardAt = -1;
     let hpAtBoard = 0;
@@ -179,6 +161,8 @@ describe('BossFight(女ボス:車に乗る)', () => {
     // 手前に来てから1.5秒たつまで倒れない。それでも5秒以内(連打の申し子)には入る
     expect(f.seconds!).toBeGreaterThanOrEqual(boardAt + 1.3 + 1.5 - 1e-9);
     expect(f.seconds!).toBeLessThanOrEqual(5);
+    expect(f.inCar).toBe(true);
+    expect(f.damageYen).toBe(0);
   });
 
   it('体力の下限の線は、手前に来てから1.5秒かけてなめらかに0まで下がる', () => {

@@ -1,5 +1,8 @@
 // 段階を順に進む出来事と、その順番待ち(timedCall.ts)の共通の決まり。
 // UFO(ufo.ts)と念力(psychic.ts)の両方で同じように動くことを確かめる。念力だけの決まりは psychic.test.ts にある。
+// 段階の並びと秒数、行けが効く段階、長さの変え方は、UFOと念力の両方で確かめる。
+// 大きく時間が飛んだときと順番待ちは、どちらも同じ仕組み(TimedCall と CallQueue)なので、UFOだけで確かめる
+// (念力の順番待ちは psychic.test.ts の「念力を通しで数える」でも通る)。
 
 import { describe, expect, it } from 'vitest';
 import { PsyCall, PsyQueue } from './psychic';
@@ -56,7 +59,7 @@ describe.each([
     call: (id: string): Call => new UfoCall(id),
     queue: ufoQueue,
     steps: [['signal', 0.8], ['descend', 1], ['beam', 3], ['leave', 1]] as const,
-    goPhase: 'beam', goEnd: 'downed', timeoutEnd: 'abducted'
+    goPhase: 'beam', goEnd: 'downed', timeoutEnd: 'abducted', shared: true
   },
   {
     // 手を出す0.6秒、浮く0.8秒、運ぶ3秒、落ちる0.4秒
@@ -64,9 +67,9 @@ describe.each([
     call: (id: string): Call => new PsyCall(id),
     queue: psyQueue,
     steps: [['raise', 0.6], ['lift', 0.8], ['carry', 3], ['fall', 0.4]] as const,
-    goPhase: 'carry', goEnd: 'downed', timeoutEnd: 'hit'
+    goPhase: 'carry', goEnd: 'downed', timeoutEnd: 'hit', shared: false
   }
-])('$name の段階の進み方と順番待ち', ({ call, queue, steps, goPhase, goEnd, timeoutEnd }) => {
+])('$name の段階の進み方と順番待ち', ({ call, queue, steps, goPhase, goEnd, timeoutEnd, shared }) => {
   const phases = steps.map(([p]) => p as string);
   const totalMs = steps.reduce((n, [, sec]) => n + sec * 1000, 0);
   /** goPhase に入るまでの時間(ミリ秒) */
@@ -94,10 +97,6 @@ describe.each([
     expect(c.update(1000)).toEqual([]);
   });
 
-  it('大きく時間が飛んでも、入った段階を順に返す', () => {
-    expect(call('x').update(10_000)).toEqual([...phases.slice(1), timeoutEnd]);
-  });
-
   it('行けが効くのは決まった段階の間だけ。効いたら終わり、そのあとは何も起きない', () => {
     const c = call('x');
     for (const p of phases.slice(0, phases.indexOf(goPhase))) {
@@ -111,6 +110,23 @@ describe.each([
     expect(c.isOver).toBe(true);
     expect(c.go()).toBe(false);
     expect(c.update(5000)).toEqual([]);
+  });
+
+  it('フリープレイのゆっくりモード:行けが効く段階の長さを順番待ちに渡して変えられる', () => {
+    const q = queue(true);
+    const after = phases[phases.indexOf(goPhase) + 1];
+    q.add('a');
+    q.update(0);
+    expect(q.update(goStartMs).map((e) => e.phase)).toEqual(phases.slice(1, phases.indexOf(goPhase) + 1));
+    expect(q.update(SLOW_SEC * 1000 - 100)).toEqual([]);
+    expect(q.update(200).map((e) => e.phase)).toEqual([after]);
+  });
+
+  // ここから下は、UFOと念力で同じ仕組みなのでUFOだけで確かめる
+  if (!shared) return;
+
+  it('大きく時間が飛んでも、入った段階を順に返す', () => {
+    expect(call('x').update(10_000)).toEqual([...phases.slice(1), timeoutEnd]);
   });
 
   it('1回ずつ。同じ人は1回だけ並び、前の出来事が終わるまで次の人は待つ。余った時間で次が始まる', () => {
@@ -149,15 +165,5 @@ describe.each([
     expect(q.update(16)).toEqual([{ id: 'b', phase: phases[0] }]);
     q.update(100_000);
     expect(q.idle).toBe(true);
-  });
-
-  it('フリープレイのゆっくりモード:行けが効く段階の長さを順番待ちに渡して変えられる', () => {
-    const q = queue(true);
-    const after = phases[phases.indexOf(goPhase) + 1];
-    q.add('a');
-    q.update(0);
-    expect(q.update(goStartMs).map((e) => e.phase)).toEqual(phases.slice(1, phases.indexOf(goPhase) + 1));
-    expect(q.update(SLOW_SEC * 1000 - 100)).toEqual([]);
-    expect(q.update(200).map((e) => e.phase)).toEqual([after]);
   });
 });
