@@ -23,6 +23,7 @@
 | `tools/` | ブラウザでゲームを動かして確かめるスクリプト |
 | `public/` | そのまま公開するファイル。共有用の画像`og.png`と、差し替える絵の置き場`art/` |
 | `.github/workflows/` | pushのたびに動くテスト(`test.yml`)と、公開(`pages.yml`) |
+| `.claude/` | Claude Codeの設定。`launch.json`は開発用のサーバーの起動、`settings.json`の`claudeMdExcludes`は、このリポジトリでは使わない全体の執筆の作法(`~/.claude/rules/writing.md`。`.md`を読むと読みこまれる)を外す。ここの`.md`は作品の本文ではないため |
 
 絵や画面の向きを決めるときに作った見本(`mocks/`)は、決まったあとに消しました。見たいときは、gitの履歴の`5180bdd`にあります。
 
