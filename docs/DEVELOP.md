@@ -54,6 +54,7 @@
 | `src/logic/records.ts`の`needsLesson`、`markLessonSeen` | 教えたかを記録に残す(`lessonSeen`) |
 | `src/scenes/street/lesson.ts` | 止める画面(`LessonPause`)。シーンの時計、動き、アニメの速さを0にして、相手とカットインと押すボタンのほかを網目で暗くする |
 | `src/scenes/street/lessonLayout.ts` | 暗くする所の四角の計算(Phaserを使わない。`lessonLayout.test.ts`で確かめる) |
+| `src/ui/fx.ts`の`holdScene`、`releaseScene`、`isHeld`、`fxNow`、`setSceneSpeed` | 押すまで止めておく仕組み。ヒットストップと重なっても止めを切らず、終わったらふだんの速さ(早送りなら2)に戻す。止めている間は、画面の端の点滅や揺れ、飛び出す数字も止まる |
 | `src/scenes/Street.ts`の`dueLesson`、`lessonPressed`、`lessonHole` | マークが出て0.3秒後に止める、押したら戻して記録に残す、明るく残す所を決める |
 
 ## 場面の流れ

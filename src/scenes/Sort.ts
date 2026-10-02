@@ -8,7 +8,9 @@
 // 読むものはぜんぶ下の窓にまとめる:名前と年齢、プロフィール、細い線の下にオペレーターの小さな顔と一言。
 // プロフィールと一言は1文字ずつ出し、出している間は時計を止める(読む速さで不利にならないように)。
 // 止まっている間は、時間の下に「時計ストップ中」の札を出す。
-// 波の始まりには、時間の右に「◀5人ぶんの時間」の札を少しの間出す(時間が1人ずつではなく、全員で分けるものだと分かるように)。
+// 波の始まりには、時間の下に「▲5人ぶん」の札を少しの間出す(時間が1人ずつではなく、全員で分けるものだと分かるように)。
+// その間に「時計ストップ中」の札が出るときは、その下にずらす。左上の札の置き場は sort/hudLayout.ts で決める
+// (どのステージでも、上の「見た小物」や右の人の絵にかからないように、左の列に収める)。
 // 上の右:音と中断のボタン(ほかの画面と同じ位置)。その下(ステージ2だけ)に、その波で見た人の小物の色の札。
 // 人の右に「持ち物」の窓。いまの人の手がかりの場所を3倍にして見せる(src/art/clueSpots.ts。ステージ4にはない)。
 // ステージ3の宇宙人(person.glitch がある人)は、その人が出てから進んだ時計の秒数で、ときどき動きがくずれる
@@ -42,6 +44,7 @@ import { drawHand } from './sort/introDemo';
 import { RemarkRow, Typer } from './sort/remark';
 import { ClueZoom } from './sort/clueZoom';
 import { SeenStrip } from './sort/seenStrip';
+import { COL_X, EDGE_LABEL_Y, SEC_Y, STOP_TAG_TEXT, STRIP_X, STRIP_Y, SHARE_PAD, STOP_PAD, TAG_TOP, shareTagText, stopTagY } from './sort/hudLayout';
 import { TowerDesk, caneTipOf, type CaneTip } from './sort/towerDesk';
 
 const CX = 108;
@@ -59,13 +62,8 @@ const REMARK_CPS = 60;
 /** 「持ち物」の窓の左上。人(右の端は x=138 くらい)と、右の端の「▶市民」(x=199から)の間 */
 const ZOOM_X = 140;
 const ZOOM_Y = 90;
-/** 「◀5人ぶんの時間」の札の左上(時間の数字の右。上の「見た小物」と下の「時計ストップ中」の札にかからない所)と、出しておく時間 */
-const SHARE_X = 44;
-const SHARE_Y = 47;
+/** 「▲5人ぶん」の札を出しておく時間 */
 const SHARE_MS = 4000;
-/** 「見た小物」の左上(左の時間の列の右) */
-const STRIP_X = 72;
-const STRIP_Y = 21;
 
 /** 手品の糸を引く人か(手品の糸と、手品の紫の煙の紛らわしい市民) */
 const hasThread = (p: Person): boolean => leakLook(leakSpots(p)).thread;
@@ -110,6 +108,8 @@ export class SortScene extends Phaser.Scene {
   private secText!: PixelText;
   private timeBar!: TimeBar;
   private stopTag!: Phaser.GameObjects.Container;
+  /** 「▲5人ぶん」の札(出ている間だけ。消したら null) */
+  private shareTag: Phaser.GameObjects.Container | null = null;
   private nameText!: PixelText;
   private lineText!: PixelText;
   private profTyper!: Typer;
@@ -217,7 +217,7 @@ export class SortScene extends Phaser.Scene {
     // 左右の端の光(左が赤でワル、右が青で市民)
     this.glow = this.add.graphics().setDepth(Z.glow);
     const lbl = (x: number, text: string, color: number, ox: number): PixelText =>
-      new PixelText(this, x, 140, text, { size: FS.body, color, outline: true, align: 'center', lineSpacing: 1 }).setOrigin(ox, 0.5).setDepth(Z.glow + 1);
+      new PixelText(this, x, EDGE_LABEL_Y, text, { size: FS.body, color, outline: true, align: 'center', lineSpacing: 1 }).setOrigin(ox, 0.5).setDepth(Z.glow + 1);
     this.edgeLabels = [lbl(5, '◀\nワ\nル', 0xff8a80, 0), lbl(W - 5, '▶\n市\n民', 0x9ac4ff, 1)];
 
     // ステージ4:照明と机は暗くする網目より前(明るく見せる)、人より奥。手品の糸は人より前(つえの先から見えるように)。
@@ -247,8 +247,9 @@ export class SortScene extends Phaser.Scene {
     new PixelText(this, 4, 3, `STAGE${this.run.stage.def.no}`, { size: FS.body, color: UI.gold, outline: true });
     this.countText = new PixelText(this, 4, 18, '', { size: FS.body, outline: true });
     this.timeBar = new TimeBar(this, 4, 35, 40, 6);
-    this.secText = new PixelText(this, 4, 44, '', { size: FS.big, outline: true });
-    this.stopTag = this.makeStopTag(4, 63);
+    this.secText = new PixelText(this, COL_X, SEC_Y, '', { size: FS.big, outline: true });
+    this.stopTag = this.makeStopTag(COL_X, TAG_TOP);
+    this.shareTag = null;
     // 右上:音、中断(Street と Boss と同じ位置)。中断中は、人とプロフィールとヒントを隠す(止めて考えられないように)
     this.pausedLook = null;
     this.pause = new PauseControl(this, {
@@ -266,8 +267,8 @@ export class SortScene extends Phaser.Scene {
 
   /** 「時計ストップ中」の金色の札(左上が x, y) */
   private makeStopTag(x: number, y: number): Phaser.GameObjects.Container {
-    const t = new PixelText(this, 4, 3, '時計\nストップ中', { size: FS.body, color: UIX.stopText, lineSpacing: 2 });
-    const w = Math.ceil(t.width) + 8, h = Math.ceil(t.height) + 5;
+    const t = new PixelText(this, STOP_PAD.w / 2, 3, STOP_TAG_TEXT, { size: FS.body, color: UIX.stopText, lineSpacing: 2 });
+    const w = Math.ceil(t.width) + STOP_PAD.w, h = Math.ceil(t.height) + STOP_PAD.h;
     const g = new Phaser.GameObjects.Graphics(this);
     g.fillStyle(UI.black, 1).fillRect(0, 0, w, h);
     g.fillStyle(UI.gold, 1).fillRect(1, 1, w - 2, h - 2);
@@ -386,19 +387,20 @@ export class SortScene extends Phaser.Scene {
   }
 
   /**
-   * 「◀5人ぶんの時間」の札を、時間の数字の右に少しの間出す(波ごと)。初めの0.6秒は点滅させて目を引く
+   * 「▲5人ぶん」の札を、時間の数字の下に少しの間出す(波ごと)。初めの0.6秒は点滅させて目を引く
    * (光と揺れを弱くする設定では点滅させない)。仕分けの時計とは別に、シーンの時計で消す
    */
   private showShareTag(): void {
-    const t = new PixelText(this, 4, 2, `◀${this.people.length}人ぶんの時間`, { size: FS.body, color: UIX.stopText });
-    const w = Math.ceil(t.width) + 8, h = Math.ceil(t.height) + 3;
+    const t = new PixelText(this, SHARE_PAD.w / 2, 2, shareTagText(this.people.length), { size: FS.body, color: UIX.stopText });
+    const w = Math.ceil(t.width) + SHARE_PAD.w, h = Math.ceil(t.height) + SHARE_PAD.h;
     const g = new Phaser.GameObjects.Graphics(this);
     g.fillStyle(UI.black, 1).fillRect(0, 0, w, h);
     g.fillStyle(UI.gold, 1).fillRect(1, 1, w - 2, h - 2);
     g.fillStyle(0xfff0b0, 1).fillRect(2, 1, w - 4, 1);
-    const tag = this.add.container(SHARE_X, SHARE_Y, [g, t]).setDepth(1000);
+    const tag = this.add.container(COL_X, TAG_TOP, [g, t]).setDepth(1000);
+    this.shareTag = tag;
     if (!settings.reduceFx) blink(tag, 600);
-    this.time.delayedCall(SHARE_MS, () => tag.destroy());
+    this.time.delayedCall(SHARE_MS, () => { tag.destroy(); if (this.shareTag === tag) this.shareTag = null; });
   }
 
   /** 最初の1人だけ、人の上で手が左右にスワイプして見せる(何をすればいいか迷わないように) */
@@ -585,6 +587,9 @@ export class SortScene extends Phaser.Scene {
     this.desk?.update(this.time.now);
     const stopped = this.clockStopped() && this.idx < this.people.length;
     if (this.stopTag.visible !== stopped) this.stopTag.setVisible(stopped);
+    // 「▲5人ぶん」の札が出ている間は、その下にずらす
+    const tagY = stopTagY(this.shareTag !== null);
+    if (this.stopTag.y !== tagY) this.stopTag.setY(tagY);
     // 全員決めたら時計を止める(次へ行くまでの間に「時間切れ」にならないように)
     if (this.state !== 'play' || this.idx >= this.people.length) return;
     // プロフィールと一言を出している間は、時計を進めない

@@ -4,19 +4,13 @@
 //   strip.show(wave.people, idx);     // idx 番目(0始まり)の人がいまの人
 // 色が見分けにくい人のために、色ごとに模様もつける(赤は斜めのしま、緑は点、黄は横じま、水色は市松、
 // 紫は縦じま、オレンジは十字、金は星)。
+// 札の大きさと並べ方は hudLayout.ts で決める(左の列の札と重ならないことを、そこで確かめる)。
 
 import Phaser from 'phaser';
 import { UI } from '../../config';
 import type { AccessoryColorId, Person } from '../../logic';
 import { FS, PixelText, darker, lighter } from '../../ui';
-
-/** 札の大きさ(黒いふちを含む) */
-const CHIP = 12;
-/** 1行に並べる札の数と、1つぶんの幅 */
-const PER_ROW = 4;
-const SLOT_W = 34;
-/** 1行の高さ(札と、その下の番号) */
-const ROW_H = 26;
+import { CHIP, chipAt } from './hudLayout';
 
 /** 模様のドットを打つか(x, y は札の中の色の部分の中で 0〜9) */
 const PATTERN: Record<AccessoryColorId, (x: number, y: number) => boolean> = {
@@ -65,10 +59,7 @@ export class SeenStrip {
     this.title.setVisible(n > 0);
     for (let i = 0; i < n; i++) {
       const p = people[i];
-      const col = i % PER_ROW, row = Math.floor(i / PER_ROW);
-      const sx = this.x + col * SLOT_W;
-      const cy = this.y + FS.body + 3 + row * ROW_H;
-      const cx = sx + Math.floor((SLOT_W - CHIP) / 2);
+      const { x: cx, y: cy } = chipAt(this.x, this.y, i);
       const now = i === idx;
       if (p.accessory) drawChip(g, cx, cy, p.accessory.id, p.accessory.color);
       if (now) {

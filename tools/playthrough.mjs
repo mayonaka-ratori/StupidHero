@@ -13,7 +13,7 @@
 //   bossciv truth と同じだが、ボスを市民に仕分ける。ufo+bossciv のように + でつなげる
 // 結果発表で待てと行けを止めて教える場面(端末で一度だけ。src/scenes/street/lesson.ts)が出たら、撮ってから教えているボタンを押す。
 // 記録は空から始めるので、random では出ることが多い(truth では市民をワルにせず、ワルも見逃さないので出ない)。
-// 同じ種類が2回出たら NG。
+// 同じ種類が2回出たら NG(押したあとも同じ場面がまだ出ていたら、もう一度押すだけで、2回目には数えない)。
 // エラーが出たとき、結果画面まで行けなかったときは exit code 1 で終わる。
 import { activeScenes, checker, clearedRecords, lessonButton, logicalHeight, openBrowser, openPage, saveDataUrl, serverUrl, shotsDir, touchPad, waitForGame } from './lib.mjs';
 
@@ -72,6 +72,8 @@ const liftHandled = new Set();
 let reviewTapAt = 0;
 // 止めて教えた場面(待ては 'stop'、行けは 'go')
 const lessons = [];
+/** 数えた止めて教える場面の番号(LessonPause の id) */
+const lessonIds = new Set();
 let liftStops = 0, liftLog = [], choiceSeen = 0, choicePress = [], endingLines = 0, endingSeen = 0, cardVisible = null;
 while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
   const keys = await active();
@@ -152,8 +154,11 @@ while (Date.now() - t0 < (stage === 'tower' ? 600000 : 300000)) {
     // 待てと行けを止めて教えている間は、教えているボタンを押すまで動かない
     const ls = await lessonButton(page);
     if (ls) {
-      lessons.push(ls.kind);
-      await page.waitForTimeout(400); await shot(`lesson_${ls.kind}`);
+      if (!lessonIds.has(ls.id)) {
+        lessonIds.add(ls.id);
+        lessons.push(ls.kind);
+        await page.waitForTimeout(400); await shot(`lesson_${ls.kind}`);
+      }
       await tap(ls.x, ls.y); if (ls.kind === 'stop') stopTaps++; else goTaps++;
       await page.waitForTimeout(300);
       continue;
