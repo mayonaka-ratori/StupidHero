@@ -96,6 +96,19 @@ export function towerDeskFor(no: WaveNo): TowerDeskSpot {
   return TOWER_DESKS[Math.min(TOWER_DESKS.length, Math.max(1, no)) - 1];
 }
 
+/**
+ * 手品の紫の煙のかたまり(src/scenes/sort/towerDesk.ts の drawSmoke が机の倍率で描く)。
+ * dx、dy は、1つ目の小物(浮いているとき)のコマの真ん中から、かたまりの左上までのずれ(机の絵の1ドットで数える)。
+ * rows の p はふつうの紫、h は明るい紫、d は濃い紫。十字にすると火花に見えるので、横長の丸いかたまりにする。
+ * 小物の左上に2つ、右に1つ。どの階でも、机の上の小物に重ねず、2つ目の小物(最上階のキャンドルなど)の真上にも置かない
+ * (前は左の2つがキャンドルの炎の上と後ろに重なり、キャンドルの煙に見えた)
+ */
+export const SMOKE_PUFFS: readonly { dx: number; dy: number; rows: readonly string[] }[] = [
+  { dx: -8, dy: -7, rows: ['.pph.', 'phppp', 'ppppd', '.ddd.'] },
+  { dx: -4, dy: -11, rows: ['.ph', 'ppd', 'dd.'] },
+  { dx: 5, dy: 1, rows: ['pp.', 'ppd', '.dd'] }
+];
+
 /** fx_psy_lamp のコマ(src/art/world4/fx.ts の lamp)。3(切れかけの暗いほう)はシートにあるが、いまは使わない */
 export const LAMP_FRAMES = { normal: 0, leak: 1, flicker: 2, cellophane: 4 } as const;
 
