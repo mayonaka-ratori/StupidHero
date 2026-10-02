@@ -5,6 +5,7 @@
 //   desk.setLook(leakLook(leakSpots(person)), caneTip);   // 人が出た瞬間に。caneTip は手品の糸を引くつえの先(なければ省く)
 //   desk.setLook(CALM_LOOK);                              // 人がいないときと中断中
 //   desk.update(time);                                    // 毎フレーム(浮いた小物のゆれ、糸を引き直す)
+//   desk.setLampVisible(false);                           // 照明を隠す(掛け合いのお手本で、机の小物だけを見せるとき)
 // 場所の数字は src/art/towerSpots.ts。container を渡すと、その中に置く(掛け合いのお手本の小さな画面)。
 // 机は desk.scale 倍(仕分けの画面は2倍)で出し、小物、もや、小物の火花、手品の煙、風船も同じ倍率で描く。
 // 手品の糸と風船のひもは、倍率によらず画面の1ドットの線に濃い影をつけて描く。
@@ -15,7 +16,7 @@ import Phaser from 'phaser';
 import { animKey, frameIndex, sheetByKey } from '../../art/sheets';
 import { magicianCaneTips } from '../../art/world4/people';
 import {
-  CALM_LOOK, FLOAT_PX, TOWER_DESK_KEY, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS, TOWER_ITEM_SIZE, itemRestDy, towerDeskFor, type LeakLook,
+  CALM_LOOK, FLOAT_PX, SMOKE_PUFFS, TOWER_DESK_KEY, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS, TOWER_ITEM_SIZE, itemRestDy, towerDeskFor, type LeakLook,
   type TowerDeskSpot
 } from '../../art/towerSpots';
 import type { WaveNo } from '../../logic';
@@ -111,6 +112,7 @@ export class TowerDesk {
   /** 机と小物の倍率 */
   private ds: number;
   private reduce = settings.reduceFx;
+  private lampOn = true;
   private lastThread = '';
   private lastSmoke = '';
   /** 手品の糸を吊る点の高さ。つえの先がいちばん高かったときに合わせる(コマごとに上下させない) */
@@ -173,10 +175,20 @@ export class TowerDesk {
     this.apply();
   }
 
+  /**
+   * 照明(と照明の火花)を見せるか。掛け合いのお手本の4枚目で、机の小物の理由を見せる間は照明を隠す
+   * (小さな画面に2倍の照明と風船が入りきらないため)
+   */
+  setLampVisible(on: boolean): void {
+    if (this.lampOn === on) return;
+    this.lampOn = on;
+    this.apply();
+  }
+
   private apply(): void {
     const L = this.look;
-    this.lamp.setFrame(L.lampFrame);
-    this.lampSparks.forEach((s, i) => s.setVisible(i < L.lampSparks));
+    this.lamp.setFrame(L.lampFrame).setVisible(this.lampOn);
+    this.lampSparks.forEach((s, i) => s.setVisible(this.lampOn && i < L.lampSparks));
     this.haze.setVisible(L.haze);
     this.itemSpark.setVisible(L.haze);
     this.balloon.setVisible(L.balloon);
@@ -253,7 +265,7 @@ export class TowerDesk {
   }
 
   /**
-   * 手品の紫の煙。小物の左に煙のかたまりを2つ(5×4と3×3)、右に1つ(3×3)。机の倍率で描く。
+   * 手品の紫の煙。小物の左上に煙のかたまりを2つ(5×4と3×3)、右に1つ(3×3)。机の倍率で描く。
    * もれのもやのように小物を輪で包まず、火花も出さない。高さは小物に合わせる(浮いた小物のゆれについていく)
    */
   private drawSmoke(y: number): void {
@@ -264,10 +276,8 @@ export class TowerDesk {
     const u = this.ds;
     const x = this.spotX;
     const col: Record<string, number> = { h: PURPLE_HI, p: PURPLE, d: PURPLE_DARK };
-    // 十字にすると火花に見えるので、横長の丸いかたまりにする
-    this.paint(g, x - 12 * u, y - 1 * u, ['.pph.', 'phppp', 'ppppd', '.ddd.'], col);
-    this.paint(g, x - 12 * u, y - 5 * u, ['.ph', 'ppd', 'dd.'], col);
-    this.paint(g, x + 5 * u, y + 1 * u, ['pp.', 'ppd', '.dd'], col);
+    // 形と場所は SMOKE_PUFFS(2つ目の小物に重ならない場所)
+    for (const s of SMOKE_PUFFS) this.paint(g, x + s.dx * u, y + s.dy * u, s.rows, col);
   }
 
   /**

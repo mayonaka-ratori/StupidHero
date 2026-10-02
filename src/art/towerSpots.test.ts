@@ -5,7 +5,7 @@ import { leakSpots } from '../logic/tower';
 import { sheetByKey } from './sheets';
 import { FX4 } from './world4/fx';
 import {
-  CALM_LOOK, DESK_TOP_ROW, FLOAT_PX, PARTY_FOOD_FRAMES, TOWER_DESK, TOWER_DESK_H, TOWER_DESK_W, TOWER_DESKS, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS,
+  CALM_LOOK, DESK_TOP_ROW, FLOAT_PX, PARTY_FOOD_FRAMES, SMOKE_PUFFS, TOWER_DESK, TOWER_DESK_H, TOWER_DESK_W, TOWER_DESKS, TOWER_ITEM_FRAMES, TOWER_ITEM_ROWS,
   TOWER_ITEM_SIZE, TOWER_LAMP, TOWER_LAMP_H, TOWER_LAMP_W, itemRestDy, leakLook, towerDeskFor, type TowerItem
 } from './towerSpots';
 
@@ -70,6 +70,38 @@ describe('高層ビルの仕分けの画面の照明と机', () => {
       const cx = TOWER_DESK.x + dx * ds;
       const cy = TOWER_DESK.y + (itemRestDy(item) - FLOAT_PX) * ds;
       expect(cx - hazeW / 2 >= 17 && cx + hazeW / 2 <= PERSON.left && cy - hazeH / 2 >= 0, item).toBe(true);
+    }
+  });
+
+  it('手品の紫の煙は、どの階でも机の上の小物に重ならず、2つ目の小物の真上にも出ない(キャンドルの煙に見えないように)', () => {
+    // 1つ目の小物(浮いているとき)のコマの真ん中を 0 にして、机の絵の1ドットで数える
+    const smoke: [number, number][] = [];
+    for (const s of SMOKE_PUFFS) s.rows.forEach((row, j) => {
+      for (let i = 0; i < row.length; i++) if (row[i] !== '.') smoke.push([s.dx + i, s.dy + j]);
+    });
+    const half = TOWER_ITEM_SIZE / 2;
+    const pixels = (item: TowerItem, cx: number, cy: number): [number, number][] => {
+      const out: [number, number][] = [];
+      const g = grids[TOWER_ITEM_FRAMES[item]];
+      for (let y = 0; y < TOWER_ITEM_SIZE; y++) for (let x = 0; x < TOWER_ITEM_SIZE; x++) if (g.get(x, y)) out.push([cx - half + x, cy - half + y]);
+      return out;
+    };
+    for (const d of TOWER_DESKS) {
+      const [spot, other] = d.items;
+      // 浮いた小物は1ドット上下にゆれ、煙もいっしょに動く。2つ目の小物は動かない
+      for (const bob of [0, 1]) {
+        const otherCy = itemRestDy(other.item) - (itemRestDy(spot.item) - FLOAT_PX - bob);
+        const taken = new Set([...pixels(spot.item, 0, 0), ...pixels(other.item, other.dx - spot.dx, otherCy)].map(([x, y]) => `${x},${y}`));
+        for (const [x, y] of smoke) expect(taken.has(`${x},${y}`), `${spot.item}/${other.item} (${x},${y})`).toBe(false);
+        // 2つ目の小物の絵がある列には、上にも置かない
+        const xs = pixels(other.item, other.dx - spot.dx, otherCy).map(([x]) => x);
+        const left = Math.min(...xs), right = Math.max(...xs);
+        for (const [x] of smoke) expect(x < left || x > right, `${other.item} の列 ${x}`).toBe(true);
+      }
+      // 画面では、左の端の字(17ドットまで)と人の絵の間に収まる
+      const ds = TOWER_DESK.scale;
+      const cx = TOWER_DESK.x + spot.dx * ds;
+      for (const [x] of smoke) expect(cx + x * ds >= 17 && cx + (x + 1) * ds <= PERSON.left, spot.item).toBe(true);
     }
   });
 

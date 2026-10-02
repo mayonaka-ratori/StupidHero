@@ -3,7 +3,7 @@
 //   demo.show(demoKindFor(line.text));   // セリフの言葉から、何を見せるか決める(なければ隠す)
 //   demo.update(delta);                  // シーンの update から毎フレーム呼ぶ
 // ステージ4(高層ビル)の4つ(surround、psyLeak、decoy、psyCarry)は、仕分けの画面と同じ照明と机(towerDesk.ts)を小さく置いて見せる。
-// decoy は、紫でも火花が出ない紛らわしい市民(手品の紫の煙、紫の風船、紫のセロハン)を順に見せる。
+// decoy は、紫でも火花が出ない紛らわしい市民(手品の紫の煙、紫の風船、紫のセロハン)を順に見せる。照明と机は仕分けの画面と同じ2倍で、照明はセロハンのときだけ出す。
 import Phaser from 'phaser';
 import { UI } from '../../config';
 import { animKey, originFor } from '../../art/sheets';
@@ -176,7 +176,8 @@ export class IntroDemo {
     this.stampCiv.setVisible(false);
     for (const a of this.arrows) a.setVisible(kind === 'swipe');
     // 前のお手本の点滅(cluesStep)で消えたままにならないように、見える状態にもどす
-    this.caption.setText('').setVisible(true);
+    // decoy は下の字を左に寄せるので、真ん中にもどす
+    this.caption.setText('').setVisible(true).setOrigin(0.5, 0).setX(this.cx);
     const sc = this.scene;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.root.add(o); this.extras.push(o); return o; };
     const bw = this.w - 16;
@@ -263,14 +264,18 @@ export class IntroDemo {
         this.person.setTexture(key).setOrigin(...originFor(key)).setX(this.cx + 20);
         this.person.play(animKey(key, 'sortIdle'));
         if (kind === 'psyLeak') this.desk.setLook(leakLook({ light: 'leak', item: 'leak' }));
-        this.caption.setText(kind === 'surround' ? '明かりと机' :'火花が出た！');
+        this.caption.setText(kind === 'surround' ? '明かりと机' : '火花が出た！');
         break;
       }
       case 'decoy': {
-        // 同じ照明と机で、紫でも火花が出ない紛らわしい市民を順に見せる(decoyStep)。右上に「火花なし」
-        this.desk = this.makeDesk(1);
+        // 紫でも火花が出ない紛らわしい市民を順に見せる(decoyStep)。理由(めくれ、煙、風船のひも)が見えるように、
+        // 照明と机は仕分けの画面と同じ2倍で出す。2倍の照明と風船は小さな画面に入りきらないので、
+        // 照明の理由(セロハン)のときだけ照明を出し、机の小物の理由(煙、風船)のときは照明を隠す。
+        // 下の字は左に理由、右に「火花なし」(上は2倍の照明で埋まるため)
+        this.desk = this.makeDesk(1, 2);
         this.person.setX(this.cx + 20);
-        add(new PixelText(sc, this.w - 5, 5, '火花なし', { size: FS.small, color: UI.gold, outline: true }).setOrigin(1, 0));
+        this.caption.setOrigin(0, 0).setX(5);
+        add(new PixelText(sc, this.w - 5, this.h - 15, '火花なし', { size: FS.small, color: UI.gold, outline: true }).setOrigin(1, 0));
         this.decoyStep();
         break;
       }
@@ -504,13 +509,21 @@ export class IntroDemo {
     this.person.setTexture(d.key).setOrigin(...originFor(d.key));
     this.person.play(animKey(d.key, 'sortIdle'));
     this.desk.setLook(leakLook(d.spots), d.cane ? caneTipOf(this.person, 1) : null);
+    this.desk.setLampVisible(d.spots.light !== null);
     this.caption.setText(d.caption);
   }
 
-  /** 仕分けの画面と同じ照明と机を、小さな画面の左に置く。floor は小物を決める階(1は名刺とペン、2はペンとマグカップ) */
-  private makeDesk(floor: 1 | 2): TowerDesk {
+  /**
+   * 仕分けの画面と同じ照明と机を、小さな画面の左に置く。floor は小物を決める階(1は名刺とペン、2はペンとマグカップ)。
+   * scale が2のときは、仕分けの画面と同じ2倍で、照明は上の真ん中、机は左の端に置く(机の幅52ドットが人の左に入る)
+   */
+  private makeDesk(floor: 1 | 2, scale: 1 | 2 = 1): TowerDesk {
+    const big = scale === 2;
     const desk = new TowerDesk(this.scene, {
-      floor, lamp: { x: 26, y: 3 }, desk: { x: 24, y: this.feetY }, depth: 0, container: this.root
+      floor,
+      lamp: big ? { x: this.cx, y: 3, scale } : { x: 26, y: 3 },
+      desk: big ? { x: 29, y: this.feetY, scale } : { x: 24, y: this.feetY },
+      depth: 0, container: this.root
     });
     for (const o of desk.objects) (o as unknown as Phaser.GameObjects.Components.Mask).setMask(this.mask);
     desk.setLook(CALM_LOOK);
