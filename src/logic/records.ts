@@ -34,7 +34,7 @@
 //   const saved = saveResult(stage.id, stats, all.map((t) => t.id));   // 結果画面が出たときに1回だけ
 //   saved.titlesCollected / saved.titlesTotal               // 「称号5/24」
 //   saved.newTitles / saved.newHere                         // 初めて取った称号 / このステージで初めて取った称号
-//   unseenTitles() / markTitleListSeen()                    // 一覧で NEW をつける称号 / 一覧を開いたときに呼ぶ
+//   unseenTitles() / markTitleListSeen(shownIds)            // 一覧で NEW をつける称号 / 一覧を開いたときに、並べた称号を渡して呼ぶ
 //   saved.firstClear                                        // 今回ボスを初めて倒したか
 //   needsEnding('tower', stats) / markEndingSeen()          // 高層ビルの終わりの場面を出すか(saveResult の前に) / 出したときに呼ぶ
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
@@ -46,7 +46,8 @@
 //   hasAnyRecord()                                          // どれかのステージを1回でも遊んだか(初めての人はステージ選びをとばす)
 //   hasSeenRush('mall')                                     // タイムセールラッシュを見たことがあるか(説明を短くする。rushIntroFor)
 //   markRushSeen('mall')                                    // ラッシュの帯を出したときに呼ぶ
-//   needsSlowHint() / markSlowHintSeen()                    // 時間切れで「ゆっくりモードにできるよ」を出すか / 出したときに呼ぶ(そのスマホで1回だけ)
+//   needsSlowHint() / markSlowHintSeen()                    // 時間切れで「ゆっくりモードにできるよ」を出すか / 出したときと、
+//                                                           // 一時停止のメニューでゆっくりモードをオンにしたときに呼ぶ(そのスマホで1回だけ)
 //   needsLesson('stop') / markLessonSeen('stop')            // 結果発表で待て(行けは 'go')を止めて教えるか / 教えたボタンを押したときに呼ぶ
 //
 // フリープレイ:
@@ -628,9 +629,14 @@ export function unseenTitles(records: Records = loadRecords()): TitleId[] {
   return records.titles.filter((t) => !records.listSeen.includes(t));
 }
 
-/** 称号の一覧を開いたときに呼ぶ(今まで取った称号を、見たことにする)。書けなくても、その場では覚えている */
-export function markTitleListSeen(storage: RecordStorage | null = defaultStorage()): void {
-  markSeen(storage, (r) => r.titles.every((t) => r.listSeen.includes(t)), (r) => addUnique(r.listSeen, r.titles));
+/**
+ * 称号の一覧を開いたときに呼ぶ(shown に渡した、一覧に並べた称号だけを見たことにする)。
+ * ステージのカードから開いた一覧はそのステージの称号だけを並べるので、並べていない称号の NEW は残す。
+ * まだ取っていない称号は見たことにしない。書けなくても、その場では覚えている
+ */
+export function markTitleListSeen(shown: readonly TitleId[], storage: RecordStorage | null = defaultStorage()): void {
+  const seenNow = (r: Records): TitleId[] => r.titles.filter((t) => shown.includes(t));
+  markSeen(storage, (r) => seenNow(r).every((t) => r.listSeen.includes(t)), (r) => addUnique(r.listSeen, seenNow(r)));
 }
 
 /** 記録を消す(テスト用)。前の形の記録(v1)には手をつけない */

@@ -69,8 +69,11 @@ import { STAGES } from './stages';
 import type { PsyDrop } from './psychic';
 import type {
   AttackKind, FreeRule, FreeTally, FreeWorstScene, HurtCause, LiftPlan, Look, Person, PropKind, RushPlan, RushTally, SortChoice,
-  SortTally, StageId, StageStats, Truth, WorstScene
+  SortTally, StageId, StageStats, Truth, WorstCause, WorstScene
 } from './types';
+
+/** 市民に当たった場面(なぐったか巻きぞえかを worstCause に残す) */
+const CIV_SCENES: readonly WorstScene[] = ['grannyHit', 'specialOnCiv', 'civHit'];
 
 /** 組として数える人数か(2人以上)。1人だけのときは組の数に入れない */
 export const isGroup = (size: number): boolean => size >= GANG.groupSize.min;
@@ -195,6 +198,9 @@ export class StatsTracker {
   private bossFightSec: number | null = null;
   private worst: WorstScene | null = null;
   private worstAttack: AttackKind | null = null;
+  private worstCause: WorstCause | null = null;
+  /** 最後に数えた、ヒーローの攻撃が市民に当たった1回(なぐったか巻きぞえか)。reportScene が場面といっしょに残す */
+  private lastCivHit: WorstCause | null = null;
   private sortWaves = new Map<number, SortTally>();
   private rush: RushTally | null = null;
   private lift: RushTally | null = null;
@@ -291,6 +297,7 @@ export class StatsTracker {
   /** ラッシュで待てを押さず、ヒーローが殴った(宇宙人なら「セールで倒した」、市民なら「セールで殴った」) */
   rushHit(truth: 'bad' | 'civ'): void {
     countRush((this.rush ??= newRushTally()), truth, 'hit');
+    if (truth === 'civ') this.lastCivHit = 'punch';
   }
 
   /** ラッシュで待てを押して止めた(宇宙人なら「セールで逃がした」、市民なら「セールで守った」)。「待ての達人」には入れない */
@@ -343,6 +350,7 @@ export class StatsTracker {
   /** エレベーターで待てを押さず、ヒーローが殴った(ヴィランなら「エレベーターで倒した」、市民なら「エレベーターで殴った」) */
   liftHit(truth: 'bad' | 'civ'): void {
     countRush((this.lift ??= newRushTally()), truth, 'hit');
+    if (truth === 'civ') this.lastCivHit = 'punch';
   }
 
   /** エレベーターで待てを押して止めた(ヴィランなら「エレベーターで逃がした」、市民なら「エレベーターで守った」)。「待ての達人」には入れない */
@@ -372,6 +380,8 @@ export class StatsTracker {
    */
   hurtCiv(cause: HurtCause, look?: Look): void {
     this.hurt[cause]++;
+    if (cause === 'hero') this.lastCivHit = 'punch';
+    if (cause === 'collateral') this.lastCivHit = 'collateral';
     if (look === 'granny' && (cause === 'hero' || cause === 'collateral')) this.grannyHit = true;
     if (look === 'granny' && cause === 'hero') this.grannyPunched = true;
   }
@@ -561,11 +571,16 @@ export class StatsTracker {
   /**
    * 今の瞬間がどの段階の場面かを伝える。今までよりひどければ true を返すので、そのとき画面を撮る。
    * 同じ段階なら最初の1枚を残す(false)。attack はその場面を起こした技(説明の文を変えるのに使う)。
+   * 市民に当たった場面(grannyHit、specialOnCiv、civHit)では、なぐったか巻きぞえか(worstCause)も残す。
+   * cause を渡さなければ、直前に数えた1回(hurtCiv('hero') と rushHit、liftHit の市民はなぐった、
+   * hurtCiv('collateral') は巻きぞえ)にする。画面はけがを数えてすぐに reportScene を呼ぶので、写真と同じ1回になる
+   * (先に巻きぞえ、あとで直接なぐったときも、その逆も、写真に合った説明の文になる)
    */
-  reportScene(scene: WorstScene, attack: AttackKind | null = null): boolean {
+  reportScene(scene: WorstScene, attack: AttackKind | null = null, cause?: WorstCause): boolean {
     if (this.worst !== null && WORST_SCENE_RANK[scene] >= WORST_SCENE_RANK[this.worst]) return false;
     this.worst = scene;
     this.worstAttack = attack;
+    this.worstCause = CIV_SCENES.includes(scene) ? cause ?? this.lastCivHit ?? 'punch' : null;
     if (this.free) this.free.worstRule = this.free.rule;
     return true;
   }
@@ -629,6 +644,7 @@ export class StatsTracker {
       allDefeated: this.villainTotal > 0 && defeated >= this.villainTotal,
       worstScene: this.worst,
       worstAttack: this.worstAttack,
+      worstCause: this.worstCause,
       sortCorrect: sum('correct'),
       sortTotal: sum('total'),
       sortByHero: sum('byHero'),

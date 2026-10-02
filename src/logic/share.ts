@@ -8,6 +8,8 @@
 // いちばんひどい場面の見出しのうち、ステージで言い方を変えるもの(STAGE_WORST_CAPTIONS)と、
 // 「市民がさらわれた!」(ABDUCTED_CAPTION)、「市民に物が落ちた!」(DROPPED_CAPTION)はここに置く。共有カード(src/scenes/result/card.ts)が使う。
 // 見出しは共有カードの今の文に合わせて「!」を半角で書く。
+// 写真の下の説明の文 worstCaption(s) と freeWorstCaption(s) もここに置く(共有カードと結果画面が使う)。
+// 市民に当たった場面の文は、写真と同じ1回がなぐったか巻きぞえか(s.worstCause)で選ぶ。
 //
 // フリープレイ:1行目はルールと場面をつなげる(「『風船の人はワル!』でおばあちゃんに全力パンチ!」)。
 //   const s = stats.snapshot();
@@ -16,7 +18,7 @@
 //   結果画面の小さな1行:heroAccuracyText(s.free!)(「ヒーローだけなら10/27人、あなたが直して25/27人」)
 
 import { FREE_ITEM_NAME, FREE_RULES } from './freeNames';
-import type { FreeRule, FreeTally, FreeWorstScene, StageId, WorstScene } from './types';
+import type { AttackKind, FreeRule, FreeTally, FreeWorstScene, StageId, StageStats, WorstScene } from './types';
 
 const SHARE_HASHTAG = '#StupidHero';
 
@@ -87,6 +89,94 @@ export const FREE_WORST_CAPTION: Readonly<Record<FreeWorstScene, string>> = {
   waveUfo: 'UFOに手を振った!',
   closeCall: 'ギリギリセーフ!'
 };
+
+// ─── いちばんひどい場面の説明の文(写真の下と共有カードに出す) ───
+
+/** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
+const WORST_CAPTION: Record<WorstScene, string> = {
+  grannyHit: 'おばあちゃんをなぐった!',
+  specialOnCiv: '市民に必殺技!',
+  civHit: '市民をなぐった!',
+  abducted: ABDUCTED_CAPTION,
+  dropped: DROPPED_CAPTION,
+  bigPropBroken: '街がこわれた!',
+  bossDefeated: 'ボスを倒した!'
+};
+
+/** 市民に当たった場面は、技の種類で文を変える */
+const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, string>>> = {
+  grannyHit: {
+    charge: 'おばあちゃんに突撃!',
+    punch: 'おばあちゃんに全力パンチ!',
+    stomp: 'おばあちゃんを踏みつぶし!',
+    special: 'おばあちゃんに必殺技!'
+  },
+  civHit: {
+    charge: '市民に突撃!',
+    punch: '市民をなぐった!',
+    stomp: '市民を踏んだ!',
+    special: '市民に必殺技!'
+  }
+};
+
+/**
+ * 市民に当たった場面が巻きぞえだけだったときの見出し。
+ * 完全無欠のヒーローなどは巻きぞえを数えないので、「市民に必殺技!」だと称号と食いちがって見える
+ */
+const COLLATERAL_CAPTION: Partial<Record<WorstScene, string>> = {
+  grannyHit: 'おばあちゃんをまきぞえに!',
+  specialOnCiv: '市民を必殺技のまきぞえに!',
+  civHit: '市民をまきぞえに!'
+};
+
+/** 説明の文を決めるのに使う数 */
+export type CaptionStats = Pick<StageStats, 'worstScene' | 'worstAttack'>
+  & Partial<Pick<StageStats, 'worstCause' | 'stageId' | 'civHurtByHero' | 'civHurtByCollateral' | 'rush' | 'lift'>>;
+
+/**
+ * 写真の場面が巻きぞえか。ふつうは写真と同じ1回で残した worstCause(stats.reportScene)で決める。
+ * worstCause がないとき(古い形の数字)は、市民のけがが巻きぞえだけか(ヒーローが市民を直接なぐっていない)で決める。
+ * タイムセールラッシュとエレベーターラッシュで市民をなぐった場面も「市民をなぐった」の場面になるが、
+ * けがには数えないので、ラッシュの数も見る
+ */
+const shotIsCollateral = (s: CaptionStats): boolean => {
+  if (s.worstCause) return s.worstCause === 'collateral';
+  return (s.civHurtByHero ?? 0) === 0 && (s.civHurtByCollateral ?? 0) > 0
+    && (s.rush?.civsHit ?? 0) === 0 && (s.lift?.civsHit ?? 0) === 0;
+};
+
+/** いちばんひどい場面の説明の文 */
+export function worstCaption(s: CaptionStats): string {
+  if (!s.worstScene) return 'ひどいことはなかった!';
+  const collateral = shotIsCollateral(s) ? COLLATERAL_CAPTION[s.worstScene] : undefined;
+  if (collateral) return collateral;
+  const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
+  const byStage = s.stageId ? STAGE_WORST_CAPTIONS[s.stageId]?.[s.worstScene] : undefined;
+  return byAttack ?? byStage ?? WORST_CAPTION[s.worstScene];
+}
+
+/**
+ * フリープレイのいちばんひどい場面の説明の文。ステージの場面(市民を殴ったなど)があればその文、
+ * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の文
+ */
+export function freeWorstCaption(s: CaptionStats & Pick<StageStats, 'free'>): string {
+  // 波ごとに背景が変わるので、ステージの名前で言い方を変える文(「駐車場ボロボロ!」など)は使わない
+  const plain = {
+    worstScene: s.worstScene, worstAttack: s.worstAttack, worstCause: s.worstCause,
+    civHurtByHero: s.civHurtByHero, civHurtByCollateral: s.civHurtByCollateral
+  };
+  if (s.worstScene) return worstCaption(plain);
+  if (s.free?.worst) return FREE_WORST_CAPTION[s.free.worst];
+  return worstCaption(plain);
+}
+
+/** 説明の文の全部(共有カードが字を先に読みこむため) */
+export const ALL_WORST_CAPTIONS: readonly string[] = [
+  ...Object.values(WORST_CAPTION),
+  ...Object.values(STAGE_WORST_CAPTIONS).flatMap((t) => Object.values(t ?? {})),
+  ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {})),
+  ...Object.values(COLLATERAL_CAPTION)
+];
 
 /**
  * ルールを共有の文に入れるときの言い方(かぎかっこの中身)。

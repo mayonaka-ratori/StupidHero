@@ -3,10 +3,11 @@
 // カードの右上には、その称号を取れる場所の小さな印(路・駐・モ・ビ・フ)を出し、取った場所の印を金色にする。
 // 1つの場所だけで取れる称号は、印の代わりに「高層ビルだけ」「フリープレイだけ」の札を出す(取っていてもいなくても)。
 // その場所がまだ開いていなければ、ヒントの代わりに「高層ビルで分かる」と出す(開いていないステージの中身を明かさない)。
-// 一覧を最後に開いたあとに取った称号には、赤い NEW をつける(開いたら見たことにする。records.ts の markTitleListSeen)。
+// 一覧を最後に開いたあとに取った称号には、赤い NEW をつける(開いたら、並べた称号だけを見たことにする。records.ts の markTitleListSeen)。
+// 記録は開くたびにこのスマホ(storage)から読み直す(結果画面から2回開いたときに、同じ NEW をまた出さないように)。
 // focus を渡すと、その場所で取れる称号だけを並べ、その場所で取ったものだけを金色のカードにする
 // (ステージを選ぶ画面で、カードの「このステージの称号3/13」をタップしたとき)。
-// 開き方:openTitleList(this, { records, current, focus })。開いたシーンは眠らせておき、もどるで起こす
+// 開き方:openTitleList(this, { storage, current, focus })。開いたシーンは眠らせておき、もどるで起こす
 // (結果画面なら、称号の発表や数え上げをやり直さずに元のまま戻る。タイトルとステージを選ぶ画面からも開ける)。
 
 import Phaser from 'phaser';
@@ -24,9 +25,7 @@ import { addMute } from './sort/common';
 export interface TitleListData {
   /** 開いたシーンの key(もどるで起こす) */
   from?: string;
-  /** 記録。省略するとこのスマホの記録から読む */
-  records?: Records;
-  /** 記録の保存先(見た称号を書く。省略すると localStorage) */
+  /** 記録の読み書きをする場所(開くたびにここから読み直し、見た称号を書く。省略すると localStorage) */
   storage?: RecordStorage;
   /** 今回取った称号(カードを少し明るくする) */
   current?: readonly TitleId[];
@@ -87,14 +86,14 @@ export class TitleListScene extends Phaser.Scene {
     const { W, H } = layout;
     this.from = data.from;
     this.leaving = false;
-    const records = data.records ?? loadRecords(data.storage);
+    const records = loadRecords(data.storage);
     const earned = new Set<TitleId>(records.titles);
-    // 一覧を最後に開いたあとに取った称号(NEW)。決めてから、見たことにする
-    const unseen = new Set<TitleId>(unseenTitles(records));
-    markTitleListSeen(data.storage);
     const current = new Set<TitleId>(data.current ?? []);
     const focus = data.focus ?? null;
     const list = focus ? TITLES.filter((t) => titlesAt(focus).includes(t)) : [...TITLES];
+    // 一覧を最後に開いたあとに取った称号(NEW)。決めてから、ここに並べた称号だけを見たことにする
+    const unseen = new Set<TitleId>(unseenTitles(records));
+    markTitleListSeen(list.map((t) => t.id), data.storage);
     const gotHere = focus ? new Set(titlesGotAt(records, focus)) : earned;
     if (import.meta.env.DEV) (window as unknown as { titleListDev: TitleListDev }).titleListDev = dev;
     dev.scene = this;

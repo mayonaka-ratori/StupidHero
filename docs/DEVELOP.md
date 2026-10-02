@@ -208,7 +208,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | キー | 中身 |
 |---|---|
 | `stupidhero.settings.v1` | 設定 |
-| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`、結果発表で待てと行けを止めて教えたか`lessonSeen`(`['stop', 'go']`)も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`、最後に遊んだステージ`lastStage`、称号の一覧で見た称号`listSeen`も) |
+| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`、結果発表で待てと行けを止めて教えたか`lessonSeen`(`['stop', 'go']`)も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`、最後に遊んだステージ`lastStage`、称号の一覧で見た称号`listSeen`、高層ビルの終わりの場面を見たか`endingSeen`、時間切れでゆっくりモードのことを教えたか`slowHintSeen`(一時停止のメニューでゆっくりモードをオンにしたときも残す)も) |
 | `stupidHero.muted` | 音を切ったか |
 
 初めての人の流れ(ステージ選びをとばす、掛け合いを出す、結果発表で待てと行けを止めて教える)を見直すときは、記録を消してから開きます(古い`stupidhero.records.v1`が残っていれば、それも消す。あると読みこんで遊んだことになる)。
@@ -279,7 +279,7 @@ Playwrightで、スマホの大きさのブラウザを開いて指で操作し�
 | `timeshots.mjs` | URLで決める | 決めた時間ごとに画面を撮る。`w=`で幅、`full`でページ全体を撮る(1枚だけ撮るときもこれを使う)。結果発表で待てと行けを止めて教える場面は、`lesson`を書かなければとばす |
 | `dashboard.mjs` | | 開発のダッシュボードを作る(下の「開発のダッシュボード」) |
 | `artsheet.mjs` | | コードで描いた絵のシートと背景を、ブラウザもサーバーもなしでPNGに書き出す(例:`node tools/artsheet.mjs hero 4`で`shots/art/hero.png`)。コマの境目に線を入れる。絵を描き直すときに見比べる用。`node tools/artsheet.mjs variants 3`で、服の色ちがいの見本を見た目ごとに書き出す(`shots/art/variants_<見た目>.png`) |
-| `icons.mjs` | | ホーム画面のアイコン(`public/icon-192.png`、`public/icon-512.png`、`public/apple-touch-icon.png`)を、ヒーローの顔のカットインの絵から、ブラウザもサーバーもなしで書き出す。顔の絵を描き直したら動かす(`node tools/icons.mjs`) |
+| `icons.mjs` | | ホーム画面のアイコン(`public/icon-192.png`、`public/icon-512.png`、`public/apple-touch-icon.png`と、Androidが丸や角丸に切りぬく用の`public/icon-maskable-192.png`、`public/icon-maskable-512.png`。maskableは頭をまん中の丸に入れる)を、ヒーローの顔のカットインの絵から、ブラウザもサーバーもなしで書き出す。顔の絵を描き直したら動かす(`node tools/icons.mjs`) |
 | `lib.mjs` | | 上のスクリプトで共通に使う部品 |
 | `png.mjs` | | PNGを書き出す部品(`artsheet.mjs`と`icons.mjs`が使う) |
 

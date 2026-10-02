@@ -77,10 +77,10 @@ describe('歩く解体工事の金額はステージとフリープレイで分�
     expect(ids({ ...s, damage: line - 10_000 })).not.toContain('demolition');
   });
 
-  it('フリープレイは¥500万以上', () => {
+  it('フリープレイは¥800万以上(遊び方で届くかは src/scenes/result/demolition.test.ts)', () => {
     const s = play(PLAN, (role) => (role === 'stop' ? 'press' : 'skip')).snapshot();
-    expect(collectIds({ ...s, damage: 5_000_000 })).toContain('demolition');
-    expect(collectIds({ ...s, damage: 4_990_000 })).not.toContain('demolition');
+    expect(collectIds({ ...s, damage: 8_000_000 })).toContain('demolition');
+    expect(collectIds({ ...s, damage: 7_990_000 })).not.toContain('demolition');
   });
 });
 

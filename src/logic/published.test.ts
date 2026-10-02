@@ -50,19 +50,24 @@ const asPublished = (s: Stage) => ({
 });
 
 /**
- * 結果発表の作り直しで、わざと変えたセリフ(比べない)。
+ * 結果発表の作り直しで、わざと変えたセリフ(まったく比べない)。
  * streetWatch:待てと行けの使い方は、初めて合図が出たときに言う(teachStop、teachGo)ので、なくした。
  * oops:市民をワルにして殴ったときは言いはる流れ(stubborn)になり、巻きぞえのときだけ使うので「市民だった!」を替えた
- * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
- * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など。数は変えていないので、乱数の引き方は同じ)
  * timeUpOp:どこからも使っていなかったので消した
- * judgeRight、stubborn、ownFault、stop:表記をそろえたとき(「ひと目」を「一目」、「怪しかった」を「あやしかった」)と、
- * 言い方の見直し(仕分けの画面はハンコなので「ワルの札」を「ワルのハンコ」、ヒーローのため口に合わせて「止まります」を「止まるよ」)で直した
- * (数は変えていないので、乱数の引き方は同じ)
  */
-const REDESIGNED_REACTIONS = new Set([
-  'streetWatch', 'oops', 'collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'timeUpOp', 'judgeRight', 'stubborn', 'ownFault', 'stop'
-]);
+const REDESIGNED_REACTIONS = new Set(['streetWatch', 'oops', 'timeUpOp']);
+
+/**
+ * 文だけを直したセリフ(文は比べず、数と、だれが言うか(who)と顔(face)は比べる。数が同じなら乱数の引き方も同じ)。
+ * collateral、stopOp、stopFailBoss、bossRevealHero:セリフの見直しで、不自然な言い方と古い言い方を直した
+ * (「関係ない人!」「了解、次!」「こいつは止まれない!」「見破ったり!」など)
+ * stop:言い方の見直し(ヒーローのため口に合わせて「止まります」を「止まるよ」)で直した。
+ * judgeRight、stubborn、ownFault も同じとき(「ひと目」を「一目」、「怪しかった」を「あやしかった」、
+ * 「ワルの札」を「ワルのハンコ」)に文を直したが、公開版にはないセリフなので fixture に入っていない(ここでは比べるものがない)
+ */
+const TEXT_ONLY_REACTIONS = new Set(['collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'stop', 'judgeRight', 'stubborn', 'ownFault']);
+/** セリフの一覧から、文を除いた形(数、だれが言うか、顔) */
+const withoutText = (list: readonly { who?: string; face?: string }[]) => list.map(({ who, face }) => ({ who, face }));
 
 /** fixture の答えから、わざと変えた項目を取りのぞく */
 type FixtureStage = (typeof alleyV1.stages)[number]['stage'];
@@ -82,8 +87,16 @@ const withoutChanged = (s: FixtureStage) => ({
  * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
  * - おばあちゃんの敵:おばあさんを直接なぐったときだけ(巻きぞえは数えない)
  * - 歩く解体工事:路地裏は¥5,000万以上 → ¥1,500万以上(ステージごとに金額を分けた。¥2,300万と¥4,999万の記録が入る)
+ * - 歩く解体工事を調べる順を、ボスの親友のあとに下げた(ボスが暴れた額で届いて、ボスの親友が出なくなるため)。
+ *   ボスを市民に仕分けた記録(#31、#50、#62)は、公開版と同じボスの親友のまま
  */
-const DEMOLITION = '路地裏の歩く解体工事は¥1,500万以上(ボスの親友などより先)';
+const DEMOLITION = '路地裏の歩く解体工事は¥1,500万以上(おばあちゃんの敵、暴走機関車、待ての達人より先)';
+/** 調べる順をわざと変えた称号(公開版の並びから、歩く解体工事をボスの親友のあとへ動かす) */
+const publishedOrderNow = (defs: readonly { id: string }[]) => {
+  const out = defs.filter((d) => d.id !== 'demolition');
+  out.splice(out.findIndex((d) => d.id === 'bossBuddy') + 1, 0, defs.find((d) => d.id === 'demolition')!);
+  return out;
+};
 const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
   7: { was: 'soSo', now: 'demolition', why: DEMOLITION },
   13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
@@ -91,13 +104,10 @@ const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why:
   20: { was: 'soSo', now: 'demolition', why: DEMOLITION },
   23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
-  31: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
   32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
   46: { was: 'grannyFoe', now: 'soSo', why: 'ヒーローがなぐった市民がいないので、おばあさんはなぐっていない' },
   48: { was: 'stopMaster', now: 'demolition', why: DEMOLITION },
-  50: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
   60: { was: 'soSo', now: 'demolition', why: DEMOLITION },
-  62: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
   63: { was: 'grannyFoe', now: 'stopMaster', why: 'おばあさんに当たったのは巻きぞえだけ' },
   66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
   70: { was: 'runawayTrain', now: 'demolition', why: DEMOLITION },
@@ -130,11 +140,20 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
   });
 
   // ステージ前の掛け合い(INTRO)は、初めての1分を短くするためにわざと変えたので比べない
+  it('文だけを直したセリフは、fixture に入っている(比べる項目から外しすぎていない)', () => {
+    const fixtureKeys = Object.keys(alleyV1.speech.REACTIONS);
+    for (const k of ['collateral', 'stopOp', 'stopFailBoss', 'bossRevealHero', 'stop']) expect(fixtureKeys, k).toContain(k);
+  });
+
   it('波の始まりのセリフ、セリフ、称号のひとことが同じ', () => {
     const sp = alleyV1.speech;
     for (const no of [1, 2, 3] as WaveNo[]) expect(waveIntroFor('alley', no), `wave ${no}`).toEqual(sp.WAVE_INTRO[no as 1 | 2 | 3]);
     for (const [k, list] of Object.entries(sp.REACTIONS)) {
       if (REDESIGNED_REACTIONS.has(k)) continue;
+      if (TEXT_ONLY_REACTIONS.has(k)) {
+        expect(withoutText(reactionList(k as ReactionKey, 'alley')), `${k}(文のほか)`).toEqual(withoutText(list));
+        continue;
+      }
       expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
     }
     expect(ATTACK_SHOUTS).toEqual(sp.ATTACK_SHOUTS);
@@ -143,7 +162,9 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
   });
 
   it(`称号の並びと、decideTitle の答えが同じ(${alleyV1.titles.length}通りの記録。わざと変えた条件の分は除く)`, () => {
-    expect(titlesFor('alley').map((t) => ({ id: t.id, name: t.name, pose: t.pose }))).toEqual(alleyV1.titleDefs);
+    expect(titlesFor('alley').map((t) => ({ id: t.id, name: t.name, pose: t.pose }))).toEqual(publishedOrderNow(alleyV1.titleDefs));
+    // 動かしたのは歩く解体工事だけ(ほかの並びと名前とポーズは公開版のまま)
+    expect(alleyV1.titleDefs.findIndex((d) => d.id === 'demolition')).toBe(alleyV1.titleDefs.findIndex((d) => d.id === 'bossBuddy') - 1);
     // 新しく増えた項目は、路地裏で遊んだときと同じ値(0 など)にする
     const zero = new StatsTracker(9, 'alley').snapshot();
     alleyV1.titles.forEach(({ stats, title, name }, i) => {

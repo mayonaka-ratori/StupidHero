@@ -30,13 +30,15 @@
 //   //   ショッピングモールの波2の結果発表のあと:stage.rush でタイムセールラッシュ
 //   //     (rushIntroFor(hasSeenRush(stage.id))、markRushSeen、stats.startRush、rushHit、rushStopped、rushEndLine)
 //   //   高層ビルの波3の答え合わせのあと:stage.rush でエレベーターラッシュ(stats.startLift、liftHit、liftStopped。まとめは liftSummary)
-//   // ひどい場面:if (stats.reportScene(scene)) 画面を撮る
+//   // ひどい場面:if (stats.reportScene(scene, attack)) 画面を撮る(市民に当たった場面は、直前に数えたけががなぐったか巻きぞえかも残す)
 //   // ボス戦:const fight = new BossFight(def.bossFight); tap() と update(deltaMs)。boardedCar で女ボスが車に乗る
 //   //   (ショッピングモールは親玉が母艦に乗りこむ。高層ビルは念力の選択で、new PsyChoice() と applyChoice。bossChoice.ts)。倒したら def.bossDefeatProp があれば stats.breakProp(def.bossDefeatProp)
-//   // 結果:const s = stats.snapshot(); const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });
+//   // 結果:const s = stats.snapshot(); const ctx = { firstClear: isFirstClear(stage.id, s) };   // saveResult より前に
+//   //   const title = decideTitle(s, ctx);   // 大きな称号
+//   //   const all = collectTitles(s, ctx);   // このプレイで当てはまった称号の全部(先頭は title)
 //   //   ひとことは titleCommentFor(title.id, stage.id)、被害額のたとえは damageAnalogy(s.damage, stage.id)
 //   //   市民のけがの内わけは hurtBreakdown(s)、ラッシュのまとめは s.rush があれば rushSummary(s.rush)
-//   //   const saved = saveResult(stage.id, s, title.id);   // saved.unlockedNow で「次のステージが開いた」
+//   //   const saved = saveResult(stage.id, s, all.map((t) => t.id));   // saved.unlockedNow で「次のステージが開いた」
 //   //   buildShareText({ caption: shareCaption({ worstScene: s.worstScene, caption, titleName }), url })
 //   // 答え合わせ(波ごと):tallySorts(wave.people, sorts, randomSorted) を stats.recordSorts に。決め手の文は reasonFor(person, wave)
 //   //   ショッピングモールの波2は、最後に rushSummary(stats.rushTally!) を1行
@@ -56,8 +58,9 @@
 //   //   ('dry' なら stats.dryPress())。数え方は stats.ts の先頭の「フリープレイ」
 //   // 波の終わり:nextAfterFreeStreet(run)(run.ts)。波3のあとは stats.finishFree(時計) をしてから Result
 //   // 結果:const s = stats.snapshot(); const title = decideTitle(s);   // s.free があればフリープレイの順で調べる
+//   //   const all = collectTitles(s);   // このプレイで当てはまった称号の全部(先頭は title)
 //   //   s.free.clearSec(大きく)、s.free.stopSaved、s.free.goScenes、heroAccuracyText(s.free)
-//   //   const saved = saveFreeResult(s, title.id);   // saved.showMoreStagesHint で「ステージを進めると…」
+//   //   const saved = saveFreeResult(s, all.map((t) => t.id));   // saved.showMoreStagesHint で「ステージを進めると…」
 //   //   buildShareText({ caption: freeShareCaption({ worstScene: s.worstScene, caption, free: s.free, titleName }), url })
 
 export * from './types';

@@ -1,6 +1,7 @@
 // 一時停止。画面が隠れたとき(アプリの切り替えや通知)、横向きにしたとき、中断ボタンのときに、シーンを止めて
 // 小さなメニューを重ねて出す。メニューには設定の切りかえ(光と揺れを弱くする、ゆっくりモード、音)と
 // 「つづける」「タイトルへ」がある。設定は settings.set で覚える(src/settings.ts)。
+// ゆっくりモードをオンにしたら、記録に「ゆっくりモードのことを教えた」も残す(markSlowHintSeen。仕分けの時間切れのヒントを出さない)。
 // 「タイトルへ」はシーンを止めたままワイプでタイトルへ行く(そのプレイは記録しないで終わる)。
 // 使い方(ゲームのシーンの create の中で):
 //   const pause = new PauseControl(this, {
@@ -16,6 +17,7 @@ import { SCENES, UI } from '../config';
 import { audio } from '../audio';
 import { layout } from '../layout';
 import { settings } from '../settings';
+import { markSlowHintSeen } from '../logic/records';
 import { Button } from './button';
 import { WindowFrame } from './frame';
 import { MuteButton } from './iconButton';
@@ -212,7 +214,8 @@ export class PauseOverlay extends Phaser.Scene {
       },
       {
         label: 'ゆっくりモード', note: '仕分けの時間が1.5倍。\n称号は同じ',
-        get: () => settings.slowMode, set: (on) => settings.set('slowMode', on)
+        // オンにしたら、時間切れの「ゆっくりモードにできるよ」はもう出さない(知っている人に教えない。あとでオフにしても出さない)
+        get: () => settings.slowMode, set: (on) => { settings.set('slowMode', on); if (on) markSlowHintSeen(); }
       },
       {
         label: '音', get: () => !audio.isMuted(), set: (on) => { audio.unlock(); audio.setMuted(!on); }

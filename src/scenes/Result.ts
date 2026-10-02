@@ -10,9 +10,10 @@
 // ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、タイムセールラッシュのあるステージ(def.rush)はラッシュのまとめを、小さく1行ずつ足す。
 // エレベーターラッシュのあるステージ(ステージ4)は、エレベーターのまとめ(liftSummary)を小さく1行足す。
 // 称号は decideTitle(s, { firstClear })。firstClear(このプレイでボスを初めて倒したか)は保存する前の記録で決める(最上階のヒーロー)。
-// 条件に当てはまった称号は全部記録に残す(collectTitles)。大きな称号のほかに取れたものは、上の絵のいちばん下に
-// 「ほかにも取れた:UFOハンター、連打の申し子」と小さく出す(このステージで初めて取ったものには赤い NEW と金色の名前)。
-// 大きな称号の NEW も、このステージで初めて取ったときにつける。2行に入らなければ、うしろを「ほか2つ」にまとめる。
+// 条件に当てはまった称号は全部記録に残す(collectTitles)。大きな称号のほかに取れたものがあれば、ヒーローを左へ寄せ、
+// 右に「ほかにも取れた」の枠を出して名前を1行ずつ並べる(このステージで初めて取ったものには赤い NEW と金色の名前)。
+// 枠に入らなければ、うしろを「ほか2つ」にまとめる。大きな称号の NEW も、このステージで初めて取ったときにつける。
+// (前は上の絵のいちばん下に帯で出していたが、2行になるとヒーローの足が隠れたので、横に移した)
 // 次のステージが開いたときの帯は unlockBannerText(短い名前。「ビルが遊べる!」)。開く順は STAGES の unlockAfter で決まる。
 // 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
@@ -35,7 +36,7 @@ import { animKey, originFor } from '../art/sheets';
 import {
   FREE_NAME, bgForWave, buildShareText, collectTitles, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, isFirstClear, liftSummary, loadRecords,
   randomSeed, rushSummary, saveFreeResult, saveResult, say, shareCaption, STAGES, titleById, titleCommentFor, unlockBannerText, type FreeSaveOutcome,
-  type RecordStorage, type Records, type SaveOutcome, type StageId, type StageStats, type TitleDef, type TitleId
+  type RecordStorage, type SaveOutcome, type StageId, type StageStats, type TitleDef, type TitleId
 } from '../logic';
 import {
   Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
@@ -61,9 +62,7 @@ interface Saved {
   titles: TitleId[];
   /** 今回取った称号のうち、このステージ(フリープレイ)で初めて取ったもの */
   newHere: TitleId[];
-  /** 保存したあとの記録(称号の一覧に渡す) */
-  records: Records;
-  /** 記録の保存先(開発用の見本ではメモリ。称号の一覧で、見た称号を書くのに使う) */
+  /** 記録の保存先(開発用の見本ではメモリ。称号の一覧は、ここから記録を読み直し、見た称号を書く) */
   storage?: RecordStorage;
   /** 新記録の項目 */
   newRecords: readonly string[];
@@ -74,16 +73,20 @@ interface Saved {
 }
 
 const fromStage = (o: SaveOutcome, storage?: RecordStorage): Saved => ({
-  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, records: o.records, storage,
+  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, storage,
   newRecords: o.newRecords, unlockedNow: o.unlockedNow, moreHint: false
 });
 const fromFree = (o: FreeSaveOutcome, storage?: RecordStorage): Saved => ({
-  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, records: o.records, storage,
+  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, storage,
   newRecords: o.newRecords, unlockedNow: [], moreHint: o.showMoreStagesHint
 });
 
 /** 「ほかにも取れた」の見出し */
-const OTHERS_LABEL = 'ほかにも取れた:';
+const OTHERS_LABEL = 'ほかにも取れた';
+/** ほかにも取れた称号があるときの、ヒーローの横の位置(ふつうは真ん中の108) */
+const OTHERS_HERO_X = 60;
+/** ほかにも取れた称号の枠の左端(ヒーローを左へ寄せたときの、右手の先より右) */
+const OTHERS_BOX_X = 98;
 
 /** 同じプレイの記録を2回保存しないように */
 const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: Saved }>();
@@ -180,7 +183,8 @@ export class ResultScene extends Phaser.Scene {
     drawStageBg(this, bg, run.scrollX, { depth: { far: 0, wall: 0, ground: 0 } });
 
     const fist = t.pose === 'win_fist';
-    const hx = 108;
+    // ほかにも取れた称号があれば、ヒーローを左へ寄せて、右に名前の枠を出す(ヒーローの足や体を隠さないように)
+    const hx = others.length ? OTHERS_HERO_X : 108;
     const feet = fist ? 198 : 206;
     if (fist) this.add.image(hx, 182, 'fx_rubble', 0).setOrigin(0.5, 0).setScale(2).setDepth(19);
     this.add.image(hx, feet - 2, 'fx_shadow', 0).setScale(2).setDepth(18).setVisible(!fist);
@@ -294,18 +298,16 @@ export class ResultScene extends Phaser.Scene {
       listBtn = new Button(this, W - 4 - 70, actionH - 4 - 30, 70, 30, listText.replace('(', '\n('), listStyle);
       thumbParts.push(listBtn);
     }
-    // ほかにも取れた称号:上の絵のいちばん下に小さく。低い画面で称号の一覧のボタンが絵の右下にあるときは、その上へずらす
-    const othersParts = this.othersStrip(others, saved.newHere);
-    if (othersParts && listBtn.y + listBtn.h > othersParts.top - 2 && listBtn.y < actionH) {
-      listBtn.y = othersParts.top - 4 - listBtn.h;
-    }
-    const othersObjs = othersParts?.objs ?? [];
+    // ほかにも取れた称号:上の絵の右(左へ寄せたヒーローの右)に、ひとことの下から枠で出す。
+    // 低い画面で称号の一覧のボタンが絵の右下にあるときは、枠をボタンの上で終える
+    const othersBottom = listBtn.y < actionH ? listBtn.y - 3 : actionH - 4;
+    const othersObjs = this.othersBox(others, saved.newHere, othersBottom);
     setAllVisible(othersObjs, false);
     setAllVisible(thumbParts, false);
     listBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       this.skipAll(quiet, cut);
-      openTitleList(this, { records: saved.records, storage: saved.storage, current: saved.titles });
+      openTitleList(this, { storage: saved.storage, current: saved.titles });
     });
     dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn, list: listBtn };
 
@@ -445,7 +447,7 @@ export class ResultScene extends Phaser.Scene {
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: cardStage, textStage };
     const texts = [
       ...cardTexts(cardIn), ...sw.texts, 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, caption,
-      OTHERS_LABEL + others.map((id) => titleById(id).name).join('、'), ...others.map((_id, i) => `ほか${i + 1}つ`),
+      OTHERS_LABEL, ...others.map((id) => titleById(id).name), ...others.map((_id, i) => `ほか${i + 1}つ`),
       free ? MORE_STAGES_HINT : ''
     ];
     const alive = (): boolean => this.sys.isActive() || this.sys.isPaused() || this.sys.isSleeping();
@@ -485,43 +487,56 @@ export class ResultScene extends Phaser.Scene {
   }
 
   /**
-   * 「ほかにも取れた:A、B」の帯。上の絵のいちばん下(下の部分のすぐ上)に、黒い地に金色の線で出す。
-   * このステージで初めて取った称号は、赤い NEW と金色の名前。2行に入らなければ、うしろを「ほか2つ」にまとめる。
-   * ほかに取れた称号がなければ null
+   * 「ほかにも取れた」の枠。上の絵の右(左へ寄せたヒーローの右)に、ひとことのすぐ下から bottom までに出す。
+   * 名前は1つずつ行を分ける(長い名前は枠の中で折り返す)。このステージで初めて取った称号は、
+   * 赤い NEW と金色の名前にして先に並べる。入らなければ、うしろを「ほか2つ」にまとめる。
+   * ほかに取れた称号がなければ何も作らない
    */
-  private othersStrip(ids: readonly TitleId[], newHere: readonly TitleId[]): { top: number; objs: Phaser.GameObjects.GameObject[] } | null {
-    if (!ids.length) return null;
-    const { W, actionH } = layout;
-    const wrap = W - 12;
+  private othersBox(ids: readonly TitleId[], newHere: readonly TitleId[], bottom: number): Phaser.GameObjects.GameObject[] {
+    if (!ids.length) return [];
+    const { W } = layout;
+    const x = OTHERS_BOX_X;
+    const top = BAND_Y + 30 + CUT_H + 4;
+    const pad = 4;
+    const tw = W - 2 - x - pad * 2;
     const item = (id: TitleId): string => (newHere.includes(id) ? `{red}NEW{/}{gold}${titleById(id).name}{/}` : titleById(id).name);
-    // 新しいものを先に。同じなら短い名前を先に(2行に多く入るように)
+    // 新しいものを先に。同じなら短い名前を先に(多く入るように)
     const isNew = (id: TitleId): number => Number(newHere.includes(id));
     const order = [...ids].sort((a, b) => isNew(b) - isNew(a) || titleById(a).name.length - titleById(b).name.length);
-    // 名前の途中で折り返さないように、入らない名前は次の行の頭から始める(2行まで)
-    const txt = new PixelText(this, 6, 0, OTHERS_LABEL, { size: FS.body, color: UI.text, lineSpacing: 1 }).setDepth(DEPTH.ui);
-    const widthOf = (t: string): number => { txt.setText(t); return txt.width; };
-    const layoutFor = (n: number): string[] | null => {
-      const parts = order.slice(0, n).map(item);
-      if (n < order.length) parts.push(`ほか${order.length - n}つ`);
-      const lines = [OTHERS_LABEL];
-      parts.forEach((part, i) => {
-        const sep = i < parts.length - 1 ? '、' : '';
-        const last = lines.length - 1;
-        if (widthOf(lines[last] + part + sep) > wrap) lines.push(part + sep);
-        else lines[last] += part + sep;
-      });
-      return lines.length <= 2 && lines.every((l) => widthOf(l) <= wrap) ? lines : null;
+    const style = { size: FS.body, color: UI.text, wrap: tw, lineSpacing: 1 };
+    const probe = new PixelText(this, 0, 0, '', style);
+    const heightOf = (t: string): number => { probe.setText(t); return Math.ceil(probe.height); };
+    const gap = 3;
+    const headH = heightOf(OTHERS_LABEL);
+    // n 個の名前と「ほかNつ」の行が bottom までに入るか
+    const linesFor = (n: number): string[] => {
+      const lines = order.slice(0, n).map(item);
+      if (n < order.length) lines.push(`ほか${order.length - n}つ`);
+      return lines;
     };
-    let lines: string[] | null = null;
-    for (let n = order.length; n >= 1 && !lines; n--) lines = layoutFor(n);
-    txt.setText((lines ?? layoutFor(1) ?? [OTHERS_LABEL]).join('\n'));
-    const h = Math.ceil(txt.height) + 4;
-    const top = actionH - 1 - h;
-    txt.setY(top + 2);
+    const fits = (lines: string[]): boolean =>
+      top + pad + headH + lines.reduce((h, l) => h + gap + heightOf(l), 0) + pad <= bottom;
+    let lines = linesFor(1);
+    for (let n = order.length; n >= 1; n--) {
+      const l = linesFor(n);
+      if (fits(l)) { lines = l; break; }
+    }
+    probe.destroy();
+    const objs: Phaser.GameObjects.GameObject[] = [];
     const g = this.add.graphics().setDepth(DEPTH.ui - 1);
-    g.fillStyle(UI.black, 1).fillRect(0, top, W, h);
-    g.fillStyle(UI.gold, 1).fillRect(0, top, W, 1);
-    return { top, objs: [g, txt] };
+    objs.push(g);
+    objs.push(new PixelText(this, x + pad, top + pad, OTHERS_LABEL, { ...style, color: UI.gold }).setDepth(DEPTH.ui));
+    let y = top + pad + headH;
+    for (const l of lines) {
+      y += gap;
+      const t = new PixelText(this, x + pad, y, l, style).setDepth(DEPTH.ui);
+      objs.push(t);
+      y += Math.ceil(t.height);
+    }
+    const h = y + pad - top;
+    g.fillStyle(UI.gold, 1).fillRect(x, top, W - 2 - x, h);
+    g.fillStyle(UI.black, 1).fillRect(x + 1, top + 1, W - 4 - x, h - 2);
+    return objs;
   }
 
   /** 小さな札(暗い地に金色のふちと金色の字)。「あなたの称号」 */
