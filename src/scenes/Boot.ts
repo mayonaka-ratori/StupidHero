@@ -30,7 +30,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     const { W, H } = layout;
-    const txt = this.add.text(W / 2, H / 2, 'よみこみちゅう…', { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
+    const txt = this.add.text(W / 2, H / 2, '読みこみ中…', { fontFamily: 'monospace', fontSize: '12px', color: '#f5c542' });
     txt.setOrigin(0.5);
     this.load.json('art-manifest', 'art/manifest.json');
   }
