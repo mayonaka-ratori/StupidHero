@@ -411,11 +411,15 @@ if (stage === 'alley') {
     if (check('見逃したギャングが仲間を呼んで集まる', gathered)) {
       const size = await S(page, () => window.streetDev.gangPart.gang.call.size);
       const before = await stats(page);
+      // ボタンの見た目は次のコマで合わせるので、少し待ってから見る
+      await page.waitForTimeout(60);
       const g = await btn(page, 'goBtn');
       check('集まったら行けが使える', g.en);
       await page.screenshot({ path: `${outDir}/${stage}_tap_gathered.png` });
       await pad.tap(g.x, g.y);
-      await page.waitForTimeout(300);
+      // 走って跳んで着地するまで(約0.6秒)待つ
+      await page.waitForFunction((n) => window.streetDev.stats.snapshot().defeatedByWipe > n, before.defeatedByWipe, { timeout: 3000 }).catch(() => null);
+      await page.waitForTimeout(100);
       await page.screenshot({ path: `${outDir}/${stage}_tap_wipe.png` });
       const after = await stats(page);
       check('行けでまとめて吹き飛ばす', after.groupsWiped === before.groupsWiped + (size >= 2 ? 1 : 0) && after.defeatedByWipe === before.defeatedByWipe + size,
