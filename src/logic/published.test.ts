@@ -156,7 +156,8 @@ describe('ステージ1は公開版(876e008)と同じ', () => {
       }
       expect(reactionList(k as ReactionKey, 'alley'), k).toEqual(list);
     }
-    expect(ATTACK_SHOUTS).toEqual(sp.ATTACK_SHOUTS);
+    // 技はあとから4つ(アッパー、飛び蹴り、投げ、ヒップアタック)足したので、公開版にある技だけを比べる
+    for (const [k, list] of Object.entries(sp.ATTACK_SHOUTS)) expect(ATTACK_SHOUTS[k as keyof typeof ATTACK_SHOUTS], k).toEqual(list);
     for (const [k, list] of Object.entries(sp.MISCHIEF_LINES)) expect(MISCHIEF_LINES[k as keyof typeof MISCHIEF_LINES], k).toEqual(list);
     for (const [id, c] of Object.entries(sp.TITLE_COMMENTS)) expect(titleCommentFor(id as TitleId, 'alley'), id).toEqual(c);
   });

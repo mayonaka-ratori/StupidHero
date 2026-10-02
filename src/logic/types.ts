@@ -294,8 +294,8 @@ export interface Stage {
   rush: RushPlan | LiftPlan | null;
 }
 
-/** ヒーローの攻撃 */
-export type AttackKind = 'charge' | 'punch' | 'stomp' | 'special';
+/** ヒーローの攻撃(アッパー、飛び蹴り、投げ、ヒップアタックはあとから足した) */
+export type AttackKind = 'charge' | 'punch' | 'stomp' | 'uppercut' | 'flykick' | 'throw' | 'hip' | 'special';
 /**
  * 壊れる物。路地裏:ゴミ箱、窓、看板、自販機、止めてある車。
  * 地下駐車場:ギャングのワゴン、女ボスの高級車、柱、料金所のバー、三角コーン、消火器の箱(止めてある車も置く)。

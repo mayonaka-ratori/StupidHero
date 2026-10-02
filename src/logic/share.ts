@@ -109,12 +109,20 @@ const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, str
     charge: 'おばあちゃんに突撃!',
     punch: 'おばあちゃんに全力パンチ!',
     stomp: 'おばあちゃんを踏みつぶし!',
+    uppercut: 'おばあちゃんにアッパー!',
+    flykick: 'おばあちゃんに飛び蹴り!',
+    throw: 'おばあちゃんを投げた!',
+    hip: 'おばあちゃんにヒップアタック!',
     special: 'おばあちゃんに必殺技!'
   },
   civHit: {
     charge: '市民に突撃!',
     punch: '市民をなぐった!',
     stomp: '市民を踏んだ!',
+    uppercut: '市民にアッパー!',
+    flykick: '市民に飛び蹴り!',
+    throw: '市民を投げた!',
+    hip: '市民にヒップアタック!',
     special: '市民に必殺技!'
   }
 };

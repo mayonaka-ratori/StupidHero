@@ -30,7 +30,7 @@ import { audio } from '../audio';
 import { animKey } from '../art/sheets';
 import { passerSheet, personSheet, purgePersonSheets } from '../art/recolor';
 import {
-  FLOOR_LOOKS, MARK, MISCHIEF_BY_LOOK, PSY, bgForWave, propsForWave, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
+  ATTACKS, ATTACK_KINDS, BOSS_NO_ATTACKS, FLOOR_LOOKS, MARK, MISCHIEF_BY_LOOK, PSY, bgForWave, propsForWave, MISCHIEF_HURTS_CIV, canStop, streetTextsFor, formatYen, isAttacked, isBigProp, judgeLine,
   mischiefLine, pickAttack, resolveEncounter, rollCivHit, rollPropsBroken, say, sceneForCivHit, sceneForProp, shout, tsukkomi,
   type AnyReactionKey, type AttackKind, type Encounter, type ReactionKey, type Rng, type Speech, type StageDef,
   type StatsTracker, type WorstScene
@@ -62,6 +62,8 @@ import { markLessonSeen, needsLesson } from '../logic/records';
 const HERO_SCREEN_X = 60;
 /** 技を出す前のため(この間も待てが効く)。マークが出てから殴るまで合わせて約1.5秒になるように */
 const WINDUP_MS = 1080;
+/** 投げで持ち上げた相手の足の高さ(ヒーローの頭の上。頭の高さは HEAD) */
+const HOLD_LIFT = HEAD + 4;
 /** ボス出現!の帯の高さ。ヒーローの吹き出し(頭の上)と重ならないように、画面の上のほうに出す */
 const BANNER_TOP_Y = 46;
 /** 飛び出す金額を、ほかの金額や吹き出しと重ならないようにずらすときの段の数 */
@@ -76,6 +78,17 @@ const PEEK_MS = 700;
 const EYE_GLOW = 0x92ff00;
 /** ステージ3:人の絵の目の位置(右を向いているとき、足からのずれ)。4つの見た目と親玉の化けた姿で同じ */
 const EYE_AT = { dx: 6, dy: -48 };
+
+/** 殴られた相手の吹っ飛び方(dist と height はドット、ms は飛んでいる時間) */
+interface Push { dist: number; height: number; ms?: number; ease?: string }
+/** 技ごとの決まった吹っ飛び方(ここにない技は、技の中で動かし方を決める) */
+const PUSH: Partial<Record<AttackKind, Push>> = {
+  charge: { dist: 80, height: 30 },
+  punch: { dist: 60, height: 30 },
+  stomp: { dist: 60, height: 14 },
+  hip: { dist: 70, height: 20 },
+  special: { dist: 110, height: 30 }
+};
 
 /** 早送りのオンとオフ。ページを開いている間は、波や回をまたいで覚えておく */
 let fastOn = false;
@@ -197,7 +210,7 @@ export class StreetScene extends Phaser.Scene {
     this.rushPart = new RushPart(this);
     this.psyPart = new PsyPart(this);
     const fa = new URLSearchParams(location.search).get('attack');
-    this.forceAttack = this.run.debug && (fa === 'charge' || fa === 'punch' || fa === 'stomp' || fa === 'special') ? fa : null;
+    this.forceAttack = this.run.debug ? ATTACK_KINDS.find((k) => k === fa) ?? null : null;
 
     this.startedAt = this.time.now;
     // アニメの速さはゲーム全体の設定なので、次のシーンへ持ちこまないように戻す
@@ -492,9 +505,10 @@ export class StreetScene extends Phaser.Scene {
 
   // ─── 小さな道具 ───────────────────────────────
 
-  pickAttack(): AttackKind {
-    const k = pickAttack(this.rng);
-    return this.forceAttack ?? k;
+  /** 技を選ぶ。without に入れた技は選ばない(開発用に技を決めていても、without に入っていればふつうに選ぶ) */
+  pickAttack(without: readonly AttackKind[] = []): AttackKind {
+    const k = pickAttack(this.rng, without);
+    return this.forceAttack && !without.includes(this.forceAttack) ? this.forceAttack : k;
   }
 
   /**
@@ -704,7 +718,8 @@ export class StreetScene extends Phaser.Scene {
   private async attackEncounter(a: Actor, enc: Encounter): Promise<boolean> {
     await this.runTo(a.x - MARK.showDistance, { y: this.laneFor(a) });
     this.markStart(a, MARK.slowmo);
-    const k = this.pickAttack();
+    // ボスには投げを出さない(rules.ts の BOSS_NO_ATTACKS)
+    const k = this.pickAttack(enc === 'bossFight' ? BOSS_NO_ATTACKS : []);
     this.peek(a);
     // 決めつけは技を出すまで出しておく(叫びは技を出す瞬間に替える)。
     // 横に長いので相手の頭の上にかかる。札(ワル)を隠さないように、合図との間まで上げる
@@ -898,10 +913,8 @@ export class StreetScene extends Phaser.Scene {
   windup(k: AttackKind): void {
     const h = this.hero;
     h.sprite.anims.timeScale = 1;
-    if (k === 'charge') h.pose('charge', 0);
-    else if (k === 'stomp') h.pose('stomp', 0);
-    else if (k === 'special') h.pose('special', 2);
-    else h.pose('punch', 0);
+    if (k === 'special') h.pose('special', 2);
+    else h.pose(k, 0);
     this.auraOn = true;
     if (k === 'special') { shake(this, 2, WINDUP_MS); audio.sfx('charge', { pitch: 0.7 }); }
   }
@@ -983,6 +996,14 @@ export class StreetScene extends Phaser.Scene {
         for (const c of this.civsNear(t)) if (rollCivHit('stomp', c.x - t.x, this.rng)) this.collateral(c, k, c.x < t.x ? -1 : 1);
       }
       await waitMs(this, 420);
+    } else if (k === 'uppercut') {
+      await this.uppercut(t, mode);
+    } else if (k === 'flykick') {
+      await this.flyKick(t, mode);
+    } else if (k === 'throw') {
+      await this.throwTarget(t, mode);
+    } else if (k === 'hip') {
+      await this.hipAttack(t, mode);
     } else {
       h.play('special', true);
       this.auraOn = true;
@@ -993,6 +1014,138 @@ export class StreetScene extends Phaser.Scene {
       await waitMs(this, 750);
       this.auraOn = false;
     }
+  }
+
+  /**
+   * アッパー:しゃがんで跳び上がりながら相手を真上へ打ち上げる。相手は画面の上まで飛んで、もとの場所に落ちる。
+   * 上の壁の物(窓、看板)は相手が上がっていくときに、地面の物は落ちてきたときに壊れる。市民には当たらない
+   */
+  private async uppercut(t: Actor, mode: HitMode): Promise<void> {
+    const h = this.hero;
+    h.play('uppercut', true);
+    audio.sfx('punch', { pitch: 0.8 });
+    const o = { x: h.x };
+    this.tweens.add({ targets: o, x: t.x - 16, duration: 160, ease: 'Quad.easeOut', onUpdate: () => { h.x = o.x; } });
+    await waitMs(this, 200);
+    const fly = 900;
+    this.hitTarget(t, 'uppercut', mode, { dist: 4, height: 130, ms: fly, ease: 'Linear' });
+    if (mode !== 'reveal') {
+      const props = rollPropsBroken('uppercut', this.visibleProps(), t.x, this.rng);
+      for (const p of props) this.time.delayedCall(p.wall ? 180 : fly, () => this.breakProp(p));
+    }
+    // 相手が落ちてくるまで待つ(落ちて物が壊れる前に、ほめる一言や次の動きに進まないように)
+    await waitMs(this, mode === 'reveal' ? 650 : fly + 60);
+  }
+
+  /**
+   * 飛び蹴り:跳んで突っこみ、相手を地面すれすれに先まで蹴り飛ばす。
+   * 相手は通り道の市民に当たりながらすべり、最初の物(地面の物だけ)に当たって止まる
+   */
+  private async flyKick(t: Actor, mode: HitMode): Promise<void> {
+    const h = this.hero;
+    h.play('flykick', true);
+    audio.sfx('charge', { pitch: 1.3 });
+    this.auraOn = true;
+    await this.arc(h, t.x - 14, 22, 280, 'Sine.easeOut');
+    if (mode === 'reveal') {
+      this.hitTarget(t, 'flykick', mode);
+      await waitMs(this, 400);
+      this.auraOn = false;
+      return;
+    }
+    const reach = ATTACKS.flykick.reach;
+    const x0 = t.x;
+    const ground = this.visibleProps().filter((p) => !p.wall && p.x - x0 >= reach.from && p.x - x0 <= reach.to).sort((a, b) => a.x - b.x);
+    const broken = new Set(rollPropsBroken('flykick', ground, x0, this.rng));
+    // ラッシュの前のエスカレーターは壊れないが、相手はそこに当たって止まる(光のパンチの拳と同じ)
+    const g = this.rushPart.rushGuard;
+    const guardFirst = !!g && g.x - x0 >= reach.from && g.x - x0 <= reach.to && (!ground[0] || g.x < ground[0].x);
+    const stopAt = guardFirst ? g : ground[0];
+    const endX = stopAt ? Math.max(x0 + 8, stopAt.x - 6) : x0 + reach.to;
+    const civs = this.civsNear(t).filter((c) => c.x > x0 && c.x < endX && rollCivHit('flykick', c.x - x0, this.rng));
+    const dist = endX - x0;
+    const ms = 300 + dist * 3;
+    this.hitTarget(t, 'flykick', mode, { dist, height: 8, ms, ease: 'Linear' });
+    for (const c of civs) this.time.delayedCall(((c.x - x0) / dist) * ms, () => this.collateral(c, 'flykick', 1));
+    if (stopAt) {
+      this.time.delayedCall(ms, () => {
+        if (broken.has(stopAt)) this.breakProp(stopAt);
+        else { this.fx('fx_hit', stopAt.x, stopAt.y - 14); audio.sfx('hit', { pitch: 1.5, volume: 0.6 }); }
+      });
+    }
+    // すべり終わるまで待つ(遠くの市民に当たる前に戻ると、その巻きぞえが次の攻撃に持ちこされる)
+    await waitMs(this, Math.max(420, ms + 60));
+    this.auraOn = false;
+  }
+
+  /**
+   * 投げ:相手をつかんで頭の上へ持ち上げ、前へ放り投げる。落ちた所の物と市民に当たる。
+   * ボスが正体を現す場面ではこの技を選ばない(BOSS_NO_ATTACKS)。それでも reveal で呼ばれたときは、持ち上げずにその場で当たったことにする
+   */
+  private async throwTarget(t: Actor, mode: HitMode): Promise<void> {
+    const h = this.hero;
+    const o = { x: h.x };
+    await new Promise<void>((resolve) => this.tweens.add({
+      targets: o, x: t.x - 14, duration: 120, ease: 'Quad.easeOut', onUpdate: () => { h.x = o.x; }, onComplete: () => resolve()
+    }));
+    h.play('throw', true);
+    audio.sfx('swipeBad', { pitch: 0.8 });
+    if (mode === 'reveal') {
+      await waitMs(this, 330);
+      this.hitTarget(t, 'throw', mode);
+      await waitMs(this, 400);
+      return;
+    }
+    // つかんで持ち上げる(相手はヒーローの頭の上へ。ヒーローと同じ奥行きなので、手前に描く)
+    this.liftUp(t);
+    const bias = t.depthBias;
+    t.depthBias = h.depthBias + 0.5;
+    const x0 = t.x;
+    const hold = { x: t.x, lift: 0 };
+    const toX = h.x + 2;
+    this.tweens.add({
+      targets: hold, x: toX, lift: HOLD_LIFT, duration: 200, delay: 70, ease: 'Quad.easeOut',
+      onUpdate: () => { t.x = hold.x; t.lift = hold.lift; }
+    });
+    await waitMs(this, 330);
+    // 放り投げる:高く上がって、もとの場所から72ドット先に落ちる
+    audio.sfx('charge', { pitch: 1.5, volume: 0.7 });
+    const landX = x0 + 72;
+    const fly = { t: 0 };
+    await new Promise<void>((resolve) => this.tweens.add({
+      targets: fly, t: 1, duration: 520,
+      onUpdate: () => { t.x = toX + (landX - toX) * fly.t; t.lift = HOLD_LIFT * (1 - fly.t) + Math.sin(Math.PI * fly.t) * 40; },
+      onComplete: () => { t.x = landX; t.lift = 0; t.depthBias = bias; resolve(); }
+    }));
+    this.fx('fx_shockwave', landX, t.y - 12, { depth: t.y + 2 });
+    audio.sfx('stomp');
+    this.lieDown(t);
+    this.hitTarget(t, 'throw', mode, null);
+    for (const p of rollPropsBroken('throw', this.visibleProps(), x0, this.rng)) this.breakProp(p);
+    for (const c of this.civsNear(t)) if (rollCivHit('throw', c.x - x0, this.rng)) this.collateral(c, 'throw', c.x < landX ? -1 : 1);
+    await waitMs(this, 380);
+  }
+
+  /** ヒップアタック:後ろ向きに跳び、お尻で相手に当たる。はね返って後ろにしりもちをつき、そこにある物と市民をつぶす */
+  private async hipAttack(t: Actor, mode: HitMode): Promise<void> {
+    const h = this.hero;
+    const x0 = t.x;
+    h.faceLeft(true).play('hip', true);
+    audio.sfx('stomp', { pitch: 1.5 });
+    await this.arc(h, x0 - 12, 24, 250, 'Sine.easeOut');
+    audio.sfx('thud');
+    this.hitTarget(t, 'hip', mode);
+    // はね返って、しりもち
+    await this.arc(h, x0 - 40, 22, 300, 'Sine.easeInOut');
+    this.fx('fx_dust', h.x, h.y - 6, { depth: h.y + 1 });
+    audio.sfx('thud', { pitch: 0.8 });
+    shake(this, 3, 160);
+    if (mode !== 'reveal') {
+      for (const p of rollPropsBroken('hip', this.visibleProps(), x0, this.rng)) this.breakProp(p);
+      for (const c of this.civsNear(t)) if (rollCivHit('hip', c.x - x0, this.rng)) this.collateral(c, 'hip', -1);
+    }
+    await waitMs(this, 450);
+    h.faceLeft(false);
   }
 
   /** 光のパンチの拳:相手を突き抜けて右へ。いちばん近い物に当たって止まる。通り道の市民に当たることがある */
@@ -1061,21 +1214,22 @@ export class StreetScene extends Phaser.Scene {
     await waitMs(this, 60);
   }
 
-  /** 殴った相手に当たった瞬間 */
-  private hitTarget(t: Actor, k: AttackKind, mode: HitMode): void {
+  /** 殴った相手に当たった瞬間。push は吹っ飛び方(省くと技ごとの決まった飛び方、null なら呼んだ側で動かす) */
+  private hitTarget(t: Actor, k: AttackKind, mode: HitMode, push?: Push | null): void {
     if (mode === 'reveal') {
       this.fx('fx_hit', t.x - 6, t.y - 30, { scale: 2 });
       audio.sfx('bigHit');
       impact(this, 'big');
       return;
     }
-    const big = k === 'special' || k === 'stomp';
+    const big = k === 'special' || k === 'stomp' || k === 'uppercut' || k === 'throw' || k === 'hip';
     this.fx('fx_hit', t.x - 4, t.y - 30, { scale: big ? 2 : 1, depth: 950 });
     this.fx('fx_hit', t.x + 4, t.y - 22, { depth: 950 });
     audio.sfx(big ? 'bigHit' : 'hit');
     if (k !== 'special') impact(this, 'big');
     hitStop(this, k === 'special' ? 160 : 110);
-    this.knock(t, k === 'special' ? 110 : k === 'charge' ? 80 : 60, k === 'stomp' ? 14 : 30);
+    const p = push === undefined ? PUSH[k] ?? PUSH.punch! : push;
+    if (p) this.knock(t, p.dist, p.height, 1, p.ms, p.ease);
     if (mode === 'civ') {
       this.stats.hurtCiv('hero', t.look);
       this.civHits.push({ look: t.look!, collateral: false });
@@ -1087,21 +1241,29 @@ export class StreetScene extends Phaser.Scene {
     }
   }
 
-  /** 吹っ飛んで、のびる */
-  knock(a: Actor, dist: number, height: number, dir = 1): void {
+  /** 吹っ飛んで、のびる。ms と ease を省くと、飛ぶ距離に合わせた時間で、だんだんゆっくりになる */
+  knock(a: Actor, dist: number, height: number, dir = 1, ms = 380 + dist, ease = 'Sine.easeOut'): void {
+    this.liftUp(a, dir);
+    void this.arc(a, a.x + dist * dir, height, ms, ease).then(() => this.lieDown(a));
+  }
+
+  /** 吹っ飛ぶ(持ち上げられる)ところ:札とマークを消して、のけぞる */
+  private liftUp(a: Actor, dir = 1): void {
     a.state = 'down';
     a.showTag(false);
     a.hideMark();
     a.faceLeft(dir > 0);
     a.play('knocked', true);
-    void this.arc(a, a.x + dist * dir, height, 380 + dist, 'Sine.easeOut').then(() => {
-      if (a.state === 'gone') return;
-      a.play('down', true);
-      this.fx('fx_dust', a.x, a.y - 8, { depth: a.y + 1 });
-      a.stars?.destroy();
-      a.stars = this.add.sprite(a.x, a.y, 'fx_stars').play(animKey('fx_stars', 'play')).setDepth(a.y + 1);
-      a.sync();
-    });
+  }
+
+  /** 落ちて、のびる */
+  private lieDown(a: Actor): void {
+    if (a.state === 'gone') return;
+    a.play('down', true);
+    this.fx('fx_dust', a.x, a.y - 8, { depth: a.y + 1 });
+    a.stars?.destroy();
+    a.stars = this.add.sprite(a.x, a.y, 'fx_stars').play(animKey('fx_stars', 'play')).setDepth(a.y + 1);
+    a.sync();
   }
 
   /** 巻きぞえ */

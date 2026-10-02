@@ -275,6 +275,8 @@ export interface AttackDef {
   propBreakChance: Readonly<Record<PropKind, number>>;
   /** 物は範囲の中の「いちばん近い1つ」だけに当たるか(光のパンチの拳は物に当たると止まる) */
   firstPropOnly: boolean;
+  /** 地面の物だけに当たるか(壁の物は数えない。飛び蹴り、投げ、ヒップアタックは床の上で起きるので) */
+  groundOnly: boolean;
 }
 
 /*
@@ -286,6 +288,15 @@ export interface AttackDef {
  *   「あっ」となる程度)。物には必ず当たって止まるので、いちばん近い1つだけ。車は丈夫なので60%
  * - 踏みつぶし:衝撃波は左右40ドット(隣の人に届くか届かないか)。近いぶん当たりやすく50%
  * - 必殺技:5%しか出ないので、出たらはっきり大惨事にする。画面の端まで、物は全部壊れ、市民には80%
+ * - アッパー:相手を真上に打ち上げる。上にある壁の物(窓、看板)には必ず当たる。市民には当たらない(いちばん安全な技)。
+ *   落ちてきた相手が近く(左右24ドット)の物をつぶすことがあるが、真上から落ちるだけなので低め
+ * - 飛び蹴り:相手が地面をすべって72ドット先まで飛ぶ。通り道の市民に40%で当たり、最初の物(地面の物だけ)に当たって止まる。
+ *   人の体なので、光のパンチより少し壊れにくい
+ * - 投げ:相手を前へ放り投げる。落ちる所(相手の44〜100ドット先)の物と市民に当たる。落ちた所に集まるので市民には45%
+ * - ヒップアタック:お尻で当たったあと、はね返って後ろ(相手の4〜44ドット手前)にしりもちをつく。そこにある物と市民をつぶす。
+ *   ヒーローとの間なので物も人もめったにいないが、いれば当たりやすく市民には40%
+ * - 飛び蹴り、投げ、ヒップアタックは地面の物だけに当たる(groundOnly)。壁の物(窓、看板、消火器の箱)は数えない
+ * - 選ばれる割合:もとの3つ(突撃、パンチ、踏みつぶし)と新しい4つでおおよそ半分ずつ。必殺技は5%のまま
  * ステージ2の物:
  * - ワゴンと高級車は仕掛け(逃げる車、ボス戦の車)に使うので、ふつうの攻撃では壊れない(0)。
  *   ワゴンは行けで止めたときだけ、高級車はボス戦の中だけで壊れる
@@ -304,7 +315,7 @@ export interface AttackDef {
  */
 export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
   charge: {
-    kind: 'charge', name: '光の突撃', weight: 30,
+    kind: 'charge', name: '光の突撃', weight: 15,
     reach: { from: -56, to: 8 },
     civHitChance: 0,
     propBreakChance: {
@@ -313,10 +324,11 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
       gacha: 1, mannequin: 0.6, showcase: 0.6, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
       sofa: 0, plant: 1, flowers: 0.6, copier: 0.5, tank: 0.4, wine: 0.5, champagne: 0.4, piano: 0.05, chandelier: 0
     },
-    firstPropOnly: false
+    firstPropOnly: false,
+    groundOnly: false
   },
   punch: {
-    kind: 'punch', name: '光のパンチ', weight: 35,
+    kind: 'punch', name: '光のパンチ', weight: 17,
     reach: { from: 1, to: 216 },
     civHitChance: 0.35,
     propBreakChance: {
@@ -325,10 +337,11 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
       gacha: 1, mannequin: 1, showcase: 1, fountain: 0.5, escalator: 0.3, ufo: 0, mothership: 0,
       sofa: 0, plant: 1, flowers: 1, copier: 0.8, tank: 0.7, wine: 0.8, champagne: 0.6, piano: 0.1, chandelier: 0
     },
-    firstPropOnly: true
+    firstPropOnly: true,
+    groundOnly: false
   },
   stomp: {
-    kind: 'stomp', name: '踏みつぶし', weight: 30,
+    kind: 'stomp', name: '踏みつぶし', weight: 15,
     reach: { from: -40, to: 40 },
     civHitChance: 0.5,
     propBreakChance: {
@@ -337,7 +350,60 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
       gacha: 1, mannequin: 0.5, showcase: 0.7, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
       sofa: 0, plant: 0.8, flowers: 0.5, copier: 0.6, tank: 0.5, wine: 0.6, champagne: 0.5, piano: 0.05, chandelier: 0
     },
-    firstPropOnly: false
+    firstPropOnly: false,
+    groundOnly: false
+  },
+  uppercut: {
+    kind: 'uppercut', name: 'アッパー', weight: 12,
+    reach: { from: -24, to: 24 },
+    civHitChance: 0,
+    propBreakChance: {
+      trash: 0.5, window: 1, sign: 1, vending: 0.2, car: 0.2,
+      van: 0, bosscar: 0, pillar: 0.1, barrier: 0.4, cone: 0.6, extinguisher: 1,
+      gacha: 0.5, mannequin: 0.4, showcase: 0.4, fountain: 0.1, escalator: 0.1, ufo: 0, mothership: 0,
+      sofa: 0, plant: 0.5, flowers: 0.4, copier: 0.2, tank: 0.3, wine: 0.3, champagne: 0.3, piano: 0.02, chandelier: 0
+    },
+    firstPropOnly: false,
+    groundOnly: false
+  },
+  flykick: {
+    kind: 'flykick', name: '飛び蹴り', weight: 12,
+    reach: { from: 1, to: 72 },
+    civHitChance: 0.4,
+    propBreakChance: {
+      trash: 1, window: 0, sign: 0, vending: 0.7, car: 0.5,
+      van: 0, bosscar: 0, pillar: 0.4, barrier: 1, cone: 1, extinguisher: 1,
+      gacha: 1, mannequin: 1, showcase: 0.9, fountain: 0.4, escalator: 0.2, ufo: 0, mothership: 0,
+      sofa: 0, plant: 1, flowers: 1, copier: 0.7, tank: 0.6, wine: 0.7, champagne: 0.6, piano: 0.08, chandelier: 0
+    },
+    firstPropOnly: true,
+    groundOnly: true
+  },
+  throw: {
+    kind: 'throw', name: '投げ', weight: 12,
+    reach: { from: 44, to: 100 },
+    civHitChance: 0.45,
+    propBreakChance: {
+      trash: 1, window: 0, sign: 0, vending: 0.6, car: 0.5,
+      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.7, cone: 1, extinguisher: 0.8,
+      gacha: 1, mannequin: 0.6, showcase: 0.8, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
+      sofa: 0, plant: 0.9, flowers: 0.6, copier: 0.6, tank: 0.6, wine: 0.7, champagne: 0.6, piano: 0.05, chandelier: 0
+    },
+    firstPropOnly: false,
+    groundOnly: true
+  },
+  hip: {
+    kind: 'hip', name: 'ヒップアタック', weight: 12,
+    reach: { from: -44, to: -4 },
+    civHitChance: 0.4,
+    propBreakChance: {
+      trash: 1, window: 0, sign: 0, vending: 0.5, car: 0.4,
+      van: 0, bosscar: 0, pillar: 0.3, barrier: 0.7, cone: 1, extinguisher: 0.9,
+      gacha: 1, mannequin: 0.6, showcase: 0.6, fountain: 0.3, escalator: 0.2, ufo: 0, mothership: 0,
+      sofa: 0, plant: 1, flowers: 0.6, copier: 0.5, tank: 0.5, wine: 0.6, champagne: 0.5, piano: 0.05, chandelier: 0
+    },
+    firstPropOnly: false,
+    groundOnly: true
   },
   special: {
     kind: 'special', name: '必殺技', weight: 5,
@@ -349,18 +415,27 @@ export const ATTACKS: Readonly<Record<AttackKind, AttackDef>> = {
       gacha: 1, mannequin: 1, showcase: 1, fountain: 1, escalator: 1, ufo: 0, mothership: 0,
       sofa: 0, plant: 1, flowers: 1, copier: 1, tank: 1, wine: 1, champagne: 1, piano: 0.5, chandelier: 0
     },
-    firstPropOnly: false
+    firstPropOnly: false,
+    groundOnly: false
   }
 };
 
-export const ATTACK_KINDS: readonly AttackKind[] = ['charge', 'punch', 'stomp', 'special'];
+export const ATTACK_KINDS: readonly AttackKind[] = ['charge', 'punch', 'stomp', 'special', 'uppercut', 'flykick', 'throw', 'hip'];
 
 /** 攻撃の重み。キーは ATTACK_KINDS の順(順番が変わると、同じ種でも選ばれる攻撃が変わる) */
 const ATTACK_WEIGHTS = Object.fromEntries(ATTACK_KINDS.map((k) => [k, ATTACKS[k].weight])) as Readonly<Record<AttackKind, number>>;
 
-/** 殴るたびに攻撃を選ぶ(光の突撃30%、光のパンチ35%、踏みつぶし30%、必殺技5%) */
-export function pickAttack(rng: Rng): AttackKind {
-  return rng.weighted(ATTACK_WEIGHTS);
+/** ボスが正体を現す場面で使わない技。投げはボスを持ち上げられない(正体を現す場面ではボスは動かない)ので出さない */
+export const BOSS_NO_ATTACKS: readonly AttackKind[] = ['throw'];
+
+/**
+ * 殴るたびに攻撃を選ぶ(光の突撃15%、光のパンチ17%、踏みつぶし15%、アッパー、飛び蹴り、投げ、ヒップアタックが12%ずつ、必殺技5%)。
+ * without に入れた技は選ばない(残りの技の重みで選ぶ。乱数を引くのは1回)
+ */
+export function pickAttack(rng: Rng, without: readonly AttackKind[] = []): AttackKind {
+  if (without.length === 0) return rng.weighted(ATTACK_WEIGHTS);
+  const w = Object.fromEntries(ATTACK_KINDS.filter((k) => !without.includes(k)).map((k) => [k, ATTACK_WEIGHTS[k]]));
+  return rng.weighted(w as Readonly<Record<AttackKind, number>>);
 }
 
 /** dx が攻撃の届く範囲に入っているか */
@@ -399,12 +474,14 @@ function rollPropBreak(kind: AttackKind, prop: PropKind, dx: number, rng: Rng): 
 
 /**
  * ある攻撃で壊れる物をまとめて決める。props は物の一覧(x は画面の座標)、targetX は殴る相手の x。
- * 光のパンチは範囲の中でいちばん近い物1つだけを調べる。返すのは壊れた物の一覧。
+ * 光のパンチと飛び蹴りは範囲の中でいちばん近い物1つだけを調べる。地面の物だけに当たる技(groundOnly)は壁の物を除く。
+ * 返すのは壊れた物の一覧。
  */
-export function rollPropsBroken<T extends { kind: PropKind; x: number }>(
+export function rollPropsBroken<T extends { kind: PropKind; x: number; wall?: boolean }>(
   kind: AttackKind, props: readonly T[], targetX: number, rng: Rng
 ): T[] {
   const inside = props
+    .filter((p) => !(ATTACKS[kind].groundOnly && p.wall))
     .map((p) => ({ p, dx: p.x - targetX }))
     .filter(({ dx }) => inReach(kind, dx))
     .sort((a, b) => Math.abs(a.dx) - Math.abs(b.dx));

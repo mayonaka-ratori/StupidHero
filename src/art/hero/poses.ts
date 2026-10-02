@@ -259,6 +259,40 @@ const flyKick: Pose[] = [
     lf: { a: -26, k: 30 }, lb: { a: 30, k: 40 }, cape: capeIdle(5.5), tail: { a: -45, ph: 5.5 } })
 ];
 
+// ---------- 17 投げ:つかんで頭の上へ持ち上げ、前へ放り投げる ----------
+const throwMove: Pose[] = [
+  P({ lean: 28, squash: 0.06, face: 'grin', af: { a: 78, e: 14, hand: 'open' }, ab: { a: 70, e: 20, hand: 'open' },
+    lf: { a: 30, k: 60 }, lb: { a: -20, k: 40 }, cape: capeWind(0.5, -30), tail: { a: -55, ph: 0.5 } }),
+  P({ lean: 6, squash: 0.1, face: 'shout', af: { a: 140, e: 20, hand: 'open' }, ab: { a: 130, e: 26, hand: 'open' },
+    lf: { a: 24, k: 50 }, lb: { a: -14, k: 46 }, cape: capeWind(1.5, -25), tail: { a: -45, ph: 1.5 } }),
+  P({ lean: -12, face: 'shout', af: { a: 172, e: 6, hand: 'open' }, ab: { a: 166, e: 10, hand: 'open' },
+    lf: { a: -14, k: 4 }, lb: { a: 20, k: 10 }, cape: capeIdle(2.5), tail: { a: -35, ph: 2.5 } }),
+  P({ lean: -24, face: 'shout', af: { a: -160, e: -16, hand: 'open' }, ab: { a: -166, e: -10, hand: 'open' },
+    lf: { a: 18, k: 24 }, lb: { a: 26, k: 40 }, cape: capeIdle(3.5), tail: { a: -25, ph: 3.5 } }),
+  P({ lean: 28, face: 'shout', af: { a: 112, e: 0, hand: 'open' }, ab: { a: 104, e: 6, hand: 'open' },
+    lf: { a: 36, k: 44 }, lb: { a: -34, k: 20 }, cape: capeWind(4.5, -80), tail: { a: -90, ph: 4.5 } }),
+  P({ lean: 4, face: 'grin', af: HIP_F, ab: { a: 120, e: 30, hand: 'thumb' },
+    lf: { a: -18, k: 6 }, lb: { a: 22, k: 10 }, cape: capeIdle(5.5), tail: { a: -45, ph: 5.5 } })
+];
+
+// ---------- 18 ヒップアタック:後ろ向きに跳び、空中で座った形のままお尻で当たって、はね返ってしりもち ----------
+// シーンでは左向きにして出す(お尻が右の相手に向く)。ここでは右向きのまま描く
+const hipAttack: Pose[] = [
+  P({ lean: 18, squash: 0.1, face: 'grin', af: { a: -60, e: 30, hand: 'fist' }, ab: { a: -40, e: 40, hand: 'fist' },
+    lf: { a: 50, k: 95 }, lb: { a: 30, k: 90 }, cape: capeIdle(0.5), tail: { a: -50, ph: 0.5 } }),
+  P({ ground: false, y: 31, lean: 6, face: 'shout', af: { a: 150, e: 20, hand: 'open' }, ab: { a: 140, e: 30, hand: 'open' },
+    lf: { a: 70, k: 110 }, lb: { a: 55, k: 100 }, cape: { a: -20, len: 26, ph: 1.5, w: 9, amp: 2 }, tail: { a: -20, ph: 1.5 } }),
+  P({ ground: false, y: 38, lean: -16, face: 'shout', af: { a: 100, e: 10, hand: 'open' }, ab: { a: 110, e: 16, hand: 'open' },
+    lf: { a: 84, k: 12 }, lb: { a: 74, k: 26 }, cape: { a: 20, len: 24, ph: 2.5, w: 10, amp: 2 }, tail: { a: 10, ph: 2.5 } }),
+  P({ ground: false, y: 40, lean: -24, squash: 0.12, face: 'smug', af: { a: 120, e: 10, hand: 'open' }, ab: { a: 130, e: 16, hand: 'open' },
+    lf: { a: 92, k: 8 }, lb: { a: 80, k: 22 }, cape: { a: 40, len: 22, ph: 3.5, w: 10, amp: 2 }, tail: { a: 30, ph: 3.5 } }),
+  P({ ground: false, y: 30, lean: -16, face: 'shock', af: { a: 150, e: -20, hand: 'open' }, ab: { a: 130, e: 10, hand: 'open' },
+    lf: { a: 40, k: 30 }, lb: { a: 20, k: 40 }, cape: { a: -40, len: 26, ph: 4.5, w: 9, amp: 2 }, tail: { a: -30, ph: 4.5 } }),
+  P({ ground: false, y: 47, lean: -22, face: 'grin', af: { a: -30, e: 10, hand: 'open' }, ab: { a: -20, e: 10, hand: 'open' },
+    lf: { a: 86, k: 14 }, lb: { a: 76, k: 30 }, cape: { a: -70, len: 20, ph: 5.5, w: 9 }, tail: { a: -60, ph: 5.5 } })
+];
+
 export const HERO_ROWS: Pose[][] = [
-  idle, run, charge, punch, stomp, special, pass, stop, oops, okay, winPose, winArms, winFist, winShy, kick, uppercut, flyKick
+  idle, run, charge, punch, stomp, special, pass, stop, oops, okay, winPose, winArms, winFist, winShy, kick, uppercut, flyKick,
+  throwMove, hipAttack
 ];

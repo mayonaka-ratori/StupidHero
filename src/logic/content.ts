@@ -444,6 +444,26 @@ export const ATTACK_SHOUTS: Readonly<Record<AttackKind, readonly Speech[]>> = {
     hero('smug', '高く跳んで…\n踏みつぶし！'),
     hero('smug', '上から失礼！\nどーん！')
   ],
+  uppercut: [
+    hero('smug', 'アッパー！\nお空へどうぞ！'),
+    hero('smug', '下から失礼！\nアッパー！'),
+    hero('smug', 'くらえっ！\nアッパー！')
+  ],
+  flykick: [
+    hero('smug', '飛び蹴りーっ！'),
+    hero('smug', '助走をつけて…\n飛び蹴り！'),
+    hero('smug', 'とうっ！\n飛び蹴り！')
+  ],
+  throw: [
+    hero('smug', 'つかまえた！\nそーれっ！'),
+    hero('smug', '遠くまで\n投げ飛ばすよ！'),
+    hero('smug', 'おりゃーっ！\n飛んでけーっ！')
+  ],
+  hip: [
+    hero('smug', 'ヒップアタック！'),
+    hero('smug', 'お尻で\n失礼します！'),
+    hero('smug', '後ろ向きで\nどーん！')
+  ],
   special: [
     hero('smug', '必殺技！\nいっけーっ！'),
     hero('smug', '出た！\n必殺技！'),

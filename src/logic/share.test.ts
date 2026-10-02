@@ -64,6 +64,20 @@ describe('いちばんひどい場面の説明の文(写真と同じ1回で、�
     expect(worstCaption(s)).toBe('市民を踏んだ!');
   });
 
+  it('あとから足した技(アッパー、飛び蹴り、投げ、ヒップアタック)も技の文になる', () => {
+    const want = { uppercut: '市民にアッパー!', flykick: '市民に飛び蹴り!', throw: '市民を投げた!', hip: '市民にヒップアタック!' } as const;
+    for (const [k, text] of Object.entries(want)) {
+      const st = new StatsTracker(9, 'alley');
+      st.hurtCiv('hero', 'shopper');
+      st.reportScene('civHit', k as keyof typeof want);
+      expect(worstCaption(st.snapshot()), k).toBe(text);
+    }
+    const g = new StatsTracker(9, 'alley');
+    g.hurtCiv('hero', 'granny');
+    g.reportScene('grannyHit', 'hip');
+    expect(worstCaption(g.snapshot())).toBe('おばあちゃんにヒップアタック!');
+  });
+
   it('巻きぞえで当たったのがもっとひどい場面なら、その場面の巻きぞえの文になる', () => {
     const st = new StatsTracker(9, 'alley');
     st.hurtCiv('hero', 'shopper');
