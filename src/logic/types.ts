@@ -336,6 +336,13 @@ export type HurtCause = 'hero' | 'collateral' | 'villain' | 'abducted' | 'droppe
  */
 export type WorstScene = 'grannyHit' | 'specialOnCiv' | 'civHit' | 'abducted' | 'dropped' | 'bigPropBroken' | 'bossDefeated';
 
+/**
+ * いちばんひどい場面が市民に当たった場面(grannyHit、specialOnCiv、civHit)のとき、その1回がどう当たったか。
+ * punch:ヒーローが直接なぐった(ラッシュでなぐったのも) / collateral:ほかの相手への攻撃の巻きぞえ。
+ * 写真の説明の文(「市民をなぐった!」か「市民をまきぞえに!」)を、写真と同じ1回で決めるのに使う
+ */
+export type WorstCause = 'punch' | 'collateral';
+
 /** 称号の id */
 export type TitleId =
   | 'flawless'
@@ -442,6 +449,8 @@ export interface StageStats {
   worstScene: WorstScene | null;
   /** その場面を起こした技(説明の文を変えるため)。技でなければ null */
   worstAttack: AttackKind | null;
+  /** その場面が市民に当たった場面なら、なぐったか巻きぞえか(説明の文を写真と合わせるため)。ほかの場面は null */
+  worstCause: WorstCause | null;
   /** 自分で仕分けて当たった人数(時間切れでヒーローが決めた人は入れない) */
   sortCorrect: number;
   /** 自分で仕分けた人数(時間切れでヒーローが決めた人は入れない) */

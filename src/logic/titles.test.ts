@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { titleCommentFor } from './content';
-import { TITLES, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
+import { TITLES, collectTitles, decideTitle, titleById, titlesFor, titlesForFree } from './titles';
 import { makeStats } from './testHelpers';
 import type { StageStats } from './types';
 
@@ -12,13 +12,13 @@ describe('称号', () => {
   it('24個、順番と名前とポーズがSPECとSTAGE2とSTAGE3とSTAGE4とFREEPLAYの通り', () => {
     expect(TITLES).toHaveLength(24);
     expect(TITLES.map((t) => t.name)).toEqual([
-      '完全無欠のヒーロー', '最上階のヒーロー', '市民の天敵', '歩く解体工事', 'ボスの親友', 'ギャングの見送り係', '宇宙人の案内係',
-      '空飛ぶ家具の見送り係', 'おばあちゃんの敵', '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神',
+      '完全無欠のヒーロー', '最上階のヒーロー', '市民の天敵', 'ボスの親友', 'ギャングの見送り係', '宇宙人の案内係',
+      '空飛ぶ家具の見送り係', '歩く解体工事', 'おばあちゃんの敵', '正義の暴走機関車', '街のほんものヒーロー', 'タイムセールの守り神',
       'エレベーターの守り神', '連打の申し子', '待ての達人', 'UFOハンター', 'ソファの名人', '一網打尽',
       '追い打ちの鬼', 'やさしすぎるヒーロー', 'まあまあヒーロー', 'ヒーローのお守り役', 'ヒーローの通訳', 'なすがまま'
     ]);
     expect(TITLES.map((t) => t.pose)).toEqual([
-      'win_pose', 'win_pose', 'win_shy', 'win_fist', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_arms',
+      'win_pose', 'win_pose', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_shy', 'win_fist', 'win_shy', 'win_arms',
       'win_pose', 'win_pose', 'win_pose', 'win_fist', 'win_pose', 'win_fist', 'win_arms', 'win_arms', 'win_arms', 'win_pose',
       'win_arms', 'win_pose', 'win_arms', 'win_shy'
     ]);
@@ -32,11 +32,13 @@ describe('称号', () => {
     expect(decideTitle({ ...perfect, damage: 5_000_000 }).id).toBe('realHero');
   });
 
-  it('解体工事 → ボスの親友 → おばあちゃんの敵 → 暴走機関車 の順', () => {
-    // 路地裏の歩く解体工事は¥1,500万以上
+  it('ボスの親友 → 解体工事 → おばあちゃんの敵 → 暴走機関車 の順', () => {
+    // 路地裏の歩く解体工事は¥1,500万以上。ボスを市民に仕分けた暴れ(¥1,000万)で届いても、大きな称号はボスの親友
     const s = base({ damage: 15_000_000, bossSortedCiv: true, grannyHit: true, grannyPunched: true, allDefeated: true, civHurt: 3, civHurtByHero: 3, defeated: 9 });
-    expect(decideTitle(s).id).toBe('demolition');
-    expect(decideTitle({ ...s, damage: 14_990_000 }).id).toBe('bossBuddy');
+    expect(decideTitle(s).id).toBe('bossBuddy');
+    expect(collectTitles(s).map((t) => t.id)).toContain('demolition');
+    expect(decideTitle({ ...s, bossSortedCiv: false }).id).toBe('demolition');
+    expect(decideTitle({ ...s, bossSortedCiv: false, damage: 14_990_000 }).id).toBe('grannyFoe');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false }).id).toBe('grannyFoe');
     expect(decideTitle({ ...s, damage: 0, bossSortedCiv: false, grannyHit: false, grannyPunched: false }).id).toBe('runawayTrain');
   });
@@ -210,7 +212,7 @@ describe('称号(ステージ4)', () => {
     expect(ids.indexOf('sofaMaster')).toBe(ids.indexOf('ufoHunter') + 1);
     expect(titleById('topHero').hint).toBe('最後のボスを倒す');
     expect(titleById('furnitureGuide').hint).toBe('念力で市民が2人けがをする');
-    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人もまちがえない');
+    expect(titleById('liftGuardian').hint).toBe('エレベーターで1人も間違えない');
     expect(titleById('sofaMaster').hint).toBe('ソファの上に2回落とす');
     for (const id of TOWER_ONLY) {
       expect(titleById(id).stages).toEqual(['tower']);

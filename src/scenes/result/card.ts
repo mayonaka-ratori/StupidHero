@@ -22,9 +22,8 @@
 import type Phaser from 'phaser';
 import { UI } from '../../config';
 import {
-  ABDUCTED_CAPTION, DROPPED_CAPTION, FREE_NAME, FREE_WORST_CAPTION, STAGES, STAGE_WORST_CAPTIONS, damageAnalogy, formatClearTime, formatYen, ruleSignText,
-  titleCommentFor, type AttackKind, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef, type TitleId,
-  type WorstScene
+  ALL_WORST_CAPTIONS, FREE_NAME, FREE_WORST_CAPTION, STAGES, damageAnalogy, formatClearTime, formatYen, freeWorstCaption, ruleSignText,
+  titleCommentFor, worstCaption, type FreeRule, type SaveOutcome, type StageDef, type StageId, type StageStats, type TitleDef, type TitleId
 } from '../../logic';
 import { FREE_ITEM_ICONS } from '../../art/free/items';
 import { NAMES } from '../../ui/theme';
@@ -34,88 +33,9 @@ const CARD_W = 216;
 const CARD_H = 270;
 const CARD_SCALE = 5;
 
-/** いちばんひどかった場面の見出し(写真の下に出す)。技の分からないときの文 */
-const WORST_CAPTION: Record<WorstScene, string> = {
-  grannyHit: 'おばあちゃんをなぐった!',
-  specialOnCiv: '市民に必殺技!',
-  civHit: '市民をなぐった!',
-  abducted: ABDUCTED_CAPTION,
-  dropped: DROPPED_CAPTION,
-  bigPropBroken: '街がこわれた!',
-  bossDefeated: 'ボスを倒した!'
-};
-
-/** 市民に当たった場面は、技の種類で文を変える */
-const WORST_CAPTION_BY_ATTACK: Partial<Record<WorstScene, Record<AttackKind, string>>> = {
-  grannyHit: {
-    charge: 'おばあちゃんに突撃!',
-    punch: 'おばあちゃんに全力パンチ!',
-    stomp: 'おばあちゃんを踏みつぶし!',
-    special: 'おばあちゃんに必殺技!'
-  },
-  civHit: {
-    charge: '市民に突撃!',
-    punch: '市民をなぐった!',
-    stomp: '市民を踏んだ!',
-    special: '市民に必殺技!'
-  }
-};
-
-/** ステージごとに言い方を変える見出し(地下駐車場とショッピングモールは「街」ではない。logic/share.ts) */
-const WORST_CAPTION_BY_STAGE: Partial<Record<StageId, Partial<Record<WorstScene, string>>>> = STAGE_WORST_CAPTIONS;
-
-/**
- * 市民に当たった場面が巻きぞえだけだったときの見出し。
- * 完全無欠のヒーローなどは巻きぞえを数えないので、「市民に必殺技!」だと称号と食いちがって見える
- */
-const COLLATERAL_CAPTION: Partial<Record<WorstScene, string>> = {
-  grannyHit: 'おばあちゃんをまきぞえに!',
-  specialOnCiv: '市民を必殺技のまきぞえに!',
-  civHit: '市民をまきぞえに!'
-};
-
-/** 説明の文を決めるのに使う数 */
-type CaptionStats = Pick<StageStats, 'worstScene' | 'worstAttack'>
-  & Partial<Pick<StageStats, 'stageId' | 'civHurtByHero' | 'civHurtByCollateral' | 'lift'>>;
-
-/**
- * 市民のけがが巻きぞえだけか(ヒーローが市民を直接なぐっていない)。
- * エレベーターラッシュで市民をなぐった場面も「市民をなぐった」の場面になるが、けがには数えないので別に見る
- */
-const hurtOnlyByCollateral = (s: CaptionStats): boolean =>
-  (s.civHurtByHero ?? 0) === 0 && (s.civHurtByCollateral ?? 0) > 0 && (s.lift?.civsHit ?? 0) === 0;
-
-/** いちばんひどい場面の説明の文 */
-export function worstCaption(s: CaptionStats): string {
-  if (!s.worstScene) return 'ひどいことはなかった!';
-  const collateral = hurtOnlyByCollateral(s) ? COLLATERAL_CAPTION[s.worstScene] : undefined;
-  if (collateral) return collateral;
-  const byAttack = s.worstAttack ? WORST_CAPTION_BY_ATTACK[s.worstScene]?.[s.worstAttack] : undefined;
-  const byStage = s.stageId ? WORST_CAPTION_BY_STAGE[s.stageId]?.[s.worstScene] : undefined;
-  return byAttack ?? byStage ?? WORST_CAPTION[s.worstScene];
-}
-
-/**
- * フリープレイのいちばんひどい場面の説明の文。ステージの場面(市民を殴ったなど)があればその文、
- * なければフリープレイだけの場面(ワルに手を振った、ギリギリセーフ)の文
- */
-export function freeWorstCaption(s: CaptionStats & Pick<StageStats, 'free'>): string {
-  // 波ごとに背景が変わるので、ステージの名前で言い方を変える文(「駐車場ボロボロ!」など)は使わない
-  const plain = {
-    worstScene: s.worstScene, worstAttack: s.worstAttack, civHurtByHero: s.civHurtByHero, civHurtByCollateral: s.civHurtByCollateral
-  };
-  if (s.worstScene) return worstCaption(plain);
-  if (s.free?.worst) return FREE_WORST_CAPTION[s.free.worst];
-  return worstCaption(plain);
-}
-
-/** 説明の文の全部(字を先に読みこむため) */
-const ALL_CAPTIONS = [
-  ...Object.values(WORST_CAPTION),
-  ...Object.values(WORST_CAPTION_BY_STAGE).flatMap((t) => Object.values(t ?? {})),
-  ...Object.values(WORST_CAPTION_BY_ATTACK).flatMap((t) => Object.values(t ?? {})),
-  ...Object.values(COLLATERAL_CAPTION)
-];
+// いちばんひどい場面の説明の文(worstCaption、freeWorstCaption)は logic/share.ts にある(テストで確かめるため)。
+// 結果画面からはここ経由でも使えるようにしておく
+export { freeWorstCaption, worstCaption };
 
 /** 巻きぞえを数えない称号(logic/titles.ts の完全無欠、街のほんものヒーロー、ヒーローのお守り役) */
 const TITLES_IGNORING_COLLATERAL: readonly TitleId[] = ['flawless', 'realHero', 'heroSitter'];
@@ -170,7 +90,7 @@ const commentOf = (i: CardInput): ReturnType<typeof titleCommentFor> => titleCom
 /** 共有カードで使う字(先に読みこんでおく) */
 export function cardTexts(i: CardInput): string[] {
   return [
-    i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
+    i.title.name, commentOf(i).text, NAMES.operator, 'いちばんひどい場面', ...ALL_WORST_CAPTIONS, stageLabel(i.stage ?? STAGES.alley),
     'ひどいことはなかった!', '悪党を倒した', '市民のけが', 'まきぞえ', '逃がした', '被害額', '人', '称号', '#StupidHero',
     formatYen(i.stats.damage), damageAnalogy(i.stats.damage, stageIdOf(i)).text, '0123456789/,¥万億',
     ...(i.stats.free ? [...FREE_CARD_TEXTS, freeWorstCaption(i.stats), i.stats.free.worstRule ? ruleSignText(i.stats.free.worstRule) : ''] : [])

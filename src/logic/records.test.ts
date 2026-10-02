@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   LEGACY_RECORDS_KEY, RECORDS_KEY, clearRecords, emptyFreeRecord, hasAnyRecord, hasSeenRush, isFirstClear, isStageUnlocked, loadRecords, markEndingSeen,
-  markIntroSeen, markRushSeen, markTitleListSeen, needsEnding,
-  needsIntro, saveFreeResult, saveResult, stageSelectInfo, unseenTitles, type RecordStorage
+  markIntroSeen, markRushSeen, markSlowHintSeen, markTitleListSeen, needsEnding,
+  needsIntro, needsSlowHint, saveFreeResult, saveResult, stageSelectInfo, unseenTitles, type RecordStorage
 } from './records';
 import { MemStorage, makeStats } from './testHelpers';
+import { TITLES, titlesAt } from './titles';
 import type { StageStats } from './types';
 
 const broken: RecordStorage = {
@@ -322,7 +323,7 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
     // 新しく取った称号は NEW。一覧を開いたら見たことにする
     saveResult('alley', stats(), ['tapProdigy', 'stopMaster'], old);
     expect(unseenTitles(loadRecords(old))).toEqual(['tapProdigy']);
-    markTitleListSeen(old);
+    markTitleListSeen(TITLES.map((t) => t.id), old);
     expect(unseenTitles(loadRecords(old))).toEqual([]);
     expect(loadRecords(old).listSeen).toEqual(['soSo', 'stopMaster', 'tapProdigy']);
     // ステージ1だけの公開版(v1)の記録も、全部見たことにして読む
@@ -338,7 +339,64 @@ describe('高層ビルの終わりの場面(needsEnding、markEndingSeen)', () =
   it('称号の一覧で見たことを、localStorage が使えなくても、その場では覚えている', () => {
     saveResult('alley', stats(), ['flawless'], broken);
     expect(unseenTitles(loadRecords(broken))).toEqual(['flawless']);
-    expect(() => markTitleListSeen(broken)).not.toThrow();
+    expect(() => markTitleListSeen(['flawless'], broken)).not.toThrow();
     expect(unseenTitles(loadRecords(broken))).toEqual([]);
+  });
+
+  it('ゆっくりモードのことを教えるのは1回だけ。教えたあとと、ゆっくりモードをオンにしたあとは出さない', () => {
+    const st = new MemStorage();
+    expect(needsSlowHint(loadRecords(st))).toBe(true);
+    markSlowHintSeen(st);
+    expect(needsSlowHint(loadRecords(st))).toBe(false);
+    expect(loadRecords(st).slowHintSeen).toBe(true);
+    // 2回呼んでも同じ
+    markSlowHintSeen(st);
+    expect(needsSlowHint(loadRecords(st))).toBe(false);
+  });
+
+  it('ゆっくりモードのことを教えたか:前の記録(slowHintSeen がない)は、まだ教えていないとして読む', () => {
+    const old = new MemStorage();
+    old.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: { alley: { plays: 3, clears: 1, titles: ['soSo'] } }, titles: ['soSo'] }));
+    const r = loadRecords(old);
+    expect(r.slowHintSeen).toBe(false);
+    expect(needsSlowHint(r)).toBe(true);
+    expect(r.stages.alley?.plays).toBe(3);
+    // 教えたら残り、ほかの記録は変わらない
+    markSlowHintSeen(old);
+    expect(loadRecords(old).slowHintSeen).toBe(true);
+    expect(loadRecords(old).stages.alley?.plays).toBe(3);
+    // ステージ1だけの公開版(v1)の記録も、まだ教えていないとして読む
+    const v1 = new MemStorage();
+    v1.setItem(LEGACY_RECORDS_KEY, JSON.stringify({ version: 1, stages: { alley: { plays: 1 } }, titles: ['grannyFoe'] }));
+    expect(needsSlowHint(loadRecords(v1))).toBe(true);
+    // true のほかの値は、教えていないとして読む
+    const bad = new MemStorage();
+    bad.setItem(RECORDS_KEY, JSON.stringify({ version: 2, stages: {}, titles: [], slowHintSeen: 'yes' }));
+    expect(needsSlowHint(loadRecords(bad))).toBe(true);
+  });
+
+  it('ゆっくりモードのことを教えたことを、localStorage が使えなくても、その場では覚えている', () => {
+    expect(needsSlowHint(loadRecords(broken))).toBe(true);
+    expect(() => markSlowHintSeen(broken)).not.toThrow();
+    expect(needsSlowHint(loadRecords(broken))).toBe(false);
+  });
+
+  it('称号の一覧で見たことにするのは、一覧に並べた称号だけ(ステージのカードから開いた一覧で、ほかの場所の NEW を消さない)', () => {
+    const st = new MemStorage();
+    saveResult('alley', stats(), ['stopMaster'], st);
+    saveFreeResult(makeStats({ civHurt: 0, civHurtByHero: 0 }), ['heroSitter'], st);
+    expect(unseenTitles(loadRecords(st))).toEqual(['stopMaster', 'heroSitter']);
+    // 路地裏の称号だけを並べた一覧を開いた:フリープレイだけの称号の NEW は残る
+    markTitleListSeen(titlesAt('alley').map((t) => t.id), st);
+    expect(unseenTitles(loadRecords(st))).toEqual(['heroSitter']);
+    // まだ取っていない称号を並べても、見たことにはしない(あとで取ったときに NEW がつく)
+    expect(loadRecords(st).listSeen).not.toContain('flawless');
+    saveResult('alley', stats(), ['flawless'], st);
+    expect(unseenTitles(loadRecords(st))).toEqual(['heroSitter', 'flawless']);
+    // 全部を並べた一覧を開くと、全部見たことになる。もう一度開いても同じ(NEW はまた出ない)
+    markTitleListSeen(TITLES.map((t) => t.id), st);
+    expect(unseenTitles(loadRecords(st))).toEqual([]);
+    markTitleListSeen(TITLES.map((t) => t.id), st);
+    expect(unseenTitles(loadRecords(st))).toEqual([]);
   });
 });

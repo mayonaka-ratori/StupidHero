@@ -69,7 +69,7 @@ function fillGarageSample(stats: StatsTracker, name: SampleName): void {
       n(6, () => stats.breakProp('pillar'));
       n(8, () => stats.breakProp('car'));
       n(4, () => stats.breakProp('barrier'));
-      stats.bossRampage();
+      // ボスは市民に仕分けていない(仕分けると、先に調べるボスの親友が大きな称号になる)
       stats.addBossDamage(4_000_000);
       stats.reportScene('specialOnCiv');
       break;
@@ -150,7 +150,7 @@ function fillMallSample(stats: StatsTracker, name: SampleName): void {
       stats.ufoDowned();
       n(4, () => stats.breakProp('escalator'));
       n(3, () => stats.breakProp('showcase'));
-      stats.bossRampage();
+      // ボスは市民に仕分けていない(仕分けると、先に調べるボスの親友が大きな称号になる)
       stats.addBossDamage(4_500_000);
       stats.hurtCiv('collateral', 'dancer');
       rush(2, 1);
@@ -319,7 +319,7 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
       n(14, () => stats.breakProp('car'));
       n(12, () => stats.breakProp('vending'));
       n(3, () => stats.breakProp('sign'));
-      stats.bossRampage();
+      // ボスは市民に仕分けていない(仕分けると、先に調べるボスの親友が大きな称号になる)
       stats.addBossDamage(3_000_000);
       stats.reportScene('specialOnCiv');
       break;
@@ -343,7 +343,8 @@ export function fillSampleStats(stats: StatsTracker, name: SampleName): void {
       n(3, () => stats.defeatBad('sort'));
       stats.defeatBoss(9.2);
       n(4, () => stats.escaped());
-      n(3, () => stats.stopped('civ'));
+      // 待てで守った市民は2人まで(3人だと、先に調べる待ての達人が大きな称号になる)
+      n(2, () => stats.stopped('civ'));
       n(4, () => stats.mischief('shopper'));
       break;
   }
