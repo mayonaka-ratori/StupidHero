@@ -265,7 +265,7 @@ describe('フリープレイの称号', () => {
       expect(titlesFor(id).map((t) => t.id)).not.toContain('heroSitter');
     }
     expect(titleCommentFor('heroInterpreter').who).toBe('hero');
-    expect(titleCommentFor('heroSitter').text).toBe('おバカ、全部止めたね！');
+    expect(titleCommentFor('heroSitter').text).toBe('おバカのお守り、\n完ぺきだね！');
     expect(titleCommentFor('letItBe').text).toBe('…もう知らない');
   });
 

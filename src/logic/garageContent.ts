@@ -183,7 +183,7 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('deadpan', 'ノリノリだね…'),
       hint('normal', 'スマホばっかり\n見てる'),
       hint('normal', '誰かを\n探してるみたい'),
-      hint('panic', 'まわりを\n気にしてる')
+      hint('panic', '周りを\n気にしてる')
     ],
     bad: [
       hint('normal', 'すごく\n派手な服…'),
@@ -191,7 +191,7 @@ export const GARAGE_OPERATOR_HINTS: Readonly<Record<GangLook, { civ: readonly Op
       hint('normal', '指で何か\n合図してる…？'),
       hint('deadpan', 'ノリノリ…\nでもないか'),
       hint('normal', 'スマホばっかり\n見てる'),
-      hint('panic', 'まわりを\n気にしてる')
+      hint('panic', '周りを\n気にしてる')
     ]
   },
   officelady: {
@@ -243,19 +243,19 @@ export const BOSS2_HINTS: Readonly<Record<GarageDisguise, readonly OperatorHint[
     hint('panic', '夜なのに\nサングラス…？'),
     hint('normal', '腕章が金色…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
-    hint('deadpan', '警備員にしては\n貫禄がありすぎ')
+    hint('deadpan', '警備員にしては\nオーラがありすぎ')
   ],
   mechanic: [
     hint('panic', 'つなぎに\nハイヒール…？'),
     hint('normal', 'タオルが\n金色…？'),
     hint('normal', '手がぜんぜん\n汚れてない'),
-    hint('deadpan', '整備士にしては\n貫禄がありすぎ')
+    hint('deadpan', '整備士にしては\nオーラがありすぎ')
   ],
   officelady: [
     hint('panic', '腕輪が\nギラギラしてる'),
     hint('normal', 'スカーフが\n金色…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
-    hint('deadpan', '会社員にしては\n貫禄がありすぎ')
+    hint('deadpan', '会社員にしては\nオーラがありすぎ')
   ]
 };
 
@@ -351,9 +351,9 @@ export function allLinkTexts(): string[] {
 /** 地下駐車場を最初に遊ぶときの掛け合い(5枚)。新しい手がかり、仲間を呼ぶ、車で逃げる、を教える */
 export const GARAGE_INTRO: readonly Speech[] = [
   hero('smug', '次は地下駐車場！\nギャング退治だ！'),
-  op('normal', '前の人とおそろいの色\nならギャングの仲間かも'),
+  op('normal', '前の人と同じ色なら\nギャングの仲間かも'),
   op('deadpan', '色が同じでも市民かも。\n指の合図も見てね'),
-  op('normal', '見逃すと口笛で仲間を\n呼ぶ。集まったら行け！'),
+  op('normal', '見逃すと仲間を呼ぶ。\n集まったら行け！'),
   op('panic', '3秒で車に乗って逃げる。\n行けを押せばすぐ止まる！')
 ];
 
@@ -432,8 +432,8 @@ export const GARAGE_JUDGE_LINES: Readonly<Record<GangLook, readonly Speech[]>> =
     hero('smug', '手が真っ黒！\nワルで間違いない！')
   ],
   clubber: [
-    hero('smug', '服がハデすぎる！\nワルで間違いない！'),
-    hero('smug', 'ヘアバンドがハデ！\nワルで間違いない！'),
+    hero('smug', '服が派手すぎる！\nワルで間違いない！'),
+    hero('smug', 'ヘアバンドが派手！\nワルで間違いない！'),
     hero('smug', 'ノリが軽そう！\nワルで間違いない！')
   ],
   officelady: [

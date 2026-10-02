@@ -71,7 +71,7 @@ const PROFILES: Readonly<Record<TowerLook, ProfileSet>> = {
   newbie: {
     civOdd: ['コピー機が\nなぜか動かない', '朝は\nいつの間にか着いている', '机の上の物が\nよく動いている'],
     civPlain: ['書類が\nよく机から落ちる', '緊張すると\n手がふるえる', '昼は\n社員食堂'],
-    badOdd: ['コピー機とは\n相性がいい', '緊張すると\nペンがふるえる', '昼は\n屋上で一人'],
+    badOdd: ['コピー機とは\n相性がいい', '緊張すると\nペンがふるえる', '昼は\n屋上でひとり'],
     badPlain: ['書類は\nあまり落とさない', '朝は\n誰よりも早く来る', '席は\n窓ぎわ'],
     shared: ['入社して\nまだ一か月', '先輩に\nよく怒られる']
   },
@@ -101,7 +101,7 @@ const PROFILES: Readonly<Record<TowerLook, ProfileSet>> = {
     civPlain: ['ヒールで\n足が痛い', '夜景が\n大好き', 'お酒は\n弱い'],
     badOdd: ['夜景を\n見下ろすのが好き', 'グラスは\n手にしていない', 'オーナーとは\n古い知り合い'],
     badPlain: ['ヒールには\n慣れている', '羽の髪飾りは\nお気に入り', 'お酒は\n飲まない'],
-    shared: ['パーティには\nよく招かれる', 'ドレスは\n今日のために新調']
+    shared: ['パーティには\nよく招かれる', 'ドレスは\n今日のために買った']
   },
   magician: {
     civOdd: ['物を浮かせる\n手品が得意', 'ハトが\nいつの間にか増える', '糸はいつも\nポケットに'],
@@ -157,7 +157,7 @@ const OPERATOR_LINES: Readonly<Record<TowerLook, readonly OperatorHint[]>> = {
   newbie: [
     hint('normal', '新人さんだ'),
     hint('normal', '書類が\nいっぱい'),
-    hint('normal', '照明と机、\n見比べて'),
+    hint('normal', '明かりと机、\n見比べて'),
     hint('normal', '時計を\n気にしてる'),
     hint('deadpan', '緊張してる…'),
     hint('deadpan', '緊張…\nしてるのかな'),
@@ -232,8 +232,8 @@ export const TOWER_DOUBT_HINTS: Readonly<Record<TowerLook, OperatorHint>> = mapL
  *   glassFloat:浮いている小物がグラス(35階と最上階。rules.ts の TOWER_SPOT_ITEMS)
  */
 export const TOWER_SPOT_HINTS: Readonly<Record<'lightOdd' | 'lightPurple' | 'itemFloat' | 'itemPurple' | 'glassFloat', readonly OperatorHint[]>> = {
-  lightOdd: [hint('normal', '照明、なんか\n変じゃない？'), hint('normal', '明かりの色、\nいつもと違う？')],
-  lightPurple: [hint('normal', '照明が…\n紫っぽい？')],
+  lightOdd: [hint('normal', '明かり、なんか\n変じゃない？'), hint('normal', '明かりの色、\nいつもと違う？')],
+  lightPurple: [hint('normal', '明かりが…\n紫っぽい？')],
   itemFloat: [hint('normal', '今、何か\n浮かなかった？'), hint('normal', '机の上の物、\n浮いてない？')],
   itemPurple: [hint('normal', '机のあたりが\n紫っぽい？')],
   glassFloat: [hint('panic', 'グラスが\n浮いてる！？')]
@@ -273,19 +273,19 @@ export const BOSS4_HINTS: Readonly<Record<TowerDisguise, readonly OperatorHint[]
     hint('panic', '羽が\n金色…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', '招待状、\n持ってなくない？'),
-    hint('deadpan', 'お客にしては\n貫禄がありすぎ')
+    hint('deadpan', 'お客にしては\nオーラがありすぎ')
   ],
   magician: [
     hint('panic', 'つえの先が…\nビル？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', 'ハトが\n出てこない'),
-    hint('deadpan', '手品師にしては\n貫禄がありすぎ')
+    hint('deadpan', '手品師にしては\nオーラがありすぎ')
   ],
   waiter: [
     hint('panic', '蝶ネクタイが\n金色…？'),
     hint('normal', 'なんか…\n偉そうじゃない？'),
     hint('normal', 'お盆を\n持ってない'),
-    hint('deadpan', 'ウェイターにしては\n貫禄がありすぎ')
+    hint('deadpan', 'ウェイターにしては\nオーラがありすぎ')
   ]
 };
 
@@ -296,7 +296,7 @@ export const BOSS4_HINTS: Readonly<Record<TowerDisguise, readonly OperatorHint[]
  * 念力で運ばれた物を行けで落とすことは、初めて行けのマークが出たときに教える(teachPsy)。エレベーターラッシュのことは言わない
  */
 export const TOWER_INTRO: readonly Speech[] = [
-  hero('smug', '最後は高層ビル！\n超能力者退治だ！'),
+  hero('smug', '最後は高層ビル！\nヴィラン退治だ！'),
   op('normal', '見た目は普通の人。\n周りをよく見て'),
   op('deadpan', '明かりが紫になったり、\n物が浮いたりする'),
   op('normal', '手品や風船の紫には\n火花が出ないよ'),
@@ -396,7 +396,7 @@ export const TOWER_REACTIONS: Readonly<Record<TowerReactionKey, readonly Speech[
  */
 export const TOWER_OVERRIDES = {
   pass: [
-    hero('smile', 'お仕事\nおつかれさま！'),
+    hero('smile', 'お仕事\nお疲れさま！'),
     hero('smile', 'いい夜だね！'),
     hero('smile', '最上階まで\nごゆっくり！'),
     hero('smile', 'ビルの平和は\n任せて！')
@@ -517,6 +517,6 @@ export const TOWER_TITLE_COMMENT_OVERRIDES = {
 export const TOWER_TITLE_COMMENTS = {
   topHero: op('hype', '全部のステージ、\nクリアだよ！'),
   furnitureGuide: op('deadpan', '家具が飛ぶのを\n見てたよね'),
-  liftGuardian: op('hype', '満員のエレベーターで\n一人も間違えなかった！'),
+  liftGuardian: op('hype', '満員のエレベーターで\n1人も間違えなかった！'),
   sofaMaster: op('hype', 'ソファの上に\nぴったり落とした！')
 } as const;

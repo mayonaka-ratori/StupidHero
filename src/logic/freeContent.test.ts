@@ -240,7 +240,7 @@ describe('オペレーターの一言に、その人や小物に合った文を�
       expect(special.length, item).toBeGreaterThanOrEqual(3);
       for (const s of special) expect(s.text, item).toContain(FREE_ITEM_NAME[item]);
     }
-    expect(freeOpContextLines('hitCivRule', { item: 'balloon' }).map((s) => s.text)).toContain('風船持ってる\nだけ！');
+    expect(freeOpContextLines('hitCivRule', { item: 'balloon' }).map((s) => s.text)).toContain('風船を\n持ってるだけ！');
     const words: Record<FreeVillainLook, string> = { fp_mohawk: 'ナイフ', fp_gang: 'バット', fp_alien: '触角' };
     for (const look of FREE_VILLAINS) {
       expect(FREE_OP_PASS_VILLAIN[look].some((s) => s.text.includes(words[look])), look).toBe(true);

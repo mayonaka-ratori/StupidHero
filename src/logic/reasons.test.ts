@@ -61,15 +61,15 @@ describe('答え合わせの決め手', () => {
   it('高層ビル:ヴィランはもれの出方、紛らわしい市民はその理由、ほかの市民は見た目ごと、親玉は化けた姿のおかしい所', () => {
     const p = (over: Partial<Person>): Person =>
       ({ id: 'x', wave: 1, index: 0, look: 'chef', truth: 'civ', sheetKey: '', profile: { name: '', age: 0, line: '' }, hint: { text: '', face: 'normal' }, ...over });
-    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: true } }))).toBe('照明にも小物にも火花');
-    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: false } }))).toBe('照明に火花が出ていた');
-    expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: true } }))).toBe('小物が紫のもやと火花');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: true } }))).toBe('明かりにも小物にも火花');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: true, item: false } }))).toBe('明かりに火花が出ていた');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: true } }))).toBe('小物に紫のもやと火花');
     // もれを隠すヴィラン(照明にも小物にも出ない)
-    expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: false } }))).toBe('力を隠した。話も一言も変');
+    expect(reasonFor(p({ truth: 'bad', leak: { light: false, item: false } }))).toBe('プロフィールと一言が変だった');
     expect(reasonFor(p({ decoy: 'flicker' }))).toBe('蛍光灯が切れかけだった');
-    expect(reasonFor(p({ look: 'magician', decoy: 'thread' }))).toBe('手品の糸で吊っていた');
+    expect(reasonFor(p({ look: 'magician', decoy: 'thread' }))).toBe('手品の糸でつっていた');
     expect(reasonFor(p({ look: 'florist', decoy: 'balloon' }))).toBe('紫の風船がのっていただけ');
-    expect(reasonFor(p({ decoy: 'cellophane' }))).toBe('照明は紫のセロハンだった');
+    expect(reasonFor(p({ decoy: 'cellophane' }))).toBe('明かりは紫のセロハンだった');
     expect(reasonFor(p({ look: 'magician', decoy: 'smoke' }))).toBe('手品の煙と糸だった');
     expect(reasonFor(p({}))).toBe('味見をしていただけ');
     expect(reasonFor(p({ look: 'newbie' }))).toBe('新人でそわそわしていた');

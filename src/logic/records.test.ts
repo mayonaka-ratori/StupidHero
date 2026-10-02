@@ -60,7 +60,7 @@ describe('records', () => {
     const st = new MemStorage();
     st.setItem(RECORDS_KEY, '{not json');
     expect(loadRecords(st)).toEqual({
-      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false
+      version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false, slowHintSeen: false
     });
     st.setItem(RECORDS_KEY, JSON.stringify({ stages: { alley: { mostDefeated: 'x', plays: 2 } }, titles: ['soSo', 'hack', 'soSo'] }));
     const r = loadRecords(st);

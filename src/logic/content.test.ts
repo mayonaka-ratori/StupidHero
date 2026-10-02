@@ -150,11 +150,12 @@ describe('content の文の決まり', () => {
 
   it('掛け合いで仕分けのやり方だけを短く伝える(待てと行けは結果発表で教える)', () => {
     const joined = INTRO.map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['左', '右にスワイプ', '見た目', '動き', 'プロフィール', '一言']) {
+    for (const word of ['左', '右にスワイプ', '見た目', '動き', 'プロフィール', '一言', '持ち物']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toMatch(/待て|行け/);
-    expect(INTRO.length).toBeLessThanOrEqual(3);
+    // 「持ち物」の窓のことを足して4枚にした(初めての1分を長くしないように、これより増やさない)
+    expect(INTRO.length).toBeLessThanOrEqual(4);
     expect(INTRO.some((s) => s.who === 'hero')).toBe(true);
     expect(INTRO.some((s) => s.who === 'operator')).toBe(true);
   });
@@ -234,7 +235,7 @@ describe('ステージ2の文', () => {
 
   it('掛け合いで、新しい手がかりと仲間を呼ぶことと車で逃げることを伝える', () => {
     const joined = introFor('garage').map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['おそろい', '合図', '前の人', '口笛', '仲間を呼ぶ', '集まったら行け', '3秒', '車', '止まる']) {
+    for (const word of ['同じ色', '合図', '前の人', '仲間を呼ぶ', '集まったら行け', '3秒', '車', '止まる']) {
       expect(joined).toContain(word);
     }
     expect(introFor('alley')).toBe(INTRO);
@@ -387,7 +388,7 @@ describe('ステージ4の文', () => {
 
   it('掛け合いは5枚で、もれ、紛らわしい市民、念力を伝える。エレベーターのことは言わない', () => {
     const joined = introFor('tower').map((s) => s.text.replace('\n', '')).join('/');
-    for (const word of ['高層ビル', '超能力者', '周りをよく見て', '紫', '浮いたり', '手品', '風船', '火花が出ない', '念力']) {
+    for (const word of ['高層ビル', 'ヴィラン', '周りをよく見て', '紫', '浮いたり', '手品', '風船', '火花が出ない', '念力']) {
       expect(joined).toContain(word);
     }
     expect(joined).not.toContain('エレベーター');
