@@ -1,7 +1,13 @@
 // 称号の表と、称号を決める関数。SPECの12の称号に、ステージ2だけで取れる2つ(STAGE2「称号」)と、
 // ステージ3だけで取れる3つ(STAGE3「称号」)と、ステージ4だけで取れる4つ(STAGE4「称号」)と、
 // フリープレイだけで取れる3つ(FREEPLAY「称号」)を足した24個。
-// 上から順に調べ、最初に当てはまったものを出す。ステージ2の2つは
+//
+// 1回のプレイで、条件に当てはまった称号は全部集めたことにする(collectTitles。記録に全部残す)。
+// 結果画面の大きな称号(あなたの称号)は1つだけで、上から順に調べて最初に当てはまったもの(decideTitle)。
+// 勝利ポーズ、ひとこと、共有の文とカードは、この1つで決める。ほかに取れた称号は、結果画面に小さく出す。
+// まあまあヒーローは「どれにも当てはまらない」ので、ほかに1つでも当てはまったら集めない。
+//
+// 大きな称号を決める順:ステージ2の2つは
 // 「ボスの親友」のすぐあとに「ギャングの見送り係」、「追い打ちの鬼」のすぐ前に「一網打尽」。
 // ステージ3の3つは「ギャングの見送り係」のすぐあとに「宇宙人の案内係」、「街のほんものヒーロー」のすぐあとに
 // 「タイムセールの守り神」、「待ての達人」のすぐあとに「UFOハンター」。
@@ -15,20 +21,22 @@
 //   (巻きぞえは技の当たり方で運で起きる。仕分けが全部正しくても運で取れなくなるのを防ぐ)。
 //   ただし巻きぞえでもおばあさんに当たったら完全無欠にはしない(街のほんものヒーローにはなれる)。
 //   ボスを市民に仕分けたときも完全無欠にはしない(ふつうは暴れた分の被害額で入らないが、念のため)。
-//   巻きぞえが3人以上(暴走機関車の数)なら完全無欠にはせず、暴走機関車のほうを出す
-//   (ほんものヒーローは暴走機関車より後に調べるので、同じことになる)
+//   巻きぞえが3人以上(暴走機関車の数)なら完全無欠にはしない(暴走機関車のほうに当たる)
 // - 市民の天敵、正義の暴走機関車:なぐった + 巻きぞえ(ヒーローの攻撃が当たった人。暴れっぷりの称号なので巻きぞえも入れる)
 // - やさしすぎるヒーロー:なぐった市民だけ(逃がしたワルが市民を襲うのは逃がした結果なので入れない。巻きぞえは運なので入れない)。
 //   逃がした数は、走って逃げたワルと待てで止めたワルだけ。車で逃げた組、UFOで去った宇宙人、念力のあとに逃げたヴィランは、
-//   見のがしたのではないので入れない
+//   見のがしたのではないので入れない。地下駐車場、ショッピングモール、高層ビルでは、市民に仕分けたワルは車、UFO、念力のあとに
+//   逃げるので数に入らず、待てで止めたワルだけが入る。どのステージでも当てはまるように、ヒントは「待てでワルを見のがす」にした
 // - おばあちゃんの敵:おばあさんを直接なぐったときだけ。巻きぞえは運なので入れない
 // UFOにさらわれた買い物客(ステージ3)と、念力の物が落ちてきた市民(ステージ4)は「ワルにやられた」と同じに扱う
 // (完全無欠と街のほんものヒーローが取れなくなり、市民の天敵、正義の暴走機関車、やさしすぎるヒーローには入れない)。
-// タイムセールラッシュの数(stats.rush)は、タイムセールの守り神のほかには使わない。
-// エレベーターラッシュの数(stats.lift)は、エレベーターの守り神のほかには使わない。
+// タイムセールラッシュの数(stats.rush)とエレベーターラッシュの数(stats.lift)は、それぞれの守り神と、
+// 完全無欠と街のほんものヒーローの「ラッシュでなぐった市民0」(rushCivHits)のほかには使わない。
+// 歩く解体工事の金額は、ステージとフリープレイで分ける(demolitionDamage。壊れる物の値段とボスが暴れた額がちがうので)。
 //
 // 最上階のヒーローは、高層ビルのボスを初めて倒した回だけで取れる。初めてかどうかは数字では分からないので、
 // 記録から決めて decideTitle の2つ目(TitleContext の firstClear)で渡す。渡さなければ取れない。
+// この回は完全無欠にも当てはまっても、大きな称号は最上階のヒーローにする(2回目からは取れないので)。完全無欠も集めたことにはなる。
 //
 // フリープレイ(stats.free がある)の調べ方(docs/FREEPLAY.md「称号」):
 // - フリープレイだけの3つ(ヒーローのお守り役、ヒーローの通訳、なすがまま。表の最後の3つ)を先に、上から順に調べる
@@ -40,8 +48,10 @@
 //
 // 使い方:
 //   const s = stats.snapshot();
-//   const title = decideTitle(s, { firstClear: isFirstClear(stage.id, s) });   // どのステージでも同じ関数。saveResult より前に
-//   const saved = saveResult(stage.id, s, title.id);
+//   const ctx = { firstClear: isFirstClear(stage.id, s) };   // saveResult より前に
+//   const title = decideTitle(s, ctx);                       // 大きな称号(どのステージでも同じ関数)
+//   const all = collectTitles(s, ctx);                       // このプレイで取れた称号の全部(先頭は title)
+//   const saved = saveResult(stage.id, s, all);
 
 import { PROP_COST } from './rules';
 import type { RushTally, StageId, StageStats, TitleContext, TitleDef, TitleId } from './types';
@@ -51,8 +61,15 @@ const TITLE_THRESHOLDS = {
   flawlessDamageBelow: 5_000_000,
   /** 市民の天敵:ヒーローが傷つけた市民(殴った、巻きぞえ)がこれ以上(かつ撃破数以上) */
   civNemesisHurt: 4,
-  /** 歩く解体工事:被害額がこれ以上 */
-  demolitionDamage: 50_000_000,
+  /**
+   * 歩く解体工事:被害額がこれ以上(ステージとフリープレイで分ける)。
+   * 路地裏は、ボスを市民に仕分けた暴れ(¥1,000万)か、ボス戦で手を止めた分(最大で約¥700万)に、車や自販機を足して届く額。
+   * 地下駐車場は、暴れ(¥1,500万)かボス戦の車(最大で約¥1,100万)に、ワゴンや柱を足して届く額。
+   * ショッピングモールは、暴れ(¥2,000万)か母艦(最大で約¥1,500万)に、エスカレーターや落としたUFOを足して届く額。
+   * 高層ビルは、ボスを倒すとシャンパンタワー(¥1,000万)がかならず壊れ、ピアノとシャンデリアが¥3,000万ずつなので前のまま。
+   * フリープレイはボスがいないので、壊れる物だけで届く額(試しに遊ぶと、何も押さない2回で¥300万と¥421万、全部決めた2回で¥95万と¥391万。待てを押さずに殴らせると届く)
+   */
+  demolitionDamage: { alley: 15_000_000, garage: 25_000_000, mall: 35_000_000, tower: 50_000_000, free: 5_000_000 },
   /** 正義の暴走機関車:ヒーローが傷つけた市民(殴った、巻きぞえ)がこれ以上 */
   runawayHurt: 3,
   /** 連打の申し子:ボス戦がこの秒数以内 */
@@ -93,7 +110,7 @@ const T = TITLE_THRESHOLDS;
  */
 const flawlessDamage = (s: StageStats): number =>
   s.stageId === 'tower' && s.bossDefeated ? s.damage - PROP_COST.champagne : s.damage;
-/** 高層ビルのボスを初めて倒した回か。この回は完全無欠にも当たっても、最上階のヒーローを出す(2回目からは取れないので) */
+/** 高層ビルのボスを初めて倒した回か。この回は完全無欠にも当たっても、大きな称号は最上階のヒーローにする(2回目からは取れないので) */
 const towerFirstClear = (s: StageStats, c: TitleContext): boolean =>
   c.firstClear === true && s.bossDefeated && s.stageId === 'tower';
 
@@ -104,21 +121,30 @@ const heroHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByCollate
  * 念力の物が落ちた市民は「ワルにやられた」と同じに扱う(STAGE4「称号」)
  */
 const mistakeHurt = (s: StageStats): number => s.civHurtByHero + s.civHurtByVillain + s.civHurtByAbduction + s.civHurtByDrop;
+/**
+ * タイムセールラッシュとエレベーターラッシュで、待てを押さずに殴った市民の数。ラッシュの数は「市民のけが」に入れないが、
+ * 殴った場面は「いちばんひどい場面」(市民を殴った)になる。共有のカードが「市民を殴った!」なのに完全無欠や
+ * 街のほんものヒーローにならないように、この2つではラッシュで殴った市民も0にする
+ */
+const rushCivHits = (s: StageStats): number => (s.rush?.civsHit ?? 0) + (s.lift?.civsHit ?? 0);
 /** 見のがしたワルの数(走って逃げた、待てで止めた)。車で逃げた組、UFOで去った宇宙人、念力のあとに逃げたヴィランは入れない */
 const sparedBad = (s: StageStats): number => s.escaped - s.escapedByVan - s.escapedByUfo - s.escapedByPsy;
 /** ラッシュで、市民を全員守り、悪党を全員倒したか(ラッシュをしていなければ false) */
 const perfect = (r: RushTally | null): boolean =>
   r !== null && r.aliens + r.civs > 0 && r.civsSaved === r.civs && r.aliensDefeated === r.aliens;
+/** 歩く解体工事の金額(フリープレイか、そのステージの額) */
+const demolitionLine = (s: StageStats): number => (s.free ? T.demolitionDamage.free : T.demolitionDamage[s.stageId]);
 
 /** 称号の一覧(ステージで調べる順。フリープレイだけの3つは最後) */
 export const TITLES: readonly TitleDef[] = [
   {
     id: 'flawless', name: '完全無欠のヒーロー', pose: 'win_pose',
-    condition: '全員倒して、市民のけが0、被害額¥500万未満(まきぞえは2人まで。高層ビルはシャンパンタワーの分を除く)',
+    condition: '全員倒して、市民のけが0、被害額¥500万未満(ラッシュでなぐった市民も0。まきぞえは2人まで。高層ビルはシャンパンタワーの分を除く)',
     hint: '全員倒して、市民のけが0、被害額¥500万未満',
     modes: ['stage'],
-    test: (s, c) => s.allDefeated && mistakeHurt(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
-      && flawlessDamage(s) < T.flawlessDamageBelow && !towerFirstClear(s, c)
+    // 高層ビルのボスを初めて倒した回は、大きな称号を最上階のヒーローにゆずる(yieldsMain)。集めたことにはなる
+    test: (s) => s.allDefeated && mistakeHurt(s) === 0 && rushCivHits(s) === 0 && heroHurt(s) < T.runawayHurt && !s.grannyHit && !s.bossSortedCiv
+      && flawlessDamage(s) < T.flawlessDamageBelow
   },
   {
     id: 'topHero', name: '最上階のヒーロー', pose: 'win_pose',
@@ -137,9 +163,9 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'demolition', name: '歩く解体工事', pose: 'win_fist',
-    condition: '被害額¥5,000万以上',
+    condition: '被害額が路地裏で¥1,500万、地下駐車場で¥2,500万、モールで¥3,500万、高層ビルで¥5,000万、フリープレイで¥500万以上',
     hint: '街をこわしまくる',
-    test: (s) => s.damage >= T.demolitionDamage
+    test: (s) => s.damage >= demolitionLine(s)
   },
   {
     id: 'bossBuddy', name: 'ボスの親友', pose: 'win_shy',
@@ -188,15 +214,15 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'realHero', name: '街のほんものヒーロー', pose: 'win_pose',
-    condition: '全員倒して、市民のけが0(まきぞえは2人まで)',
+    condition: '全員倒して、市民のけが0(ラッシュでなぐった市民も0。まきぞえは数えない)',
     hint: '全員倒して、市民のけが0',
     modes: ['stage'],
-    test: (s) => s.allDefeated && mistakeHurt(s) === 0
+    test: (s) => s.allDefeated && mistakeHurt(s) === 0 && rushCivHits(s) === 0
   },
   {
     id: 'saleGuardian', name: 'タイムセールの守り神', pose: 'win_pose',
     condition: 'タイムセールで、市民を全員守り、宇宙人を全員倒した',
-    hint: 'タイムセールで1人も間違えない',
+    hint: 'タイムセールで1人もまちがえない',
     stages: ['mall'],
     modes: ['stage'],
     test: (s) => perfect(s.rush)
@@ -204,7 +230,7 @@ export const TITLES: readonly TitleDef[] = [
   {
     id: 'liftGuardian', name: 'エレベーターの守り神', pose: 'win_pose',
     condition: 'エレベーターラッシュで、市民を全員守り、ヴィランを全員倒した',
-    hint: 'エレベーターで1人も間違えない',
+    hint: 'エレベーターで1人もまちがえない',
     stages: ['tower'],
     modes: ['stage'],
     test: (s) => perfect(s.lift)
@@ -254,8 +280,8 @@ export const TITLES: readonly TitleDef[] = [
   },
   {
     id: 'tooKind', name: 'やさしすぎるヒーロー', pose: 'win_pose',
-    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(車やUFOで逃げた分と、念力のあとに逃げた分は数えない)',
-    hint: '市民をなぐらず3人逃がす',
+    condition: '市民を一度もなぐらず、ワルを3人以上見のがした(待てで止めたワルと走って逃げたワル。車やUFOで逃げた分と、念力のあとに逃げた分は数えない)',
+    hint: '市民をなぐらず、待てでワルを3人見のがす',
     test: (s) => s.civHurtByHero === 0 && sparedBad(s) >= T.tooKindEscaped
   },
   {
@@ -275,7 +301,7 @@ export const TITLES: readonly TitleDef[] = [
   {
     id: 'heroInterpreter', name: 'ヒーローの通訳', pose: 'win_arms',
     condition: 'フリープレイで、待てで8人以上守り、行けで7回以上決め、空押しが3回まで、ワルへの待てが1回まで',
-    hint: 'フリープレイで、ワルに待てを押さず、ほとんど決める',
+    hint: 'フリープレイで、待ても行けもほとんど決める',
     modes: ['free'],
     test: (s) => s.free !== null && s.free.stopSaved >= T.interpreterStops && s.free.goScenes >= T.interpreterGos
       && s.free.dryPresses <= T.interpreterDryMax && s.badSparedByStop <= T.interpreterVillainStopMax
@@ -311,16 +337,48 @@ export function titlesForFree(): TitleDef[] {
   return [...own, ...TITLES.filter((t) => !own.includes(t) && inMode(t, 'free'))];
 }
 
+/** 称号を取れる場所(ステージの id か 'free') */
+export type TitlePlace = StageId | 'free';
+/** 場所の並び(称号の一覧の小さな印の順) */
+export const TITLE_PLACES: readonly TitlePlace[] = ['alley', 'garage', 'mall', 'tower', 'free'];
+
+/** その場所で取れる称号 */
+export function titlesAt(place: TitlePlace): TitleDef[] {
+  return place === 'free' ? titlesForFree() : titlesFor(place);
+}
+
+/** その称号を取れる場所(TITLE_PLACES の順) */
+export function placesOf(id: TitleId): TitlePlace[] {
+  return TITLE_PLACES.filter((p) => titlesAt(p).some((t) => t.id === id));
+}
+
+/** 調べる順の称号(stats.free があればフリープレイの順。ステージは TITLES の順) */
+const candidates = (stats: StageStats): readonly TitleDef[] =>
+  stats.free ? titlesForFree() : TITLES.filter((t) => inMode(t, 'stage'));
+
+/** 大きな称号では、当てはまっても次にゆずる(高層ビルのボスを初めて倒した回の完全無欠。最上階のヒーローにする) */
+const yieldsMain = (t: TitleDef, s: StageStats, c: TitleContext): boolean => t.id === 'flawless' && towerFirstClear(s, c);
+
 /**
- * 数字から称号を決める(上から順に調べ、最初に当てはまったもの)。
+ * 数字から大きな称号(結果画面の「あなたの称号」)を決める(上から順に調べ、最初に当てはまったもの)。
  * stats.free があればフリープレイの順(titlesForFree)で調べる。
  * ctx は記録から決めること(firstClear:このプレイでボスを初めて倒したか。records.ts の isFirstClear)。
  * 結果画面のひとことは titleCommentFor(title.id, stage.id)(content.ts)でステージに合った言い方にする
  */
 export function decideTitle(stats: StageStats, ctx: TitleContext = {}): TitleDef {
-  const soSo = titleById('soSo');
-  if (stats.free) return titlesForFree().find((t) => t.test(stats, ctx)) ?? soSo;
-  return TITLES.find((t) => inMode(t, 'stage') && t.test(stats, ctx)) ?? soSo;
+  return candidates(stats).find((t) => t.test(stats, ctx) && !yieldsMain(t, stats, ctx)) ?? titleById('soSo');
+}
+
+/**
+ * このプレイで条件に当てはまった称号の全部(記録に残す分)。先頭は decideTitle と同じ大きな称号で、
+ * あとは調べる順。まあまあヒーローは、ほかに1つも当てはまらないときだけ入る。
+ * ステージでは、そのステージで取れない称号(stages の決まり)は入れない
+ */
+export function collectTitles(stats: StageStats, ctx: TitleContext = {}): TitleDef[] {
+  const main = decideTitle(stats, ctx);
+  const here = (t: TitleDef): boolean => !!stats.free || !t.stages || t.stages.includes(stats.stageId);
+  const rest = candidates(stats).filter((t) => t !== main && t.id !== 'soSo' && here(t) && t.test(stats, ctx));
+  return [main, ...rest];
 }
 
 /** id から称号を引く */

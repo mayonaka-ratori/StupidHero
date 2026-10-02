@@ -16,7 +16,7 @@ import { createStage, saleRushOf } from './stage';
 import { STAGES } from './stages';
 import { StatsTracker } from './stats';
 import { MemStorage } from './testHelpers';
-import { decideTitle } from './titles';
+import { collectTitles, decideTitle } from './titles';
 import { UfoQueue } from './ufo';
 import type { SortChoice, Stage, StageStats } from './types';
 
@@ -111,8 +111,10 @@ describe('ステージ3を通しで数える', () => {
       });
       expect(s.civSavedByStop).toBe(0);
       expect(s.worstScene).toBe('civHit');
-      // 市民をなぐったのはラッシュだけなので、完全無欠のまま
-      expect(decideTitle(s).id).toBe('flawless');
+      // 市民をなぐったのはラッシュだけでも、いちばんひどい場面は「市民を殴った」になるので、
+      // 完全無欠と街のほんものヒーローにはしない(共有のカードと食いちがわないように)
+      expect(decideTitle(s).id).not.toBe('flawless');
+      expect(collectTitles(s).map((t) => t.id)).not.toContain('realHero');
     }
   });
 

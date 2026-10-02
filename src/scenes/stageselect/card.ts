@@ -2,6 +2,7 @@
 //   const card = new StageCard(this, entry, { x, y, w, h, thumbH });   // thumbH が0なら絵のない、名前と記録だけのカード
 //   card.update(dt)          毎フレーム(背景を少しずつ流す、NEW の札の点滅)
 //   card.contains(x, y)      タップがカードの上か
+//   card.titlesHit(x, y)     タップが称号の数の右の端(「3/13▶」)の上か(そのステージの称号の一覧を開く)
 //   card.pressed()           選んだときの演出(ふちが光って、ヒーローが走り出す)
 //   card.shakeLock()         開いていないカードをタップしたとき
 //   await card.unlock()      鍵がこわれて開く演出
@@ -26,6 +27,8 @@ export interface CardBox { x: number; y: number; w: number; h: number; thumbH: n
 const FEET_SCENE = 172;
 /** 絵の中で人の足もとを置く高さの下限(絵が細くても、顔と胸は見えるように) */
 const FEET_MIN = 54;
+/** 称号の数のうち、タップで称号の一覧を開く右の端の幅 */
+const TITLES_HIT_W = 44;
 /** 絵のないカードの、名前の行と記録の行の高さ */
 const TEXT_NAME_Y = 19;
 
@@ -114,6 +117,8 @@ export class StageCard {
   private blinkers: PixelText[] = [];
   /** 絵のないカードで、上の行の右に出した称号の数の幅(NEW の札はその左に出す) */
   private countW = 0;
+  /** 称号の数の字の四角(カードの中の座標。開いていないカードは null) */
+  private countBox: { x: number; y: number; w: number; h: number } | null = null;
   private scroll = 0;
   private t = 0;
   private flashUntil = 0;
@@ -244,6 +249,7 @@ export class StageCard {
     const sc = this.scene;
     this.info.removeAll(true);
     this.blinkers = [];
+    this.countBox = null;
     const { w, thumbH } = this.box;
     const e = this.entry;
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { this.info.add(o); return o; };
@@ -263,9 +269,10 @@ export class StageCard {
       return;
     }
     const total = titlesFor(e.id).length;
-    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/17」は全部のステージを合わせた数)
+    // このステージで取れる称号のうち、いくつ取ったか(タイトルと結果画面の「称号2/24」は全部のステージとフリープレイを合わせた数)
     const label = this.photo && !this.thin ? 'このステージの称号' : '称号';
-    const cnt = add(new PixelText(sc, w - 8, y0 + 3, `${label}{gold}${e.titlesCollected}{/}/${total}`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
+    // 右の▶は、タップすると称号の一覧(このステージの分)が開くしるし
+    const cnt = add(new PixelText(sc, w - 8, y0 + 3, `${label}{gold}${e.titlesCollected}{/}/${total}▶`, { size: FS.body, color: UI.textDim, outline: true }).setOrigin(1, 0));
     // 絵のないカードは、STAGE の番号と同じ行(名前の上)に短く出す
     if (!this.photo) { cnt.setPosition(w - 8, 4); this.countW = Math.ceil(cnt.width); }
     // ステージの名前とぶつかるときは、絵の右下に黒い帯をしいて出す
@@ -277,6 +284,7 @@ export class StageCard {
       cnt.setPosition(5 + this.tw - 3, by + 2);
       this.info.bringToTop(cnt);
     }
+    this.countBox = { x: cnt.x - cnt.width, y: cnt.y, w: Math.ceil(cnt.width), h: Math.ceil(cnt.height) };
     // 下に余裕があれば「タップで出発」
     if (this.box.h - (y0 + 20 + 30) >= 16) {
       const go = add(new PixelText(sc, w - 8, this.box.h - 19, 'タップで出発▶', { size: FS.body, color: UI.gold, outline: true }).setOrigin(1, 0));
@@ -326,6 +334,23 @@ export class StageCard {
 
   contains(x: number, y: number): boolean {
     return x >= this.root.x && x < this.root.x + this.box.w && y >= this.root.y && y < this.root.y + this.box.h;
+  }
+
+  /**
+   * タップが称号の数の右の端(「3/13▶」のあたり)の上か。上下は4ドット広く見る。
+   * 字の全体にすると、カードの真ん中をタップしたときにも一覧が開いてしまうので、右の端の44ドットだけにする
+   */
+  titlesHit(x: number, y: number): boolean {
+    const b = this.countBox;
+    if (!b || this.locked) return false;
+    const lx = x - this.root.x, ly = y - this.root.y;
+    return lx >= b.x + b.w - TITLES_HIT_W && lx < b.x + b.w + 4 && ly >= b.y - 4 && ly < b.y + b.h + 4;
+  }
+
+  /** 称号の数の、タップで一覧を開く所の真ん中(画面の座標。開いていないカードは null。開発用のテストで使う) */
+  titlesCenter(): { x: number; y: number } | null {
+    const b = this.countBox;
+    return b && !this.locked ? { x: this.root.x + b.x + b.w - TITLES_HIT_W / 2, y: this.root.y + b.y + b.h / 2 } : null;
   }
 
   update(dt: number): void {

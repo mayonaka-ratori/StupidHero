@@ -81,21 +81,29 @@ const withoutChanged = (s: FixtureStage) => ({
  * - 正義の暴走機関車:ワルに襲われた市民は数えない(ヒーローが傷つけた市民だけ)
  * - やさしすぎるヒーロー:なぐった市民だけを見る(逃がしたワルに襲われた市民と巻きぞえは数えない)
  * - おばあちゃんの敵:おばあさんを直接なぐったときだけ(巻きぞえは数えない)
+ * - 歩く解体工事:路地裏は¥5,000万以上 → ¥1,500万以上(ステージごとに金額を分けた。¥2,300万と¥4,999万の記録が入る)
  */
+const DEMOLITION = '路地裏の歩く解体工事は¥1,500万以上(ボスの親友などより先)';
 const CHANGED_TITLES: Readonly<Record<number, { was: TitleId; now: TitleId; why: string }>> = {
+  7: { was: 'soSo', now: 'demolition', why: DEMOLITION },
   13: { was: 'soSo', now: 'tapProdigy', why: '5.01秒は7秒以内' },
-  19: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
-  20: { was: 'soSo', now: 'tooKind', why: 'なぐった市民0、ワルに襲われた市民は数えない' },
+  19: { was: 'soSo', now: 'demolition', why: DEMOLITION },
+  20: { was: 'soSo', now: 'demolition', why: DEMOLITION },
   23: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
   29: { was: 'soSo', now: 'tapProdigy', why: '5.5秒は7秒以内' },
+  31: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
   32: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
   46: { was: 'grannyFoe', now: 'soSo', why: 'ヒーローがなぐった市民がいないので、おばあさんはなぐっていない' },
-  48: { was: 'stopMaster', now: 'tapProdigy', why: '5.5秒は7秒以内(待ての達人より先)' },
+  48: { was: 'stopMaster', now: 'demolition', why: DEMOLITION },
+  50: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
+  60: { was: 'soSo', now: 'demolition', why: DEMOLITION },
+  62: { was: 'bossBuddy', now: 'demolition', why: DEMOLITION },
   63: { was: 'grannyFoe', now: 'stopMaster', why: 'おばあさんに当たったのは巻きぞえだけ' },
   66: { was: 'soSo', now: 'flawless', why: '巻きぞえ1人だけなら完全無欠' },
-  70: { was: 'runawayTrain', now: 'tapProdigy', why: 'ヒーローが傷つけたのは巻きぞえ1人だけ' },
+  70: { was: 'runawayTrain', now: 'demolition', why: DEMOLITION },
   72: { was: 'grannyFoe', now: 'chaseDemon', why: 'おばあさんに当たったのは巻きぞえだけ' },
-  75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' }
+  75: { was: 'chaseDemon', now: 'tapProdigy', why: '5.5秒は7秒以内(追い打ちの鬼より先)' },
+  76: { was: 'grannyFoe', now: 'demolition', why: DEMOLITION }
 };
 
 describe('ステージ1は公開版(876e008)と同じ', () => {

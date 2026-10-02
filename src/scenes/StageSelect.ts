@@ -15,6 +15,8 @@
 // フリープレイはカードにしない。路地裏のボスを倒すと開き、押すと startFreeRun をして
 // 初回だけ掛け合い(Intro)、2回目からはすぐ Street へ(freeEntryScene)。路地裏をクリアした直後は、
 // カードの鍵のあとにボタンの鍵もこわれて開く。
+// 見出しの左に「称号」のボタン。押すと称号の一覧(TitleList)を開く。カードの「このステージの称号3/13▶」をタップすると、
+// そのステージで取れる称号だけの一覧を開く(focus)。どちらも、この画面は眠らせておき、もどるで起こす。
 
 import Phaser from 'phaser';
 import { SCENES, UI } from '../config';
@@ -27,6 +29,7 @@ import { settings } from '../settings';
 import { px } from '../hires';
 import { Button, CutIn, CUT_H, FS, PixelText, banner, flash, shake, spawnFx, waitMs } from '../ui';
 import { addMute, devHook, gotoSafe, unlockOnTap } from './sort/common';
+import { openTitleList } from './TitleList';
 import { drawHand } from './sort/introDemo';
 import { entrySceneFor, freeEntryScene } from './Intro';
 import { StageCard } from './stageselect/card';
@@ -113,6 +116,10 @@ export class StageSelectScene extends Phaser.Scene {
     hd.add([hg, ttl, sub]);
     this.tweens.add({ targets: hd, y: 0, duration: 220, ease: 'Back.easeOut', onUpdate: () => { hd.y = Math.round(hd.y); } });
     addMute(this, W - 13, 13).setDepth(600);
+    // 見出しの左:称号の一覧
+    const listBtn = new Button(this, 4, 6, 40, 24, '称号', { color: 0x4a3f78, size: FS.body, onPress: () => this.openList() }).setDepth(600);
+    listBtn.y -= HEADER_H;
+    this.tweens.add({ targets: listBtn, y: 6, duration: 220, ease: 'Back.easeOut', onUpdate: () => { listBtn.y = Math.round(listBtn.y); } });
     // 見出しの字がときどきキラーンと光る
     this.time.addEvent({
       delay: 1900, loop: true, startAt: 1200, callback: () => {
@@ -200,7 +207,7 @@ export class StageSelectScene extends Phaser.Scene {
     // ずらさないときは、今までどおり触れた瞬間に選ぶ。ずらすときは、指を離したときに、8ドットより動いていなければ選ぶ
     const scrolls = lay.scrollMax > 0;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.some((o) => o.parentContainer === backBtn || o.parentContainer === this.free.btn) || this.leaving || this.busy) return;
+      if (over.some((o) => o.parentContainer === backBtn || o.parentContainer === this.free.btn || o.parentContainer === listBtn) || this.leaving || this.busy) return;
       const { x, y } = px(p);
       if (scrolls) {
         // カードを並べる所の中で触れたときだけ(ふたの上やボタンのまわりは見ない)
@@ -210,7 +217,7 @@ export class StageSelectScene extends Phaser.Scene {
         return;
       }
       const card = this.cards.find((c) => c.contains(x, y));
-      if (card) this.choose(card);
+      if (card) this.tapCard(card, x, y);
     });
     if (scrolls) {
       this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -224,7 +231,7 @@ export class StageSelectScene extends Phaser.Scene {
         this.downAt = null;
         if (r !== 'tap' || !at || this.leaving || this.busy) return;
         const card = this.cards.find((c) => c.contains(at.x, at.y));
-        if (card) this.choose(card);
+        if (card) this.tapCard(card, at.x, at.y);
       };
       this.input.on('pointerup', up);
       this.input.on('pointerupoutside', up);
@@ -235,9 +242,14 @@ export class StageSelectScene extends Phaser.Scene {
       });
       // シーンが止まったら、触れている指を放す(再開したときに勝手にずれたり選んだりしないように)。
       // シーンは使い回されるので、終わるときに外す(create のたびに増えないように)
+      // 称号の一覧を開いて眠らせたときも同じ
       const release = (): void => { this.scroll.cancel(); this.downAt = null; };
       this.events.on(Phaser.Scenes.Events.PAUSE, release);
-      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.PAUSE, release));
+      this.events.on(Phaser.Scenes.Events.SLEEP, release);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.events.off(Phaser.Scenes.Events.PAUSE, release);
+        this.events.off(Phaser.Scenes.Events.SLEEP, release);
+      });
     }
     this.input.keyboard?.on('keydown-ESC', () => this.back());
     // 数字のキーで、その番号のカードを選ぶ
@@ -246,15 +258,17 @@ export class StageSelectScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-ENTER', () => this.cards[0] && this.choose(this.cards[0]));
     this.input.keyboard?.on('keydown-F', () => this.chooseFree());
+    this.input.keyboard?.on('keydown-T', () => this.openList());
 
     devHook(this, {
       select: (id: StageId) => { const c = this.cards.find((k) => k.entry.id === id); if (c) this.choose(c); },
       back: () => this.back(),
+      list: (focus?: StageId) => this.openList(focus),
       free: () => this.chooseFree(),
       freeButton: () => ({ x: this.free.x, y: this.free.y, w: this.free.w, h: this.free.h, locked: this.free.locked }),
       // top は、ずらしていないときの上の端。y はいまの真ん中(ずらした分を引いた画面の座標)
       cards: () => this.cards.map((c) => ({
-        id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2, top: c.box.y, h: c.box.h, thumbH: c.box.thumbH
+        id: c.entry.id, locked: c.locked, x: c.root.x + c.box.w / 2, y: c.root.y + c.box.h / 2, top: c.box.y, h: c.box.h, thumbH: c.box.thumbH, titles: c.titlesCenter()
       })),
       scroll: () => ({ pos: this.scroll.pos, max: this.lay.scrollMax, moving: this.scroll.moving, viewTop: this.viewTop, viewH: this.viewH }),
       scrollTo: (v: number) => { this.scroll.set(v); this.applyScroll(); }
@@ -323,6 +337,21 @@ export class StageSelectScene extends Phaser.Scene {
   }
 
   // ─── 選ぶ ───────────────────────────────────────
+
+  /** 称号の一覧を開く(focus を渡すと、そのステージで取れる称号だけ) */
+  private openList(focus?: StageId): void {
+    if (this.leaving || this.busy) return;
+    audio.unlock();
+    audio.sfx('button');
+    this.hand?.setVisible(false);
+    openTitleList(this, focus ? { focus } : {});
+  }
+
+  /** カードをタップした:称号の数の上ならそのステージの称号の一覧、それ以外は選ぶ */
+  private tapCard(card: StageCard, x: number, y: number): void {
+    if (card.titlesHit(x, y)) this.openList(card.entry.id);
+    else this.choose(card);
+  }
 
   private choose(card: StageCard): void {
     if (this.leaving || this.busy) return;

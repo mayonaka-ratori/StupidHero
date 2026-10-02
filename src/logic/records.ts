@@ -3,6 +3,8 @@
 // ステージ前の掛け合いを見たステージ(introSeen)も残す。見たか、1回遊んだステージは、次から掛け合いをとばす。
 // タイムセールラッシュを見たステージ(rushSeen)も同じ形で残す。見たことがあれば、ラッシュの説明を1つにする。
 // 称号の数は全部のステージとフリープレイを合わせて数える(同じ称号を2つのステージで取っても1つ。全体は24)。
+// 1回のプレイで当てはまった称号は全部残す(collectTitles の答えを saveResult に渡す。先頭が大きな称号)。
+// 称号の一覧を最後に開いたときに見た称号(listSeen)も残す。一覧では、そのあとに取った称号に NEW をつける。
 // フリープレイの記録(free)も残す:いちばん速いクリアまでの時間(ふつうとゆっくりで別)、待てで守った数と
 // 行けで決めた数のいちばん良いもの、最高被害額、遊んだ回数、取った称号。初回の掛け合いを見たか(freeIntroSeen)、
 // 「ステージを進めると、出てくる人が増えるよ」を出したか(freeMoreHintShown)も残す。
@@ -18,6 +20,9 @@
 //   lastStage(最後に遊んだステージ)もあとから足した。ない記録は null として読む。
 //   endingSeen(高層ビルの終わりの場面を見たか)もあとから足した。ない記録は、見ていないとして読む。
 //   slowHintSeen(時間切れで、ゆっくりモードのことを教えたか)もあとから足した。ない記録は、まだ教えていないとして読む。
+//   listSeen(称号の一覧で見た称号)もあとから足した。ない記録は、今まで取った称号を全部見たとして読む
+//   (前からの人の一覧が NEW だらけにならないように)。
+//   1回のプレイで2つ以上の称号を残すようにしたときも、形は変えていない(titles に入る数が増えるだけ)。
 //   v1(ステージ1だけの公開版):キー 'stupidhero.records.v1'。{ version: 1, stages: { alley: {...} }, titles }
 //   v2 がなければ v1 を読んで v2 の形に直す(称号は路地裏で取ったものにする。ボス戦の記録があればボスを倒したことにする)。
 //   v1 のデータは消さずにそのまま残す(遊んだ人の記録を消さないため)。
@@ -25,8 +30,11 @@
 // 使い方:
 //   const firstClear = isFirstClear(stage.id, stats);        // ボスを初めて倒したか。称号を決める前、saveResult の前に
 //   const title = decideTitle(stats, { firstClear });
-//   const saved = saveResult(stage.id, stats, title.id);   // 結果画面が出たときに1回だけ
+//   const all = collectTitles(stats, { firstClear });         // 先頭は title
+//   const saved = saveResult(stage.id, stats, all.map((t) => t.id));   // 結果画面が出たときに1回だけ
 //   saved.titlesCollected / saved.titlesTotal               // 「称号5/24」
+//   saved.newTitles / saved.newHere                         // 初めて取った称号 / このステージで初めて取った称号
+//   unseenTitles() / markTitleListSeen()                    // 一覧で NEW をつける称号 / 一覧を開いたときに呼ぶ
 //   saved.firstClear                                        // 今回ボスを初めて倒したか
 //   needsEnding('tower', stats) / markEndingSeen()          // 高層ビルの終わりの場面を出すか(saveResult の前に) / 出したときに呼ぶ
 //   saved.unlockedNow                                       // 今回のプレイで開いたステージ(['garage'] なら「地下駐車場が開いた」、
@@ -45,7 +53,7 @@
 //   isFreeUnlocked()                                        // 開いているか(路地裏のボスを一度倒したか)
 //   freeSelectInfo()                                        // ステージを選ぶ画面のボタン:開いているか、ベストの時間
 //   needsFreeIntro() / markFreeIntroSeen()                  // 初回の掛け合い3枚を出すか / 出したときに呼ぶ
-//   const saved = saveFreeResult(stats, title.id);          // 結果画面が出たときに1回だけ
+//   const saved = saveFreeResult(stats, all.map((t) => t.id));   // 結果画面が出たときに1回だけ(先頭が大きな称号)
 //   saved.newRecords                                        // 新記録の項目(['bestSec'] など)
 //   saved.showMoreStagesHint                                // 「ステージを進めると、出てくる人が増えるよ」を出すか(一度だけ)
 
@@ -122,6 +130,8 @@ export interface Records {
   endingSeen: boolean;
   /** 時間切れのときに、ゆっくりモードのことを教えたか */
   slowHintSeen: boolean;
+  /** 称号の一覧を最後に開いたときに、取っていた称号(一覧では、ここにない取った称号に NEW をつける) */
+  listSeen: TitleId[];
 }
 
 export type RecordField = 'mostDefeated' | 'fewestHurt' | 'highestDamage' | 'fastestBossSec';
@@ -138,8 +148,14 @@ export interface SaveOutcome {
   newRecords: RecordField[];
   /** そのステージを初めて遊んだか */
   firstPlay: boolean;
-  /** 今回の称号が初めて取ったものか(全部のステージを合わせて) */
+  /** 今回の大きな称号が初めて取ったものか(全部のステージを合わせて) */
   titleIsNew: boolean;
+  /** 今回取った称号の全部(先頭が大きな称号) */
+  titles: TitleId[];
+  /** 今回取った称号のうち、初めて取ったもの(全部のステージを合わせて) */
+  newTitles: TitleId[];
+  /** 今回取った称号のうち、このステージで初めて取ったもの(newTitles も入る) */
+  newHere: TitleId[];
   /** 集めた称号の数(全部のステージを合わせて。今回の分を含む) */
   titlesCollected: number;
   /** 称号の全体の数(24) */
@@ -159,7 +175,8 @@ export const emptyFreeRecord = (): FreeRecord => ({
 });
 const emptyRecords = (): Records => ({
   version: 2, stages: {}, titles: [], introSeen: [], rushSeen: [], free: emptyFreeRecord(), freeIntroSeen: false, freeMoreHintShown: false, lastStage: null, endingSeen: false,
-  slowHintSeen: false
+  slowHintSeen: false,
+  listSeen: []
 });
 export const emptyStageRecord = (): StageRecord => ({
   mostDefeated: null, fewestHurt: null, highestDamage: null, fastestBossSec: null, plays: 0, clears: 0, titles: []
@@ -208,7 +225,7 @@ function sanitize(raw: unknown): Records {
   const r = raw as {
     version?: unknown; stages?: unknown; titles?: unknown; introSeen?: unknown; rushSeen?: unknown;
     free?: unknown; freeIntroSeen?: unknown; freeMoreHintShown?: unknown; lastStage?: unknown; endingSeen?: unknown;
-    slowHintSeen?: unknown;
+    slowHintSeen?: unknown; listSeen?: unknown;
   };
   const legacy = r.version !== 2;
   if (r.stages && typeof r.stages === 'object') {
@@ -262,6 +279,8 @@ function sanitize(raw: unknown): Records {
   out.lastStage = isStageId(r.lastStage) ? r.lastStage : null;
   out.endingSeen = r.endingSeen === true;
   out.slowHintSeen = r.slowHintSeen === true;
+  // 一覧で見た称号がない記録(前からの記録)は、今まで取った称号を全部見たことにする
+  out.listSeen = Array.isArray(r.listSeen) ? titleList(r.listSeen) : [...out.titles];
   return out;
 }
 
@@ -438,15 +457,32 @@ function recordComparer<F extends string>(
   };
 }
 
+/** 今回の称号を、そのステージ(かフリープレイ)の一覧と全体の一覧に足す。初めての分を返す */
+function addTitles(records: Records, place: TitleId[], ids: readonly TitleId[]): { newTitles: TitleId[]; newHere: TitleId[] } {
+  const newHere = ids.filter((t) => !place.includes(t));
+  const newTitles = ids.filter((t) => !records.titles.includes(t));
+  addUnique(place, ids);
+  addUnique(records.titles, ids);
+  return { newTitles, newHere };
+}
+
+/** 称号を1つでも、一覧でもそのまま受けとる(先頭が大きな称号。重なりは捨てる) */
+const titleIds = (t: TitleId | readonly TitleId[]): TitleId[] => {
+  const out: TitleId[] = [];
+  addUnique(out, typeof t === 'string' ? [t] : t);
+  return out;
+};
+
 /**
  * 1回遊んだ結果を記録する。結果画面が出たときに1回だけ呼ぶ。
  * @param stageId stage.id
  * @param stats StatsTracker.snapshot()
- * @param titleId decideTitle(stats).id
+ * @param titles collectTitles(stats).map((t) => t.id)(先頭が大きな称号)。1つだけなら decideTitle(stats).id でもよい
  */
 export function saveResult(
-  stageId: StageId, stats: StageStats, titleId: TitleId, storage: RecordStorage | null = defaultStorage()
+  stageId: StageId, stats: StageStats, titles: TitleId | readonly TitleId[], storage: RecordStorage | null = defaultStorage()
 ): SaveOutcome {
+  const ids = titleIds(titles);
   const records = loadRecords(storage);
   const unlockedBefore = unlockedStages(records);
   const prev = records.stages[stageId] ?? emptyStageRecord();
@@ -466,11 +502,10 @@ export function saveResult(
   better('highestDamage', stats.damage, true);
   better('fastestBossSec', stats.bossFightSec, false);
 
-  addUnique(next.titles, [titleId]);
+  const titleIsNew = ids.length > 0 && !records.titles.includes(ids[0]);
+  const { newTitles, newHere } = addTitles(records, next.titles, ids);
   records.stages[stageId] = next;
   records.lastStage = stageId;
-  const titleIsNew = !records.titles.includes(titleId);
-  addUnique(records.titles, [titleId]);
 
   const unlockedNow = unlockedStages(records).filter((id) => !unlockedBefore.includes(id));
   const persisted = writeRecords(records, storage);
@@ -480,6 +515,9 @@ export function saveResult(
     newRecords,
     firstPlay,
     titleIsNew,
+    titles: ids,
+    newTitles,
+    newHere,
     titlesCollected: records.titles.length,
     titlesTotal: TITLE_COUNT,
     firstClear,
@@ -531,6 +569,12 @@ export interface FreeSaveOutcome {
   newRecords: FreeRecordField[];
   firstPlay: boolean;
   titleIsNew: boolean;
+  /** 今回取った称号の全部(先頭が大きな称号) */
+  titles: TitleId[];
+  /** 今回取った称号のうち、初めて取ったもの(全部を合わせて) */
+  newTitles: TitleId[];
+  /** 今回取った称号のうち、フリープレイで初めて取ったもの(newTitles も入る) */
+  newHere: TitleId[];
   titlesCollected: number;
   titlesTotal: number;
   /** 「ステージを進めると、出てくる人が増えるよ」を出すか(路地裏しか開いていない人に、一度だけ) */
@@ -541,9 +585,12 @@ export interface FreeSaveOutcome {
 /**
  * フリープレイを1回遊んだ結果を記録する。結果画面が出たときに1回だけ呼ぶ。
  * @param stats StatsTracker.snapshot()(stats.free がある)
- * @param titleId decideTitle(stats).id
+ * @param titles collectTitles(stats).map((t) => t.id)(先頭が大きな称号)。1つだけなら decideTitle(stats).id でもよい
  */
-export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: RecordStorage | null = defaultStorage()): FreeSaveOutcome {
+export function saveFreeResult(
+  stats: StageStats, titles: TitleId | readonly TitleId[], storage: RecordStorage | null = defaultStorage()
+): FreeSaveOutcome {
+  const ids = titleIds(titles);
   const records = loadRecords(storage);
   const prev = records.free;
   const firstPlay = prev.plays === 0;
@@ -558,10 +605,9 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   }
   better('highestDamage', stats.damage, true);
 
-  addUnique(next.titles, [titleId]);
+  const titleIsNew = ids.length > 0 && !records.titles.includes(ids[0]);
+  const { newTitles, newHere } = addTitles(records, next.titles, ids);
   records.free = next;
-  const titleIsNew = !records.titles.includes(titleId);
-  addUnique(records.titles, [titleId]);
   // 「路地裏しか開いていない」は、路地裏しかクリアしていない(まだ開いていないステージがある)こと。
   // フリープレイは路地裏のボスを倒すと開き、そのとき地下駐車場も開くので、開いているステージの数では数えない。
   // 高層ビルはフリープレイに出ないので、フリープレイに出るステージ(FREE_STAGE_IDS)だけで数える
@@ -570,9 +616,21 @@ export function saveFreeResult(stats: StageStats, titleId: TitleId, storage: Rec
   if (showMoreStagesHint) records.freeMoreHintShown = true;
   const persisted = writeRecords(records, storage);
   return {
-    records, free: next, newRecords, firstPlay, titleIsNew,
+    records, free: next, newRecords, firstPlay, titleIsNew, titles: ids, newTitles, newHere,
     titlesCollected: records.titles.length, titlesTotal: TITLE_COUNT, showMoreStagesHint, persisted
   };
+}
+
+// ─── 称号の一覧 ─────────────────────────────────
+
+/** 取った称号のうち、称号の一覧を最後に開いたあとに取ったもの(一覧で NEW をつける) */
+export function unseenTitles(records: Records = loadRecords()): TitleId[] {
+  return records.titles.filter((t) => !records.listSeen.includes(t));
+}
+
+/** 称号の一覧を開いたときに呼ぶ(今まで取った称号を、見たことにする)。書けなくても、その場では覚えている */
+export function markTitleListSeen(storage: RecordStorage | null = defaultStorage()): void {
+  markSeen(storage, (r) => r.titles.every((t) => r.listSeen.includes(t)), (r) => addUnique(r.listSeen, r.titles));
 }
 
 /** 記録を消す(テスト用)。前の形の記録(v1)には手をつけない */

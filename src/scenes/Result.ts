@@ -10,6 +10,9 @@
 // ステージ3(def.mechanic が 'ufo')はUFOを落とした数を、タイムセールラッシュのあるステージ(def.rush)はラッシュのまとめを、小さく1行ずつ足す。
 // エレベーターラッシュのあるステージ(ステージ4)は、エレベーターのまとめ(liftSummary)を小さく1行足す。
 // 称号は decideTitle(s, { firstClear })。firstClear(このプレイでボスを初めて倒したか)は保存する前の記録で決める(最上階のヒーロー)。
+// 条件に当てはまった称号は全部記録に残す(collectTitles)。大きな称号のほかに取れたものは、上の絵のいちばん下に
+// 「ほかにも取れた:UFOハンター、連打の申し子」と小さく出す(このステージで初めて取ったものには赤い NEW と金色の名前)。
+// 大きな称号の NEW も、このステージで初めて取ったときにつける。2行に入らなければ、うしろを「ほか2つ」にまとめる。
 // 次のステージが開いたときの帯は unlockBannerText(短い名前。「ビルが遊べる!」)。開く順は STAGES の unlockAfter で決まる。
 // 低い画面では、ボタンを小さくし、UFOとラッシュの行を1行にまとめ、
 // それでも足りなければ「悪党を倒した」と「逃がした」を1行にまとめる。いちばんひどい場面の写真が入らないときは出さない。
@@ -30,9 +33,9 @@ import { layout } from '../layout';
 import { audio } from '../audio';
 import { animKey, originFor } from '../art/sheets';
 import {
-  FREE_NAME, bgForWave, buildShareText, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, isFirstClear, liftSummary, loadRecords,
-  randomSeed, rushSummary, saveFreeResult, saveResult, say, shareCaption, STAGES, titleCommentFor, unlockBannerText, type FreeSaveOutcome,
-  type SaveOutcome, type StageId, type StageStats, type TitleDef
+  FREE_NAME, bgForWave, buildShareText, collectTitles, damageAnalogy, decideTitle, formatYen, freeShareCaption, hurtBreakdown, isFirstClear, liftSummary, loadRecords,
+  randomSeed, rushSummary, saveFreeResult, saveResult, say, shareCaption, STAGES, titleById, titleCommentFor, unlockBannerText, type FreeSaveOutcome,
+  type RecordStorage, type Records, type SaveOutcome, type StageId, type StageStats, type TitleDef, type TitleId
 } from '../logic';
 import {
   Button, CutIn, CUT_H, DEPTH, FS, PixelText, WindowFrame, addPanel, banner, flash, goto, preloadFont, shake, spawnFx
@@ -52,11 +55,16 @@ import { openTitleList } from './TitleList';
 
 /** 保存した記録のうち、結果画面が使うもの(ステージとフリープレイで同じ形にしたもの) */
 interface Saved {
-  titleIsNew: boolean;
   titlesCollected: number;
   titlesTotal: number;
-  /** 取った称号の全部(称号の一覧に渡す) */
-  earned: SaveOutcome['records']['titles'];
+  /** 今回取った称号の全部(先頭が大きな称号) */
+  titles: TitleId[];
+  /** 今回取った称号のうち、このステージ(フリープレイ)で初めて取ったもの */
+  newHere: TitleId[];
+  /** 保存したあとの記録(称号の一覧に渡す) */
+  records: Records;
+  /** 記録の保存先(開発用の見本ではメモリ。称号の一覧で、見た称号を書くのに使う) */
+  storage?: RecordStorage;
   /** 新記録の項目 */
   newRecords: readonly string[];
   /** 今回のプレイで開いたステージ(フリープレイは空) */
@@ -65,14 +73,17 @@ interface Saved {
   moreHint: boolean;
 }
 
-const fromStage = (o: SaveOutcome): Saved => ({
-  titleIsNew: o.titleIsNew, titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, earned: o.records.titles,
+const fromStage = (o: SaveOutcome, storage?: RecordStorage): Saved => ({
+  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, records: o.records, storage,
   newRecords: o.newRecords, unlockedNow: o.unlockedNow, moreHint: false
 });
-const fromFree = (o: FreeSaveOutcome): Saved => ({
-  titleIsNew: o.titleIsNew, titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, earned: o.records.titles,
+const fromFree = (o: FreeSaveOutcome, storage?: RecordStorage): Saved => ({
+  titlesCollected: o.titlesCollected, titlesTotal: o.titlesTotal, titles: o.titles, newHere: o.newHere, records: o.records, storage,
   newRecords: o.newRecords, unlockedNow: [], moreHint: o.showMoreStagesHint
 });
+
+/** 「ほかにも取れた」の見出し */
+const OTHERS_LABEL = 'ほかにも取れた:';
 
 /** 同じプレイの記録を2回保存しないように */
 const savedRuns = new WeakMap<GameRun, { stats: StageStats; title: TitleDef; saved: Saved }>();
@@ -128,7 +139,9 @@ export class ResultScene extends Phaser.Scene {
       if (free) {
         const stats = run.stats.snapshot();
         const title = decideTitle(stats);
-        rec = { stats, title, saved: fromFree(saveFreeResult(stats, title.id, run.debug ? memoryFreeStorage() : undefined)) };
+        const storage = run.debug ? memoryFreeStorage() : undefined;
+        const all = collectTitles(stats).map((x) => x.id);
+        rec = { stats, title, saved: fromFree(saveFreeResult(stats, all, storage), storage) };
       } else {
         // 答え合わせを通らずに来たとき(開発用に途中から始めたときなど)も、仕分けの済んだ波は数える
         recordAllSorts(run);
@@ -137,8 +150,9 @@ export class ResultScene extends Phaser.Scene {
         // ボスを初めて倒したか(保存する前の記録で決める。最上階のヒーロー)
         const firstClear = isFirstClear(run.stage.id, stats, loadRecords(storage));
         const title = decideTitle(stats, { firstClear });
-        const saved = saveResult(run.stage.id, stats, title.id, storage);
-        rec = { stats, title, saved: fromStage(saved) };
+        const all = collectTitles(stats, { firstClear }).map((x) => x.id);
+        const saved = saveResult(run.stage.id, stats, all, storage);
+        rec = { stats, title, saved: fromStage(saved, storage) };
         // 次のステージが開いた:ステージを選ぶ画面で鍵がこわれる演出をする
         markJustUnlocked(this, saved.unlockedNow);
       }
@@ -153,6 +167,8 @@ export class ResultScene extends Phaser.Scene {
     const bg = bgForWave(def, currentWave(run).no);
     const caption = free ? freeWorstCaption(s) : worstCaption(s);
     dev.log.push(`title:${t.id}`);
+    const others = saved.titles.filter((id) => id !== t.id);
+    if (others.length) dev.log.push(`others:${others.join(',')}`);
     if (saved.unlockedNow.length) dev.log.push(`unlocked:${saved.unlockedNow.join(',')}`);
 
     // ─── 音 ───
@@ -179,7 +195,7 @@ export class ResultScene extends Phaser.Scene {
     const yourTitle = this.labelTag(4, 0, 'あなたの称号').setVisible(false);
     const titleText = new PixelText(this, Math.floor(W / 2), BAND_Y + 13, t.name, { size: FS.big, color: UI.gold, outline: true })
       .setOrigin(0.5, 0.5).setVisible(false);
-    // 初めて取った称号の NEW は、称号の右上に出す(左上は「あなたの称号」の札)
+    // 初めて取った称号(このステージで初めてのときも)の NEW は、称号の右上に出す(左上は「あなたの称号」の札)
     const titleNew = this.newTag(Math.min(W - 44, Math.floor(W / 2) + Math.ceil(titleText.width / 2) - 8), 1).setVisible(false);
     addMute(this, W - 11, BAND_Y + 13).setDepth(DEPTH.ui + 1);
     const cut = new CutIn(this, 4, BAND_Y + 30, W - 8, CUT_H).setVisible(false);
@@ -278,11 +294,18 @@ export class ResultScene extends Phaser.Scene {
       listBtn = new Button(this, W - 4 - 70, actionH - 4 - 30, 70, 30, listText.replace('(', '\n('), listStyle);
       thumbParts.push(listBtn);
     }
+    // ほかにも取れた称号:上の絵のいちばん下に小さく。低い画面で称号の一覧のボタンが絵の右下にあるときは、その上へずらす
+    const othersParts = this.othersStrip(others, saved.newHere);
+    if (othersParts && listBtn.y + listBtn.h > othersParts.top - 2 && listBtn.y < actionH) {
+      listBtn.y = othersParts.top - 4 - listBtn.h;
+    }
+    const othersObjs = othersParts?.objs ?? [];
+    setAllVisible(othersObjs, false);
     setAllVisible(thumbParts, false);
     listBtn.on('press', () => {
       audio.unlock(); audio.sfx('button');
       this.skipAll(quiet, cut);
-      openTitleList(this, { earned: saved.earned, current: t.id });
+      openTitleList(this, { records: saved.records, storage: saved.storage, current: saved.titles });
     });
     dev.buttons = { share: shareBtn, again: againBtn, title: titleBtn, list: listBtn };
 
@@ -302,7 +325,8 @@ export class ResultScene extends Phaser.Scene {
           yourTitle.setVisible(true);
           sfx('stamp');
           if (!quiet.v) { shake(this, 5, 260); flash(this, 0xffffff, 1); }
-          if (saved.titleIsNew) titleNew.setVisible(true);
+          if (saved.newHere.includes(t.id)) titleNew.setVisible(true);
+          setAllVisible(othersObjs, true);
         }
       })
       .wait(250)
@@ -421,6 +445,7 @@ export class ResultScene extends Phaser.Scene {
     const cardIn = { title: t, stats: s, saved, shot: baseShot, scrollX: run.scrollX, stage: cardStage, textStage };
     const texts = [
       ...cardTexts(cardIn), ...sw.texts, 'いちばんひどい場面', 'あなたの称号', 'NEW', '▼タップ', listText, caption,
+      OTHERS_LABEL + others.map((id) => titleById(id).name).join('、'), ...others.map((_id, i) => `ほか${i + 1}つ`),
       free ? MORE_STAGES_HINT : ''
     ];
     const alive = (): boolean => this.sys.isActive() || this.sys.isPaused() || this.sys.isSleeping();
@@ -457,6 +482,46 @@ export class ResultScene extends Phaser.Scene {
     this.tl.finishAll();
     quiet.v = false;
     audio.sfx('blip');
+  }
+
+  /**
+   * 「ほかにも取れた:A、B」の帯。上の絵のいちばん下(下の部分のすぐ上)に、黒い地に金色の線で出す。
+   * このステージで初めて取った称号は、赤い NEW と金色の名前。2行に入らなければ、うしろを「ほか2つ」にまとめる。
+   * ほかに取れた称号がなければ null
+   */
+  private othersStrip(ids: readonly TitleId[], newHere: readonly TitleId[]): { top: number; objs: Phaser.GameObjects.GameObject[] } | null {
+    if (!ids.length) return null;
+    const { W, actionH } = layout;
+    const wrap = W - 12;
+    const item = (id: TitleId): string => (newHere.includes(id) ? `{red}NEW{/}{gold}${titleById(id).name}{/}` : titleById(id).name);
+    // 新しいものを先に。同じなら短い名前を先に(2行に多く入るように)
+    const isNew = (id: TitleId): number => Number(newHere.includes(id));
+    const order = [...ids].sort((a, b) => isNew(b) - isNew(a) || titleById(a).name.length - titleById(b).name.length);
+    // 名前の途中で折り返さないように、入らない名前は次の行の頭から始める(2行まで)
+    const txt = new PixelText(this, 6, 0, OTHERS_LABEL, { size: FS.body, color: UI.text, lineSpacing: 1 }).setDepth(DEPTH.ui);
+    const widthOf = (t: string): number => { txt.setText(t); return txt.width; };
+    const layoutFor = (n: number): string[] | null => {
+      const parts = order.slice(0, n).map(item);
+      if (n < order.length) parts.push(`ほか${order.length - n}つ`);
+      const lines = [OTHERS_LABEL];
+      parts.forEach((part, i) => {
+        const sep = i < parts.length - 1 ? '、' : '';
+        const last = lines.length - 1;
+        if (widthOf(lines[last] + part + sep) > wrap) lines.push(part + sep);
+        else lines[last] += part + sep;
+      });
+      return lines.length <= 2 && lines.every((l) => widthOf(l) <= wrap) ? lines : null;
+    };
+    let lines: string[] | null = null;
+    for (let n = order.length; n >= 1 && !lines; n--) lines = layoutFor(n);
+    txt.setText((lines ?? layoutFor(1) ?? [OTHERS_LABEL]).join('\n'));
+    const h = Math.ceil(txt.height) + 4;
+    const top = actionH - 1 - h;
+    txt.setY(top + 2);
+    const g = this.add.graphics().setDepth(DEPTH.ui - 1);
+    g.fillStyle(UI.black, 1).fillRect(0, top, W, h);
+    g.fillStyle(UI.gold, 1).fillRect(0, top, W, 1);
+    return { top, objs: [g, txt] };
   }
 
   /** 小さな札(暗い地に金色のふちと金色の字)。「あなたの称号」 */

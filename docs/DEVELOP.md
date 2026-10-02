@@ -71,7 +71,7 @@ Boot→Title→StageSelect→Intro
 - `Street`のあとの行き先は`nextAfterStreet`(最後の波(高層ビルは波4、ほかは波3)は`Boss`、それ以外は`WaveReview`)。`WaveReview`のあとは`nextAfterReview`(次の波の`Sort`か`Result`。波を進めるのはここ)
 - ショッピングモールの波2では、`Street`の中で結果発表のあとにタイムセールラッシュをする。別のシーンではない(`src/scenes/street/rush.ts`の`stepRush`など)
 - 高層ビルでは、波3の`WaveReview`のあと`nextAfterReview`が`Elevator`(エレベーターラッシュ)を返し、`Elevator`が終わると波4の`Sort`へ行く。立つ位置と時間の並びは`src/scenes/elevator/plan.ts`、始まりの帯と説明と▼タップはタイムセールラッシュと同じ`src/scenes/street/rushIntro.ts`
-- `Result`から`TitleList`を開くと、`Result`は眠らせておき、もどると元のまま起こす
+- `Result`、`Title`、`StageSelect`から`TitleList`を開くと、開いた画面は眠らせておき、もどると元のまま起こす
 
 高層ビル(波が4つで、波ごとに階が変わる。`nextAfterReview`が読む`run.stage.def.floors`)は、波と波の間に階の数字だけの`Floor`をはさみます(波3のあとはラッシュがあるのではさまない)。
 
@@ -111,7 +111,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | Elevator | エレベーターラッシュ(高層ビルの波3の答え合わせのあと、波4の仕分けの前) |
 | Ending | 終わりの場面。高層ビルのボスを初めて倒したときだけ、最後の答え合わせと結果画面の間に出す(行き先は`run.ts`の`sceneAfterLastReview`) |
 | Result | 結果画面と共有 |
-| TitleList | 称号の一覧(結果画面から開く) |
+| TitleList | 称号の一覧(結果画面、タイトル、ステージを選ぶ画面から開く) |
 
 ほかのシーンの上に重ねて出すシーンが2つあります。
 
@@ -208,7 +208,7 @@ StageSelect(フリープレイ▶)→Intro(初めてのときだけ)
 | キー | 中身 |
 |---|---|
 | `stupidhero.settings.v1` | 設定 |
-| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`、結果発表で待てと行けを止めて教えたか`lessonSeen`(`['stop', 'go']`)も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`、最後に遊んだステージ`lastStage`も) |
+| `stupidhero.records.v2` | 記録(称号、掛け合いを見たか`introSeen`、ラッシュを見たか`rushSeen`、結果発表で待てと行けを止めて教えたか`lessonSeen`(`['stop', 'go']`)も。フリープレイの記録`free`、フリープレイの掛け合いを見たか`freeIntroSeen`、「ステージを進めると、出てくる人が増えるよ」を出したか`freeMoreHintShown`、最後に遊んだステージ`lastStage`、称号の一覧で見た称号`listSeen`も) |
 | `stupidHero.muted` | 音を切ったか |
 
 初めての人の流れ(ステージ選びをとばす、掛け合いを出す、結果発表で待てと行けを止めて教える)を見直すときは、記録を消してから開きます(古い`stupidhero.records.v1`が残っていれば、それも消す。あると読みこんで遊んだことになる)。
